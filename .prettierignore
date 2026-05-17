@@ -6,3 +6,5 @@ dist
 coverage
 next-env.d.ts
 package-lock.json
+.claude
+lib/db/migrations
