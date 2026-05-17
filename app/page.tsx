@@ -1,6 +1,8 @@
 "use client";
 
+import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { useWallet } from "@/lib/wallet/useWallet";
+import { type TokenSymbol } from "@/lib/tokens";
 
 export default function HomePage() {
   const {
@@ -15,6 +17,8 @@ export default function HomePage() {
     disconnect,
     switchToCelo,
   } = useWallet();
+
+  const balances = useBalances(address, isConnected && !isWrongChain);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
@@ -44,6 +48,27 @@ export default function HomePage() {
               >
                 {isSwitchingChain ? "Switching..." : "Switch to Celo"}
               </button>
+            </div>
+          )}
+
+          {!isWrongChain && (
+            <div className="mt-3 flex min-w-[200px] flex-col items-stretch gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-left text-xs">
+              <p className="mb-1 text-center text-[10px] tracking-wide text-zinc-500 uppercase">
+                Balances
+              </p>
+              {balances.isLoading ? (
+                <p className="text-center text-zinc-400">Loading...</p>
+              ) : balances.isError ? (
+                <p className="text-center text-red-600">
+                  Failed to load balances
+                </p>
+              ) : (
+                <>
+                  <BalanceRow symbol="USDm" balance={balances.USDm} />
+                  <BalanceRow symbol="USDC" balance={balances.USDC} />
+                  <BalanceRow symbol="USDT" balance={balances.USDT} />
+                </>
+              )}
             </div>
           )}
 
@@ -88,4 +113,32 @@ export default function HomePage() {
       )}
     </main>
   );
+}
+
+function BalanceRow({
+  symbol,
+  balance,
+}: {
+  symbol: TokenSymbol;
+  balance: Balance | null;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-0.5 font-mono">
+      <span className="text-zinc-600">{symbol}</span>
+      <span className="text-zinc-900">
+        {balance ? formatAmount(balance.formatted) : "..."}
+      </span>
+    </div>
+  );
+}
+
+function formatAmount(formatted: string): string {
+  const n = Number(formatted);
+  if (!Number.isFinite(n)) return formatted;
+  if (n === 0) return "0.00";
+  if (n < 0.01) return "<0.01";
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
