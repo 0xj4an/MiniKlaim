@@ -52,8 +52,3 @@ tsconfig.tsbuildinfo
 # Next.js auto-generated
 next-env.d.ts
 
-# Local agent config (project-scoped Claude/Cursor settings often contain auth)
-.claude/settings.local.json
-
-# Internal design docs / specs — not part of the shipped product
-docs/
