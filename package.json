@@ -2,6 +2,11 @@
   "name": "miniklaim",
   "version": "0.0.1",
   "private": true,
-  "description": "Run it. Klaim it. — territory-capture running MiniPay app",
-  "type": "module"
+  "description": "Run it. Klaim it. A territory-capture running MiniPay app on Celo.",
+  "type": "module",
+  "dependencies": {
+    "next": "^16.2.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  }
 }
