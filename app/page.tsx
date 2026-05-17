@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { type TokenSymbol } from "@/lib/tokens";
@@ -70,6 +71,15 @@ export default function HomePage() {
                 </>
               )}
             </div>
+          )}
+
+          {!isWrongChain && (
+            <Link
+              href="/run"
+              className="mt-3 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              Start Run
+            </Link>
           )}
 
           {!isMiniPay && (
