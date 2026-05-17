@@ -11,7 +11,7 @@ import {
   FOLLOW_ZOOM,
   HEX_RESOLUTION,
 } from "@/lib/map/config";
-import { hexesAround } from "@/lib/map/hex";
+import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
 
 const log = createLogger("page:run");
 
@@ -46,6 +46,30 @@ export default function RunPage() {
       log.info("map loaded");
       map.resize();
 
+      map.addSource("claimed-hexes", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "claimed-hex-fill",
+        type: "fill",
+        source: "claimed-hexes",
+        paint: {
+          "fill-color": "#2563EB",
+          "fill-opacity": 0.4,
+        },
+      });
+      map.addLayer({
+        id: "claimed-hex-line",
+        type: "line",
+        source: "claimed-hexes",
+        paint: {
+          "line-color": "#2563EB",
+          "line-width": 1.5,
+          "line-opacity": 0.9,
+        },
+      });
+
       map.addSource("hexes", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -69,6 +93,24 @@ export default function RunPage() {
           "line-opacity": ["case", ["get", "isCurrent"], 0.9, 0.5],
         },
       });
+
+      void (async () => {
+        try {
+          const res = await fetch("/api/hexes");
+          const data = (await res.json()) as {
+            hexes: Array<{ h3: string; owner: string }>;
+          };
+          log.info("claimed hexes loaded", { count: data.hexes.length });
+          const source = map.getSource("claimed-hexes") as
+            | maplibregl.GeoJSONSource
+            | undefined;
+          source?.setData(claimedHexesToFeatureCollection(data.hexes));
+        } catch (e) {
+          log.error("failed to load claimed hexes", {
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+      })();
 
       map.addSource("position", {
         type: "geojson",

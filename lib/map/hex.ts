@@ -8,6 +8,27 @@ export type HexProperties = {
 export type HexFeature = Feature<Polygon, HexProperties>;
 export type HexFeatureCollection = FeatureCollection<Polygon, HexProperties>;
 
+export type ClaimedHexProperties = {
+  hex: string;
+  owner: string;
+};
+export type ClaimedHexFeature = Feature<Polygon, ClaimedHexProperties>;
+export type ClaimedHexFeatureCollection = FeatureCollection<
+  Polygon,
+  ClaimedHexProperties
+>;
+
+function hexToPolygon(cell: string): Position[] {
+  const ring = cellToBoundary(cell, true) as Position[];
+  // GeoJSON Polygon rings must be closed: first === last vertex.
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    ring.push(first);
+  }
+  return ring;
+}
+
 export function hexesAround(
   lat: number,
   lng: number,
@@ -16,23 +37,27 @@ export function hexesAround(
   const currentHex = latLngToCell(lat, lng, resolution);
   const cells = gridDisk(currentHex, 1);
 
-  const features: HexFeature[] = cells.map((cell) => {
-    const ring = cellToBoundary(cell, true) as Position[];
-    // GeoJSON Polygon rings must be closed: first === last vertex.
-    const first = ring[0];
-    const last = ring[ring.length - 1];
-    if (first[0] !== last[0] || first[1] !== last[1]) {
-      ring.push(first);
-    }
-    return {
-      type: "Feature",
-      properties: { hex: cell, isCurrent: cell === currentHex },
-      geometry: { type: "Polygon", coordinates: [ring] },
-    };
-  });
+  const features: HexFeature[] = cells.map((cell) => ({
+    type: "Feature",
+    properties: { hex: cell, isCurrent: cell === currentHex },
+    geometry: { type: "Polygon", coordinates: [hexToPolygon(cell)] },
+  }));
 
   return {
     currentHex,
     hexes: { type: "FeatureCollection", features },
+  };
+}
+
+export function claimedHexesToFeatureCollection(
+  rows: Array<{ h3: string; owner: string }>,
+): ClaimedHexFeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: rows.map((row) => ({
+      type: "Feature",
+      properties: { hex: row.h3, owner: row.owner },
+      geometry: { type: "Polygon", coordinates: [hexToPolygon(row.h3)] },
+    })),
   };
 }
