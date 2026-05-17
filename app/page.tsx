@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createLogger } from "@/lib/logger";
 import { connectMiniPay, isMiniPay } from "@/lib/minipay";
+
+const log = createLogger("page:home");
 
 type ConnectionState =
   | { status: "loading" }
@@ -13,6 +16,7 @@ export default function HomePage() {
   const [state, setState] = useState<ConnectionState>({ status: "loading" });
 
   useEffect(() => {
+    log.debug("runtime context check");
     let cancelled = false;
 
     async function run(): Promise<ConnectionState> {
@@ -31,7 +35,10 @@ export default function HomePage() {
     }
 
     run().then((next) => {
-      if (!cancelled) setState(next);
+      if (!cancelled) {
+        log.info("state transition", { status: next.status });
+        setState(next);
+      }
     });
 
     return () => {
