@@ -17,13 +17,13 @@ A MiniPay Mini App where every hex you run through becomes yours on a shared cit
 
 ## Roadmap
 
-| Version | Adds |
-|---|---|
-| v1 MVP | Async claim, persistent map, NFT achievements, USDT season pass |
-| v1.5 | Hex defense mechanic. Daily Merkle root anchor on Celo |
-| v2 | Event windows ("Invasión del Sábado"): time-boxed real-time mode |
-| v3 | Clans / teams. Per-city leaderboards |
-| v4 | Live real-time mode for power users. Possible $RUN token economy |
+| Version | Adds                                                             |
+| ------- | ---------------------------------------------------------------- |
+| v1 MVP  | Async claim, persistent map, NFT achievements, USDT season pass  |
+| v1.5    | Hex defense mechanic. Daily Merkle root anchor on Celo           |
+| v2      | Event windows ("Invasión del Sábado"): time-boxed real-time mode |
+| v3      | Clans / teams. Per-city leaderboards                             |
+| v4      | Live real-time mode for power users. Possible $RUN token economy |
 
 ## License
 
