@@ -1,0 +1,56 @@
+# Node
+node_modules/
+.pnp
+.pnp.js
+.npm
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+*.pem
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Tests / coverage
+coverage/
+.nyc_output
+
+# Foundry / Hardhat
+cache/
+artifacts/
+typechain-types/
+broadcast/
+out/
+
+# Misc
+.turbo
+tsconfig.tsbuildinfo
+.eslintcache
+*.tsbuildinfo
+
+# Local agent config (project-scoped Claude/Cursor settings often contain auth)
+.claude/settings.local.json
+
+# Internal design docs / specs — not part of the shipped product
+docs/

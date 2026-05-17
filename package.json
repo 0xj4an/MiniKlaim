@@ -1,0 +1,7 @@
+{
+  "name": "miniklaim",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Run it. Klaim it. — territory-capture running MiniPay app",
+  "type": "module"
+}
