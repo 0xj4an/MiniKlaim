@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAccount, useAccountEffect, useConnect, useDisconnect } from "wagmi";
+import {
+  useAccount,
+  useAccountEffect,
+  useChainId,
+  useConnect,
+  useDisconnect,
+  useSwitchChain,
+} from "wagmi";
+import { celo } from "wagmi/chains";
 import { createLogger } from "@/lib/logger";
 import { isMiniPay } from "@/lib/minipay";
 
@@ -12,12 +20,22 @@ export type UseWallet = {
   isConnected: boolean;
   isConnecting: boolean;
   isMiniPay: boolean;
+  chainId: number;
+  isWrongChain: boolean;
+  isSwitchingChain: boolean;
   connect: () => void;
   disconnect: () => void;
+  switchToCelo: () => void;
 };
 
 export function useWallet(): UseWallet {
-  const { address, isConnected, isConnecting, isReconnecting } = useAccount();
+  const {
+    address,
+    chainId: accountChainId,
+    isConnected,
+    isConnecting,
+    isReconnecting,
+  } = useAccount();
   const {
     connect: wagmiConnect,
     connectors,
@@ -25,7 +43,19 @@ export function useWallet(): UseWallet {
     error: connectError,
   } = useConnect();
   const { disconnectAsync: wagmiDisconnectAsync } = useDisconnect();
+  const wagmiChainId = useChainId();
+  const {
+    switchChain: wagmiSwitchChain,
+    isPending: isSwitchingChain,
+    error: switchError,
+  } = useSwitchChain();
   const [inMiniPay, setInMiniPay] = useState(false);
+
+  // `useAccount().chainId` reflects the active connection's actual chain,
+  // even when that chain is not in the wagmi `chains` config. `useChainId()`
+  // can fall back to the configured default. Prefer the account-level value.
+  const chainId = accountChainId ?? wagmiChainId;
+  const isWrongChain = isConnected && chainId !== celo.id;
 
   useAccountEffect({
     onConnect(data) {
@@ -47,6 +77,31 @@ export function useWallet(): UseWallet {
       message: connectError.message,
     });
   }, [connectError]);
+
+  useEffect(() => {
+    if (!switchError) return;
+    log.error("switch chain failed", {
+      name: switchError.name,
+      message: switchError.message,
+    });
+  }, [switchError]);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    log.debug("chain state", {
+      accountChainId,
+      wagmiChainId,
+      resolved: chainId,
+      expected: celo.id,
+      isWrongChain,
+    });
+    if (isWrongChain) {
+      log.warn("connected on wrong chain", {
+        current: chainId,
+        expected: celo.id,
+      });
+    }
+  }, [isConnected, isWrongChain, chainId, accountChainId, wagmiChainId]);
 
   useEffect(() => {
     log.debug("available connectors", {
@@ -89,6 +144,11 @@ export function useWallet(): UseWallet {
     wagmiConnect({ connector: injected });
   }
 
+  function switchToCelo() {
+    log.info("switch to Celo requested", { from: chainId, to: celo.id });
+    wagmiSwitchChain({ chainId: celo.id });
+  }
+
   function disconnect() {
     log.info("disconnect requested");
     wagmiDisconnectAsync()
@@ -109,7 +169,11 @@ export function useWallet(): UseWallet {
     isConnected,
     isConnecting: isConnecting || isReconnecting || isConnectPending,
     isMiniPay: inMiniPay,
+    chainId,
+    isWrongChain,
+    isSwitchingChain,
     connect: connectInjected,
     disconnect,
+    switchToCelo,
   };
 }

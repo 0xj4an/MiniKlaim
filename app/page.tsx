@@ -3,8 +3,18 @@
 import { useWallet } from "@/lib/wallet/useWallet";
 
 export default function HomePage() {
-  const { address, isConnected, isConnecting, isMiniPay, connect, disconnect } =
-    useWallet();
+  const {
+    address,
+    isConnected,
+    isConnecting,
+    isMiniPay,
+    isWrongChain,
+    isSwitchingChain,
+    chainId,
+    connect,
+    disconnect,
+    switchToCelo,
+  } = useWallet();
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
@@ -20,6 +30,23 @@ export default function HomePage() {
             {address.slice(0, 6)}...{address.slice(-4)}
           </p>
           <p className="text-xs text-zinc-400">(phone resolution pending)</p>
+
+          {isWrongChain && (
+            <div className="mt-3 flex flex-col items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
+              <p className="text-sm text-amber-900">
+                Wrong network. Currently on chain {chainId}, MiniKlaim runs on
+                Celo (42220).
+              </p>
+              <button
+                onClick={switchToCelo}
+                disabled={isSwitchingChain}
+                className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                {isSwitchingChain ? "Switching..." : "Switch to Celo"}
+              </button>
+            </div>
+          )}
+
           {!isMiniPay && (
             <button
               onClick={disconnect}
