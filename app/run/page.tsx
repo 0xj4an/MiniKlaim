@@ -52,7 +52,9 @@ export default function RunPage() {
       const source = map.getSource("claimed-hexes") as
         | maplibregl.GeoJSONSource
         | undefined;
-      source?.setData(claimedHexesToFeatureCollection(data.hexes));
+      source?.setData(
+        claimedHexesToFeatureCollection(data.hexes, addressRef.current),
+      );
       log.debug("claimed hexes refreshed", { count: data.hexes.length });
     } catch (e) {
       log.error("failed to refresh claimed hexes", {
@@ -124,6 +126,12 @@ export default function RunPage() {
     }
   }, [claimHex]);
 
+  useEffect(() => {
+    if (mapRef.current?.isStyleLoaded()) {
+      void refreshClaimed();
+    }
+  }, [address, refreshClaimed]);
+
   const finishRun = useCallback(async () => {
     const id = runIdRef.current;
     if (!id) return;
@@ -176,14 +184,17 @@ export default function RunPage() {
         id: "claimed-hex-fill",
         type: "fill",
         source: "claimed-hexes",
-        paint: { "fill-color": "#2563EB", "fill-opacity": 0.4 },
+        paint: {
+          "fill-color": ["case", ["get", "isMine"], "#10B981", "#2563EB"],
+          "fill-opacity": 0.4,
+        },
       });
       map.addLayer({
         id: "claimed-hex-line",
         type: "line",
         source: "claimed-hexes",
         paint: {
-          "line-color": "#2563EB",
+          "line-color": ["case", ["get", "isMine"], "#10B981", "#2563EB"],
           "line-width": 1.5,
           "line-opacity": 0.9,
         },
@@ -293,13 +304,15 @@ export default function RunPage() {
           if (err.code === err.PERMISSION_DENIED) {
             setGeoStatus("denied");
             log.warn("geolocation denied");
-          } else {
-            setGeoStatus("unavailable");
-            log.error("geolocation error", {
-              code: err.code,
-              message: err.message,
-            });
+            return;
           }
+          // POSITION_UNAVAILABLE (2) and TIMEOUT (3) are typically transient
+          // on macOS / mobile. The watch keeps running and recovers on its
+          // own. Don't downgrade the UI to a permanent "unavailable" state.
+          log.warn("transient geolocation error", {
+            code: err.code,
+            message: err.message,
+          });
         },
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 },
       );
@@ -332,6 +345,11 @@ export default function RunPage() {
       >
         ← Back
       </Link>
+      {address && (
+        <div className="absolute top-4 right-4 z-10 rounded-md bg-white/90 px-3 py-1.5 font-mono text-xs text-zinc-700 shadow-md backdrop-blur">
+          {address.slice(0, 6)}...{address.slice(-4)}
+        </div>
+      )}
       <GeoStatusBanner status={geoStatus} />
       <RunControls
         canStart={!!canStart}

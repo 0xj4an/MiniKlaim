@@ -11,6 +11,7 @@ export type HexFeatureCollection = FeatureCollection<Polygon, HexProperties>;
 export type ClaimedHexProperties = {
   hex: string;
   owner: string;
+  isMine: boolean;
 };
 export type ClaimedHexFeature = Feature<Polygon, ClaimedHexProperties>;
 export type ClaimedHexFeatureCollection = FeatureCollection<
@@ -51,12 +52,18 @@ export function hexesAround(
 
 export function claimedHexesToFeatureCollection(
   rows: Array<{ h3: string; owner: string }>,
+  myAddress: string | null,
 ): ClaimedHexFeatureCollection {
+  const me = myAddress?.toLowerCase() ?? null;
   return {
     type: "FeatureCollection",
     features: rows.map((row) => ({
       type: "Feature",
-      properties: { hex: row.h3, owner: row.owner },
+      properties: {
+        hex: row.h3,
+        owner: row.owner,
+        isMine: me !== null && row.owner.toLowerCase() === me,
+      },
       geometry: { type: "Polygon", coordinates: [hexToPolygon(row.h3)] },
     })),
   };
