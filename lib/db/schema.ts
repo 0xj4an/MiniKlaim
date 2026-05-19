@@ -3,6 +3,7 @@ import { integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 export const users = pgTable("users", {
   address: text("address").primaryKey(),
   phone: text("phone"),
+  username: text("username").unique(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

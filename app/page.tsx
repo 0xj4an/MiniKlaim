@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
+import { type UseUser, useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { type TokenSymbol } from "@/lib/tokens";
 
@@ -20,6 +22,7 @@ export default function HomePage() {
   } = useWallet();
 
   const balances = useBalances(address, isConnected && !isWrongChain);
+  const userInfo = useUser(isConnected ? address : null);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
@@ -34,7 +37,7 @@ export default function HomePage() {
           <p className="font-mono text-xs text-zinc-400">
             {address.slice(0, 6)}...{address.slice(-4)}
           </p>
-          <p className="text-xs text-zinc-400">(phone resolution pending)</p>
+          <UsernameBlock userInfo={userInfo} />
 
           {isWrongChain && (
             <div className="mt-3 flex flex-col items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
@@ -138,6 +141,63 @@ function BalanceRow({
       <span className="text-zinc-900">
         {balance ? formatAmount(balance.formatted) : "..."}
       </span>
+    </div>
+  );
+}
+
+function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
+  const { user, isLoading, setUsername } = userInfo;
+  const [input, setInput] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  if (isLoading) {
+    return <p className="text-xs text-zinc-400">Loading runner name...</p>;
+  }
+  if (user?.username) {
+    return (
+      <p className="text-sm text-zinc-900">
+        <span className="text-zinc-400">@</span>
+        <span className="font-medium">{user.username}</span>
+      </p>
+    );
+  }
+
+  async function onSave() {
+    if (!input.trim()) return;
+    setIsSaving(true);
+    setError(null);
+    const result = await setUsername(input.trim());
+    setIsSaving(false);
+    if (result.ok) {
+      setInput("");
+    } else {
+      setError(result.error ?? "unknown error");
+    }
+  }
+
+  return (
+    <div className="mt-2 flex flex-col items-center gap-1">
+      <p className="text-xs text-zinc-500">Pick a runner name</p>
+      <div className="flex items-center gap-1">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="runner_name"
+          maxLength={20}
+          disabled={isSaving}
+          className="w-32 rounded-md border border-zinc-300 px-2 py-1 text-xs focus:border-zinc-500 focus:outline-none disabled:opacity-50"
+        />
+        <button
+          onClick={onSave}
+          disabled={isSaving || !input.trim()}
+          className="rounded-md bg-zinc-900 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-800 disabled:bg-zinc-400"
+        >
+          {isSaving ? "..." : "Save"}
+        </button>
+      </div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

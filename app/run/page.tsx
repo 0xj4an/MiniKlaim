@@ -12,6 +12,7 @@ import {
   HEX_RESOLUTION,
 } from "@/lib/map/config";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
+import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
 
 const log = createLogger("page:run");
@@ -20,6 +21,7 @@ type GeoStatus = "idle" | "requesting" | "granted" | "denied" | "unavailable";
 
 export default function RunPage() {
   const { address, isConnected, isWrongChain } = useWallet();
+  const { user } = useUser(isConnected ? address : null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -346,8 +348,17 @@ export default function RunPage() {
         ← Back
       </Link>
       {address && (
-        <div className="absolute top-4 right-4 z-10 rounded-md bg-white/90 px-3 py-1.5 font-mono text-xs text-zinc-700 shadow-md backdrop-blur">
-          {address.slice(0, 6)}...{address.slice(-4)}
+        <div className="absolute top-4 right-4 z-10 rounded-md bg-white/90 px-3 py-1.5 text-xs text-zinc-700 shadow-md backdrop-blur">
+          {user?.username ? (
+            <span>
+              <span className="text-zinc-400">@</span>
+              <span className="font-medium">{user.username}</span>
+            </span>
+          ) : (
+            <span className="font-mono">
+              {address.slice(0, 6)}...{address.slice(-4)}
+            </span>
+          )}
         </div>
       )}
       <GeoStatusBanner status={geoStatus} />
