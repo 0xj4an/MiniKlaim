@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
+import { useUserStats } from "@/lib/wallet/useUserStats";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { type TokenSymbol } from "@/lib/tokens";
 
@@ -23,6 +24,7 @@ export default function HomePage() {
 
   const balances = useBalances(address, isConnected && !isWrongChain);
   const userInfo = useUser(isConnected ? address : null);
+  const stats = useUserStats(isConnected && !isWrongChain ? address : null);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
@@ -38,6 +40,24 @@ export default function HomePage() {
             {address.slice(0, 6)}...{address.slice(-4)}
           </p>
           <UsernameBlock userInfo={userInfo} />
+
+          {stats && !isWrongChain && (
+            <div className="mt-2 flex gap-3 text-xs text-zinc-600">
+              <span>
+                <span className="font-semibold text-zinc-900">
+                  {stats.hexesOwned}
+                </span>{" "}
+                hexes owned
+              </span>
+              <span className="text-zinc-300">·</span>
+              <span>
+                <span className="font-semibold text-zinc-900">
+                  {stats.totalRuns}
+                </span>{" "}
+                runs
+              </span>
+            </div>
+          )}
 
           {isWrongChain && (
             <div className="mt-3 flex flex-col items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
