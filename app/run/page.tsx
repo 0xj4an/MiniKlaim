@@ -38,6 +38,14 @@ export default function RunPage() {
   const [hexCount, setHexCount] = useState(0);
   const [runStartTime, setRunStartTime] = useState<number | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  // Gate any wallet-dependent UI so SSR and first-client-render emit the
+  // same tree. Without this the wallet badge appears on SSR (cookie state)
+  // but not on the first client render, shifting siblings and forcing
+  // React to discard the tree (which kills the live MapLibre canvas).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    queueMicrotask(() => setMounted(true));
+  }, []);
 
   useEffect(() => {
     runIdRef.current = runId;
@@ -74,7 +82,11 @@ export default function RunPage() {
     try {
       const res = await fetch("/api/hexes");
       const data = (await res.json()) as {
-        hexes: Array<{ h3: string; owner: string }>;
+        hexes: Array<{
+          h3: string;
+          owner: string;
+          ownerUsername: string | null;
+        }>;
       };
       const source = map.getSource("claimed-hexes") as
         | maplibregl.GeoJSONSource
@@ -269,6 +281,45 @@ export default function RunPage() {
 
       void refreshClaimed();
 
+      const popupRef = { current: null as maplibregl.Popup | null };
+      const handleHexClick = (e: maplibregl.MapLayerMouseEvent) => {
+        log.debug("claimed hex click", {
+          features: e.features?.length ?? 0,
+          point: [e.point.x, e.point.y],
+        });
+        const feature = e.features?.[0];
+        if (!feature) return;
+        const props = feature.properties as {
+          owner: string;
+          ownerUsername: string | null;
+          isMine: boolean;
+        };
+        const displayName = props.ownerUsername
+          ? `@${props.ownerUsername}`
+          : `${props.owner.slice(0, 6)}...${props.owner.slice(-4)}`;
+        const ownerLabel = props.isMine ? `${displayName} (you)` : displayName;
+        popupRef.current?.remove();
+        const el = document.createElement("div");
+        el.style.fontSize = "13px";
+        el.style.padding = "4px 6px";
+        el.style.whiteSpace = "nowrap";
+        el.textContent = `Owned by ${ownerLabel}`;
+        popupRef.current = new maplibregl.Popup({
+          closeButton: true,
+          closeOnClick: false,
+        })
+          .setLngLat(e.lngLat)
+          .setDOMContent(el)
+          .addTo(map);
+      };
+      map.on("click", "claimed-hex-fill", handleHexClick);
+      map.on("mouseenter", "claimed-hex-fill", () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", "claimed-hex-fill", () => {
+        map.getCanvas().style.cursor = "";
+      });
+
       if (!("geolocation" in navigator)) {
         setGeoStatus("unavailable");
         log.warn("geolocation unavailable");
@@ -365,14 +416,24 @@ export default function RunPage() {
 
   return (
     <main className="relative h-screen w-screen overflow-hidden">
-      <div ref={containerRef} className="absolute inset-0 bg-zinc-100" />
+      <div
+        ref={containerRef}
+        className="bg-zinc-100"
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+        }}
+      />
       <Link
         href="/"
         className="absolute top-4 left-4 z-10 rounded-md bg-white/90 px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-md backdrop-blur hover:bg-white"
       >
         ← Back
       </Link>
-      {address && (
+      {mounted && address && (
         <div className="absolute top-4 right-4 z-10 rounded-md bg-white/90 px-3 py-1.5 text-xs text-zinc-700 shadow-md backdrop-blur">
           {user?.username ? (
             <span>

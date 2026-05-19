@@ -1,6 +1,7 @@
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { hexes } from "@/lib/db/schema";
+import { hexes, users } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("api:hexes");
@@ -12,9 +13,11 @@ export async function GET() {
     .select({
       h3: hexes.h3Id,
       owner: hexes.ownerAddress,
+      ownerUsername: users.username,
       claimedAt: hexes.claimedAt,
     })
-    .from(hexes);
+    .from(hexes)
+    .leftJoin(users, eq(hexes.ownerAddress, users.address));
 
   log.info("hexes fetched", { count: rows.length });
 
