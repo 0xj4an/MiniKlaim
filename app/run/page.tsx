@@ -12,6 +12,7 @@ import {
   HEX_RESOLUTION,
 } from "@/lib/map/config";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
+import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
 
@@ -22,6 +23,9 @@ type GeoStatus = "idle" | "requesting" | "granted" | "denied" | "unavailable";
 export default function RunPage() {
   const { address, isConnected, isWrongChain } = useWallet();
   const { user } = useUser(isConnected ? address : null);
+  const { active: activeRun, isLoading: isActiveLoading } = useActiveRun(
+    isConnected && !isWrongChain ? address : null,
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -42,6 +46,27 @@ export default function RunPage() {
   useEffect(() => {
     addressRef.current = address;
   }, [address]);
+
+  // Restore state from an active server-side run (e.g. after a page reload
+  // mid-run). Only seeds local state if there is no local runId yet, so a
+  // freshly-started run on this page does not get clobbered.
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current) return;
+    if (isActiveLoading) return;
+    if (!activeRun) return;
+    if (runId) return;
+    restoredRef.current = true;
+    queueMicrotask(() => {
+      log.info("resumed active run", {
+        id: activeRun.id,
+        hexesClaimed: activeRun.hexesClaimed,
+      });
+      setRunId(activeRun.id);
+      setHexCount(activeRun.hexesClaimed);
+      setRunStartTime(new Date(activeRun.startedAt).getTime());
+    });
+  }, [activeRun, isActiveLoading, runId]);
 
   const refreshClaimed = useCallback(async () => {
     const map = mapRef.current;
@@ -335,7 +360,7 @@ export default function RunPage() {
     };
   }, [claimHex, refreshClaimed]);
 
-  const canStart = isConnected && !isWrongChain && address;
+  const canStart = isConnected && !isWrongChain && address && !isActiveLoading;
   const isActive = runId !== null;
 
   return (
