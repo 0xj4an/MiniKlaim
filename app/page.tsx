@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
+import { type UserRun, useUserRuns } from "@/lib/wallet/useUserRuns";
 import { useUserStats } from "@/lib/wallet/useUserStats";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { type TokenSymbol } from "@/lib/tokens";
@@ -25,6 +26,10 @@ export default function HomePage() {
   const balances = useBalances(address, isConnected && !isWrongChain);
   const userInfo = useUser(isConnected ? address : null);
   const stats = useUserStats(isConnected && !isWrongChain ? address : null);
+  const recentRuns = useUserRuns(
+    isConnected && !isWrongChain ? address : null,
+    3,
+  );
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
@@ -74,6 +79,8 @@ export default function HomePage() {
               </button>
             </div>
           )}
+
+          {!isWrongChain && <RecentRuns runs={recentRuns} />}
 
           {!isWrongChain && (
             <div className="mt-3 flex min-w-[200px] flex-col items-stretch gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-left text-xs">
@@ -220,6 +227,47 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
+}
+
+function RecentRuns({ runs }: { runs: UserRun[] | null }) {
+  if (!runs || runs.length === 0) return null;
+  return (
+    <div className="mt-3 flex min-w-[200px] flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-left text-xs">
+      <p className="mb-1 text-center text-[10px] tracking-wide text-zinc-500 uppercase">
+        Recent runs
+      </p>
+      {runs.map((run) => (
+        <RunRow key={run.id} run={run} />
+      ))}
+    </div>
+  );
+}
+
+function RunRow({ run }: { run: UserRun }) {
+  const start = new Date(run.startedAt);
+  const dateLabel = start.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const duration = run.endedAt
+    ? formatDuration(new Date(run.endedAt).getTime() - start.getTime())
+    : "active";
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-zinc-600">{dateLabel}</span>
+      <span className="font-mono text-zinc-500">{duration}</span>
+      <span className="font-mono text-zinc-900">{run.hexesClaimed} hex</span>
+    </div>
+  );
+}
+
+function formatDuration(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 function formatAmount(formatted: string): string {
