@@ -195,13 +195,27 @@ function PrimaryCTA({
   }
 
   // Connected and on Celo
+  if (!username) {
+    return (
+      <div className="flex flex-col items-center gap-3">
+        <p className="text-sm text-zinc-700">
+          Almost ready. Pick a name first.
+        </p>
+        <Link
+          href="/me"
+          className="rounded-full bg-orange-500 px-8 py-4 text-lg font-semibold text-white shadow-md hover:bg-orange-600"
+        >
+          Pick your name
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center gap-3">
-      {username && (
-        <p className="text-sm text-zinc-600">
-          Hey <span className="font-semibold text-zinc-900">@{username}</span>
-        </p>
-      )}
+      <p className="text-sm text-zinc-600">
+        Hey <span className="font-semibold text-zinc-900">@{username}</span>
+      </p>
       <Link
         href="/run"
         className={`rounded-full px-8 py-4 text-lg font-semibold text-white shadow-md ${
@@ -212,14 +226,6 @@ function PrimaryCTA({
       >
         {hasActiveRun ? "Keep running →" : "Start running"}
       </Link>
-      {!username && (
-        <Link
-          href="/me"
-          className="text-xs text-zinc-500 underline hover:text-zinc-700"
-        >
-          Pick your name on the You page
-        </Link>
-      )}
     </div>
   );
 }

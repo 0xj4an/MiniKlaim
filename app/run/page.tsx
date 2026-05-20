@@ -605,6 +605,9 @@ export default function RunPage() {
           onClose={() => setLastFinishedRun(null)}
         />
       )}
+      {mounted && isConnected && !isWrongChain && user && !user.username && (
+        <NeedNameOverlay />
+      )}
     </main>
   );
 }
@@ -683,6 +686,27 @@ function RunControls({
       >
         {isBusy ? "Finishing..." : "Finish"}
       </button>
+    </div>
+  );
+}
+
+function NeedNameOverlay() {
+  return (
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="mx-6 flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl bg-white p-6 text-center shadow-2xl">
+        <p className="text-sm font-semibold tracking-wide text-zinc-500 uppercase">
+          One more thing
+        </p>
+        <p className="text-base text-zinc-700">
+          Pick a name so people know it&apos;s you on the map.
+        </p>
+        <Link
+          href="/me"
+          className="rounded-full bg-orange-500 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+        >
+          Pick your name →
+        </Link>
+      </div>
     </div>
   );
 }
