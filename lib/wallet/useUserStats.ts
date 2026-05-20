@@ -9,6 +9,7 @@ export type UserStats = {
   hexesOwned: number;
   totalRuns: number;
   bestRunHexes: number;
+  rank: number;
 };
 
 export function useUserStats(address: string | null): UserStats | null {

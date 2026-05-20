@@ -106,6 +106,17 @@ export default function HomePage() {
                   </span>
                 </>
               )}
+              {stats.hexesOwned > 0 && (
+                <>
+                  <span className="text-zinc-300">·</span>
+                  <span>
+                    rank{" "}
+                    <span className="font-semibold text-zinc-900">
+                      #{stats.rank}
+                    </span>
+                  </span>
+                </>
+              )}
             </div>
           )}
 
