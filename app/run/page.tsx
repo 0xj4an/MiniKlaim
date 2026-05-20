@@ -385,7 +385,7 @@ export default function RunPage() {
         el.style.fontSize = "13px";
         el.style.padding = "4px 6px";
         el.style.whiteSpace = "nowrap";
-        el.textContent = `Owned by ${ownerLabel}`;
+        el.textContent = `Captured by ${ownerLabel}`;
         popupRef.current = new maplibregl.Popup({
           closeButton: true,
           closeOnClick: false,
@@ -664,11 +664,7 @@ function RunControls({
           disabled={!canStart || isBusy}
           className="rounded-full bg-orange-500 px-6 py-3 text-base font-semibold text-white shadow-lg hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-zinc-400"
         >
-          {!canStart
-            ? "Connect on Home to start"
-            : isBusy
-              ? "Starting..."
-              : "Start Run"}
+          {!canStart ? "Sign in first" : isBusy ? "Starting..." : "Start"}
         </button>
       </div>
     );
@@ -685,7 +681,7 @@ function RunControls({
         disabled={isBusy}
         className="rounded-full bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-lg hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
       >
-        {isBusy ? "Finishing..." : "Finish Run"}
+        {isBusy ? "Finishing..." : "Finish"}
       </button>
     </div>
   );
@@ -733,7 +729,7 @@ function RunSummaryModal({
               {summary.hexesClaimed}
             </div>
             <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
-              Hexes
+              Blocks
             </div>
           </div>
           <div>
@@ -792,7 +788,8 @@ function ElapsedBanner({
     <div className="rounded-md bg-white/95 px-4 py-2 text-center shadow-md backdrop-blur">
       <div className="font-mono text-xl font-bold text-zinc-900">{time}</div>
       <div className="text-xs text-zinc-600">
-        {hexCount} hex · {distLabel} · {paceLabel}
+        {hexCount} {hexCount === 1 ? "block" : "blocks"} · {distLabel} ·{" "}
+        {paceLabel}
       </div>
     </div>
   );
