@@ -117,6 +117,17 @@ export default function HomePage() {
                   </span>
                 </>
               )}
+              {stats.streak > 0 && (
+                <>
+                  <span className="text-zinc-300">·</span>
+                  <span>
+                    <span className="font-semibold text-zinc-900">
+                      {stats.streak}
+                    </span>
+                    {stats.streak === 1 ? " day" : " days"}
+                  </span>
+                </>
+              )}
             </div>
           )}
 

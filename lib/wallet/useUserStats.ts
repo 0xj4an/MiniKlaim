@@ -10,6 +10,7 @@ export type UserStats = {
   totalRuns: number;
   bestRunHexes: number;
   rank: number;
+  streak: number;
 };
 
 export function useUserStats(address: string | null): UserStats | null {
