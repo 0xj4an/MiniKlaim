@@ -11,6 +11,7 @@ import {
   FOLLOW_ZOOM,
   HEX_RESOLUTION,
 } from "@/lib/map/config";
+import { haversineMeters } from "@/lib/map/geo";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { useUser } from "@/lib/wallet/useUser";
@@ -32,10 +33,18 @@ export default function RunPage() {
   const currentHexRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
   const addressRef = useRef<string | null>(null);
+  // Last GPS coordinate seen *during the active run*. Used to compute the
+  // haversine segment per tick. Reset to null on Start, set on each fix.
+  const lastPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  // Distance accumulated since the last successful claim. Sent to the server
+  // on the next claim, then reset to 0. Trailing residue at Finish is lost
+  // (bounded by hex edge ~50m, acceptable for MVP).
+  const pendingDistanceRef = useRef(0);
 
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("idle");
   const [runId, setRunId] = useState<string | null>(null);
   const [hexCount, setHexCount] = useState(0);
+  const [distanceMeters, setDistanceMeters] = useState(0);
   const [runStartTime, setRunStartTime] = useState<number | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   // Gate any wallet-dependent UI so SSR and first-client-render emit the
@@ -103,14 +112,17 @@ export default function RunPage() {
   }, []);
 
   const claimHex = useCallback(
-    async (h3: string) => {
+    async (h3: string, distanceDelta = 0) => {
       const id = runIdRef.current;
       if (!id) return;
       try {
         const res = await fetch(`/api/runs/${id}/claim`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ h3 }),
+          body: JSON.stringify({
+            h3,
+            ...(distanceDelta > 0 ? { distanceMeters: distanceDelta } : {}),
+          }),
         });
         if (!res.ok) {
           log.warn("claim failed", { status: res.status, h3 });
@@ -153,7 +165,10 @@ export default function RunPage() {
       log.info("run started", { id: data.id });
       setRunId(data.id);
       setHexCount(0);
+      setDistanceMeters(0);
       setRunStartTime(Date.now());
+      lastPosRef.current = null;
+      pendingDistanceRef.current = 0;
       // Claim the hex we are currently standing in, if any.
       const here = currentHexRef.current;
       if (here) {
@@ -185,7 +200,10 @@ export default function RunPage() {
       log.info("run finished", { id, hexesClaimed: data.hexesClaimed });
       setRunId(null);
       setHexCount(0);
+      setDistanceMeters(0);
       setRunStartTime(null);
+      lastPosRef.current = null;
+      pendingDistanceRef.current = 0;
       await refreshClaimed();
     } finally {
       setIsBusy(false);
@@ -360,6 +378,25 @@ export default function RunPage() {
             ],
           });
 
+          // Accumulate distance while a run is active.
+          if (runIdRef.current && lastPosRef.current) {
+            const seg = haversineMeters(
+              lastPosRef.current.lat,
+              lastPosRef.current.lng,
+              latitude,
+              longitude,
+            );
+            // Ignore tiny GPS jitter (<2m). Reduces noise without losing real
+            // movement. accuracy is typically 5-20m anyway.
+            if (seg > 2) {
+              pendingDistanceRef.current += seg;
+              setDistanceMeters((d) => d + seg);
+            }
+          }
+          if (runIdRef.current) {
+            lastPosRef.current = { lat: latitude, lng: longitude };
+          }
+
           const { hexes, currentHex } = hexesAround(
             latitude,
             longitude,
@@ -370,7 +407,9 @@ export default function RunPage() {
             log.info("entered hex", { hex: currentHex });
             currentHexRef.current = currentHex;
             if (runIdRef.current) {
-              void claimHex(currentHex);
+              const delta = pendingDistanceRef.current;
+              pendingDistanceRef.current = 0;
+              void claimHex(currentHex, delta);
             }
           }
           const source = map.getSource("hexes") as
@@ -453,6 +492,7 @@ export default function RunPage() {
         isActive={isActive}
         isBusy={isBusy}
         hexCount={hexCount}
+        distanceMeters={distanceMeters}
         runStartTime={runStartTime}
         onStart={startRun}
         onFinish={finishRun}
@@ -494,6 +534,7 @@ function RunControls({
   isActive,
   isBusy,
   hexCount,
+  distanceMeters,
   runStartTime,
   onStart,
   onFinish,
@@ -502,6 +543,7 @@ function RunControls({
   isActive: boolean;
   isBusy: boolean;
   hexCount: number;
+  distanceMeters: number;
   runStartTime: number | null;
   onStart: () => void;
   onFinish: () => void;
@@ -525,7 +567,11 @@ function RunControls({
   }
   return (
     <div className="absolute right-4 bottom-6 left-4 z-10 flex flex-col items-center gap-3">
-      <ElapsedBanner startTime={runStartTime} hexCount={hexCount} />
+      <ElapsedBanner
+        startTime={runStartTime}
+        hexCount={hexCount}
+        distanceMeters={distanceMeters}
+      />
       <button
         onClick={onFinish}
         disabled={isBusy}
@@ -540,9 +586,11 @@ function RunControls({
 function ElapsedBanner({
   startTime,
   hexCount,
+  distanceMeters,
 }: {
   startTime: number | null;
   hexCount: number;
+  distanceMeters: number;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -554,10 +602,16 @@ function ElapsedBanner({
   const mins = Math.floor(elapsedMs / 60000);
   const secs = Math.floor((elapsedMs % 60000) / 1000);
   const time = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  const distLabel =
+    distanceMeters >= 1000
+      ? `${(distanceMeters / 1000).toFixed(2)} km`
+      : `${Math.round(distanceMeters)} m`;
   return (
     <div className="rounded-md bg-white/95 px-4 py-2 text-center shadow-md backdrop-blur">
       <div className="font-mono text-xl font-bold text-zinc-900">{time}</div>
-      <div className="text-xs text-zinc-600">{hexCount} hexes claimed</div>
+      <div className="text-xs text-zinc-600">
+        {hexCount} hex · {distLabel}
+      </div>
     </div>
   );
 }

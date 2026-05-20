@@ -10,6 +10,7 @@ export type UserRun = {
   startedAt: string;
   endedAt: string | null;
   hexesClaimed: number;
+  distanceMeters: number;
 };
 
 export function useUserRuns(

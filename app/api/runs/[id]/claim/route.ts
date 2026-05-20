@@ -13,8 +13,17 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const body = (await request.json()) as { h3?: string };
+  const body = (await request.json()) as {
+    h3?: string;
+    distanceMeters?: number;
+  };
   const h3 = body.h3;
+  const distanceMeters =
+    typeof body.distanceMeters === "number" &&
+    Number.isFinite(body.distanceMeters) &&
+    body.distanceMeters > 0
+      ? Math.round(body.distanceMeters)
+      : 0;
 
   if (!h3 || typeof h3 !== "string") {
     return NextResponse.json({ error: "invalid h3" }, { status: 400 });
@@ -49,6 +58,14 @@ export async function POST(
     existing.runId === id;
 
   if (alreadyOwnedThisRun) {
+    if (distanceMeters > 0) {
+      await db
+        .update(runs)
+        .set({
+          distanceMeters: sql`${runs.distanceMeters} + ${distanceMeters}`,
+        })
+        .where(eq(runs.id, id));
+    }
     return NextResponse.json({ ok: true, alreadyOwned: true });
   }
 
@@ -70,10 +87,20 @@ export async function POST(
 
   await db
     .update(runs)
-    .set({ hexesClaimed: sql`${runs.hexesClaimed} + 1` })
+    .set({
+      hexesClaimed: sql`${runs.hexesClaimed} + 1`,
+      ...(distanceMeters > 0
+        ? { distanceMeters: sql`${runs.distanceMeters} + ${distanceMeters}` }
+        : {}),
+    })
     .where(eq(runs.id, id));
 
-  log.info("hex claimed", { runId: id, h3, owner: run.userAddress });
+  log.info("hex claimed", {
+    runId: id,
+    h3,
+    owner: run.userAddress,
+    distanceDelta: distanceMeters,
+  });
 
   return NextResponse.json({ ok: true, alreadyOwned: false });
 }

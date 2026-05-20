@@ -254,10 +254,15 @@ function RunRow({ run }: { run: UserRun }) {
   const duration = run.endedAt
     ? formatDuration(new Date(run.endedAt).getTime() - start.getTime())
     : "active";
+  const distLabel =
+    run.distanceMeters >= 1000
+      ? `${(run.distanceMeters / 1000).toFixed(2)}km`
+      : `${run.distanceMeters}m`;
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="text-zinc-600">{dateLabel}</span>
       <span className="font-mono text-zinc-500">{duration}</span>
+      <span className="font-mono text-zinc-500">{distLabel}</span>
       <span className="font-mono text-zinc-900">{run.hexesClaimed} hex</span>
     </div>
   );

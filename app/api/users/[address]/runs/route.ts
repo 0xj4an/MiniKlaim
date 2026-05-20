@@ -24,6 +24,7 @@ export async function GET(
       startedAt: runs.startedAt,
       endedAt: runs.endedAt,
       hexesClaimed: runs.hexesClaimed,
+      distanceMeters: runs.distanceMeters,
     })
     .from(runs)
     .where(eq(runs.userAddress, lower))
