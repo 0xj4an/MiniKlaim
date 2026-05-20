@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useFirstVisit } from "@/lib/useFirstVisit";
 import { useGlobalStats } from "@/lib/useGlobalStats";
+import { useLocale } from "@/lib/i18n";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -26,6 +27,7 @@ export default function HomePage() {
   );
   const globalStats = useGlobalStats();
   const { showOnboarding, dismiss } = useFirstVisit();
+  const { locale, setLocale, t } = useLocale();
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-between px-6 py-12">
@@ -33,9 +35,7 @@ export default function HomePage() {
       <div className="flex w-full max-w-md flex-col items-center gap-6 text-center">
         <div className="flex flex-col items-center gap-2">
           <h1 className="text-5xl font-bold">MiniKlaim</h1>
-          <p className="text-lg text-zinc-700">
-            Run the city. The blocks you cross are yours.
-          </p>
+          <p className="text-lg text-zinc-700">{t("home.tagline")}</p>
         </div>
 
         <p className="text-xs text-zinc-400">
@@ -44,11 +44,13 @@ export default function HomePage() {
               <span className="font-semibold text-zinc-600">
                 {globalStats.totalHexes}
               </span>{" "}
-              blocks captured ·{" "}
+              {t("home.stats.blocks")} ·{" "}
               <span className="font-semibold text-zinc-600">
                 {globalStats.totalPlayers}
               </span>{" "}
-              {globalStats.totalPlayers === 1 ? "player" : "players"}
+              {globalStats.totalPlayers === 1
+                ? t("home.stats.player")
+                : t("home.stats.players")}
             </>
           ) : (
             <span className="opacity-0">.</span>
@@ -69,24 +71,31 @@ export default function HomePage() {
         />
       </div>
 
-      <nav className="flex gap-6 text-xs text-zinc-400">
+      <nav className="flex flex-wrap items-center justify-center gap-6 text-xs text-zinc-400">
         {isConnected && (
           <Link href="/me" className="underline hover:text-zinc-700">
-            You
+            {t("nav.you")}
           </Link>
         )}
         <Link href="/community" className="underline hover:text-zinc-700">
-          Community
+          {t("nav.community")}
         </Link>
         <Link href="/about" className="underline hover:text-zinc-700">
-          Help
+          {t("nav.help")}
         </Link>
+        <button
+          onClick={() => setLocale(locale === "en" ? "es" : "en")}
+          className="underline hover:text-zinc-700"
+        >
+          {t("locale.toggle")}
+        </button>
       </nav>
     </main>
   );
 }
 
 function OnboardingModal({ onClose }: { onClose: () => void }) {
+  const { t } = useLocale();
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -96,29 +105,35 @@ function OnboardingModal({ onClose }: { onClose: () => void }) {
         className="mx-6 flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-white p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-center text-2xl font-bold">Welcome!</h2>
+        <h2 className="text-center text-2xl font-bold">
+          {t("onboarding.title")}
+        </h2>
         <ol className="flex flex-col gap-3 text-sm text-zinc-700">
           <li className="flex gap-3">
             <span className="font-mono text-zinc-400">1.</span>
             <span>
-              <span className="font-semibold text-zinc-900">Walk or run.</span>{" "}
-              The blocks you cross become yours on the map.
+              <span className="font-semibold text-zinc-900">
+                {t("onboarding.step1.title")}.
+              </span>{" "}
+              {t("onboarding.step1.body")}
             </span>
           </li>
           <li className="flex gap-3">
             <span className="font-mono text-zinc-400">2.</span>
             <span>
-              <span className="font-semibold text-zinc-900">Keep going.</span>{" "}
-              The more you run, the more land you own.
+              <span className="font-semibold text-zinc-900">
+                {t("onboarding.step2.title")}.
+              </span>{" "}
+              {t("onboarding.step2.body")}
             </span>
           </li>
           <li className="flex gap-3">
             <span className="font-mono text-zinc-400">3.</span>
             <span>
               <span className="font-semibold text-zinc-900">
-                Watch your back.
+                {t("onboarding.step3.title")}.
               </span>{" "}
-              Other players can steal your blocks if they run through them.
+              {t("onboarding.step3.body")}
             </span>
           </li>
         </ol>
@@ -126,7 +141,7 @@ function OnboardingModal({ onClose }: { onClose: () => void }) {
           onClick={onClose}
           className="mt-2 rounded-full bg-orange-500 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-600"
         >
-          Got it
+          {t("onboarding.start")}
         </button>
       </div>
     </div>
@@ -156,8 +171,10 @@ function PrimaryCTA({
   connect: () => void;
   switchToCelo: () => void;
 }) {
+  const { t } = useLocale();
+
   if (isConnecting) {
-    return <p className="text-sm text-zinc-500">Signing in...</p>;
+    return <p className="text-sm text-zinc-500">{t("home.cta.signingIn")}</p>;
   }
 
   if (!isConnected) {
@@ -168,15 +185,11 @@ function PrimaryCTA({
             onClick={connect}
             className="rounded-full bg-zinc-900 px-8 py-4 text-lg font-semibold text-white hover:bg-zinc-800"
           >
-            Sign in to play
+            {t("home.cta.signIn")}
           </button>
         ) : (
           <p className="text-sm text-zinc-700">Connecting to MiniPay...</p>
         )}
-        <p className="text-xs text-zinc-400">
-          You&apos;ll need a crypto wallet. We use it just to keep your
-          progress.
-        </p>
       </div>
     );
   }
@@ -192,24 +205,22 @@ function PrimaryCTA({
           disabled={isSwitchingChain}
           className="rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
         >
-          {isSwitchingChain ? "Switching..." : "Switch to Celo"}
+          {isSwitchingChain
+            ? t("home.cta.switching")
+            : t("home.cta.switchChain")}
         </button>
       </div>
     );
   }
 
-  // Connected and on Celo
   if (!username) {
     return (
       <div className="flex flex-col items-center gap-3">
-        <p className="text-sm text-zinc-700">
-          Almost ready. Pick a name first.
-        </p>
         <Link
           href="/me"
           className="rounded-full bg-orange-500 px-8 py-4 text-lg font-semibold text-white shadow-md hover:bg-orange-600"
         >
-          Pick your name
+          {t("home.cta.pickName")}
         </Link>
       </div>
     );
@@ -218,7 +229,8 @@ function PrimaryCTA({
   return (
     <div className="flex flex-col items-center gap-3">
       <p className="text-sm text-zinc-600">
-        Hey <span className="font-semibold text-zinc-900">@{username}</span>
+        {t("home.hey")}{" "}
+        <span className="font-semibold text-zinc-900">@{username}</span>
       </p>
       <Link
         href="/run"
@@ -228,7 +240,7 @@ function PrimaryCTA({
             : "bg-orange-500 hover:bg-orange-600"
         }`}
       >
-        {hasActiveRun ? "Keep running →" : "Start running"}
+        {hasActiveRun ? `${t("home.cta.continue")} →` : t("home.cta.start")}
       </Link>
     </div>
   );
