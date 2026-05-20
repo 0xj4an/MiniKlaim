@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 
 type PublicProfile = {
   username: string;
+  joinedAt: string;
   hexesOwned: number;
   totalRuns: number;
   bestRunHexes: number;
@@ -131,6 +132,13 @@ export default async function PublicProfilePage({
         <p className="text-2xl font-bold">
           <span className="text-zinc-400">@</span>
           <span>{profile.username}</span>
+        </p>
+        <p className="text-xs text-zinc-500">
+          Joined{" "}
+          {new Date(profile.joinedAt).toLocaleDateString(undefined, {
+            month: "short",
+            year: "numeric",
+          })}
         </p>
       </div>
 

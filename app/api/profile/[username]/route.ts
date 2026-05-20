@@ -17,7 +17,11 @@ export async function GET(
   }
 
   const [user] = await db
-    .select({ address: users.address, username: users.username })
+    .select({
+      address: users.address,
+      username: users.username,
+      createdAt: users.createdAt,
+    })
     .from(users)
     .where(eq(users.username, cleanUsername))
     .limit(1);
@@ -62,6 +66,7 @@ export async function GET(
 
   return NextResponse.json({
     username: user.username,
+    joinedAt: user.createdAt,
     hexesOwned: hexResult[0]?.count ?? 0,
     totalRuns: runResult[0]?.count ?? 0,
     bestRunHexes: bestRun[0]?.hexesClaimed ?? 0,
