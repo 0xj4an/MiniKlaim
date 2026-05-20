@@ -37,6 +37,10 @@ export default function HomePage() {
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
       <h1 className="text-4xl font-bold">MiniKlaim</h1>
       <p className="text-lg text-zinc-600">Run it. Klaim it.</p>
+      <p className="max-w-sm text-sm text-zinc-500">
+        Capture city blocks by running through them. Every step claims a
+        hexagonal tile. Compete for territory across the world.
+      </p>
 
       {globalStats && (
         <p className="text-xs text-zinc-400">
