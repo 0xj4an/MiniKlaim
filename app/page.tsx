@@ -177,6 +177,13 @@ export default function HomePage() {
           </a>
         </div>
       )}
+
+      <Link
+        href="/about"
+        className="mt-4 text-xs text-zinc-400 underline hover:text-zinc-600"
+      >
+        About / Contact
+      </Link>
     </main>
   );
 }
