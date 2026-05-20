@@ -21,6 +21,37 @@ const log = createLogger("page:run");
 
 type GeoStatus = "idle" | "requesting" | "granted" | "denied" | "unavailable";
 
+const POS_CACHE_KEY = "miniklaim.lastPos";
+
+function readCachedPosition(): { lat: number; lng: number } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(POS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { lat: number; lng: number };
+    if (
+      typeof parsed.lat === "number" &&
+      typeof parsed.lng === "number" &&
+      Number.isFinite(parsed.lat) &&
+      Number.isFinite(parsed.lng)
+    ) {
+      return parsed;
+    }
+  } catch {
+    // corrupted cache; ignore
+  }
+  return null;
+}
+
+function writeCachedPosition(lat: number, lng: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(POS_CACHE_KEY, JSON.stringify({ lat, lng }));
+  } catch {
+    // quota exceeded or storage disabled; ignore
+  }
+}
+
 export default function RunPage() {
   const { address, isConnected, isWrongChain } = useWallet();
   const { user } = useUser(isConnected ? address : null);
@@ -36,6 +67,9 @@ export default function RunPage() {
   // Last GPS coordinate seen *during the active run*. Used to compute the
   // haversine segment per tick. Reset to null on Start, set on each fix.
   const lastPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  // Most recent GPS coordinate from any fix, regardless of run state. Used by
+  // the "center on me" button so it works before/after a run too.
+  const latestPosRef = useRef<{ lat: number; lng: number } | null>(null);
   // Distance accumulated since the last successful claim. Sent to the server
   // on the next claim, then reset to 0. Trailing residue at Finish is lost
   // (bounded by hex edge ~50m, acceptable for MVP).
@@ -212,16 +246,26 @@ export default function RunPage() {
 
   useEffect(() => {
     if (!containerRef.current) return;
+
+    // Use last known position from localStorage as initial center if we have
+    // one. Avoids the Bogota → user-pos flash for returning visitors. New
+    // visitors fall back to DEFAULT_CENTER until first GPS fix flies them in.
+    const cached = readCachedPosition();
+    const initialCenter: [number, number] = cached
+      ? [cached.lng, cached.lat]
+      : DEFAULT_CENTER;
+    const initialZoom = cached ? FOLLOW_ZOOM : DEFAULT_ZOOM;
     log.info("initializing map", {
-      center: DEFAULT_CENTER,
-      zoom: DEFAULT_ZOOM,
+      center: initialCenter,
+      zoom: initialZoom,
+      cached: cached !== null,
     });
 
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: DEFAULT_MAP_STYLE,
-      center: DEFAULT_CENTER,
-      zoom: DEFAULT_ZOOM,
+      center: initialCenter,
+      zoom: initialZoom,
       attributionControl: { compact: true },
     });
     mapRef.current = map;
@@ -351,6 +395,9 @@ export default function RunPage() {
           const { latitude, longitude, accuracy } = pos.coords;
           setGeoStatus("granted");
           log.debug("position", { lat: latitude, lng: longitude, accuracy });
+
+          latestPosRef.current = { lat: latitude, lng: longitude };
+          writeCachedPosition(latitude, longitude);
 
           if (firstFix) {
             log.info("first fix", { lat: latitude, lng: longitude });
@@ -487,6 +534,33 @@ export default function RunPage() {
         </div>
       )}
       <GeoStatusBanner status={geoStatus} />
+      <button
+        onClick={() => {
+          const pos = latestPosRef.current;
+          const map = mapRef.current;
+          if (!pos || !map) return;
+          map.flyTo({ center: [pos.lng, pos.lat], zoom: FOLLOW_ZOOM });
+        }}
+        aria-label="Center on my position"
+        className="absolute right-4 bottom-32 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-zinc-800 shadow-md hover:bg-white"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="3" />
+          <line x1="12" y1="2" x2="12" y2="5" />
+          <line x1="12" y1="19" x2="12" y2="22" />
+          <line x1="2" y1="12" x2="5" y2="12" />
+          <line x1="19" y1="12" x2="22" y2="12" />
+        </svg>
+      </button>
       <RunControls
         canStart={!!canStart}
         isActive={isActive}
