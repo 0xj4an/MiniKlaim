@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { type ActivityEntry, useActivity } from "@/lib/useActivity";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { type LeaderboardEntry, useLeaderboard } from "@/lib/useLeaderboard";
 import { useWallet } from "@/lib/wallet/useWallet";
-import { WorldMap } from "./WorldMap";
+
+const WorldMap = dynamic(
+  () => import("./WorldMap").then((m) => m.WorldMap),
+  { ssr: false },
+);
 
 export default function CommunityPage() {
   const { address, isConnected } = useWallet();

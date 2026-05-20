@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
@@ -8,7 +9,11 @@ import { useUserRuns } from "@/lib/wallet/useUserRuns";
 import { type UserStats, useUserStats } from "@/lib/wallet/useUserStats";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { type TokenSymbol } from "@/lib/tokens";
-import { TerritoryMap } from "./TerritoryMap";
+
+const TerritoryMap = dynamic(
+  () => import("./TerritoryMap").then((m) => m.TerritoryMap),
+  { ssr: false },
+);
 
 export default function MePage() {
   const { address, isConnected, isWrongChain, disconnect, isMiniPay } =
