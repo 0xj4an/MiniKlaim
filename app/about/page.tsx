@@ -75,8 +75,16 @@ export default function AboutPage() {
         </p>
       </section>
 
-      <footer className="mt-8 border-t border-zinc-200 pt-6 text-xs text-zinc-400">
-        MiniKlaim is a hobby project. Use at your own risk. No warranty.
+      <footer className="mt-8 flex flex-col gap-2 border-t border-zinc-200 pt-6 text-xs text-zinc-400">
+        <div className="flex gap-4">
+          <Link href="/privacy" className="underline hover:text-zinc-600">
+            Privacy
+          </Link>
+          <Link href="/terms" className="underline hover:text-zinc-600">
+            Terms
+          </Link>
+        </div>
+        <p>MiniKlaim is a hobby project. Use at your own risk. No warranty.</p>
       </footer>
     </main>
   );
