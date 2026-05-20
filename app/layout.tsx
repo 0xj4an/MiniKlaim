@@ -6,6 +6,9 @@ import { wagmiConfig } from "@/lib/wallet/config";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://miniklaim.fun",
+  ),
   title: "MiniKlaim",
   description: "Run it. Klaim it. A territory-capture running game on Celo.",
   openGraph: {
