@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { type ActivityEntry, useActivity } from "@/lib/useActivity";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { type LeaderboardEntry, useLeaderboard } from "@/lib/useLeaderboard";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
@@ -38,6 +39,7 @@ export default function HomePage() {
   const { active: activeRun } = useActiveRun(
     isConnected && !isWrongChain ? address : null,
   );
+  const activity = useActivity(5);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
@@ -63,6 +65,11 @@ export default function HomePage() {
 
       <Leaderboard
         entries={leaderboard}
+        myAddress={isConnected ? address : null}
+      />
+
+      <ActivityFeed
+        entries={activity}
         myAddress={isConnected ? address : null}
       />
 
@@ -268,6 +275,51 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
+}
+
+function ActivityFeed({
+  entries,
+  myAddress,
+}: {
+  entries: ActivityEntry[] | null;
+  myAddress: string | null;
+}) {
+  if (!entries || entries.length === 0) return null;
+  const me = myAddress?.toLowerCase() ?? null;
+  return (
+    <div className="mt-2 flex min-w-[240px] flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-left text-xs">
+      <p className="mb-1 text-center text-[10px] tracking-wide text-zinc-500 uppercase">
+        Recent activity
+      </p>
+      {entries.map((e) => {
+        const name = e.username
+          ? `@${e.username}`
+          : `${e.address.slice(0, 6)}...${e.address.slice(-4)}`;
+        const isMe = me !== null && e.address.toLowerCase() === me;
+        const when = relativeTime(new Date(e.endedAt).getTime());
+        return (
+          <div
+            key={e.id}
+            className={`flex items-center justify-between gap-2 ${isMe ? "font-medium text-zinc-900" : "text-zinc-700"}`}
+          >
+            <span className="flex-1 truncate">{name}</span>
+            <span className="font-mono text-zinc-500">
+              {e.hexesClaimed} hex
+            </span>
+            <span className="text-zinc-400">{when}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function relativeTime(timestamp: number): string {
+  const diffSec = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+  if (diffSec < 60) return `${diffSec}s`;
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h`;
+  return `${Math.floor(diffSec / 86400)}d`;
 }
 
 function Leaderboard({
