@@ -130,9 +130,18 @@ export default function MePage() {
 function CopyProfileLink({ username }: { username: string }) {
   const [copied, setCopied] = useState(false);
 
-  async function onCopy() {
+  async function onShare() {
     if (typeof window === "undefined") return;
     const url = `${window.location.origin}/p/${username}`;
+    const text = `Check my MiniKlaim profile: @${username}`;
+    if (typeof navigator !== "undefined" && "share" in navigator) {
+      try {
+        await navigator.share({ title: "MiniKlaim", text, url });
+        return;
+      } catch {
+        // user cancelled or share unsupported, fall through to copy
+      }
+    }
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
@@ -144,10 +153,10 @@ function CopyProfileLink({ username }: { username: string }) {
 
   return (
     <button
-      onClick={onCopy}
+      onClick={onShare}
       className="text-zinc-400 underline hover:text-zinc-600"
     >
-      {copied ? "copied" : "copy profile link"}
+      {copied ? "copied" : "share profile"}
     </button>
   );
 }
