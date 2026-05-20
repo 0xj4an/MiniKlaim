@@ -4,6 +4,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { type TranslationKey, useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import {
   DEFAULT_CENTER,
@@ -56,9 +57,12 @@ function writeCachedPosition(lat: number, lng: number): void {
 export default function RunPage() {
   const { address, isConnected, isWrongChain } = useWallet();
   const { user } = useUser(isConnected ? address : null);
+  const { t } = useLocale();
   const { active: activeRun, isLoading: isActiveLoading } = useActiveRun(
     isConnected && !isWrongChain ? address : null,
   );
+  const capturedByLabel = t("run.popup.capturedBy");
+  const youLabel = t("run.popup.you");
 
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -383,8 +387,7 @@ export default function RunPage() {
         el.style.fontSize = "13px";
         el.style.padding = "4px 6px";
         el.style.whiteSpace = "nowrap";
-        const prefix = document.createTextNode("Captured by ");
-        el.appendChild(prefix);
+        el.appendChild(document.createTextNode(`${capturedByLabel} `));
         if (props.ownerUsername) {
           const link = document.createElement("a");
           link.href = `/p/${props.ownerUsername}`;
@@ -396,7 +399,7 @@ export default function RunPage() {
           el.appendChild(document.createTextNode(fallback));
         }
         if (props.isMine) {
-          el.appendChild(document.createTextNode(" (you)"));
+          el.appendChild(document.createTextNode(` ${youLabel}`));
         }
         popupRef.current = new maplibregl.Popup({
           closeButton: true,
@@ -535,7 +538,7 @@ export default function RunPage() {
       map.remove();
       mapRef.current = null;
     };
-  }, [claimHex, refreshClaimed]);
+  }, [claimHex, refreshClaimed, capturedByLabel, youLabel]);
 
   const canStart = isConnected && !isWrongChain && address && !isActiveLoading;
   const isActive = runId !== null;
@@ -626,21 +629,22 @@ export default function RunPage() {
 }
 
 function GeoStatusBanner({ status }: { status: GeoStatus }) {
+  const { t } = useLocale();
   if (status === "granted") return null;
   let message: string;
   let tone: string;
   switch (status) {
     case "idle":
     case "requesting":
-      message = "Waiting for GPS...";
+      message = t("run.gps.waiting");
       tone = "bg-white/90 text-zinc-700";
       break;
     case "denied":
-      message = "Location denied. Enable it in browser settings to track runs.";
+      message = t("run.gps.denied");
       tone = "border border-amber-300 bg-amber-50 text-amber-900";
       break;
     case "unavailable":
-      message = "Location unavailable on this device.";
+      message = t("run.gps.unavailable");
       tone = "border border-amber-300 bg-amber-50 text-amber-900";
       break;
   }
@@ -672,6 +676,7 @@ function RunControls({
   onStart: () => void;
   onFinish: () => void;
 }) {
+  const { t } = useLocale();
   if (!isActive) {
     return (
       <div className="absolute right-4 bottom-6 left-4 z-10 flex justify-center">
@@ -680,7 +685,11 @@ function RunControls({
           disabled={!canStart || isBusy}
           className="rounded-full bg-orange-500 px-6 py-3 text-base font-semibold text-white shadow-lg hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-zinc-400"
         >
-          {!canStart ? "Sign in first" : isBusy ? "Starting..." : "Start"}
+          {!canStart
+            ? t("run.start.signIn")
+            : isBusy
+              ? t("run.start.starting")
+              : t("run.start.button")}
         </button>
       </div>
     );
@@ -697,27 +706,26 @@ function RunControls({
         disabled={isBusy}
         className="rounded-full bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-lg hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
       >
-        {isBusy ? "Finishing..." : "Finish"}
+        {isBusy ? t("run.finish.finishing") : t("run.finish.button")}
       </button>
     </div>
   );
 }
 
 function NeedNameOverlay() {
+  const { t } = useLocale();
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="mx-6 flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl bg-white p-6 text-center shadow-2xl">
         <p className="text-sm font-semibold tracking-wide text-zinc-500 uppercase">
-          One more thing
+          {t("run.needName.kicker")}
         </p>
-        <p className="text-base text-zinc-700">
-          Pick a name so people know it&apos;s you on the map.
-        </p>
+        <p className="text-base text-zinc-700">{t("run.needName.body")}</p>
         <Link
           href="/me"
           className="rounded-full bg-orange-500 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-600"
         >
-          Pick your name →
+          {t("run.needName.cta")} →
         </Link>
       </div>
     </div>
@@ -733,6 +741,7 @@ function RunSummaryModal({
   username: string | null;
   onClose: () => void;
 }) {
+  const { t } = useLocale();
   const totalSec = Math.max(0, Math.floor(summary.durationMs / 1000));
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
@@ -752,7 +761,7 @@ function RunSummaryModal({
         onClick={(e) => e.stopPropagation()}
       >
         <p className="text-sm font-semibold tracking-wide text-zinc-500 uppercase">
-          Run complete
+          {t("run.summary.header")}
         </p>
         <div className="grid w-full grid-cols-2 gap-3 text-center">
           <div>
@@ -760,7 +769,7 @@ function RunSummaryModal({
               {timeLabel}
             </div>
             <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
-              Time
+              {t("run.summary.time")}
             </div>
           </div>
           <div>
@@ -768,7 +777,7 @@ function RunSummaryModal({
               {summary.hexesClaimed}
             </div>
             <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
-              Blocks
+              {t("run.summary.blocks")}
             </div>
           </div>
           <div>
@@ -776,7 +785,7 @@ function RunSummaryModal({
               {distLabel}
             </div>
             <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
-              Dist
+              {t("run.summary.dist")}
             </div>
           </div>
           <div>
@@ -784,22 +793,22 @@ function RunSummaryModal({
               {paceLabel.replace("/km", "")}
             </div>
             <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
-              Pace /km
+              {t("run.summary.pace")}
             </div>
           </div>
         </div>
         <div className="mt-2 flex gap-3">
           <button
-            onClick={() => shareRun(summary, timeLabel, distLabel, username)}
+            onClick={() => shareRun(summary, timeLabel, distLabel, username, t)}
             className="rounded-full border border-zinc-300 bg-white px-6 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
           >
-            Share
+            {t("run.summary.share")}
           </button>
           <button
             onClick={onClose}
             className="rounded-full bg-orange-500 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-600"
           >
-            Done
+            {t("run.summary.done")}
           </button>
         </div>
       </div>
@@ -812,10 +821,13 @@ async function shareRun(
   timeLabel: string,
   distLabel: string,
   username: string | null,
+  t: (key: TranslationKey) => string,
 ): Promise<void> {
-  const text = `Just captured ${summary.hexesClaimed} ${
-    summary.hexesClaimed === 1 ? "block" : "blocks"
-  } in ${timeLabel} on MiniKlaim. ${distLabel} run.`;
+  const captured =
+    summary.hexesClaimed === 1
+      ? t("run.share.text.one")
+      : t("run.share.text.many").replace("{n}", String(summary.hexesClaimed));
+  const text = `${captured} ${t("run.share.text.suffix")} ${timeLabel} - ${distLabel} ${t("run.share.text.run")}`;
   const origin =
     typeof window !== "undefined"
       ? window.location.origin
@@ -845,6 +857,7 @@ function ElapsedBanner({
   hexCount: number;
   distanceMeters: number;
 }) {
+  const { t } = useLocale();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now()), 1000);
@@ -864,8 +877,9 @@ function ElapsedBanner({
     <div className="rounded-md bg-white/95 px-4 py-2 text-center shadow-md backdrop-blur">
       <div className="font-mono text-xl font-bold text-zinc-900">{time}</div>
       <div className="text-xs text-zinc-600">
-        {hexCount} {hexCount === 1 ? "block" : "blocks"} · {distLabel} ·{" "}
-        {paceLabel}
+        {hexCount}{" "}
+        {hexCount === 1 ? t("run.banner.block") : t("run.banner.blocks")} ·{" "}
+        {distLabel} · {paceLabel}
       </div>
     </div>
   );
