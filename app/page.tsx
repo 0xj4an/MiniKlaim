@@ -9,7 +9,7 @@ import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
 import { type UserRun, useUserRuns } from "@/lib/wallet/useUserRuns";
-import { useUserStats } from "@/lib/wallet/useUserStats";
+import { type UserStats, useUserStats } from "@/lib/wallet/useUserStats";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { type TokenSymbol } from "@/lib/tokens";
 
@@ -146,6 +146,8 @@ export default function HomePage() {
               </button>
             </div>
           )}
+
+          {!isWrongChain && stats && <Achievements stats={stats} />}
 
           {!isWrongChain && <RecentRuns runs={recentRuns} />}
 
@@ -409,6 +411,75 @@ function Leaderboard({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+type Achievement = {
+  key: string;
+  name: string;
+  desc: string;
+  unlocked: boolean;
+};
+
+function buildAchievements(stats: UserStats): Achievement[] {
+  return [
+    {
+      key: "first-steps",
+      name: "First Steps",
+      desc: "Finish your first run",
+      unlocked: stats.totalRuns >= 1,
+    },
+    {
+      key: "hex-hunter",
+      name: "Hex Hunter",
+      desc: "Own 5 hexes",
+      unlocked: stats.hexesOwned >= 5,
+    },
+    {
+      key: "territorial",
+      name: "Territorial",
+      desc: "Own 20 hexes",
+      unlocked: stats.hexesOwned >= 20,
+    },
+    {
+      key: "streak-3",
+      name: "Streak Starter",
+      desc: "3 days in a row",
+      unlocked: stats.streak >= 3,
+    },
+    {
+      key: "streak-7",
+      name: "Weeklong",
+      desc: "7 days in a row",
+      unlocked: stats.streak >= 7,
+    },
+    {
+      key: "big-run",
+      name: "Sweep",
+      desc: "Claim 5 hexes in one run",
+      unlocked: stats.bestRunHexes >= 5,
+    },
+  ];
+}
+
+function Achievements({ stats }: { stats: UserStats }) {
+  const achievements = buildAchievements(stats);
+  const unlockedCount = achievements.filter((a) => a.unlocked).length;
+  return (
+    <div className="mt-3 flex min-w-[200px] flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-left text-xs">
+      <p className="mb-1 text-center text-[10px] tracking-wide text-zinc-500 uppercase">
+        Achievements ({unlockedCount}/{achievements.length})
+      </p>
+      {achievements.map((a) => (
+        <div
+          key={a.key}
+          className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-400"}`}
+        >
+          <span className={a.unlocked ? "font-semibold" : ""}>{a.name}</span>
+          <span className="text-[10px] text-zinc-500">{a.desc}</span>
+        </div>
+      ))}
     </div>
   );
 }
