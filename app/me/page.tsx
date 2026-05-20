@@ -127,6 +127,31 @@ export default function MePage() {
   );
 }
 
+function CopyProfileLink({ username }: { username: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function onCopy() {
+    if (typeof window === "undefined") return;
+    const url = `${window.location.origin}/p/${username}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore clipboard error
+    }
+  }
+
+  return (
+    <button
+      onClick={onCopy}
+      className="text-zinc-400 underline hover:text-zinc-600"
+    >
+      {copied ? "copied" : "copy profile link"}
+    </button>
+  );
+}
+
 function BigStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex flex-col items-center">
@@ -148,20 +173,25 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
   }
   if (user?.username && !isEditing) {
     return (
-      <p className="text-2xl font-bold">
-        <span className="text-zinc-400">@</span>
-        <span>{user.username}</span>
-        <button
-          onClick={() => {
-            setInput(user.username ?? "");
-            setError(null);
-            setIsEditing(true);
-          }}
-          className="ml-3 text-xs font-normal text-zinc-400 underline hover:text-zinc-600"
-        >
-          change name
-        </button>
-      </p>
+      <div className="flex flex-col items-center gap-1">
+        <p className="text-2xl font-bold">
+          <span className="text-zinc-400">@</span>
+          <span>{user.username}</span>
+        </p>
+        <div className="flex items-center gap-3 text-xs">
+          <button
+            onClick={() => {
+              setInput(user.username ?? "");
+              setError(null);
+              setIsEditing(true);
+            }}
+            className="text-zinc-400 underline hover:text-zinc-600"
+          >
+            change name
+          </button>
+          <CopyProfileLink username={user.username} />
+        </div>
+      </div>
     );
   }
 
