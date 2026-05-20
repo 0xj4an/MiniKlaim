@@ -36,10 +36,9 @@ export default function PrivacyPage() {
             Your runner name (optional, the alias you pick on the home page).
           </li>
           <li>
-            The H3 hex tiles you claim, with timestamps and which run claimed
-            them.
+            The blocks you capture, with timestamps and which run captured them.
           </li>
-          <li>Run records (start time, end time, hex count, distance).</li>
+          <li>Run records (start time, end time, block count, distance).</li>
         </ul>
       </section>
 
@@ -49,8 +48,8 @@ export default function PrivacyPage() {
         </h2>
         <ul className="ml-6 list-disc">
           <li>
-            Raw GPS tracks. We only persist the H3 hex IDs you crossed, not the
-            polyline of your run.
+            Raw GPS tracks. We only save which blocks you crossed, not the full
+            line of where you ran.
           </li>
           <li>
             Your phone number, email, real name, or any off-chain identity
@@ -85,8 +84,8 @@ export default function PrivacyPage() {
           >
             @0xj4an on X
           </a>{" "}
-          with your wallet address. We will remove your user row and your
-          claimed hex rows within 7 days.
+          with your wallet address. We will remove your account and your
+          captured blocks within 7 days.
         </p>
       </section>
 

@@ -25,8 +25,8 @@ export default function TermsPage() {
         <h2 className="text-lg font-semibold text-zinc-900">What it is</h2>
         <p>
           MiniKlaim is a hobby running game. You connect a wallet, you run
-          through hexagonal tiles on a map, and the tiles become yours until
-          someone else claims them.
+          through blocks on a map, and the blocks become yours until someone
+          else claims them.
         </p>
       </section>
 
@@ -44,7 +44,7 @@ export default function TermsPage() {
         <p>
           Pay attention to your surroundings. The game shows you a map; the
           street is the source of truth. Do not run while staring at your phone.
-          Do not run in dangerous areas because a hex looks tempting.
+          Do not run in dangerous areas because a block looks tempting.
         </p>
       </section>
 
