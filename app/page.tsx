@@ -38,18 +38,22 @@ export default function HomePage() {
           </p>
         </div>
 
-        {globalStats && (
-          <p className="text-xs text-zinc-400">
-            <span className="font-semibold text-zinc-600">
-              {globalStats.totalHexes}
-            </span>{" "}
-            blocks captured ·{" "}
-            <span className="font-semibold text-zinc-600">
-              {globalStats.totalPlayers}
-            </span>{" "}
-            {globalStats.totalPlayers === 1 ? "player" : "players"}
-          </p>
-        )}
+        <p className="text-xs text-zinc-400">
+          {globalStats ? (
+            <>
+              <span className="font-semibold text-zinc-600">
+                {globalStats.totalHexes}
+              </span>{" "}
+              blocks captured ·{" "}
+              <span className="font-semibold text-zinc-600">
+                {globalStats.totalPlayers}
+              </span>{" "}
+              {globalStats.totalPlayers === 1 ? "player" : "players"}
+            </>
+          ) : (
+            <span className="opacity-0">.</span>
+          )}
+        </p>
 
         <PrimaryCTA
           isConnected={isConnected}
