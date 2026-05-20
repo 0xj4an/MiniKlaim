@@ -12,7 +12,7 @@ export async function GET(
   const { address } = await params;
   const lower = address.toLowerCase();
 
-  const [hexResult, runResult, bestRun, rankResult, runDays] =
+  const [hexResult, runResult, bestRun, bestRunDist, rankResult, runDays] =
     await Promise.all([
       db
         .select({ count: count() })
@@ -27,6 +27,12 @@ export async function GET(
         .from(runs)
         .where(eq(runs.userAddress, lower))
         .orderBy(desc(runs.hexesClaimed))
+        .limit(1),
+      db
+        .select({ distanceMeters: runs.distanceMeters })
+        .from(runs)
+        .where(eq(runs.userAddress, lower))
+        .orderBy(desc(runs.distanceMeters))
         .limit(1),
       db.execute(sql`
       SELECT (
@@ -57,6 +63,7 @@ export async function GET(
     hexesOwned: hexResult[0]?.count ?? 0,
     totalRuns: runResult[0]?.count ?? 0,
     bestRunHexes: bestRun[0]?.hexesClaimed ?? 0,
+    bestRunDistanceMeters: bestRunDist[0]?.distanceMeters ?? 0,
     rank,
     streak,
   });

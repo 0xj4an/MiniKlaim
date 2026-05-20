@@ -9,6 +9,7 @@ export type UserStats = {
   hexesOwned: number;
   totalRuns: number;
   bestRunHexes: number;
+  bestRunDistanceMeters: number;
   rank: number;
   streak: number;
 };

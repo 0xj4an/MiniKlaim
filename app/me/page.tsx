@@ -250,6 +250,12 @@ function buildAchievements(stats: UserStats): Achievement[] {
       unlocked: stats.hexesOwned >= 20,
     },
     {
+      key: "hundred",
+      name: "Hundred",
+      desc: "Own 100 blocks",
+      unlocked: stats.hexesOwned >= 100,
+    },
+    {
       key: "streak-3",
       name: "Three days",
       desc: "3 days in a row",
@@ -262,10 +268,28 @@ function buildAchievements(stats: UserStats): Achievement[] {
       unlocked: stats.streak >= 7,
     },
     {
+      key: "streak-14",
+      name: "Two weeks",
+      desc: "14 days in a row",
+      unlocked: stats.streak >= 14,
+    },
+    {
       key: "big-run",
       name: "Big run",
       desc: "5 blocks in one run",
       unlocked: stats.bestRunHexes >= 5,
+    },
+    {
+      key: "marathon",
+      name: "Marathon",
+      desc: "10 km in one run",
+      unlocked: stats.bestRunDistanceMeters >= 10000,
+    },
+    {
+      key: "iron",
+      name: "Iron",
+      desc: "Finish 50 runs",
+      unlocked: stats.totalRuns >= 50,
     },
   ];
 }
