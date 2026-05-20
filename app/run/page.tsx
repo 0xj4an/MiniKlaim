@@ -613,6 +613,7 @@ export default function RunPage() {
       {lastFinishedRun && (
         <RunSummaryModal
           summary={lastFinishedRun}
+          username={user?.username ?? null}
           onClose={() => setLastFinishedRun(null)}
         />
       )}
@@ -724,9 +725,11 @@ function NeedNameOverlay() {
 
 function RunSummaryModal({
   summary,
+  username,
   onClose,
 }: {
   summary: { durationMs: number; hexesClaimed: number; distanceMeters: number };
+  username: string | null;
   onClose: () => void;
 }) {
   const totalSec = Math.max(0, Math.floor(summary.durationMs / 1000));
@@ -786,7 +789,7 @@ function RunSummaryModal({
         </div>
         <div className="mt-2 flex gap-3">
           <button
-            onClick={() => shareRun(summary, timeLabel, distLabel)}
+            onClick={() => shareRun(summary, timeLabel, distLabel, username)}
             className="rounded-full border border-zinc-300 bg-white px-6 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
           >
             Share
@@ -807,11 +810,16 @@ async function shareRun(
   summary: { durationMs: number; hexesClaimed: number; distanceMeters: number },
   timeLabel: string,
   distLabel: string,
+  username: string | null,
 ): Promise<void> {
   const text = `Just captured ${summary.hexesClaimed} ${
     summary.hexesClaimed === 1 ? "block" : "blocks"
   } in ${timeLabel} on MiniKlaim. ${distLabel} run.`;
-  const url = "https://www.miniklaim.fun";
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "https://www.miniklaim.fun";
+  const url = username ? `${origin}/p/${username}` : origin;
 
   if (typeof navigator !== "undefined" && "share" in navigator) {
     try {
