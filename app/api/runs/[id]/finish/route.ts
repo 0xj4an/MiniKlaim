@@ -23,6 +23,7 @@ export async function PATCH(
       startedAt: runs.startedAt,
       endedAt: runs.endedAt,
       hexesClaimed: runs.hexesClaimed,
+      distanceMeters: runs.distanceMeters,
     });
 
   if (!updated) {

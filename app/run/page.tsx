@@ -81,6 +81,11 @@ export default function RunPage() {
   const [distanceMeters, setDistanceMeters] = useState(0);
   const [runStartTime, setRunStartTime] = useState<number | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [lastFinishedRun, setLastFinishedRun] = useState<{
+    durationMs: number;
+    hexesClaimed: number;
+    distanceMeters: number;
+  } | null>(null);
   // Gate any wallet-dependent UI so SSR and first-client-render emit the
   // same tree. Without this the wallet badge appears on SSR (cookie state)
   // but not on the first client render, shifting siblings and forcing
@@ -230,8 +235,23 @@ export default function RunPage() {
         log.error("finish run failed", { status: res.status });
         return;
       }
-      const data = (await res.json()) as { hexesClaimed: number };
-      log.info("run finished", { id, hexesClaimed: data.hexesClaimed });
+      const data = (await res.json()) as {
+        hexesClaimed: number;
+        distanceMeters: number;
+        startedAt: string;
+        endedAt: string;
+      };
+      log.info("run finished", {
+        id,
+        hexesClaimed: data.hexesClaimed,
+        distanceMeters: data.distanceMeters,
+      });
+      setLastFinishedRun({
+        durationMs:
+          new Date(data.endedAt).getTime() - new Date(data.startedAt).getTime(),
+        hexesClaimed: data.hexesClaimed,
+        distanceMeters: data.distanceMeters,
+      });
       setRunId(null);
       setHexCount(0);
       setDistanceMeters(0);
@@ -571,6 +591,12 @@ export default function RunPage() {
         onStart={startRun}
         onFinish={finishRun}
       />
+      {lastFinishedRun && (
+        <RunSummaryModal
+          summary={lastFinishedRun}
+          onClose={() => setLastFinishedRun(null)}
+        />
+      )}
     </main>
   );
 }
@@ -653,6 +679,70 @@ function RunControls({
       >
         {isBusy ? "Finishing..." : "Finish Run"}
       </button>
+    </div>
+  );
+}
+
+function RunSummaryModal({
+  summary,
+  onClose,
+}: {
+  summary: { durationMs: number; hexesClaimed: number; distanceMeters: number };
+  onClose: () => void;
+}) {
+  const totalSec = Math.max(0, Math.floor(summary.durationMs / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  const timeLabel = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  const distLabel =
+    summary.distanceMeters >= 1000
+      ? `${(summary.distanceMeters / 1000).toFixed(2)} km`
+      : `${summary.distanceMeters} m`;
+  return (
+    <div
+      className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="mx-6 flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-sm font-semibold tracking-wide text-zinc-500 uppercase">
+          Run complete
+        </p>
+        <div className="grid w-full grid-cols-3 gap-2 text-center">
+          <div>
+            <div className="font-mono text-2xl font-bold text-zinc-900">
+              {timeLabel}
+            </div>
+            <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
+              Time
+            </div>
+          </div>
+          <div>
+            <div className="font-mono text-2xl font-bold text-zinc-900">
+              {summary.hexesClaimed}
+            </div>
+            <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
+              Hexes
+            </div>
+          </div>
+          <div>
+            <div className="font-mono text-2xl font-bold text-zinc-900">
+              {distLabel}
+            </div>
+            <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
+              Dist
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="mt-2 rounded-full bg-orange-500 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+        >
+          Done
+        </button>
+      </div>
     </div>
   );
 }
