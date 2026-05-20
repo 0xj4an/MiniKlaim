@@ -1,17 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { type ActivityEntry, useActivity } from "@/lib/useActivity";
 import { useGlobalStats } from "@/lib/useGlobalStats";
-import { type LeaderboardEntry, useLeaderboard } from "@/lib/useLeaderboard";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
-import { type Balance, useBalances } from "@/lib/wallet/useBalances";
-import { type UseUser, useUser } from "@/lib/wallet/useUser";
-import { type UserRun, useUserRuns } from "@/lib/wallet/useUserRuns";
-import { type UserStats, useUserStats } from "@/lib/wallet/useUserStats";
+import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
-import { type TokenSymbol } from "@/lib/tokens";
 
 export default function HomePage() {
   const {
@@ -23,526 +16,160 @@ export default function HomePage() {
     isSwitchingChain,
     chainId,
     connect,
-    disconnect,
     switchToCelo,
   } = useWallet();
 
-  const balances = useBalances(address, isConnected && !isWrongChain);
-  const userInfo = useUser(isConnected ? address : null);
-  const stats = useUserStats(isConnected && !isWrongChain ? address : null);
-  const recentRuns = useUserRuns(
-    isConnected && !isWrongChain ? address : null,
-    3,
-  );
-  const globalStats = useGlobalStats();
-  const leaderboard = useLeaderboard(5);
+  const { user } = useUser(isConnected ? address : null);
   const { active: activeRun } = useActiveRun(
     isConnected && !isWrongChain ? address : null,
   );
-  const activity = useActivity(5);
+  const globalStats = useGlobalStats();
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-      <h1 className="text-4xl font-bold">MiniKlaim</h1>
-      <p className="text-lg text-zinc-600">Run it. Klaim it.</p>
-      <p className="max-w-sm text-sm text-zinc-500">
-        Capture city blocks by running through them. Every step claims a
-        hexagonal tile. Compete for territory across the world.
-      </p>
-
-      {globalStats && (
-        <p className="text-xs text-zinc-400">
-          <span className="font-semibold text-zinc-600">
-            {globalStats.totalHexes}
-          </span>{" "}
-          hexes claimed worldwide ·{" "}
-          <span className="font-semibold text-zinc-600">
-            {globalStats.totalPlayers}
-          </span>{" "}
-          {globalStats.totalPlayers === 1 ? "player" : "players"}
-        </p>
-      )}
-
-      <Leaderboard
-        entries={leaderboard}
-        myAddress={isConnected ? address : null}
-      />
-
-      <ActivityFeed
-        entries={activity}
-        myAddress={isConnected ? address : null}
-      />
-
-      {isConnecting && <p className="text-sm text-zinc-500">Connecting...</p>}
-
-      {isConnected && address && (
-        <div className="flex flex-col items-center gap-1">
-          <p className="text-sm text-zinc-700">Connected</p>
-          <UsernameBlock userInfo={userInfo} />
-
-          {stats && !isWrongChain && (
-            <div className="mt-2 flex gap-3 text-xs text-zinc-600">
-              <span>
-                <span className="font-semibold text-zinc-900">
-                  {stats.hexesOwned}
-                </span>{" "}
-                owned
-              </span>
-              <span className="text-zinc-300">·</span>
-              <span>
-                <span className="font-semibold text-zinc-900">
-                  {stats.totalRuns}
-                </span>{" "}
-                runs
-              </span>
-              {stats.bestRunHexes > 0 && (
-                <>
-                  <span className="text-zinc-300">·</span>
-                  <span>
-                    best{" "}
-                    <span className="font-semibold text-zinc-900">
-                      {stats.bestRunHexes}
-                    </span>
-                  </span>
-                </>
-              )}
-              {stats.hexesOwned > 0 && (
-                <>
-                  <span className="text-zinc-300">·</span>
-                  <span>
-                    rank{" "}
-                    <span className="font-semibold text-zinc-900">
-                      #{stats.rank}
-                    </span>
-                  </span>
-                </>
-              )}
-              {stats.streak > 0 && (
-                <>
-                  <span className="text-zinc-300">·</span>
-                  <span>
-                    <span className="font-semibold text-zinc-900">
-                      {stats.streak}
-                    </span>
-                    {stats.streak === 1 ? " day" : " days"}
-                  </span>
-                </>
-              )}
-            </div>
-          )}
-
-          {isWrongChain && (
-            <div className="mt-3 flex flex-col items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
-              <p className="text-sm text-amber-900">
-                Wrong network. Currently on chain {chainId}, MiniKlaim runs on
-                Celo (42220).
-              </p>
-              <button
-                onClick={switchToCelo}
-                disabled={isSwitchingChain}
-                className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
-              >
-                {isSwitchingChain ? "Switching..." : "Switch to Celo"}
-              </button>
-            </div>
-          )}
-
-          {!isWrongChain && stats && <Achievements stats={stats} />}
-
-          {!isWrongChain && <RecentRuns runs={recentRuns} />}
-
-          {!isWrongChain && (
-            <div className="mt-3 flex min-w-[200px] flex-col items-stretch gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-left text-xs">
-              <p className="mb-1 text-center text-[10px] tracking-wide text-zinc-500 uppercase">
-                Balances
-              </p>
-              {balances.isLoading ? (
-                <p className="text-center text-zinc-400">Loading...</p>
-              ) : balances.isError ? (
-                <p className="text-center text-red-600">
-                  Failed to load balances
-                </p>
-              ) : (
-                <>
-                  <BalanceRow symbol="USDm" balance={balances.USDm} />
-                  <BalanceRow symbol="USDC" balance={balances.USDC} />
-                  <BalanceRow symbol="USDT" balance={balances.USDT} />
-                </>
-              )}
-            </div>
-          )}
-
-          {!isWrongChain && (
-            <Link
-              href="/run"
-              className={`mt-3 rounded-md px-4 py-2 text-sm font-medium text-white ${
-                activeRun
-                  ? "bg-red-600 hover:bg-red-700"
-                  : "bg-zinc-900 hover:bg-zinc-800"
-              }`}
-            >
-              {activeRun ? "Continue Run →" : "Start Run"}
-            </Link>
-          )}
-
-          {!isMiniPay && (
-            <button
-              onClick={disconnect}
-              className="mt-2 text-xs text-zinc-500 underline"
-            >
-              Disconnect
-            </button>
-          )}
+    <main className="flex min-h-screen flex-col items-center justify-between px-6 py-12">
+      <div className="flex w-full max-w-md flex-col items-center gap-6 text-center">
+        <div className="flex flex-col items-center gap-2">
+          <h1 className="text-5xl font-bold">MiniKlaim</h1>
+          <p className="text-lg text-zinc-700">
+            Run the city. The blocks you cross are yours.
+          </p>
         </div>
-      )}
 
-      {!isConnected && !isConnecting && (
-        <div className="flex flex-col items-center gap-3">
-          {!isMiniPay ? (
-            <>
-              <button
-                onClick={connect}
-                className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-              >
-                Connect Wallet
-              </button>
-              <p className="text-xs text-zinc-400">
-                Running outside MiniPay. Will use any injected wallet (MetaMask,
-                Rabby, MiniPay extension, etc.)
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-zinc-700">Connecting to MiniPay...</p>
-          )}
-          <a
-            href="https://play.google.com/store/apps/details?id=com.opera.minipay"
-            className="text-xs text-blue-600 underline"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Get MiniPay
-          </a>
-        </div>
-      )}
+        {globalStats && (
+          <p className="text-xs text-zinc-400">
+            <span className="font-semibold text-zinc-600">
+              {globalStats.totalHexes}
+            </span>{" "}
+            blocks captured ·{" "}
+            <span className="font-semibold text-zinc-600">
+              {globalStats.totalPlayers}
+            </span>{" "}
+            {globalStats.totalPlayers === 1 ? "player" : "players"}
+          </p>
+        )}
 
-      <Link
-        href="/about"
-        className="mt-4 text-xs text-zinc-400 underline hover:text-zinc-600"
-      >
-        About / Contact
-      </Link>
+        <PrimaryCTA
+          isConnected={isConnected}
+          isConnecting={isConnecting}
+          isMiniPay={isMiniPay}
+          isWrongChain={isWrongChain}
+          isSwitchingChain={isSwitchingChain}
+          chainId={chainId}
+          username={user?.username ?? null}
+          hasActiveRun={activeRun !== null}
+          connect={connect}
+          switchToCelo={switchToCelo}
+        />
+      </div>
+
+      <nav className="flex gap-6 text-xs text-zinc-400">
+        {isConnected && (
+          <Link href="/me" className="underline hover:text-zinc-700">
+            You
+          </Link>
+        )}
+        <Link href="/community" className="underline hover:text-zinc-700">
+          Community
+        </Link>
+        <Link href="/about" className="underline hover:text-zinc-700">
+          Help
+        </Link>
+      </nav>
     </main>
   );
 }
 
-function BalanceRow({
-  symbol,
-  balance,
+function PrimaryCTA({
+  isConnected,
+  isConnecting,
+  isMiniPay,
+  isWrongChain,
+  isSwitchingChain,
+  chainId,
+  username,
+  hasActiveRun,
+  connect,
+  switchToCelo,
 }: {
-  symbol: TokenSymbol;
-  balance: Balance | null;
+  isConnected: boolean;
+  isConnecting: boolean;
+  isMiniPay: boolean;
+  isWrongChain: boolean;
+  isSwitchingChain: boolean;
+  chainId: number | null;
+  username: string | null;
+  hasActiveRun: boolean;
+  connect: () => void;
+  switchToCelo: () => void;
 }) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-0.5 font-mono">
-      <span className="text-zinc-600">{symbol}</span>
-      <span className="text-zinc-900">
-        {balance ? formatAmount(balance.formatted) : "..."}
-      </span>
-    </div>
-  );
-}
-
-function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
-  const { user, isLoading, setUsername } = userInfo;
-  const [input, setInput] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-
-  if (isLoading) {
-    return <p className="text-xs text-zinc-400">Loading runner name...</p>;
+  if (isConnecting) {
+    return <p className="text-sm text-zinc-500">Signing in...</p>;
   }
-  if (user?.username && !isEditing) {
+
+  if (!isConnected) {
     return (
-      <p className="text-sm text-zinc-900">
-        <span className="text-zinc-400">@</span>
-        <span className="font-medium">{user.username}</span>
-        <button
-          onClick={() => {
-            setInput(user.username ?? "");
-            setError(null);
-            setIsEditing(true);
-          }}
-          className="ml-2 text-xs text-zinc-400 underline hover:text-zinc-600"
-        >
-          edit
-        </button>
-      </p>
+      <div className="flex flex-col items-center gap-2">
+        {!isMiniPay ? (
+          <button
+            onClick={connect}
+            className="rounded-full bg-zinc-900 px-8 py-4 text-lg font-semibold text-white hover:bg-zinc-800"
+          >
+            Sign in to play
+          </button>
+        ) : (
+          <p className="text-sm text-zinc-700">Connecting to MiniPay...</p>
+        )}
+        <p className="text-xs text-zinc-400">
+          You&apos;ll need a crypto wallet. We use it just to keep your
+          progress.
+        </p>
+      </div>
     );
   }
 
-  async function onSave() {
-    if (!input.trim()) return;
-    setIsSaving(true);
-    setError(null);
-    const result = await setUsername(input.trim());
-    setIsSaving(false);
-    if (result.ok) {
-      setInput("");
-      setIsEditing(false);
-    } else {
-      setError(result.error ?? "unknown error");
-    }
+  if (isWrongChain) {
+    return (
+      <div className="flex flex-col items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-5 py-4">
+        <p className="text-sm text-amber-900">
+          Wrong network. You&apos;re on chain {chainId}, MiniKlaim runs on Celo.
+        </p>
+        <button
+          onClick={switchToCelo}
+          disabled={isSwitchingChain}
+          className="rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+        >
+          {isSwitchingChain ? "Switching..." : "Switch to Celo"}
+        </button>
+      </div>
+    );
   }
 
+  // Connected and on Celo
   return (
-    <div className="mt-2 flex flex-col items-center gap-1">
-      <p className="text-xs text-zinc-500">
-        {user?.username ? "Change runner name" : "Pick a runner name"}
-      </p>
-      <div className="flex items-center gap-1">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="runner_name"
-          maxLength={20}
-          disabled={isSaving}
-          className="w-32 rounded-md border border-zinc-300 px-2 py-1 text-xs focus:border-zinc-500 focus:outline-none disabled:opacity-50"
-        />
-        <button
-          onClick={onSave}
-          disabled={isSaving || !input.trim()}
-          className="rounded-md bg-zinc-900 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-800 disabled:bg-zinc-400"
-        >
-          {isSaving ? "..." : "Save"}
-        </button>
-        {isEditing && (
-          <button
-            onClick={() => {
-              setIsEditing(false);
-              setInput("");
-              setError(null);
-            }}
-            disabled={isSaving}
-            className="text-xs text-zinc-500 underline hover:text-zinc-700"
-          >
-            cancel
-          </button>
-        )}
-      </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
-    </div>
-  );
-}
-
-function ActivityFeed({
-  entries,
-  myAddress,
-}: {
-  entries: ActivityEntry[] | null;
-  myAddress: string | null;
-}) {
-  if (!entries || entries.length === 0) return null;
-  const me = myAddress?.toLowerCase() ?? null;
-  return (
-    <div className="mt-2 flex min-w-[240px] flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-left text-xs">
-      <p className="mb-1 text-center text-[10px] tracking-wide text-zinc-500 uppercase">
-        Recent activity
-      </p>
-      {entries.map((e) => {
-        const name = e.username
-          ? `@${e.username}`
-          : `${e.address.slice(0, 6)}...${e.address.slice(-4)}`;
-        const isMe = me !== null && e.address.toLowerCase() === me;
-        const when = relativeTime(new Date(e.endedAt).getTime());
-        return (
-          <div
-            key={e.id}
-            className={`flex items-center justify-between gap-2 ${isMe ? "font-medium text-zinc-900" : "text-zinc-700"}`}
-          >
-            <span className="flex-1 truncate">{name}</span>
-            <span className="font-mono text-zinc-500">
-              {e.hexesClaimed} hex
-            </span>
-            <span className="text-zinc-400">{when}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function relativeTime(timestamp: number): string {
-  const diffSec = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
-  if (diffSec < 60) return `${diffSec}s`;
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`;
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h`;
-  return `${Math.floor(diffSec / 86400)}d`;
-}
-
-function Leaderboard({
-  entries,
-  myAddress,
-}: {
-  entries: LeaderboardEntry[] | null;
-  myAddress: string | null;
-}) {
-  if (!entries || entries.length === 0) return null;
-  const me = myAddress?.toLowerCase() ?? null;
-  return (
-    <div className="mt-2 flex min-w-[240px] flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-left text-xs">
-      <p className="mb-1 text-center text-[10px] tracking-wide text-zinc-500 uppercase">
-        Leaderboard
-      </p>
-      {entries.map((e, i) => {
-        const name = e.username
-          ? `@${e.username}`
-          : `${e.address.slice(0, 6)}...${e.address.slice(-4)}`;
-        const isMe = me !== null && e.address.toLowerCase() === me;
-        return (
-          <div
-            key={e.address}
-            className={`flex items-center justify-between gap-3 ${isMe ? "font-semibold text-zinc-900" : "text-zinc-700"}`}
-          >
-            <span className="w-6 text-zinc-400">#{i + 1}</span>
-            <span className="flex-1 truncate">{name}</span>
-            <span className="font-mono">{e.hexCount}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-type Achievement = {
-  key: string;
-  name: string;
-  desc: string;
-  unlocked: boolean;
-};
-
-function buildAchievements(stats: UserStats): Achievement[] {
-  return [
-    {
-      key: "first-steps",
-      name: "First Steps",
-      desc: "Finish your first run",
-      unlocked: stats.totalRuns >= 1,
-    },
-    {
-      key: "hex-hunter",
-      name: "Hex Hunter",
-      desc: "Own 5 hexes",
-      unlocked: stats.hexesOwned >= 5,
-    },
-    {
-      key: "territorial",
-      name: "Territorial",
-      desc: "Own 20 hexes",
-      unlocked: stats.hexesOwned >= 20,
-    },
-    {
-      key: "streak-3",
-      name: "Streak Starter",
-      desc: "3 days in a row",
-      unlocked: stats.streak >= 3,
-    },
-    {
-      key: "streak-7",
-      name: "Weeklong",
-      desc: "7 days in a row",
-      unlocked: stats.streak >= 7,
-    },
-    {
-      key: "big-run",
-      name: "Sweep",
-      desc: "Claim 5 hexes in one run",
-      unlocked: stats.bestRunHexes >= 5,
-    },
-  ];
-}
-
-function Achievements({ stats }: { stats: UserStats }) {
-  const achievements = buildAchievements(stats);
-  const unlockedCount = achievements.filter((a) => a.unlocked).length;
-  return (
-    <div className="mt-3 flex min-w-[200px] flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-left text-xs">
-      <p className="mb-1 text-center text-[10px] tracking-wide text-zinc-500 uppercase">
-        Achievements ({unlockedCount}/{achievements.length})
-      </p>
-      {achievements.map((a) => (
-        <div
-          key={a.key}
-          className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-400"}`}
-        >
-          <span className={a.unlocked ? "font-semibold" : ""}>{a.name}</span>
-          <span className="text-[10px] text-zinc-500">{a.desc}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function RecentRuns({ runs }: { runs: UserRun[] | null }) {
-  if (!runs || runs.length === 0) return null;
-  return (
-    <div className="mt-3 flex min-w-[200px] flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-left text-xs">
-      <p className="mb-1 text-center text-[10px] tracking-wide text-zinc-500 uppercase">
-        Recent runs
-      </p>
-      {runs.map((run) => (
-        <RunRow key={run.id} run={run} />
-      ))}
+    <div className="flex flex-col items-center gap-3">
+      {username && (
+        <p className="text-sm text-zinc-600">
+          Hey <span className="font-semibold text-zinc-900">@{username}</span>
+        </p>
+      )}
       <Link
-        href="/runs"
-        className="mt-1 text-center text-[10px] text-zinc-500 underline hover:text-zinc-700"
+        href="/run"
+        className={`rounded-full px-8 py-4 text-lg font-semibold text-white shadow-md ${
+          hasActiveRun
+            ? "bg-red-600 hover:bg-red-700"
+            : "bg-orange-500 hover:bg-orange-600"
+        }`}
       >
-        View all runs →
+        {hasActiveRun ? "Keep running →" : "Start running"}
       </Link>
+      {!username && (
+        <Link
+          href="/me"
+          className="text-xs text-zinc-500 underline hover:text-zinc-700"
+        >
+          Pick your name on the You page
+        </Link>
+      )}
     </div>
   );
-}
-
-function RunRow({ run }: { run: UserRun }) {
-  const start = new Date(run.startedAt);
-  const dateLabel = start.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const duration = run.endedAt
-    ? formatDuration(new Date(run.endedAt).getTime() - start.getTime())
-    : "active";
-  const distLabel =
-    run.distanceMeters >= 1000
-      ? `${(run.distanceMeters / 1000).toFixed(2)}km`
-      : `${run.distanceMeters}m`;
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-zinc-600">{dateLabel}</span>
-      <span className="font-mono text-zinc-500">{duration}</span>
-      <span className="font-mono text-zinc-500">{distLabel}</span>
-      <span className="font-mono text-zinc-900">{run.hexesClaimed} hex</span>
-    </div>
-  );
-}
-
-function formatDuration(ms: number): string {
-  const totalSec = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-function formatAmount(formatted: string): string {
-  const n = Number(formatted);
-  if (!Number.isFinite(n)) return formatted;
-  if (n === 0) return "0.00";
-  if (n < 0.01) return "<0.01";
-  return n.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 }
