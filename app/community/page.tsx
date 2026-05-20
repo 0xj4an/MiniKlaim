@@ -70,9 +70,7 @@ function Leaderboard({
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
       <p className="mb-1 text-center text-xs text-zinc-500">Top players</p>
       {entries.map((e, i) => {
-        const name = e.username
-          ? `@${e.username}`
-          : `${e.address.slice(0, 6)}...${e.address.slice(-4)}`;
+        const fallback = `${e.address.slice(0, 6)}...${e.address.slice(-4)}`;
         const isMe = me !== null && e.address.toLowerCase() === me;
         return (
           <div
@@ -80,7 +78,18 @@ function Leaderboard({
             className={`flex items-center justify-between gap-3 ${isMe ? "font-semibold text-zinc-900" : "text-zinc-700"}`}
           >
             <span className="w-8 text-zinc-400">#{i + 1}</span>
-            <span className="flex-1 truncate">{name}</span>
+            <span className="flex-1 truncate">
+              {e.username ? (
+                <Link
+                  href={`/p/${e.username}`}
+                  className="hover:underline"
+                >
+                  @{e.username}
+                </Link>
+              ) : (
+                fallback
+              )}
+            </span>
             <span className="font-mono">
               {e.hexCount} {e.hexCount === 1 ? "block" : "blocks"}
             </span>
@@ -104,9 +113,7 @@ function ActivityFeed({
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
       <p className="mb-1 text-center text-xs text-zinc-500">Latest runs</p>
       {entries.map((e) => {
-        const name = e.username
-          ? `@${e.username}`
-          : `${e.address.slice(0, 6)}...${e.address.slice(-4)}`;
+        const fallback = `${e.address.slice(0, 6)}...${e.address.slice(-4)}`;
         const isMe = me !== null && e.address.toLowerCase() === me;
         const when = relativeTime(new Date(e.endedAt).getTime());
         return (
@@ -114,7 +121,18 @@ function ActivityFeed({
             key={e.id}
             className={`flex items-center justify-between gap-2 ${isMe ? "font-medium text-zinc-900" : "text-zinc-700"}`}
           >
-            <span className="flex-1 truncate">{name}</span>
+            <span className="flex-1 truncate">
+              {e.username ? (
+                <Link
+                  href={`/p/${e.username}`}
+                  className="hover:underline"
+                >
+                  @{e.username}
+                </Link>
+              ) : (
+                fallback
+              )}
+            </span>
             <span className="font-mono text-zinc-500">
               {e.hexesClaimed} {e.hexesClaimed === 1 ? "block" : "blocks"}
             </span>
