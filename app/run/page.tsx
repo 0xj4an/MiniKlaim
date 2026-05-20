@@ -376,16 +376,27 @@ export default function RunPage() {
           ownerUsername: string | null;
           isMine: boolean;
         };
-        const displayName = props.ownerUsername
-          ? `@${props.ownerUsername}`
-          : `${props.owner.slice(0, 6)}...${props.owner.slice(-4)}`;
-        const ownerLabel = props.isMine ? `${displayName} (you)` : displayName;
+        const fallback = `${props.owner.slice(0, 6)}...${props.owner.slice(-4)}`;
         popupRef.current?.remove();
         const el = document.createElement("div");
         el.style.fontSize = "13px";
         el.style.padding = "4px 6px";
         el.style.whiteSpace = "nowrap";
-        el.textContent = `Captured by ${ownerLabel}`;
+        const prefix = document.createTextNode("Captured by ");
+        el.appendChild(prefix);
+        if (props.ownerUsername) {
+          const link = document.createElement("a");
+          link.href = `/p/${props.ownerUsername}`;
+          link.textContent = `@${props.ownerUsername}`;
+          link.style.color = "#FF6B35";
+          link.style.textDecoration = "underline";
+          el.appendChild(link);
+        } else {
+          el.appendChild(document.createTextNode(fallback));
+        }
+        if (props.isMine) {
+          el.appendChild(document.createTextNode(" (you)"));
+        }
         popupRef.current = new maplibregl.Popup({
           closeButton: true,
           closeOnClick: false,
