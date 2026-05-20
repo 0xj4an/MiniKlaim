@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { type LeaderboardEntry, useLeaderboard } from "@/lib/useLeaderboard";
+import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
 import { type UserRun, useUserRuns } from "@/lib/wallet/useUserRuns";
@@ -34,6 +35,9 @@ export default function HomePage() {
   );
   const globalStats = useGlobalStats();
   const leaderboard = useLeaderboard(5);
+  const { active: activeRun } = useActiveRun(
+    isConnected && !isWrongChain ? address : null,
+  );
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
@@ -132,9 +136,13 @@ export default function HomePage() {
           {!isWrongChain && (
             <Link
               href="/run"
-              className="mt-3 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              className={`mt-3 rounded-md px-4 py-2 text-sm font-medium text-white ${
+                activeRun
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-zinc-900 hover:bg-zinc-800"
+              }`}
             >
-              Start Run
+              {activeRun ? "Continue Run →" : "Start Run"}
             </Link>
           )}
 
