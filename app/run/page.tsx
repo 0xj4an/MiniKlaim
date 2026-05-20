@@ -11,7 +11,7 @@ import {
   FOLLOW_ZOOM,
   HEX_RESOLUTION,
 } from "@/lib/map/config";
-import { haversineMeters } from "@/lib/map/geo";
+import { formatPace, haversineMeters } from "@/lib/map/geo";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { useUser } from "@/lib/wallet/useUser";
@@ -698,6 +698,7 @@ function RunSummaryModal({
     summary.distanceMeters >= 1000
       ? `${(summary.distanceMeters / 1000).toFixed(2)} km`
       : `${summary.distanceMeters} m`;
+  const paceLabel = formatPace(summary.durationMs, summary.distanceMeters);
   return (
     <div
       className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -710,7 +711,7 @@ function RunSummaryModal({
         <p className="text-sm font-semibold tracking-wide text-zinc-500 uppercase">
           Run complete
         </p>
-        <div className="grid w-full grid-cols-3 gap-2 text-center">
+        <div className="grid w-full grid-cols-2 gap-3 text-center">
           <div>
             <div className="font-mono text-2xl font-bold text-zinc-900">
               {timeLabel}
@@ -733,6 +734,14 @@ function RunSummaryModal({
             </div>
             <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
               Dist
+            </div>
+          </div>
+          <div>
+            <div className="font-mono text-2xl font-bold text-zinc-900">
+              {paceLabel.replace("/km", "")}
+            </div>
+            <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
+              Pace /km
             </div>
           </div>
         </div>
@@ -770,11 +779,12 @@ function ElapsedBanner({
     distanceMeters >= 1000
       ? `${(distanceMeters / 1000).toFixed(2)} km`
       : `${Math.round(distanceMeters)} m`;
+  const paceLabel = formatPace(elapsedMs, distanceMeters);
   return (
     <div className="rounded-md bg-white/95 px-4 py-2 text-center shadow-md backdrop-blur">
       <div className="font-mono text-xl font-bold text-zinc-900">{time}</div>
       <div className="text-xs text-zinc-600">
-        {hexCount} hex · {distLabel}
+        {hexCount} hex · {distLabel} · {paceLabel}
       </div>
     </div>
   );
