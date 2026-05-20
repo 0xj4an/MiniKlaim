@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("page:stats");
@@ -17,6 +18,7 @@ type Analytics = {
 };
 
 export default function StatsPage() {
+  const { t } = useLocale();
   const [data, setData] = useState<Analytics | null>(null);
 
   useEffect(() => {
@@ -44,49 +46,65 @@ export default function StatsPage() {
           href="/"
           className="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
         >
-          ← Home
+          ← {t("common.home")}
         </Link>
-        <h1 className="text-xl font-bold">Stats</h1>
+        <h1 className="text-xl font-bold">{t("stats.title")}</h1>
         <span className="w-16" />
       </header>
 
       <p className="text-center text-xs text-zinc-500">
-        Public numbers about MiniKlaim. Updated live.
+        {t("stats.subtitle")}
       </p>
 
-      {!data && <p className="text-center text-sm text-zinc-400">Loading...</p>}
+      {!data && (
+        <p className="text-center text-sm text-zinc-400">
+          {t("common.loading")}
+        </p>
+      )}
 
       {data && (
         <>
           <section className="flex flex-col gap-2">
             <h2 className="text-xs tracking-wide text-zinc-500 uppercase">
-              Lifetime
+              {t("stats.section.lifetime")}
             </h2>
             <div className="grid grid-cols-3 gap-3">
-              <StatCard label="players" value={data.totalPlayers} />
-              <StatCard label="blocks owned" value={data.totalBlocks} />
-              <StatCard label="finished runs" value={data.runsLifetime} />
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-2">
-            <h2 className="text-xs tracking-wide text-zinc-500 uppercase">
-              Last 7 days
-            </h2>
-            <div className="grid grid-cols-2 gap-3">
-              <StatCard label="runs" value={data.runs7d} />
-              <StatCard label="active players" value={data.activePlayers7d} />
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-2">
-            <h2 className="text-xs tracking-wide text-zinc-500 uppercase">
-              Last 24 hours
-            </h2>
-            <div className="grid grid-cols-2 gap-3">
-              <StatCard label="runs" value={data.runs24h} />
               <StatCard
-                label="km traveled lifetime"
+                label={t("stats.card.players")}
+                value={data.totalPlayers}
+              />
+              <StatCard
+                label={t("stats.card.blocksOwned")}
+                value={data.totalBlocks}
+              />
+              <StatCard
+                label={t("stats.card.finishedRuns")}
+                value={data.runsLifetime}
+              />
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-2">
+            <h2 className="text-xs tracking-wide text-zinc-500 uppercase">
+              {t("stats.section.7d")}
+            </h2>
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard label={t("stats.card.runs")} value={data.runs7d} />
+              <StatCard
+                label={t("stats.card.activePlayers")}
+                value={data.activePlayers7d}
+              />
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-2">
+            <h2 className="text-xs tracking-wide text-zinc-500 uppercase">
+              {t("stats.section.24h")}
+            </h2>
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard label={t("stats.card.runs")} value={data.runs24h} />
+              <StatCard
+                label={t("stats.card.kmTraveled")}
                 value={
                   data.totalDistanceMeters >= 1000
                     ? Math.round(data.totalDistanceMeters / 1000)

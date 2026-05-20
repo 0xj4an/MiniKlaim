@@ -170,6 +170,67 @@ const dictionaries = {
     "about.footer.terms": "Terms",
     "about.footer.disclaimer":
       "MiniKlaim is a hobby project. Use at your own risk. No warranty.",
+    "stats.title": "Stats",
+    "stats.subtitle": "Public numbers about MiniKlaim. Updated live.",
+    "stats.section.lifetime": "Lifetime",
+    "stats.section.7d": "Last 7 days",
+    "stats.section.24h": "Last 24 hours",
+    "stats.card.players": "players",
+    "stats.card.blocksOwned": "blocks owned",
+    "stats.card.finishedRuns": "finished runs",
+    "stats.card.runs": "runs",
+    "stats.card.activePlayers": "active players",
+    "stats.card.kmTraveled": "km traveled lifetime",
+    "common.back": "Back",
+    "common.lastUpdated": "Last updated:",
+    "privacy.title": "Privacy",
+    "privacy.stored.h": "What we store",
+    "privacy.stored.intro":
+      "MiniKlaim is a public-by-design territory game. To make it work we store, on our database:",
+    "privacy.stored.l1":
+      "Your wallet address (Ethereum-format, 42 chars). This is your identity in the game.",
+    "privacy.stored.l2":
+      "Your runner name (optional, the alias you pick on the home page).",
+    "privacy.stored.l3":
+      "The blocks you capture, with timestamps and which run captured them.",
+    "privacy.stored.l4":
+      "Run records (start time, end time, block count, distance).",
+    "privacy.notStored.h": "What we do NOT store",
+    "privacy.notStored.l1":
+      "Raw GPS tracks. We only save which blocks you crossed, not the full line of where you ran.",
+    "privacy.notStored.l2":
+      "Your phone number, email, real name, or any off-chain identity unless you choose to volunteer it via your runner name.",
+    "privacy.notStored.l3":
+      "Private keys or seed phrases. Wallet authentication happens via your browser wallet; we never see secrets.",
+    "privacy.public.h": "What is public",
+    "privacy.public.body":
+      "Block ownership, runner names, run totals, and the leaderboard are visible to anyone visiting the app. If you do not want a public identifier, do not set a runner name; the app will fall back to your truncated wallet address.",
+    "privacy.deletion.h": "Deletion",
+    "privacy.deletion.before": "To delete your data, contact",
+    "privacy.deletion.after":
+      "with your wallet address. We will remove your account and your captured blocks within 7 days.",
+    "privacy.cookies.h": "Cookies",
+    "privacy.cookies.body":
+      "MiniKlaim uses a single cookie (`wagmi.store`) to remember your wallet connection across page reloads. No analytics, advertising, or third-party trackers.",
+    "terms.title": "Terms",
+    "terms.what.h": "What it is",
+    "terms.what.body":
+      "MiniKlaim is a hobby running game. You connect a wallet, you run through blocks on a map, and the blocks become yours until someone else claims them.",
+    "terms.noWarranty.h": "No warranty",
+    "terms.noWarranty.body":
+      "The service is provided as-is. We do not promise it works, will keep working, will not lose your runs, or will protect you from heat, cold, traffic, dogs, or any other real-world hazard. Run safely.",
+    "terms.safety.h": "Safety",
+    "terms.safety.body":
+      "Pay attention to your surroundings. The game shows you a map; the street is the source of truth. Do not run while staring at your phone. Do not run in dangerous areas because a block looks tempting.",
+    "terms.noMoney.h": "No money",
+    "terms.noMoney.body":
+      "MiniKlaim is free. There are no in-app purchases, no rewards in tokens, no NFTs, no claims of monetary value. The wallet connection is for identity only.",
+    "terms.use.h": "Acceptable use",
+    "terms.use.body":
+      "Do not spam runs, do not impersonate other players in your runner name, do not abuse the API. The maintainer may remove accounts that break these rules.",
+    "terms.changes.h": "Changes",
+    "terms.changes.body":
+      "These terms can change. If they do, the \"last updated\" date above gets bumped. Continued use after a change counts as acceptance.",
   },
   es: {
     "home.tagline": "Corre la ciudad. Las cuadras que cruzas son tuyas.",
@@ -335,6 +396,68 @@ const dictionaries = {
     "about.footer.terms": "Terminos",
     "about.footer.disclaimer":
       "MiniKlaim es un proyecto personal. Usalo bajo tu propio riesgo. Sin garantia.",
+    "stats.title": "Estadisticas",
+    "stats.subtitle":
+      "Numeros publicos sobre MiniKlaim. Actualizados en vivo.",
+    "stats.section.lifetime": "Desde siempre",
+    "stats.section.7d": "Ultimos 7 dias",
+    "stats.section.24h": "Ultimas 24 horas",
+    "stats.card.players": "jugadores",
+    "stats.card.blocksOwned": "cuadras en posesion",
+    "stats.card.finishedRuns": "corridas terminadas",
+    "stats.card.runs": "corridas",
+    "stats.card.activePlayers": "jugadores activos",
+    "stats.card.kmTraveled": "km recorridos en total",
+    "common.back": "Volver",
+    "common.lastUpdated": "Ultima actualizacion:",
+    "privacy.title": "Privacidad",
+    "privacy.stored.h": "Que guardamos",
+    "privacy.stored.intro":
+      "MiniKlaim es un juego de territorio publico por diseno. Para que funcione guardamos, en nuestra base de datos:",
+    "privacy.stored.l1":
+      "Tu direccion de wallet (formato Ethereum, 42 caracteres). Es tu identidad en el juego.",
+    "privacy.stored.l2":
+      "Tu nombre de corredor (opcional, el alias que eliges en la pagina de inicio).",
+    "privacy.stored.l3":
+      "Las cuadras que capturas, con la hora y la corrida que las capturo.",
+    "privacy.stored.l4":
+      "Registros de corridas (hora de inicio, hora de fin, cuadras, distancia).",
+    "privacy.notStored.h": "Que NO guardamos",
+    "privacy.notStored.l1":
+      "El rastro GPS completo. Solo guardamos las cuadras por donde pasaste, no la linea entera de tu recorrido.",
+    "privacy.notStored.l2":
+      "Tu numero de telefono, correo, nombre real ni ninguna identidad fuera de la blockchain, a menos que la entregues voluntariamente en tu nombre de corredor.",
+    "privacy.notStored.l3":
+      "Llaves privadas ni frases semilla. La autenticacion se hace en tu wallet del navegador; nunca vemos secretos.",
+    "privacy.public.h": "Que es publico",
+    "privacy.public.body":
+      "La propiedad de cuadras, los nombres de corredor, los totales de corridas y la tabla son visibles para cualquiera que abra la app. Si no quieres un identificador publico, no pongas un nombre de corredor; la app mostrara tu direccion abreviada.",
+    "privacy.deletion.h": "Eliminacion",
+    "privacy.deletion.before": "Para borrar tus datos, escribe a",
+    "privacy.deletion.after":
+      "con tu direccion de wallet. Eliminaremos tu cuenta y las cuadras que capturaste en menos de 7 dias.",
+    "privacy.cookies.h": "Cookies",
+    "privacy.cookies.body":
+      "MiniKlaim usa una sola cookie (`wagmi.store`) para recordar tu conexion de wallet entre recargas. No hay analitica, publicidad ni rastreadores de terceros.",
+    "terms.title": "Terminos",
+    "terms.what.h": "Que es",
+    "terms.what.body":
+      "MiniKlaim es un juego de correr hecho por hobby. Conectas una wallet, corres por cuadras en un mapa y las cuadras son tuyas hasta que alguien mas las reclame.",
+    "terms.noWarranty.h": "Sin garantia",
+    "terms.noWarranty.body":
+      "El servicio se ofrece tal cual. No prometemos que funcione, que siga funcionando, que no se pierdan tus corridas, ni que te proteja del calor, frio, trafico, perros u otros peligros del mundo real. Corre seguro.",
+    "terms.safety.h": "Seguridad",
+    "terms.safety.body":
+      "Pon atencion a lo que te rodea. El juego te muestra un mapa; la calle es la verdad. No corras mirando el celular. No corras a zonas peligrosas solo porque una cuadra se ve tentadora.",
+    "terms.noMoney.h": "Sin plata",
+    "terms.noMoney.body":
+      "MiniKlaim es gratis. No hay compras dentro de la app, ni recompensas en tokens, ni NFTs, ni promesas de valor monetario. La wallet sirve solo de identidad.",
+    "terms.use.h": "Uso aceptable",
+    "terms.use.body":
+      "No hagas spam de corridas, no suplantes a otros jugadores con tu nombre, no abuses de la API. El mantenedor puede retirar cuentas que rompan estas reglas.",
+    "terms.changes.h": "Cambios",
+    "terms.changes.body":
+      "Estos terminos pueden cambiar. Si lo hacen, la fecha de \"ultima actualizacion\" de arriba se actualiza. Seguir usando la app despues de un cambio cuenta como aceptacion.",
   },
 } as const;
 

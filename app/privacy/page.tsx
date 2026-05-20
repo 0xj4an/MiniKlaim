@@ -1,11 +1,10 @@
-import Link from "next/link";
+"use client";
 
-export const metadata = {
-  title: "Privacy - MiniKlaim",
-  description: "Privacy policy for MiniKlaim.",
-};
+import Link from "next/link";
+import { useLocale } from "@/lib/i18n";
 
 export default function PrivacyPage() {
+  const { t } = useLocale();
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-12">
       <header className="flex items-center justify-between">
@@ -13,89 +12,68 @@ export default function PrivacyPage() {
           href="/about"
           className="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
         >
-          ← Back
+          ← {t("common.back")}
         </Link>
-        <h1 className="text-2xl font-bold">Privacy</h1>
+        <h1 className="text-2xl font-bold">{t("privacy.title")}</h1>
         <span className="w-16" />
       </header>
 
-      <p className="text-xs text-zinc-400">Last updated: 2026-05-20.</p>
+      <p className="text-xs text-zinc-400">{t("common.lastUpdated")} 2026-05-20.</p>
 
       <section className="flex flex-col gap-2 text-sm leading-relaxed text-zinc-700">
-        <h2 className="text-lg font-semibold text-zinc-900">What we store</h2>
-        <p>
-          MiniKlaim is a public-by-design territory game. To make it work we
-          store, on our database:
-        </p>
+        <h2 className="text-lg font-semibold text-zinc-900">
+          {t("privacy.stored.h")}
+        </h2>
+        <p>{t("privacy.stored.intro")}</p>
         <ul className="ml-6 list-disc">
-          <li>
-            Your wallet address (Ethereum-format, 42 chars). This is your
-            identity in the game.
-          </li>
-          <li>
-            Your runner name (optional, the alias you pick on the home page).
-          </li>
-          <li>
-            The blocks you capture, with timestamps and which run captured them.
-          </li>
-          <li>Run records (start time, end time, block count, distance).</li>
+          <li>{t("privacy.stored.l1")}</li>
+          <li>{t("privacy.stored.l2")}</li>
+          <li>{t("privacy.stored.l3")}</li>
+          <li>{t("privacy.stored.l4")}</li>
         </ul>
       </section>
 
       <section className="flex flex-col gap-2 text-sm leading-relaxed text-zinc-700">
         <h2 className="text-lg font-semibold text-zinc-900">
-          What we do NOT store
+          {t("privacy.notStored.h")}
         </h2>
         <ul className="ml-6 list-disc">
-          <li>
-            Raw GPS tracks. We only save which blocks you crossed, not the full
-            line of where you ran.
-          </li>
-          <li>
-            Your phone number, email, real name, or any off-chain identity
-            unless you choose to volunteer it via your runner name.
-          </li>
-          <li>
-            Private keys or seed phrases. Wallet authentication happens via your
-            browser wallet; we never see secrets.
-          </li>
+          <li>{t("privacy.notStored.l1")}</li>
+          <li>{t("privacy.notStored.l2")}</li>
+          <li>{t("privacy.notStored.l3")}</li>
         </ul>
       </section>
 
       <section className="flex flex-col gap-2 text-sm leading-relaxed text-zinc-700">
-        <h2 className="text-lg font-semibold text-zinc-900">What is public</h2>
-        <p>
-          Hex ownership, runner names, run totals, and the leaderboard are
-          visible to anyone visiting the app. If you do not want a public
-          identifier, do not set a runner name; the app will fall back to your
-          truncated wallet address.
-        </p>
+        <h2 className="text-lg font-semibold text-zinc-900">
+          {t("privacy.public.h")}
+        </h2>
+        <p>{t("privacy.public.body")}</p>
       </section>
 
       <section className="flex flex-col gap-2 text-sm leading-relaxed text-zinc-700">
-        <h2 className="text-lg font-semibold text-zinc-900">Deletion</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">
+          {t("privacy.deletion.h")}
+        </h2>
         <p>
-          To delete your data, contact{" "}
+          {t("privacy.deletion.before")}{" "}
           <a
             href="https://x.com/0xj4an"
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-600 underline"
           >
-            @0xj4an on X
+            {t("about.contact.handle")}
           </a>{" "}
-          with your wallet address. We will remove your account and your
-          captured blocks within 7 days.
+          {t("privacy.deletion.after")}
         </p>
       </section>
 
       <section className="flex flex-col gap-2 text-sm leading-relaxed text-zinc-700">
-        <h2 className="text-lg font-semibold text-zinc-900">Cookies</h2>
-        <p>
-          MiniKlaim uses a single cookie (`wagmi.store`) to remember your wallet
-          connection across page reloads. No analytics, advertising, or
-          third-party trackers.
-        </p>
+        <h2 className="text-lg font-semibold text-zinc-900">
+          {t("privacy.cookies.h")}
+        </h2>
+        <p>{t("privacy.cookies.body")}</p>
       </section>
     </main>
   );
