@@ -3,6 +3,7 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE } from "@/lib/map/config";
 import { claimedHexesToFeatureCollection } from "@/lib/map/hex";
@@ -15,6 +16,10 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [count, setCount] = useState<number | null>(null);
+  const { t } = useLocale();
+
+  const capturedByLabel = t("community.popup.capturedBy");
+  const youLabel = t("community.popup.you");
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -46,7 +51,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
       el.style.fontSize = "13px";
       el.style.padding = "4px 6px";
       el.style.whiteSpace = "nowrap";
-      el.appendChild(document.createTextNode("Captured by "));
+      el.appendChild(document.createTextNode(`${capturedByLabel} `));
       if (props.ownerUsername) {
         const link = document.createElement("a");
         link.href = `/p/${props.ownerUsername}`;
@@ -58,7 +63,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
         el.appendChild(document.createTextNode(fallback));
       }
       if (props.isMine) {
-        el.appendChild(document.createTextNode(" (you)"));
+        el.appendChild(document.createTextNode(` ${youLabel}`));
       }
       popupRef.current = new maplibregl.Popup({
         closeButton: true,
@@ -173,12 +178,15 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
       map.remove();
       mapRef.current = null;
     };
-  }, [myAddress]);
+  }, [myAddress, capturedByLabel, youLabel]);
 
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
       <p className="text-center text-xs text-zinc-500">
-        World map{count !== null ? ` (${count} captured)` : ""}
+        {t("community.worldmap.header")}
+        {count !== null
+          ? ` (${count} ${t("community.worldmap.captured")})`
+          : ""}
       </p>
       <div
         ref={containerRef}

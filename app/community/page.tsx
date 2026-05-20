@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { type TranslationKey, useLocale } from "@/lib/i18n";
 import { type ActivityEntry, useActivity } from "@/lib/useActivity";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { type LeaderboardEntry, useLeaderboard } from "@/lib/useLeaderboard";
@@ -14,6 +15,7 @@ const WorldMap = dynamic(
 
 export default function CommunityPage() {
   const { address, isConnected } = useWallet();
+  const { t } = useLocale();
   const globalStats = useGlobalStats();
   const leaderboard = useLeaderboard(10);
   const activity = useActivity(10);
@@ -25,17 +27,24 @@ export default function CommunityPage() {
           href="/"
           className="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
         >
-          ← Home
+          ← {t("common.home")}
         </Link>
-        <h1 className="text-xl font-bold">Community</h1>
+        <h1 className="text-xl font-bold">{t("community.title")}</h1>
         <span className="w-16" />
       </header>
 
       {globalStats && (
         <div className="flex justify-center gap-8 text-center">
-          <BigStat label="blocks captured" value={globalStats.totalHexes} />
           <BigStat
-            label={globalStats.totalPlayers === 1 ? "player" : "players"}
+            label={t("community.stat.blocksCaptured")}
+            value={globalStats.totalHexes}
+          />
+          <BigStat
+            label={
+              globalStats.totalPlayers === 1
+                ? t("community.stat.player")
+                : t("community.stat.players")
+            }
             value={globalStats.totalPlayers}
           />
         </div>
@@ -72,11 +81,14 @@ function Leaderboard({
   entries: LeaderboardEntry[] | null;
   myAddress: string | null;
 }) {
+  const { t } = useLocale();
   if (!entries || entries.length === 0) return null;
   const me = myAddress?.toLowerCase() ?? null;
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
-      <p className="mb-1 text-center text-xs text-zinc-500">Top players</p>
+      <p className="mb-1 text-center text-xs text-zinc-500">
+        {t("community.leaderboard.header")}
+      </p>
       {entries.map((e, i) => {
         const fallback = `${e.address.slice(0, 6)}...${e.address.slice(-4)}`;
         const isMe = me !== null && e.address.toLowerCase() === me;
@@ -99,7 +111,8 @@ function Leaderboard({
               )}
             </span>
             <span className="font-mono">
-              {e.hexCount} {e.hexCount === 1 ? "block" : "blocks"}
+              {e.hexCount}{" "}
+              {e.hexCount === 1 ? t("community.block") : t("community.blocks")}
             </span>
           </div>
         );
@@ -115,15 +128,18 @@ function ActivityFeed({
   entries: ActivityEntry[] | null;
   myAddress: string | null;
 }) {
+  const { t } = useLocale();
   if (!entries || entries.length === 0) return null;
   const me = myAddress?.toLowerCase() ?? null;
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
-      <p className="mb-1 text-center text-xs text-zinc-500">Latest runs</p>
+      <p className="mb-1 text-center text-xs text-zinc-500">
+        {t("community.activity.header")}
+      </p>
       {entries.map((e) => {
         const fallback = `${e.address.slice(0, 6)}...${e.address.slice(-4)}`;
         const isMe = me !== null && e.address.toLowerCase() === me;
-        const when = relativeTime(new Date(e.endedAt).getTime());
+        const when = relativeTime(new Date(e.endedAt).getTime(), t);
         return (
           <div
             key={e.id}
@@ -142,7 +158,10 @@ function ActivityFeed({
               )}
             </span>
             <span className="font-mono text-zinc-500">
-              {e.hexesClaimed} {e.hexesClaimed === 1 ? "block" : "blocks"}
+              {e.hexesClaimed}{" "}
+              {e.hexesClaimed === 1
+                ? t("community.block")
+                : t("community.blocks")}
             </span>
             <span className="text-xs text-zinc-400">{when}</span>
           </div>
@@ -152,10 +171,22 @@ function ActivityFeed({
   );
 }
 
-function relativeTime(timestamp: number): string {
+function relativeTime(
+  timestamp: number,
+  t: (key: TranslationKey) => string,
+): string {
   const diffSec = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
-  if (diffSec < 60) return `${diffSec}s ago`;
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
-  return `${Math.floor(diffSec / 86400)}d ago`;
+  const prefix = t("time.agoPrefix");
+  const suffix = t("time.agoSuffix");
+  let value: string;
+  if (diffSec < 60) {
+    value = `${diffSec}${t("time.unit.seconds")}`;
+  } else if (diffSec < 3600) {
+    value = `${Math.floor(diffSec / 60)}${t("time.unit.minutes")}`;
+  } else if (diffSec < 86400) {
+    value = `${Math.floor(diffSec / 3600)}${t("time.unit.hours")}`;
+  } else {
+    value = `${Math.floor(diffSec / 86400)}${t("time.unit.days")}`;
+  }
+  return `${prefix}${value}${suffix}`;
 }
