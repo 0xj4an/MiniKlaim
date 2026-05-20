@@ -8,6 +8,7 @@ import { useUserRuns } from "@/lib/wallet/useUserRuns";
 import { type UserStats, useUserStats } from "@/lib/wallet/useUserStats";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { type TokenSymbol } from "@/lib/tokens";
+import { TerritoryMap } from "./TerritoryMap";
 
 export default function MePage() {
   const { address, isConnected, isWrongChain, disconnect, isMiniPay } =
@@ -103,6 +104,8 @@ export default function MePage() {
               <Achievements stats={stats} />
             </>
           )}
+
+          {address && <TerritoryMap address={address} />}
 
           {recentRuns && recentRuns.length > 0 && (
             <RunsList runs={recentRuns} />
