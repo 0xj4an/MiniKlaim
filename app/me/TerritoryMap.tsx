@@ -3,6 +3,7 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE } from "@/lib/map/config";
 import { claimedHexesToFeatureCollection } from "@/lib/map/hex";
@@ -15,6 +16,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [count, setCount] = useState<number | null>(null);
+  const { t } = useLocale();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -97,12 +99,12 @@ export function TerritoryMap({ address }: { address: string | null }) {
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
       <p className="text-center text-xs text-zinc-500">
-        Your territory{count !== null ? ` (${count})` : ""}
+        {t("me.territory.header")}
+        {count !== null ? ` (${count})` : ""}
       </p>
       {count === 0 ? (
         <p className="py-8 text-center text-xs text-zinc-400">
-          You haven&apos;t captured any blocks yet. Start running to claim your
-          first.
+          {t("me.territory.empty")}
         </p>
       ) : (
         <div

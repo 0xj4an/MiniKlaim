@@ -3,6 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import { type TranslationKey, useLocale } from "@/lib/i18n";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
 import { useUserRuns } from "@/lib/wallet/useUserRuns";
@@ -18,6 +19,7 @@ const TerritoryMap = dynamic(
 export default function MePage() {
   const { address, isConnected, isWrongChain, disconnect, isMiniPay } =
     useWallet();
+  const { t } = useLocale();
   const userInfo = useUser(isConnected ? address : null);
   const stats = useUserStats(isConnected && !isWrongChain ? address : null);
   const recentRuns = useUserRuns(
@@ -33,12 +35,12 @@ export default function MePage() {
           href="/"
           className="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
         >
-          ← Home
+          ← {t("common.home")}
         </Link>
-        <h1 className="text-xl font-bold">You</h1>
+        <h1 className="text-xl font-bold">{t("me.title")}</h1>
         <button
           onClick={() => window.location.reload()}
-          aria-label="Refresh"
+          aria-label={t("me.refresh")}
           className="flex h-8 w-16 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
         >
           <svg
@@ -59,11 +61,11 @@ export default function MePage() {
 
       {!isConnected && (
         <p className="text-center text-sm text-zinc-500">
-          Sign in on the{" "}
+          {t("me.signInPrompt.before")}{" "}
           <Link href="/" className="text-blue-600 underline">
-            home page
+            {t("me.signInPrompt.link")}
           </Link>{" "}
-          to see your stats.
+          {t("me.signInPrompt.after")}
         </p>
       )}
 
@@ -76,10 +78,14 @@ export default function MePage() {
           {stats && !isWrongChain && (
             <>
               <div className="flex justify-center gap-8 text-center">
-                <BigStat label="blocks" value={stats.hexesOwned} />
-                <BigStat label="runs" value={stats.totalRuns} />
+                <BigStat label={t("me.stat.blocks")} value={stats.hexesOwned} />
+                <BigStat label={t("me.stat.runs")} value={stats.totalRuns} />
                 <BigStat
-                  label={stats.streak === 1 ? "day streak" : "days streak"}
+                  label={
+                    stats.streak === 1
+                      ? t("me.stat.dayStreak")
+                      : t("me.stat.daysStreak")
+                  }
                   value={stats.streak}
                 />
               </div>
@@ -88,19 +94,19 @@ export default function MePage() {
                 <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 text-xs text-zinc-500">
                   {stats.bestRunHexes > 0 && (
                     <span>
-                      Best run:{" "}
+                      {t("me.bestRun.label")}{" "}
                       <span className="font-semibold text-zinc-900">
-                        {stats.bestRunHexes} blocks
+                        {stats.bestRunHexes} {t("me.bestRun.suffix")}
                       </span>
                     </span>
                   )}
                   {stats.hexesOwned > 0 && (
                     <span>
-                      You&apos;re{" "}
+                      {t("me.rank.before")}{" "}
                       <span className="font-semibold text-zinc-900">
                         #{stats.rank}
                       </span>{" "}
-                      worldwide
+                      {t("me.rank.after")}
                     </span>
                   )}
                 </div>
@@ -123,7 +129,7 @@ export default function MePage() {
               onClick={disconnect}
               className="mt-2 self-center text-xs text-zinc-500 underline hover:text-zinc-700"
             >
-              Sign out
+              {t("me.signOut")}
             </button>
           )}
         </>
@@ -134,6 +140,7 @@ export default function MePage() {
 
 function CopyProfileLink({ username }: { username: string }) {
   const [copied, setCopied] = useState(false);
+  const { t } = useLocale();
 
   async function onShare() {
     if (typeof window === "undefined") return;
@@ -161,7 +168,7 @@ function CopyProfileLink({ username }: { username: string }) {
       onClick={onShare}
       className="text-zinc-400 underline hover:text-zinc-600"
     >
-      {copied ? "copied" : "share profile"}
+      {copied ? t("me.share.copied") : t("me.share.button")}
     </button>
   );
 }
@@ -177,13 +184,14 @@ function BigStat({ label, value }: { label: string; value: number }) {
 
 function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
   const { user, isLoading, setUsername } = userInfo;
+  const { t } = useLocale();
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   if (isLoading) {
-    return <p className="text-sm text-zinc-400">Loading...</p>;
+    return <p className="text-sm text-zinc-400">{t("common.loading")}</p>;
   }
   if (user?.username && !isEditing) {
     return (
@@ -201,7 +209,7 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
             }}
             className="text-zinc-400 underline hover:text-zinc-600"
           >
-            change name
+            {t("me.username.edit")}
           </button>
           <CopyProfileLink username={user.username} />
         </div>
@@ -226,16 +234,14 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
   return (
     <div className="flex flex-col items-center gap-2">
       <p className="text-sm text-zinc-700">
-        {user?.username
-          ? "Change your name"
-          : "Pick a name. This is how people will see you."}
+        {user?.username ? t("me.username.change") : t("me.username.pick")}
       </p>
       <div className="flex items-center gap-2">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="your name"
+          placeholder={t("me.username.placeholder")}
           maxLength={20}
           disabled={isSaving}
           className="w-44 rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none disabled:opacity-50"
@@ -245,7 +251,7 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
           disabled={isSaving || !input.trim()}
           className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:bg-zinc-400"
         >
-          {isSaving ? "Saving..." : "Save"}
+          {isSaving ? t("me.username.saving") : t("me.username.save")}
         </button>
         {isEditing && (
           <button
@@ -257,7 +263,7 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
             disabled={isSaving}
             className="text-xs text-zinc-500 underline hover:text-zinc-700"
           >
-            cancel
+            {t("me.username.cancel")}
           </button>
         )}
       </div>
@@ -268,8 +274,8 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
 
 type Achievement = {
   key: string;
-  name: string;
-  desc: string;
+  nameKey: TranslationKey;
+  descKey: TranslationKey;
   unlocked: boolean;
 };
 
@@ -277,62 +283,62 @@ function buildAchievements(stats: UserStats): Achievement[] {
   return [
     {
       key: "first-steps",
-      name: "First steps",
-      desc: "Finish your first run",
+      nameKey: "badge.firstSteps.name",
+      descKey: "badge.firstSteps.desc",
       unlocked: stats.totalRuns >= 1,
     },
     {
       key: "block-hunter",
-      name: "Five blocks",
-      desc: "Own 5 blocks",
+      nameKey: "badge.fiveBlocks.name",
+      descKey: "badge.fiveBlocks.desc",
       unlocked: stats.hexesOwned >= 5,
     },
     {
       key: "mayor",
-      name: "Mayor",
-      desc: "Own 20 blocks",
+      nameKey: "badge.mayor.name",
+      descKey: "badge.mayor.desc",
       unlocked: stats.hexesOwned >= 20,
     },
     {
       key: "hundred",
-      name: "Hundred",
-      desc: "Own 100 blocks",
+      nameKey: "badge.hundred.name",
+      descKey: "badge.hundred.desc",
       unlocked: stats.hexesOwned >= 100,
     },
     {
       key: "streak-3",
-      name: "Three days",
-      desc: "3 days in a row",
+      nameKey: "badge.threeDays.name",
+      descKey: "badge.threeDays.desc",
       unlocked: stats.streak >= 3,
     },
     {
       key: "streak-7",
-      name: "One week",
-      desc: "7 days in a row",
+      nameKey: "badge.oneWeek.name",
+      descKey: "badge.oneWeek.desc",
       unlocked: stats.streak >= 7,
     },
     {
       key: "streak-14",
-      name: "Two weeks",
-      desc: "14 days in a row",
+      nameKey: "badge.twoWeeks.name",
+      descKey: "badge.twoWeeks.desc",
       unlocked: stats.streak >= 14,
     },
     {
       key: "big-run",
-      name: "Big run",
-      desc: "5 blocks in one run",
+      nameKey: "badge.bigRun.name",
+      descKey: "badge.bigRun.desc",
       unlocked: stats.bestRunHexes >= 5,
     },
     {
       key: "marathon",
-      name: "Marathon",
-      desc: "10 km in one run",
+      nameKey: "badge.marathon.name",
+      descKey: "badge.marathon.desc",
       unlocked: stats.bestRunDistanceMeters >= 10000,
     },
     {
       key: "iron",
-      name: "Iron",
-      desc: "Finish 50 runs",
+      nameKey: "badge.iron.name",
+      descKey: "badge.iron.desc",
       unlocked: stats.totalRuns >= 50,
     },
   ];
@@ -341,6 +347,7 @@ function buildAchievements(stats: UserStats): Achievement[] {
 const ACHIEVEMENTS_CACHE_KEY = "miniklaim.unlockedBadges";
 
 function Achievements({ stats }: { stats: UserStats }) {
+  const { t } = useLocale();
   const achievements = buildAchievements(stats);
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
   const [newlyUnlocked, setNewlyUnlocked] = useState<Achievement | null>(null);
@@ -380,22 +387,25 @@ function Achievements({ stats }: { stats: UserStats }) {
     <>
       <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
         <p className="mb-1 text-center text-xs text-zinc-500">
-          Badges {unlockedCount} of {achievements.length}
+          {t("me.badges.header")} {unlockedCount} {t("me.badges.of")}{" "}
+          {achievements.length}
         </p>
         {achievements.map((a) => (
           <div
             key={a.key}
             className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-400"}`}
           >
-            <span className={a.unlocked ? "font-semibold" : ""}>{a.name}</span>
-            <span className="text-xs text-zinc-500">{a.desc}</span>
+            <span className={a.unlocked ? "font-semibold" : ""}>
+              {t(a.nameKey)}
+            </span>
+            <span className="text-xs text-zinc-500">{t(a.descKey)}</span>
           </div>
         ))}
       </div>
       {newlyUnlocked && (
         <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-zinc-900 px-5 py-3 text-sm text-white shadow-2xl">
-          <span className="text-orange-400">Badge unlocked:</span>{" "}
-          <span className="font-semibold">{newlyUnlocked.name}</span>
+          <span className="text-orange-400">{t("me.badges.toast")}</span>{" "}
+          <span className="font-semibold">{t(newlyUnlocked.nameKey)}</span>
         </div>
       )}
     </>
@@ -413,9 +423,12 @@ function RunsList({
     distanceMeters: number;
   }>;
 }) {
+  const { t } = useLocale();
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
-      <p className="mb-2 text-center text-xs text-zinc-500">Your runs</p>
+      <p className="mb-2 text-center text-xs text-zinc-500">
+        {t("me.runs.header")}
+      </p>
       {runs.map((run) => {
         const start = new Date(run.startedAt);
         const dateLabel = start.toLocaleString(undefined, {
@@ -426,7 +439,7 @@ function RunsList({
         });
         const duration = run.endedAt
           ? formatDuration(new Date(run.endedAt).getTime() - start.getTime())
-          : "running";
+          : t("me.runs.running");
         const distLabel =
           run.distanceMeters >= 1000
             ? `${(run.distanceMeters / 1000).toFixed(2)}km`
@@ -440,7 +453,8 @@ function RunsList({
             <span className="font-mono text-zinc-500">{duration}</span>
             <span className="font-mono text-zinc-500">{distLabel}</span>
             <span className="font-mono font-semibold text-zinc-900">
-              {run.hexesClaimed} {run.hexesClaimed === 1 ? "block" : "blocks"}
+              {run.hexesClaimed}{" "}
+              {run.hexesClaimed === 1 ? t("me.runs.block") : t("me.runs.blocks")}
             </span>
           </div>
         );
@@ -458,9 +472,12 @@ function BalancesCard({
     USDT: Balance | null;
   };
 }) {
+  const { t } = useLocale();
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
-      <p className="mb-1 text-center text-xs text-zinc-500">Your money</p>
+      <p className="mb-1 text-center text-xs text-zinc-500">
+        {t("me.money.header")}
+      </p>
       <BalanceRow symbol="USDm" balance={balances.USDm} />
       <BalanceRow symbol="USDC" balance={balances.USDC} />
       <BalanceRow symbol="USDT" balance={balances.USDT} />
