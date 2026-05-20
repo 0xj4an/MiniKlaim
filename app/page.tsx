@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useFirstVisit } from "@/lib/useFirstVisit";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { useUser } from "@/lib/wallet/useUser";
@@ -24,9 +25,11 @@ export default function HomePage() {
     isConnected && !isWrongChain ? address : null,
   );
   const globalStats = useGlobalStats();
+  const { showOnboarding, dismiss } = useFirstVisit();
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-between px-6 py-12">
+      {showOnboarding && <OnboardingModal onClose={dismiss} />}
       <div className="flex w-full max-w-md flex-col items-center gap-6 text-center">
         <div className="flex flex-col items-center gap-2">
           <h1 className="text-5xl font-bold">MiniKlaim</h1>
@@ -76,6 +79,53 @@ export default function HomePage() {
         </Link>
       </nav>
     </main>
+  );
+}
+
+function OnboardingModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="mx-6 flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-center text-2xl font-bold">Welcome!</h2>
+        <ol className="flex flex-col gap-3 text-sm text-zinc-700">
+          <li className="flex gap-3">
+            <span className="font-mono text-zinc-400">1.</span>
+            <span>
+              <span className="font-semibold text-zinc-900">Walk or run.</span>{" "}
+              The blocks you cross become yours on the map.
+            </span>
+          </li>
+          <li className="flex gap-3">
+            <span className="font-mono text-zinc-400">2.</span>
+            <span>
+              <span className="font-semibold text-zinc-900">Keep going.</span>{" "}
+              The more you run, the more land you own.
+            </span>
+          </li>
+          <li className="flex gap-3">
+            <span className="font-mono text-zinc-400">3.</span>
+            <span>
+              <span className="font-semibold text-zinc-900">
+                Watch your back.
+              </span>{" "}
+              Other players can steal your blocks if they run through them.
+            </span>
+          </li>
+        </ol>
+        <button
+          onClick={onClose}
+          className="mt-2 rounded-full bg-orange-500 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+        >
+          Got it
+        </button>
+      </div>
+    </div>
   );
 }
 
