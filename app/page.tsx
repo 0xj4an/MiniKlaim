@@ -78,9 +78,6 @@ export default function HomePage() {
       {isConnected && address && (
         <div className="flex flex-col items-center gap-1">
           <p className="text-sm text-zinc-700">Connected</p>
-          <p className="font-mono text-xs text-zinc-400">
-            {address.slice(0, 6)}...{address.slice(-4)}
-          </p>
           <UsernameBlock userInfo={userInfo} />
 
           {stats && !isWrongChain && (
