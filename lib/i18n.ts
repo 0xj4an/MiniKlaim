@@ -137,6 +137,39 @@ const dictionaries = {
     "run.share.text.many": "Just captured {n} blocks",
     "run.share.text.suffix": "on MiniKlaim.",
     "run.share.text.run": "run.",
+    "about.title": "Help",
+    "about.howTo.header": "How to play",
+    "about.howTo.step1": "Sign in with your wallet on the home page.",
+    "about.howTo.step2": "Pick a name on the You page.",
+    "about.howTo.step3.before": "Tap",
+    "about.howTo.step3.cta": "Start running",
+    "about.howTo.step3.after": "on the home page.",
+    "about.howTo.step4":
+      "Walk or run outside. Every block you cross becomes yours on the map.",
+    "about.howTo.step5.before": "Tap",
+    "about.howTo.step5.cta": "Finish",
+    "about.howTo.step5.after":
+      "to end your run. Your blocks stay yours until someone else runs through them.",
+    "about.faq.header": "Common questions",
+    "about.faq.q1": "Do I lose blocks if someone else runs through them?",
+    "about.faq.a1":
+      "Yes. The block goes to whoever ran through last. So keep running to keep your turf.",
+    "about.faq.q2": "Does it cost anything?",
+    "about.faq.a2": "No. Playing is free. We don't charge fees.",
+    "about.faq.q3": "Why a wallet?",
+    "about.faq.a3":
+      "It's how we keep your name and blocks attached to you across devices. We never see your password or your money.",
+    "about.faq.q4": "Is this safe?",
+    "about.faq.a4":
+      "Don't run while staring at your phone. Don't run in dangerous places just to grab a block. The street is more important than the map.",
+    "about.contact.header": "Get in touch",
+    "about.contact.body": "Bugs, ideas, anything else:",
+    "about.contact.handle": "@0xj4an on X",
+    "about.footer.stats": "Stats",
+    "about.footer.privacy": "Privacy",
+    "about.footer.terms": "Terms",
+    "about.footer.disclaimer":
+      "MiniKlaim is a hobby project. Use at your own risk. No warranty.",
   },
   es: {
     "home.tagline": "Corre la ciudad. Las cuadras que cruzas son tuyas.",
@@ -269,6 +302,39 @@ const dictionaries = {
     "run.share.text.many": "Acabo de capturar {n} cuadras",
     "run.share.text.suffix": "en MiniKlaim.",
     "run.share.text.run": "de corrida.",
+    "about.title": "Ayuda",
+    "about.howTo.header": "Como jugar",
+    "about.howTo.step1": "Entra con tu wallet desde la pagina de inicio.",
+    "about.howTo.step2": "Elige un nombre en la pagina Tu.",
+    "about.howTo.step3.before": "Toca",
+    "about.howTo.step3.cta": "Empezar a correr",
+    "about.howTo.step3.after": "en la pagina de inicio.",
+    "about.howTo.step4":
+      "Camina o corre afuera. Cada cuadra que cruzas se vuelve tuya en el mapa.",
+    "about.howTo.step5.before": "Toca",
+    "about.howTo.step5.cta": "Terminar",
+    "about.howTo.step5.after":
+      "para acabar la corrida. Tus cuadras siguen siendo tuyas hasta que otra persona corra por ellas.",
+    "about.faq.header": "Preguntas comunes",
+    "about.faq.q1": "Si alguien corre por mis cuadras, las pierdo?",
+    "about.faq.a1":
+      "Si. La cuadra se la lleva quien paso por ultimo. Sigue corriendo para no perder tu territorio.",
+    "about.faq.q2": "Cuesta algo?",
+    "about.faq.a2": "No. Jugar es gratis. No cobramos.",
+    "about.faq.q3": "Por que pide una wallet?",
+    "about.faq.a3":
+      "Es la forma de que tu nombre y tus cuadras te sigan en cualquier dispositivo. Nunca vemos tu contrasena ni tu plata.",
+    "about.faq.q4": "Es seguro?",
+    "about.faq.a4":
+      "No corras mirando el celular. No corras a sitios peligrosos solo por agarrar una cuadra. La calle vale mas que el mapa.",
+    "about.contact.header": "Contacto",
+    "about.contact.body": "Errores, ideas, lo que sea:",
+    "about.contact.handle": "@0xj4an en X",
+    "about.footer.stats": "Estadisticas",
+    "about.footer.privacy": "Privacidad",
+    "about.footer.terms": "Terminos",
+    "about.footer.disclaimer":
+      "MiniKlaim es un proyecto personal. Usalo bajo tu propio riesgo. Sin garantia.",
   },
 } as const;
 
