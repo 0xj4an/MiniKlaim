@@ -255,15 +255,26 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   if (isLoading) {
     return <p className="text-xs text-zinc-400">Loading runner name...</p>;
   }
-  if (user?.username) {
+  if (user?.username && !isEditing) {
     return (
       <p className="text-sm text-zinc-900">
         <span className="text-zinc-400">@</span>
         <span className="font-medium">{user.username}</span>
+        <button
+          onClick={() => {
+            setInput(user.username ?? "");
+            setError(null);
+            setIsEditing(true);
+          }}
+          className="ml-2 text-xs text-zinc-400 underline hover:text-zinc-600"
+        >
+          edit
+        </button>
       </p>
     );
   }
@@ -276,6 +287,7 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
     setIsSaving(false);
     if (result.ok) {
       setInput("");
+      setIsEditing(false);
     } else {
       setError(result.error ?? "unknown error");
     }
@@ -283,7 +295,9 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
 
   return (
     <div className="mt-2 flex flex-col items-center gap-1">
-      <p className="text-xs text-zinc-500">Pick a runner name</p>
+      <p className="text-xs text-zinc-500">
+        {user?.username ? "Change runner name" : "Pick a runner name"}
+      </p>
       <div className="flex items-center gap-1">
         <input
           type="text"
@@ -301,6 +315,19 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
         >
           {isSaving ? "..." : "Save"}
         </button>
+        {isEditing && (
+          <button
+            onClick={() => {
+              setIsEditing(false);
+              setInput("");
+              setError(null);
+            }}
+            disabled={isSaving}
+            className="text-xs text-zinc-500 underline hover:text-zinc-700"
+          >
+            cancel
+          </button>
+        )}
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
