@@ -30,7 +30,25 @@ export default function MePage() {
           ← Home
         </Link>
         <h1 className="text-xl font-bold">You</h1>
-        <span className="w-16" />
+        <button
+          onClick={() => window.location.reload()}
+          aria-label="Refresh"
+          className="flex h-8 w-16 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 12a9 9 0 1 1-9-9" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+        </button>
       </header>
 
       {!isConnected && (
