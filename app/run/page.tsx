@@ -477,6 +477,14 @@ export default function RunPage() {
               const delta = pendingDistanceRef.current;
               pendingDistanceRef.current = 0;
               void claimHex(currentHex, delta);
+              // Auto-follow the runner: re-center the camera on each new hex
+              // during an active run so they don't lose themselves off-screen
+              // while moving. Cheap enough (once per ~50m), and players can
+              // still pan freely between hex transitions.
+              map.easeTo({
+                center: [longitude, latitude],
+                duration: 600,
+              });
             }
           }
           const source = map.getSource("hexes") as
