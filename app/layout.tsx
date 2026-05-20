@@ -7,7 +7,17 @@ import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "MiniKlaim",
-  description: "Run it. Klaim it.",
+  description: "Run it. Klaim it. A territory-capture running game on Celo.",
+  openGraph: {
+    title: "MiniKlaim",
+    description: "Run it. Klaim it. A territory-capture running game on Celo.",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MiniKlaim",
+    description: "Run it. Klaim it.",
+  },
 };
 
 export default async function RootLayout({
