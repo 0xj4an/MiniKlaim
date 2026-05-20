@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { cookieToInitialState } from "wagmi";
 import "./globals.css";
@@ -18,6 +18,13 @@ export const metadata: Metadata = {
     title: "MiniKlaim",
     description: "Run it. Klaim it.",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#FF6B35",
 };
 
 export default async function RootLayout({
