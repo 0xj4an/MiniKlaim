@@ -5,6 +5,7 @@ import { type ActivityEntry, useActivity } from "@/lib/useActivity";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { type LeaderboardEntry, useLeaderboard } from "@/lib/useLeaderboard";
 import { useWallet } from "@/lib/wallet/useWallet";
+import { WorldMap } from "./WorldMap";
 
 export default function CommunityPage() {
   const { address, isConnected } = useWallet();
@@ -34,6 +35,8 @@ export default function CommunityPage() {
           />
         </div>
       )}
+
+      <WorldMap myAddress={isConnected ? address : null} />
 
       <Leaderboard
         entries={leaderboard}
