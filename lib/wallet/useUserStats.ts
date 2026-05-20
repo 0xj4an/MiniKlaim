@@ -8,6 +8,7 @@ const log = createLogger("wallet:userStats");
 export type UserStats = {
   hexesOwned: number;
   totalRuns: number;
+  bestRunHexes: number;
 };
 
 export function useUserStats(address: string | null): UserStats | null {

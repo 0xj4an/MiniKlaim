@@ -89,7 +89,7 @@ export default function HomePage() {
                 <span className="font-semibold text-zinc-900">
                   {stats.hexesOwned}
                 </span>{" "}
-                hexes owned
+                owned
               </span>
               <span className="text-zinc-300">·</span>
               <span>
@@ -98,6 +98,17 @@ export default function HomePage() {
                 </span>{" "}
                 runs
               </span>
+              {stats.bestRunHexes > 0 && (
+                <>
+                  <span className="text-zinc-300">·</span>
+                  <span>
+                    best{" "}
+                    <span className="font-semibold text-zinc-900">
+                      {stats.bestRunHexes}
+                    </span>
+                  </span>
+                </>
+              )}
             </div>
           )}
 
