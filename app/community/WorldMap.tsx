@@ -30,6 +30,44 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
 
     let cancelled = false;
 
+    const popupRef = { current: null as maplibregl.Popup | null };
+    const handleClick = (e: maplibregl.MapLayerMouseEvent) => {
+      const feature = e.features?.[0];
+      if (!feature) return;
+      const props = feature.properties as {
+        owner: string;
+        ownerUsername: string | null;
+        isMine: boolean;
+      };
+      const fallback = `${props.owner.slice(0, 6)}...${props.owner.slice(-4)}`;
+      popupRef.current?.remove();
+      const el = document.createElement("div");
+      el.style.fontSize = "13px";
+      el.style.padding = "4px 6px";
+      el.style.whiteSpace = "nowrap";
+      el.appendChild(document.createTextNode("Captured by "));
+      if (props.ownerUsername) {
+        const link = document.createElement("a");
+        link.href = `/p/${props.ownerUsername}`;
+        link.textContent = `@${props.ownerUsername}`;
+        link.style.color = "#FF6B35";
+        link.style.textDecoration = "underline";
+        el.appendChild(link);
+      } else {
+        el.appendChild(document.createTextNode(fallback));
+      }
+      if (props.isMine) {
+        el.appendChild(document.createTextNode(" (you)"));
+      }
+      popupRef.current = new maplibregl.Popup({
+        closeButton: true,
+        closeOnClick: false,
+      })
+        .setLngLat(e.lngLat)
+        .setDOMContent(el)
+        .addTo(map);
+    };
+
     map.on("load", async () => {
       map.resize();
       try {
@@ -88,7 +126,22 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
               "line-opacity": 0.95,
             },
           });
+          map.on("click", "mine-fill", handleClick);
+          map.on("mouseenter", "mine-fill", () => {
+            map.getCanvas().style.cursor = "pointer";
+          });
+          map.on("mouseleave", "mine-fill", () => {
+            map.getCanvas().style.cursor = "";
+          });
         }
+
+        map.on("click", "others-fill", handleClick);
+        map.on("mouseenter", "others-fill", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "others-fill", () => {
+          map.getCanvas().style.cursor = "";
+        });
 
         if (data.hexes.length > 0) {
           const bounds = new maplibregl.LngLatBounds();
