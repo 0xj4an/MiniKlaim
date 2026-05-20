@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useGlobalStats } from "@/lib/useGlobalStats";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
 import { type UserRun, useUserRuns } from "@/lib/wallet/useUserRuns";
@@ -30,11 +31,25 @@ export default function HomePage() {
     isConnected && !isWrongChain ? address : null,
     3,
   );
+  const globalStats = useGlobalStats();
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
       <h1 className="text-4xl font-bold">MiniKlaim</h1>
       <p className="text-lg text-zinc-600">Run it. Klaim it.</p>
+
+      {globalStats && (
+        <p className="text-xs text-zinc-400">
+          <span className="font-semibold text-zinc-600">
+            {globalStats.totalHexes}
+          </span>{" "}
+          hexes claimed worldwide ·{" "}
+          <span className="font-semibold text-zinc-600">
+            {globalStats.totalPlayers}
+          </span>{" "}
+          {globalStats.totalPlayers === 1 ? "player" : "players"}
+        </p>
+      )}
 
       {isConnecting && <p className="text-sm text-zinc-500">Connecting...</p>}
 
