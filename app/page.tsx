@@ -494,6 +494,12 @@ function RecentRuns({ runs }: { runs: UserRun[] | null }) {
       {runs.map((run) => (
         <RunRow key={run.id} run={run} />
       ))}
+      <Link
+        href="/runs"
+        className="mt-1 text-center text-[10px] text-zinc-500 underline hover:text-zinc-700"
+      >
+        View all runs →
+      </Link>
     </div>
   );
 }
