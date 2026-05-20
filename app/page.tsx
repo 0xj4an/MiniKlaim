@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useGlobalStats } from "@/lib/useGlobalStats";
+import { type LeaderboardEntry, useLeaderboard } from "@/lib/useLeaderboard";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
 import { type UserRun, useUserRuns } from "@/lib/wallet/useUserRuns";
@@ -32,6 +33,7 @@ export default function HomePage() {
     3,
   );
   const globalStats = useGlobalStats();
+  const leaderboard = useLeaderboard(5);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
@@ -54,6 +56,11 @@ export default function HomePage() {
           {globalStats.totalPlayers === 1 ? "player" : "players"}
         </p>
       )}
+
+      <Leaderboard
+        entries={leaderboard}
+        myAddress={isConnected ? address : null}
+      />
 
       {isConnecting && <p className="text-sm text-zinc-500">Connecting...</p>}
 
@@ -244,6 +251,40 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
         </button>
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+function Leaderboard({
+  entries,
+  myAddress,
+}: {
+  entries: LeaderboardEntry[] | null;
+  myAddress: string | null;
+}) {
+  if (!entries || entries.length === 0) return null;
+  const me = myAddress?.toLowerCase() ?? null;
+  return (
+    <div className="mt-2 flex min-w-[240px] flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-left text-xs">
+      <p className="mb-1 text-center text-[10px] tracking-wide text-zinc-500 uppercase">
+        Leaderboard
+      </p>
+      {entries.map((e, i) => {
+        const name = e.username
+          ? `@${e.username}`
+          : `${e.address.slice(0, 6)}...${e.address.slice(-4)}`;
+        const isMe = me !== null && e.address.toLowerCase() === me;
+        return (
+          <div
+            key={e.address}
+            className={`flex items-center justify-between gap-3 ${isMe ? "font-semibold text-zinc-900" : "text-zinc-700"}`}
+          >
+            <span className="w-6 text-zinc-400">#{i + 1}</span>
+            <span className="flex-1 truncate">{name}</span>
+            <span className="font-mono">{e.hexCount}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
