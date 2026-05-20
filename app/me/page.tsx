@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
 import { useUserRuns } from "@/lib/wallet/useUserRuns";
@@ -270,24 +270,67 @@ function buildAchievements(stats: UserStats): Achievement[] {
   ];
 }
 
+const ACHIEVEMENTS_CACHE_KEY = "miniklaim.unlockedBadges";
+
 function Achievements({ stats }: { stats: UserStats }) {
   const achievements = buildAchievements(stats);
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
+  const [newlyUnlocked, setNewlyUnlocked] = useState<Achievement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const unlockedNow = achievements
+      .filter((a) => a.unlocked)
+      .map((a) => a.key);
+    let prev: string[] = [];
+    try {
+      const raw = window.localStorage.getItem(ACHIEVEMENTS_CACHE_KEY);
+      if (raw) prev = JSON.parse(raw) as string[];
+    } catch {
+      // ignore corrupted cache
+    }
+    const fresh = unlockedNow.filter((k) => !prev.includes(k));
+    if (fresh.length > 0) {
+      const first = achievements.find((a) => a.key === fresh[0]);
+      if (first) {
+        queueMicrotask(() => setNewlyUnlocked(first));
+        window.setTimeout(() => setNewlyUnlocked(null), 4000);
+      }
+    }
+    try {
+      window.localStorage.setItem(
+        ACHIEVEMENTS_CACHE_KEY,
+        JSON.stringify(unlockedNow),
+      );
+    } catch {
+      // ignore quota
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unlockedCount]);
+
   return (
-    <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
-      <p className="mb-1 text-center text-xs text-zinc-500">
-        Badges {unlockedCount} of {achievements.length}
-      </p>
-      {achievements.map((a) => (
-        <div
-          key={a.key}
-          className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-400"}`}
-        >
-          <span className={a.unlocked ? "font-semibold" : ""}>{a.name}</span>
-          <span className="text-xs text-zinc-500">{a.desc}</span>
+    <>
+      <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
+        <p className="mb-1 text-center text-xs text-zinc-500">
+          Badges {unlockedCount} of {achievements.length}
+        </p>
+        {achievements.map((a) => (
+          <div
+            key={a.key}
+            className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-400"}`}
+          >
+            <span className={a.unlocked ? "font-semibold" : ""}>{a.name}</span>
+            <span className="text-xs text-zinc-500">{a.desc}</span>
+          </div>
+        ))}
+      </div>
+      {newlyUnlocked && (
+        <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-zinc-900 px-5 py-3 text-sm text-white shadow-2xl">
+          <span className="text-orange-400">Badge unlocked:</span>{" "}
+          <span className="font-semibold">{newlyUnlocked.name}</span>
         </div>
-      ))}
-    </div>
+      )}
+    </>
   );
 }
 
