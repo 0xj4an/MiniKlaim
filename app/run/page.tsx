@@ -773,15 +773,47 @@ function RunSummaryModal({
             </div>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="mt-2 rounded-full bg-orange-500 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-600"
-        >
-          Done
-        </button>
+        <div className="mt-2 flex gap-3">
+          <button
+            onClick={() => shareRun(summary, timeLabel, distLabel)}
+            className="rounded-full border border-zinc-300 bg-white px-6 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+          >
+            Share
+          </button>
+          <button
+            onClick={onClose}
+            className="rounded-full bg-orange-500 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+          >
+            Done
+          </button>
+        </div>
       </div>
     </div>
   );
+}
+
+async function shareRun(
+  summary: { durationMs: number; hexesClaimed: number; distanceMeters: number },
+  timeLabel: string,
+  distLabel: string,
+): Promise<void> {
+  const text = `Just captured ${summary.hexesClaimed} ${
+    summary.hexesClaimed === 1 ? "block" : "blocks"
+  } in ${timeLabel} on MiniKlaim. ${distLabel} run.`;
+  const url = "https://www.miniklaim.fun";
+
+  if (typeof navigator !== "undefined" && "share" in navigator) {
+    try {
+      await navigator.share({ text, url });
+      return;
+    } catch {
+      // user cancelled or share failed; fall through to twitter intent
+    }
+  }
+  if (typeof window !== "undefined") {
+    const intent = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+    window.open(intent, "_blank", "noopener,noreferrer");
+  }
 }
 
 function ElapsedBanner({
