@@ -232,7 +232,13 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void onSave();
+      }}
+      className="flex flex-col items-center gap-2"
+    >
       <p className="text-sm text-zinc-700">
         {user?.username ? t("me.username.change") : t("me.username.pick")}
       </p>
@@ -240,14 +246,21 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
         <input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            if (error) setError(null);
+          }}
           placeholder={t("me.username.placeholder")}
           maxLength={20}
           disabled={isSaving}
+          autoFocus
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           className="w-44 rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none disabled:opacity-50"
         />
         <button
-          onClick={onSave}
+          type="submit"
           disabled={isSaving || !input.trim()}
           className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:bg-zinc-400"
         >
@@ -255,6 +268,7 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
         </button>
         {isEditing && (
           <button
+            type="button"
             onClick={() => {
               setIsEditing(false);
               setInput("");
@@ -268,7 +282,7 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
         )}
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
-    </div>
+    </form>
   );
 }
 
