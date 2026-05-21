@@ -1,5 +1,6 @@
 "use client";
 
+import { cellToLatLng } from "h3-js";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
@@ -7,6 +8,34 @@ import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE } from "@/lib/map/config";
 import { claimedHexesToFeatureCollection } from "@/lib/map/hex";
+
+type HexFeatureProps = {
+  owner: string;
+  ownerUsername: string | null;
+  isMine: boolean;
+};
+
+function hexesToPointCollection(
+  rows: HexRow[],
+  myAddress: string,
+): GeoJSON.FeatureCollection<GeoJSON.Point, HexFeatureProps> {
+  const me = myAddress.toLowerCase();
+  return {
+    type: "FeatureCollection",
+    features: rows.map((h) => {
+      const [lat, lng] = cellToLatLng(h.h3);
+      return {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [lng, lat] },
+        properties: {
+          owner: h.owner,
+          ownerUsername: h.ownerUsername,
+          isMine: h.owner.toLowerCase() === me,
+        },
+      };
+    }),
+  };
+}
 
 const log = createLogger("page:community:map");
 
@@ -98,16 +127,48 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
           id: "others-fill",
           type: "fill",
           source: "others",
+          minzoom: 9,
           paint: { "fill-color": "#FF6B35", "fill-opacity": 0.45 },
         });
         map.addLayer({
           id: "others-line",
           type: "line",
           source: "others",
+          minzoom: 9,
           paint: {
             "line-color": "#FF6B35",
             "line-width": 1,
             "line-opacity": 0.85,
+          },
+        });
+
+        map.addSource("others-points", {
+          type: "geojson",
+          data: hexesToPointCollection(others, myAddress ?? ""),
+        });
+        map.addLayer({
+          id: "others-points",
+          type: "circle",
+          source: "others-points",
+          maxzoom: 11,
+          paint: {
+            "circle-color": "#FF6B35",
+            "circle-opacity": 0.85,
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": 1,
+            "circle-radius": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0,
+              3,
+              4,
+              5,
+              8,
+              7,
+              11,
+              4,
+            ],
           },
         });
 
@@ -120,34 +181,73 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
             id: "mine-fill",
             type: "fill",
             source: "mine",
+            minzoom: 9,
             paint: { "fill-color": "#10B981", "fill-opacity": 0.6 },
           });
           map.addLayer({
             id: "mine-line",
             type: "line",
             source: "mine",
+            minzoom: 9,
             paint: {
               "line-color": "#10B981",
               "line-width": 1.5,
               "line-opacity": 0.95,
             },
           });
+
+          map.addSource("mine-points", {
+            type: "geojson",
+            data: hexesToPointCollection(mine, myAddress ?? ""),
+          });
+          map.addLayer({
+            id: "mine-points",
+            type: "circle",
+            source: "mine-points",
+            maxzoom: 11,
+            paint: {
+              "circle-color": "#10B981",
+              "circle-opacity": 0.95,
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 1.5,
+              "circle-radius": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                0,
+                4,
+                4,
+                6,
+                8,
+                8,
+                11,
+                5,
+              ],
+            },
+          });
+
           map.on("click", "mine-fill", handleClick);
-          map.on("mouseenter", "mine-fill", () => {
-            map.getCanvas().style.cursor = "pointer";
-          });
-          map.on("mouseleave", "mine-fill", () => {
-            map.getCanvas().style.cursor = "";
-          });
+          map.on("click", "mine-points", handleClick);
+          for (const layer of ["mine-fill", "mine-points"]) {
+            map.on("mouseenter", layer, () => {
+              map.getCanvas().style.cursor = "pointer";
+            });
+            map.on("mouseleave", layer, () => {
+              map.getCanvas().style.cursor = "";
+            });
+          }
         }
 
         map.on("click", "others-fill", handleClick);
-        map.on("mouseenter", "others-fill", () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-        map.on("mouseleave", "others-fill", () => {
-          map.getCanvas().style.cursor = "";
-        });
+        map.on("click", "others-points", handleClick);
+        for (const layer of ["others-fill", "others-points"]) {
+          map.on("mouseenter", layer, () => {
+            map.getCanvas().style.cursor = "pointer";
+          });
+          map.on("mouseleave", layer, () => {
+            map.getCanvas().style.cursor = "";
+          });
+        }
 
         if (data.hexes.length > 0) {
           const bounds = new maplibregl.LngLatBounds();
