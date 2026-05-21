@@ -16,6 +16,18 @@ export const dictionaries = {
     "home.cta.start": "Start running",
     "home.cta.continue": "Keep running",
     "home.hey": "Hey",
+    "home.env.minipay.connecting": "Connecting to MiniPay...",
+    "home.env.telegram.h": "Open in your browser",
+    "home.env.telegram.body":
+      "MiniKlaim needs a crypto wallet. Telegram's built-in browser can't run wallets.",
+    "home.env.telegram.copy": "Copy link",
+    "home.env.telegram.copied": "Copied",
+    "home.env.noWallet.h": "Wallet required",
+    "home.env.noWallet.body":
+      "MiniKlaim needs a crypto wallet to play. We use it just to keep your progress.",
+    "home.env.noWallet.installMm": "Install MetaMask",
+    "home.env.noWallet.minipay":
+      "Or open MiniKlaim inside MiniPay (Android only).",
     "nav.you": "You",
     "nav.community": "Community",
     "nav.help": "Help",
@@ -254,6 +266,18 @@ export const dictionaries = {
     "home.cta.start": "Empezar a correr",
     "home.cta.continue": "Seguir corriendo",
     "home.hey": "Hola",
+    "home.env.minipay.connecting": "Conectando a MiniPay...",
+    "home.env.telegram.h": "Abre desde tu navegador",
+    "home.env.telegram.body":
+      "MiniKlaim necesita una wallet. El navegador de Telegram no las soporta.",
+    "home.env.telegram.copy": "Copiar enlace",
+    "home.env.telegram.copied": "Copiado",
+    "home.env.noWallet.h": "Necesitas una wallet",
+    "home.env.noWallet.body":
+      "MiniKlaim necesita una wallet para guardar tu progreso.",
+    "home.env.noWallet.installMm": "Instala MetaMask",
+    "home.env.noWallet.minipay":
+      "O abre MiniKlaim dentro de MiniPay (Android).",
     "nav.you": "Tu",
     "nav.community": "Comunidad",
     "nav.help": "Ayuda",

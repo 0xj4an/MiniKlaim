@@ -103,6 +103,28 @@ export function useWallet(): UseWallet {
     }
   }, [isConnected, isWrongChain, chainId, accountChainId, wagmiChainId]);
 
+  // Auto-switch to Celo whenever a connected wallet is on a different chain.
+  // The user previously had to tap a "Switch to Celo" button. Now the request
+  // fires immediately and the button is only shown if the wallet refuses.
+  const [autoSwitchAttempted, setAutoSwitchAttempted] = useState(false);
+  useEffect(() => {
+    if (!isConnected || !isWrongChain || isSwitchingChain) return;
+    if (autoSwitchAttempted) return;
+    queueMicrotask(() => setAutoSwitchAttempted(true));
+    log.info("auto-switching to Celo", { from: chainId });
+    wagmiSwitchChain({ chainId: celo.id });
+  }, [
+    isConnected,
+    isWrongChain,
+    isSwitchingChain,
+    autoSwitchAttempted,
+    chainId,
+    wagmiSwitchChain,
+  ]);
+  useEffect(() => {
+    if (!isWrongChain) queueMicrotask(() => setAutoSwitchAttempted(false));
+  }, [isWrongChain]);
+
   useEffect(() => {
     log.debug("available connectors", {
       count: connectors.length,

@@ -50,15 +50,30 @@ export async function POST(
     log.info("username set", { address: lower, username });
     return NextResponse.json({ user });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes("users_username_unique")) {
-      log.warn("username taken", { username });
+    const err = e as { code?: string; constraint?: string; message?: string };
+    const msg = err.message ?? String(e);
+    const constraint = err.constraint ?? "";
+    if (
+      err.code === "23505" ||
+      msg.includes("users_username_unique") ||
+      constraint.includes("username")
+    ) {
+      log.warn("username taken", { username, constraint });
       return NextResponse.json(
         { error: "username already taken" },
         { status: 409 },
       );
     }
-    log.error("username set failed", { error: msg });
-    return NextResponse.json({ error: "internal error" }, { status: 500 });
+    log.error("username set failed", {
+      address: lower,
+      username,
+      code: err.code,
+      constraint,
+      message: msg,
+    });
+    return NextResponse.json(
+      { error: `db: ${err.code ?? "?"} ${msg}`.slice(0, 200) },
+      { status: 500 },
+    );
   }
 }
