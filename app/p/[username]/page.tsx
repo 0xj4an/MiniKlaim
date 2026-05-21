@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
+import type { TranslationKey } from "@/lib/i18nDict";
+import { serverT } from "@/lib/i18nServer";
 
 type PublicProfile = {
   username: string;
@@ -41,58 +43,62 @@ export async function generateMetadata({
   };
 }
 
-type Badge = { name: string; desc: string; unlocked: boolean };
+type Badge = {
+  nameKey: TranslationKey;
+  descKey: TranslationKey;
+  unlocked: boolean;
+};
 
 function buildBadges(profile: PublicProfile): Badge[] {
   return [
     {
-      name: "First steps",
-      desc: "Finish your first run",
+      nameKey: "badge.firstSteps.name",
+      descKey: "badge.firstSteps.desc",
       unlocked: profile.totalRuns >= 1,
     },
     {
-      name: "Five blocks",
-      desc: "Own 5 blocks",
+      nameKey: "badge.fiveBlocks.name",
+      descKey: "badge.fiveBlocks.desc",
       unlocked: profile.hexesOwned >= 5,
     },
     {
-      name: "Mayor",
-      desc: "Own 20 blocks",
+      nameKey: "badge.mayor.name",
+      descKey: "badge.mayor.desc",
       unlocked: profile.hexesOwned >= 20,
     },
     {
-      name: "Hundred",
-      desc: "Own 100 blocks",
+      nameKey: "badge.hundred.name",
+      descKey: "badge.hundred.desc",
       unlocked: profile.hexesOwned >= 100,
     },
     {
-      name: "Three days",
-      desc: "3 days in a row",
+      nameKey: "badge.threeDays.name",
+      descKey: "badge.threeDays.desc",
       unlocked: profile.streak >= 3,
     },
     {
-      name: "One week",
-      desc: "7 days in a row",
+      nameKey: "badge.oneWeek.name",
+      descKey: "badge.oneWeek.desc",
       unlocked: profile.streak >= 7,
     },
     {
-      name: "Two weeks",
-      desc: "14 days in a row",
+      nameKey: "badge.twoWeeks.name",
+      descKey: "badge.twoWeeks.desc",
       unlocked: profile.streak >= 14,
     },
     {
-      name: "Big run",
-      desc: "5 blocks in one run",
+      nameKey: "badge.bigRun.name",
+      descKey: "badge.bigRun.desc",
       unlocked: profile.bestRunHexes >= 5,
     },
     {
-      name: "Marathon",
-      desc: "10 km in one run",
+      nameKey: "badge.marathon.name",
+      descKey: "badge.marathon.desc",
       unlocked: profile.bestRunDistanceMeters >= 10000,
     },
     {
-      name: "Iron",
-      desc: "Finish 50 runs",
+      nameKey: "badge.iron.name",
+      descKey: "badge.iron.desc",
       unlocked: profile.totalRuns >= 50,
     },
   ];
@@ -107,6 +113,8 @@ export default async function PublicProfilePage({
   const profile = await fetchProfile(username);
   if (!profile) notFound();
 
+  const { locale, t } = await serverT();
+
   const bestKm =
     profile.bestRunDistanceMeters >= 1000
       ? `${(profile.bestRunDistanceMeters / 1000).toFixed(2)} km`
@@ -115,6 +123,11 @@ export default async function PublicProfilePage({
   const badges = buildBadges(profile);
   const unlockedCount = badges.filter((b) => b.unlocked).length;
 
+  const joinedLabel = new Date(profile.joinedAt).toLocaleDateString(
+    locale === "es" ? "es" : "en",
+    { month: "short", year: "numeric" },
+  );
+
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-8">
       <header className="flex items-center justify-between">
@@ -122,9 +135,9 @@ export default async function PublicProfilePage({
           href="/"
           className="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
         >
-          ← Home
+          ← {t("common.home")}
         </Link>
-        <h1 className="text-xl font-bold">Player</h1>
+        <h1 className="text-xl font-bold">{t("p.title")}</h1>
         <span className="w-16" />
       </header>
 
@@ -134,19 +147,17 @@ export default async function PublicProfilePage({
           <span>{profile.username}</span>
         </p>
         <p className="text-xs text-zinc-500">
-          Joined{" "}
-          {new Date(profile.joinedAt).toLocaleDateString(undefined, {
-            month: "short",
-            year: "numeric",
-          })}
+          {t("p.joined")} {joinedLabel}
         </p>
       </div>
 
       <div className="flex justify-center gap-8 text-center">
-        <BigStat label="blocks" value={profile.hexesOwned} />
-        <BigStat label="runs" value={profile.totalRuns} />
+        <BigStat label={t("p.stat.blocks")} value={profile.hexesOwned} />
+        <BigStat label={t("p.stat.runs")} value={profile.totalRuns} />
         <BigStat
-          label={profile.streak === 1 ? "day streak" : "days streak"}
+          label={
+            profile.streak === 1 ? t("p.stat.dayStreak") : t("p.stat.daysStreak")
+          }
           value={profile.streak}
         />
       </div>
@@ -155,15 +166,15 @@ export default async function PublicProfilePage({
         <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 text-xs text-zinc-500">
           {profile.bestRunHexes > 0 && (
             <span>
-              Best run:{" "}
+              {t("p.bestRun")}{" "}
               <span className="font-semibold text-zinc-900">
-                {profile.bestRunHexes} blocks
+                {profile.bestRunHexes} {t("p.bestRun.blocks")}
               </span>
             </span>
           )}
           {profile.bestRunDistanceMeters > 0 && (
             <span>
-              Longest:{" "}
+              {t("p.longest")}{" "}
               <span className="font-semibold text-zinc-900">{bestKm}</span>
             </span>
           )}
@@ -172,15 +183,17 @@ export default async function PublicProfilePage({
 
       <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
         <p className="mb-1 text-center text-xs text-zinc-500">
-          Badges {unlockedCount} of {badges.length}
+          {t("p.badges.header")} {unlockedCount} {t("p.badges.of")} {badges.length}
         </p>
         {badges.map((b) => (
           <div
-            key={b.name}
+            key={b.nameKey}
             className={`flex items-center justify-between gap-3 ${b.unlocked ? "text-zinc-900" : "text-zinc-400"}`}
           >
-            <span className={b.unlocked ? "font-semibold" : ""}>{b.name}</span>
-            <span className="text-xs text-zinc-500">{b.desc}</span>
+            <span className={b.unlocked ? "font-semibold" : ""}>
+              {t(b.nameKey)}
+            </span>
+            <span className="text-xs text-zinc-500">{t(b.descKey)}</span>
           </div>
         ))}
       </div>
@@ -189,7 +202,7 @@ export default async function PublicProfilePage({
         href="/"
         className="mt-2 self-center rounded-md bg-orange-500 px-6 py-3 text-sm font-semibold text-white hover:bg-orange-600"
       >
-        Play MiniKlaim
+        {t("p.cta.play")}
       </Link>
     </main>
   );

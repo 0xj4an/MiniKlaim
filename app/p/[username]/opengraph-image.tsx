@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { headers } from "next/headers";
+import { serverT } from "@/lib/i18nServer";
 
 export const alt = "MiniKlaim player profile";
 export const size = { width: 1200, height: 630 };
@@ -30,6 +31,7 @@ export default async function OgImage({
   params: { username: string };
 }) {
   const profile = await fetchProfile(params.username);
+  const { t } = await serverT();
 
   if (!profile) {
     return new ImageResponse(
@@ -47,7 +49,7 @@ export default async function OgImage({
           fontWeight: 800,
         }}
       >
-        Player not found
+        {t("p.notFound")}
       </div>,
       { ...size },
     );
@@ -96,10 +98,12 @@ export default async function OgImage({
           marginTop: 16,
         }}
       >
-        <Stat label="blocks" value={profile.hexesOwned} />
-        <Stat label="runs" value={profile.totalRuns} />
+        <Stat label={t("p.stat.blocks")} value={profile.hexesOwned} />
+        <Stat label={t("p.stat.runs")} value={profile.totalRuns} />
         <Stat
-          label={profile.streak === 1 ? "day streak" : "days streak"}
+          label={
+            profile.streak === 1 ? t("p.stat.dayStreak") : t("p.stat.daysStreak")
+          }
           value={profile.streak}
         />
       </div>
