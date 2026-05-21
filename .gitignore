@@ -49,8 +49,6 @@ tsconfig.tsbuildinfo
 .eslintcache
 *.tsbuildinfo
 
-# Local agent config (project-scoped Claude/Cursor settings often contain auth)
-.claude/settings.local.json
+# Next.js auto-generated
+next-env.d.ts
 
-# Internal design docs / specs — not part of the shipped product
-docs/
