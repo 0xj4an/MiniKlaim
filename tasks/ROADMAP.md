@@ -1,81 +1,107 @@
 # MiniKlaim Roadmap
 
-Living document. Update as we ship things. Reorder when priorities change.
+Living document. Update as we ship. Reorder when priorities change.
 
 Last updated: 2026-05-21
 
 ---
 
-## Where we are right now
+## Goal
 
-- App built end-to-end on `dev` branch: 70+ pasos of features.
-- Dev URL on Railway works: `web-development-e186.up.railway.app`. Testers using it.
-- `www.miniklaim.fun` resolves to Railway prod but prod is deploying from `main`, which only has the empty Next.js scaffold. The custom domain therefore serves a blank page.
-- DNS is correctly configured (CNAME `www` + TXT `_railway-verify.www`).
-- talentapp verification meta tag is on `dev`, not yet on prod.
+**Win on Celo Proof of Ship (deadline May 29, 2026).** $5,000 pool, 50 winners.
 
-## What's blocking shipping
+Requirements:
 
-The only blocker is: **`main` is stale**. Everything else is ready.
+1. MiniPay integration - **already done**.
+2. Smart contract on Celo mainnet - **building now**.
+3. Submission to the campaign - **last step**.
 
 ---
 
-## Plan, in order
+## Strategy
 
-### 1. Unblock prod  (now)
+Two contracts on Celo mainnet that turn the existing gameplay into real on-chain assets:
 
-- Merge `dev` -> `main` locally. Review the diff.
-- User pushes `main`. Railway redeploys prod from the latest commit.
-- talentapp domain verification picks up the meta tag.
-- `www.miniklaim.fun` starts serving the real app.
+### `MiniKlaimHexes` - ERC-721, the game mechanic
 
-**Owner:** Claude prepares merge, user pushes.
+- 1 NFT per captured H3 hex. `tokenId = uint256(h3Index)`.
+- Transferable only by the contract (not by the player). When a player captures someone else's hex, the contract transfers ownership.
+- DB stays source of truth for real-time UX. Chain is a mirror. Server batches mints/transfers at run finish.
+- `tokenURI` returns lat/lng of the hex centroid so it looks meaningful on Celoscan / wallets.
 
-### 2. Apex domain  (next)
+### `MiniKlaimBadges` - ERC-1155 soulbound, the achievements
 
-- Add `miniklaim.fun` (no `www`) as a second custom domain on Railway prod.
-- Add the DNS records Railway gives us (usually `ALIAS @` or `A @` plus a `TXT _railway-verify`).
-- Confirm both `miniklaim.fun` and `www.miniklaim.fun` resolve to the same app.
+- 1 tokenId per badge type. Non-transferable.
+- Catalog:
+  - The 10 we already have in UI (First steps, Five blocks, Mayor, Hundred, etc.)
+  - First Hex (your first ever capture; minted in the same tx as the first hex NFT)
+  - Top of Month (monthly snapshot job picks the leader)
 
-**Owner:** Claude wires Railway + Namecheap via MCP, user reviews.
+### Sponsored gas
 
-### 3. Real-user tester loop  (continuous)
+Server-mints. Project wallet has MINTER + TRANSFERRER roles. Player never signs anything except their normal MiniPay session. Celo gas is ~$0.0005 per mint; cost is trivial.
 
-- Each round of feedback turns into pasos like 70, 71 (tester fixes).
-- Track recurring issues in this file under "Tester reports" so patterns stay visible.
+---
 
-**Owner:** User collects feedback, Claude implements.
+## 8-day timeline
 
-### 4. MiniPay listing prep  (when 1-3 stable)
+### Day 1-2 - HexNFT contract
 
-Per `celopedia-skill > minipay-requirements`. Two-stage process:
+- `contracts/` dir, Foundry init, OpenZeppelin imports
+- `MiniKlaimHexes.sol`: ERC-721, role-gated mint + transfer, `_beforeTokenTransfer` blocks player transfers
+- Forge tests: mint, transfer-by-role, transfer-by-player reverts
+- Deploy to Celo mainnet via Foundry script
+- Verify on Celoscan
+- Server signer wallet created, private key in Railway env, fund with a bit of CELO + USDm
 
-- Stage 1 (intake form at <https://minipay.to/mini-apps>): screenshots, app description, category, contact. **User-facing assets.**
-- Stage 2 (post-call readiness): UI copy audit (already done in pasos 31, 37, 38), PageSpeed 90+ (perf passes in pasos 57, 58), Privacy / Terms (done), in-app support contact (done), 360x640 mobile-first (already mobile-first).
+### Day 3 - Wire backend to HexNFT
 
-Remaining for stage 2:
-- Run PageSpeed Insights on prod after step 1 lands; fix any sub-90 metrics.
-- Pick 3 screenshots, export at PNG / WebP under 500KB each.
-- Write the short description (~150 chars) + long description.
+- `lib/onchain/hexes.ts` with viem + ABI
+- `/api/runs/[id]/finish` calls `claimBatch(player, h3Ids[])` for the run's hexes
+- Retry queue (Postgres table) for any failed tx; cron tries again
+- New schema column on `hexes`: `minted_at timestamptz nullable`
 
-**Owner:** User drives Stage 1 form, Claude helps with anything code-side.
+### Day 4 - Badges contract + UI
 
-### 5. Financial incentives  (future, user-driven)
+- `MiniKlaimBadges.sol` ERC-1155 soulbound, deploy + verify
+- /me: each hex card gets a Celoscan link when minted; badge card shows on-chain status
+- /p/[username]: "X hexes on-chain" stat
+- Forge tests
 
-User intent: rewards, badge mints, possibly token-gated runs.
+### Day 5 - Badge lifecycle
 
-When the mechanic is defined:
+- Server evaluates thresholds after run finish; mints any newly-unlocked badges
+- First Hex badge mints in same finish-run tx
+- Cron for monthly leaderboard snapshot + Top of Month mint
 
-- Contract design (Solidity, deploy via Foundry on Celo).
-- Wire to existing `useBalances` infra (kept in place in paso 71's revert).
-- New `/rewards` surface or extend `/me`.
-- Document in `JOURNAL.md` like every other paso.
+### Day 6 - Production cutover
 
-**Owner:** User defines mechanic, Claude implements.
+- Merge `dev` -> `main`, push (you authorize)
+- Railway prod redeploys with contract envs wired
+- Add `miniklaim.fun` (apex) custom domain in Railway + Namecheap DNS
+- Both `miniklaim.fun` and `www.miniklaim.fun` serving the real app
 
-### 6. Friend / follow system  (future)
+### Day 7 - PoS submission
 
-Schema work needed. Defer until user asks for it.
+- Fill the campaign form
+- Screenshots: home, /run with NFT capture in progress, /me with minted badge + hex links, /community world map
+- Both contract addresses linked
+- Update talent.app profile: add MiniKlaim as a project, connect GitHub (last 90 days of commits already counts)
+
+### Day 8 - Buffer
+
+Anything that broke. Final pass through tester feedback.
+
+---
+
+## Out of scope until after PoS
+
+These come back to the table once PoS submission is in:
+
+- Friend / follow system
+- Tradeable hex marketplace (currently transfer-by-protocol-only by design)
+- Mobile native wrappers
+- Multiplayer territory battles
 
 ---
 
@@ -92,24 +118,25 @@ Track recurring issues here so patterns stay visible across sessions.
 ### 2026-05-21 - "Smoothly built" reviewer
 
 - "Tap Start running on the home page" ambiguous. **Fixed paso 72** (rephrased to "From the home screen, tap Start running.").
-- "Your money" feels disconnected from running. **Fixed paso 72** (renamed to "Wallet" with subtitle "Rewards and badges coming soon"). User confirms: keep wallet visible, plan to integrate rewards later.
-- "Will there be financial incentive?" - Yes. See section 5 above.
+- "Your money" feels disconnected from running. **Fixed paso 72** (renamed to "Wallet" with subtitle "Rewards and badges coming soon"). User confirms: keep wallet visible, plan to integrate rewards later - which is exactly what hex NFTs + badges do.
+- "Will there be financial incentive?" - Yes. Hex NFTs + badges, deploying this week.
 
 ---
 
 ## Done shipping
 
-High-level milestones, not every paso. For per-paso detail see `JOURNAL.md`.
+High-level milestones. For per-paso detail see `JOURNAL.md`.
 
 - Core gameplay: GPS run tracking, H3-12 hex claiming, real-time map.
 - MiniPay integration: auto-connect, fee abstraction, supported tokens only.
-- Profile: username system, public profile at `/p/[username]`, joined date, badges (10).
-- Social: clickable usernames everywhere, share to Telegram / WhatsApp / X via Web Share API, dynamic OG image per profile.
+- Profile: username system, public `/p/[username]`, joined date, badges (10).
+- Social: clickable usernames everywhere, share via Web Share API, dynamic OG image per profile.
 - Community: leaderboard, activity feed, world map with city dots + hex polygons (64-city seed).
-- Stats: public `/stats` page, personal `/me` page with stats, streak, achievements, territory map, wallet.
+- Stats: public `/stats`, personal `/me` with stats, streak, achievements, territory map, wallet.
 - i18n: full EN/ES coverage including server-rendered routes and OG image.
 - Perf: maplibre deferred off home critical path, CLS reserved, route error / 404 boundaries.
 - Legal: Privacy + Terms pages with bilingual copy.
 - PWA: manifest, icons (192, 512, apple-touch), viewport meta.
 - Help: `/about` with how-to and FAQ.
 - Tester polish: paso 70 (3 blockers), paso 71 (form UX), paso 72 (copy + wallet rename).
+- Roadmap to PoS: this document.
