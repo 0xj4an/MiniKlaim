@@ -489,8 +489,11 @@ function BalancesCard({
   const { t } = useLocale();
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
-      <p className="mb-1 text-center text-xs text-zinc-500">
-        {t("me.money.header")}
+      <p className="text-center text-xs text-zinc-500">
+        {t("me.wallet.header")}
+      </p>
+      <p className="mb-1 text-center text-[10px] text-zinc-400">
+        {t("me.wallet.subtitle")}
       </p>
       <BalanceRow symbol="USDm" balance={balances.USDm} />
       <BalanceRow symbol="USDC" balance={balances.USDC} />
