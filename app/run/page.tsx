@@ -425,6 +425,32 @@ export default function RunPage() {
       setGeoStatus("requesting");
       log.info("requesting geolocation");
 
+      // Fast primer: ask for ANY recent fix (cached, low accuracy is fine).
+      // On iOS WKWebView (MiniPay) this often returns instantly while the
+      // high-accuracy watchPosition is still warming up. Flips the UI to
+      // "granted" so the player can tap Start without waiting 30s.
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          log.info("primer fix", { acc: pos.coords.accuracy });
+          setGeoStatus((prev) => (prev === "granted" ? prev : "granted"));
+          const { latitude, longitude } = pos.coords;
+          latestPosRef.current = { lat: latitude, lng: longitude };
+          writeCachedPosition(latitude, longitude);
+          if (firstFix) {
+            map.flyTo({ center: [longitude, latitude], zoom: FOLLOW_ZOOM });
+            firstFix = false;
+          }
+        },
+        (err) => {
+          // Don't treat primer failure as terminal; the watch below will retry.
+          log.warn("primer getCurrentPosition failed", {
+            code: err.code,
+            message: err.message,
+          });
+        },
+        { enableHighAccuracy: false, maximumAge: 60000, timeout: 5000 },
+      );
+
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           const { latitude, longitude, accuracy } = pos.coords;
@@ -521,7 +547,7 @@ export default function RunPage() {
             message: err.message,
           });
         },
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
       );
     });
 
@@ -630,6 +656,18 @@ export default function RunPage() {
 
 function GeoStatusBanner({ status }: { status: GeoStatus }) {
   const { t } = useLocale();
+  const [showHelp, setShowHelp] = useState(false);
+  useEffect(() => {
+    if (status !== "requesting" && status !== "idle") {
+      queueMicrotask(() => setShowHelp(false));
+      return;
+    }
+    const id = window.setTimeout(() => {
+      queueMicrotask(() => setShowHelp(true));
+    }, 8000);
+    return () => window.clearTimeout(id);
+  }, [status]);
+
   if (status === "granted") return null;
   let message: string;
   let tone: string;
@@ -652,7 +690,12 @@ function GeoStatusBanner({ status }: { status: GeoStatus }) {
     <div
       className={`pointer-events-none absolute top-16 right-4 left-4 z-10 rounded-md p-3 text-center text-xs shadow-md backdrop-blur ${tone}`}
     >
-      {message}
+      <div>{message}</div>
+      {showHelp && (status === "requesting" || status === "idle") && (
+        <div className="mt-1 text-[11px] text-zinc-600">
+          {t("run.gps.waitingHelp")}
+        </div>
+      )}
     </div>
   );
 }
