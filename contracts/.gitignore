@@ -1,0 +1,13 @@
+# Foundry build artifacts
+out/
+cache/
+broadcast/
+
+# Dependencies (vendored via git clone, not tracked here)
+lib/
+
+# Environment
+.env
+
+# Editor
+.vscode/
