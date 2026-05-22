@@ -50,15 +50,15 @@ export async function POST(
     log.info("username set", { address: lower, username });
     return NextResponse.json({ user });
   } catch (e) {
-    const err = e as { code?: string; constraint?: string; message?: string };
-    const msg = err.message ?? String(e);
-    const constraint = err.constraint ?? "";
+    // postgres-js sometimes nests the underlying error in .cause and the
+    // pg error code lives on the original. Try every reasonable shape.
+    const detail = extractDbError(e);
     if (
-      err.code === "23505" ||
-      msg.includes("users_username_unique") ||
-      constraint.includes("username")
+      detail.code === "23505" ||
+      detail.message.includes("users_username_unique") ||
+      detail.constraint.includes("username")
     ) {
-      log.warn("username taken", { username, constraint });
+      log.warn("username taken", { username, constraint: detail.constraint });
       return NextResponse.json(
         { error: "username already taken" },
         { status: 409 },
@@ -67,13 +67,50 @@ export async function POST(
     log.error("username set failed", {
       address: lower,
       username,
-      code: err.code,
-      constraint,
-      message: msg,
+      ...detail,
     });
     return NextResponse.json(
-      { error: `db: ${err.code ?? "?"} ${msg}`.slice(0, 200) },
+      {
+        error: `db ${detail.code || "??"} ${detail.detailLine || detail.message}`.slice(
+          0,
+          200,
+        ),
+      },
       { status: 500 },
     );
   }
+}
+
+type ErrShape = {
+  code?: string;
+  severity?: string;
+  detail?: string;
+  constraint?: string;
+  table?: string;
+  column?: string;
+  message?: string;
+  cause?: unknown;
+};
+
+function extractDbError(e: unknown): {
+  code: string;
+  severity: string;
+  constraint: string;
+  table: string;
+  column: string;
+  message: string;
+  detailLine: string;
+} {
+  let err = e as ErrShape;
+  // Unwrap one level of cause if the outer has no code.
+  if (!err.code && err.cause) err = err.cause as ErrShape;
+  return {
+    code: err.code ?? "",
+    severity: err.severity ?? "",
+    constraint: err.constraint ?? "",
+    table: err.table ?? "",
+    column: err.column ?? "",
+    message: err.message ?? String(e),
+    detailLine: err.detail ?? "",
+  };
 }

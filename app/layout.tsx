@@ -32,6 +32,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   themeColor: "#FF6B35",
+  colorScheme: "light",
 };
 
 export default async function RootLayout({
@@ -45,8 +46,8 @@ export default async function RootLayout({
   );
 
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" style={{ colorScheme: "light" }}>
+      <body className="bg-white text-zinc-900">
         <Providers initialState={initialState}>{children}</Providers>
       </body>
     </html>
