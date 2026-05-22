@@ -45,14 +45,14 @@ Server-mints. Project wallet has MINTER + TRANSFERRER roles. Player never signs 
 
 ## 8-day timeline
 
-### Day 1-2 - HexNFT contract
+### Day 1-2 - HexNFT contract DONE
 
 - `contracts/` dir, Foundry init, OpenZeppelin imports
 - `MiniKlaimHexes.sol`: ERC-721, role-gated mint + transfer, `_beforeTokenTransfer` blocks player transfers
-- Forge tests: mint, transfer-by-role, transfer-by-player reverts
-- Deploy to Celo mainnet via Foundry script
-- Verify on Celoscan
-- Server signer wallet created, private key in Railway env, fund with a bit of CELO + USDm
+- Forge tests: 10/10 passing
+- **Deployed to Celo mainnet: `0xf3C18ECFFEcca156E681cf1Ebfa37cA68c42cb47`** (2026-05-22)
+- Server signer: `0x8da26Ae1B32a7e4Cd158622D7d70Fe16D6F1dE83` (funded with 1 CELO)
+- Pending: verify on Celoscan, mirror envs to Railway
 
 ### Day 3 - Wire backend to HexNFT
 
