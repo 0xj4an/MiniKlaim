@@ -121,6 +121,8 @@ export const dictionaries = {
     "time.unit.hours": "h",
     "time.unit.days": "d",
     "run.gps.waiting": "Waiting for GPS...",
+    "run.gps.waitingHelp":
+      "Still waiting? Make sure MiniPay has location permission in your phone settings.",
     "run.gps.denied":
       "Location denied. Enable it in browser settings to track runs.",
     "run.gps.unavailable": "Location unavailable on this device.",
@@ -373,6 +375,8 @@ export const dictionaries = {
     "time.unit.hours": "h",
     "time.unit.days": "d",
     "run.gps.waiting": "Esperando GPS...",
+    "run.gps.waitingHelp":
+      "Sigue esperando? Verifica que MiniPay tenga permiso de ubicacion en los ajustes del telefono.",
     "run.gps.denied":
       "Ubicacion denegada. Activala en los ajustes del navegador para correr.",
     "run.gps.unavailable": "Ubicacion no disponible en este dispositivo.",
