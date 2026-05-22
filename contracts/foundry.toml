@@ -15,5 +15,5 @@ celo = "https://forno.celo.org"
 alfajores = "https://alfajores-forno.celo-testnet.org"
 
 [etherscan]
-celo = { key = "${CELOSCAN_API_KEY}", url = "https://api.celoscan.io/api" }
-alfajores = { key = "${CELOSCAN_API_KEY}", url = "https://api-alfajores.celoscan.io/api" }
+celo = { key = "${ETHERSCAN_API_KEY}", chain = 42220 }
+alfajores = { key = "${ETHERSCAN_API_KEY}", chain = 44787 }
