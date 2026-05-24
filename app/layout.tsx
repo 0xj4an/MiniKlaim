@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { cookieToInitialState } from "wagmi";
 import "./globals.css";
 import { wagmiConfig } from "@/lib/wallet/config";
+import { FarcasterReady } from "./FarcasterReady";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
@@ -48,7 +49,10 @@ export default async function RootLayout({
   return (
     <html lang="en" style={{ colorScheme: "light" }}>
       <body className="bg-white text-zinc-900">
-        <Providers initialState={initialState}>{children}</Providers>
+        <Providers initialState={initialState}>
+          <FarcasterReady />
+          {children}
+        </Providers>
       </body>
     </html>
   );
