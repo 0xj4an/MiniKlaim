@@ -1,7 +1,6 @@
-import { desc, eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { runs } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -18,18 +17,25 @@ export async function GET(
     100,
   );
 
-  const rows = await db
-    .select({
-      id: runs.id,
-      startedAt: runs.startedAt,
-      endedAt: runs.endedAt,
-      hexesClaimed: runs.hexesClaimed,
-      distanceMeters: runs.distanceMeters,
-    })
-    .from(runs)
-    .where(eq(runs.userAddress, lower))
-    .orderBy(desc(runs.startedAt))
-    .limit(limit);
+  // Each run's hexes share the same captureBatch tx hash; pick any one.
+  const rows = await db.execute(sql`
+    SELECT
+      r.id,
+      r.started_at AS "startedAt",
+      r.ended_at AS "endedAt",
+      r.hexes_claimed AS "hexesClaimed",
+      r.distance_meters AS "distanceMeters",
+      (
+        SELECT mint_tx_hash
+        FROM hexes h
+        WHERE h.run_id = r.id AND h.mint_tx_hash IS NOT NULL
+        LIMIT 1
+      ) AS "mintTxHash"
+    FROM runs r
+    WHERE r.user_address = ${lower}
+    ORDER BY r.started_at DESC
+    LIMIT ${limit}
+  `);
 
   return NextResponse.json({ runs: rows });
 }

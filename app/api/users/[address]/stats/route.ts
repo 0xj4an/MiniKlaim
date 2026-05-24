@@ -1,4 +1,4 @@
-import { count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, runs } from "@/lib/db/schema";
@@ -12,29 +12,40 @@ export async function GET(
   const { address } = await params;
   const lower = address.toLowerCase();
 
-  const [hexResult, runResult, bestRun, bestRunDist, rankResult, runDays] =
-    await Promise.all([
-      db
-        .select({ count: count() })
-        .from(hexes)
-        .where(eq(hexes.ownerAddress, lower)),
-      db
-        .select({ count: count() })
-        .from(runs)
-        .where(eq(runs.userAddress, lower)),
-      db
-        .select({ hexesClaimed: runs.hexesClaimed })
-        .from(runs)
-        .where(eq(runs.userAddress, lower))
-        .orderBy(desc(runs.hexesClaimed))
-        .limit(1),
-      db
-        .select({ distanceMeters: runs.distanceMeters })
-        .from(runs)
-        .where(eq(runs.userAddress, lower))
-        .orderBy(desc(runs.distanceMeters))
-        .limit(1),
-      db.execute(sql`
+  const [
+    hexResult,
+    hexMintedResult,
+    runResult,
+    bestRun,
+    bestRunDist,
+    rankResult,
+    runDays,
+  ] = await Promise.all([
+    db
+      .select({ count: count() })
+      .from(hexes)
+      .where(eq(hexes.ownerAddress, lower)),
+    db
+      .select({ count: count() })
+      .from(hexes)
+      .where(and(eq(hexes.ownerAddress, lower), isNotNull(hexes.mintedAt))),
+    db
+      .select({ count: count() })
+      .from(runs)
+      .where(eq(runs.userAddress, lower)),
+    db
+      .select({ hexesClaimed: runs.hexesClaimed })
+      .from(runs)
+      .where(eq(runs.userAddress, lower))
+      .orderBy(desc(runs.hexesClaimed))
+      .limit(1),
+    db
+      .select({ distanceMeters: runs.distanceMeters })
+      .from(runs)
+      .where(eq(runs.userAddress, lower))
+      .orderBy(desc(runs.distanceMeters))
+      .limit(1),
+    db.execute(sql`
       SELECT (
         SELECT COUNT(*) FROM (
           SELECT owner_address, COUNT(*) AS c
@@ -46,14 +57,14 @@ export async function GET(
         ) sub
       )::int + 1 AS rank
     `),
-      db.execute(sql`
+    db.execute(sql`
       SELECT DISTINCT DATE(ended_at AT TIME ZONE 'UTC') AS day
       FROM runs
       WHERE user_address = ${lower} AND ended_at IS NOT NULL
       ORDER BY day DESC
       LIMIT 365
     `),
-    ]);
+  ]);
 
   const rank = (rankResult as unknown as Array<{ rank: number }>)[0]?.rank ?? 1;
   const days = (runDays as unknown as Array<{ day: string }>).map((r) => r.day);
@@ -61,6 +72,7 @@ export async function GET(
 
   return NextResponse.json({
     hexesOwned: hexResult[0]?.count ?? 0,
+    hexesMinted: hexMintedResult[0]?.count ?? 0,
     totalRuns: runResult[0]?.count ?? 0,
     bestRunHexes: bestRun[0]?.hexesClaimed ?? 0,
     bestRunDistanceMeters: bestRunDist[0]?.distanceMeters ?? 0,
