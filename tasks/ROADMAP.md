@@ -93,10 +93,11 @@ Server-mints. Project wallet has MINTER + TRANSFERRER roles. Player never signs 
 
 ### Day 4 - Badges contract + UI
 
-- `MiniKlaimBadges.sol` ERC-1155 soulbound, deploy + verify
-- `/me`: each hex card gets a Celoscan link when minted; badge card shows on-chain status
-- `/p/[username]`: "X hexes on-chain" stat
-- Forge tests for Badges
+- `MiniKlaimBadges.sol` ERC-1155 soulbound: 9/9 forge tests passing
+- **Deployed to Celo mainnet: `0xa9aB7390f79b937C9c0A1FdFA1A40c2e145EAbd8`** (2026-05-24)
+- Verified on Celoscan via Etherscan v2 unified API
+- Env vars set on Railway dev + prod
+- TODO: `/me` Celoscan links per badge, `/p/[username]` on-chain stat (next paso)
 
 ### Day 5 - Badge lifecycle
 
