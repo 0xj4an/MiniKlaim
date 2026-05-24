@@ -25,7 +25,7 @@ export async function GET() {
       webhookUrl: "https://www.miniklaim.fun/api/webhook",
       subtitle: "Run it. Klaim it.",
       description:
-        "Run or walk through real-world hexes to capture them as on-chain NFTs on Celo. MiniPay native, bilingual EN/ES.",
+        "Run or walk through real-world hexes to capture them as on-chain NFTs on Celo. MiniPay native, bilingual in English and Spanish.",
       primaryCategory: "games",
       screenshotUrls: ["https://www.miniklaim.fun/opengraph-image"],
       heroImageUrl: "https://www.miniklaim.fun/opengraph-image",
@@ -35,8 +35,7 @@ export async function GET() {
       ogDescription:
         "Walk or run through hex blocks to capture them as NFTs on Celo.",
       ogImageUrl: "https://www.miniklaim.fun/opengraph-image",
-      castShareUrl:
-        "https://warpcast.com/~/compose?text=Run+your+city%2C+capture+territory+on-chain.+Try+MiniKlaim&embeds[]=https://www.miniklaim.fun",
+      castShareUrl: "https://www.miniklaim.fun/share",
     },
   });
 }
