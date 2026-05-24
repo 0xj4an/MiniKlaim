@@ -10,18 +10,30 @@ export async function GET() {
       style={{
         width: "100%",
         height: "100%",
-        background: "#FF6B35",
-        color: "white",
+        background: "white",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontFamily: "sans-serif",
-        fontWeight: 800,
-        fontSize: 140,
-        letterSpacing: -4,
       }}
     >
-      MK
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: "#FF6B35",
+          clipPath:
+            "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "white",
+          fontWeight: 800,
+          fontSize: 90,
+          letterSpacing: -4,
+        }}
+      >
+        MK
+      </div>
     </div>,
     {
       ...size,
