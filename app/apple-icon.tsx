@@ -7,7 +7,7 @@ export default function AppleIcon() {
   return new ImageResponse(
     <div
       style={{
-        fontSize: 135,
+        fontSize: 90,
         background: "#FF6B35",
         width: "100%",
         height: "100%",
@@ -16,10 +16,11 @@ export default function AppleIcon() {
         justifyContent: "center",
         color: "white",
         fontWeight: 800,
+        letterSpacing: -4,
         borderRadius: "20%",
       }}
     >
-      K
+      MK
     </div>,
     { ...size },
   );

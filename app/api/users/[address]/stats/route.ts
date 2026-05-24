@@ -72,7 +72,7 @@ export async function GET(
 /**
  * Walk a list of run days (UTC, ISO yyyy-mm-dd, newest first) and count
  * consecutive days ending today or yesterday. A streak only "counts" if the
- * most recent run day is today or yesterday — otherwise the streak is over.
+ * most recent run day is today or yesterday; otherwise the streak is over.
  */
 function computeStreak(days: string[]): number {
   if (days.length === 0) return 0;

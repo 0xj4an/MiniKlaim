@@ -697,6 +697,22 @@ function GeoStatusBanner({
 }) {
   const { t } = useLocale();
   const [showHelp, setShowHelp] = useState(false);
+  const [showMinipayIosEscape, setShowMinipayIosEscape] = useState(false);
+
+  useEffect(() => {
+    if (status !== "requesting" && status !== "idle") return;
+    if (typeof window === "undefined") return;
+    const ua = navigator.userAgent ?? "";
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const ethereum = (window as Window & { ethereum?: { isMiniPay?: boolean } })
+      .ethereum;
+    const isMiniPay = ethereum?.isMiniPay === true;
+    if (!isIOS || !isMiniPay) return;
+    const id = window.setTimeout(() => {
+      queueMicrotask(() => setShowMinipayIosEscape(true));
+    }, 12000);
+    return () => window.clearTimeout(id);
+  }, [status]);
   useEffect(() => {
     if (status !== "requesting" && status !== "idle") {
       queueMicrotask(() => setShowHelp(false));
@@ -709,6 +725,28 @@ function GeoStatusBanner({
   }, [status]);
 
   if (status === "granted") return null;
+
+  if (
+    showMinipayIosEscape &&
+    (status === "requesting" || status === "idle") &&
+    typeof window !== "undefined"
+  ) {
+    const host = `${window.location.host}${window.location.pathname}`;
+    const mmDeepLink = `https://metamask.app.link/dapp/${host}`;
+    return (
+      <div className="pointer-events-auto absolute top-16 right-4 left-4 z-10 flex flex-col gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-center text-xs text-amber-900 shadow-md backdrop-blur">
+        <p className="font-semibold">{t("run.gps.minipayIosTitle")}</p>
+        <p className="text-[11px]">{t("run.gps.minipayIosBody")}</p>
+        <a
+          href={mmDeepLink}
+          className="self-center rounded-full bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700"
+        >
+          {t("run.gps.openInMetamask")}
+        </a>
+      </div>
+    );
+  }
+
   let message: string;
   let tone: string;
   switch (status) {

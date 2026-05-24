@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { LogoWordmark } from "./Logo";
 import { useFirstVisit } from "@/lib/useFirstVisit";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { useLocale } from "@/lib/i18n";
@@ -39,8 +40,8 @@ export default function HomePage() {
     <main className="flex min-h-screen flex-col items-center justify-between px-6 py-12">
       {showOnboarding && <OnboardingModal onClose={dismiss} />}
       <div className="flex w-full max-w-md flex-col items-center gap-6 text-center">
-        <div className="flex flex-col items-center gap-2">
-          <h1 className="text-5xl font-bold">MiniKlaim</h1>
+        <div className="flex flex-col items-center gap-3">
+          <LogoWordmark height={48} />
           <p className="text-lg text-zinc-700">{t("home.tagline")}</p>
         </div>
 
