@@ -31,6 +31,8 @@ export const hexes = pgTable("hexes", {
     .notNull()
     .defaultNow(),
   runId: uuid("run_id").references(() => runs.id, { onDelete: "set null" }),
+  mintedAt: timestamp("minted_at", { withTimezone: true }),
+  mintTxHash: text("mint_tx_hash"),
 });
 
 export type User = typeof users.$inferSelect;
