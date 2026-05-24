@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LogoWordmark } from "./Logo";
 import { useFirstVisit } from "@/lib/useFirstVisit";
 import { useGlobalStats } from "@/lib/useGlobalStats";
@@ -35,6 +35,15 @@ export default function HomePage() {
   const { showOnboarding, dismiss } = useFirstVisit();
   const { locale, setLocale, t } = useLocale();
   const env = useWalletEnvironment();
+  // The CTA depends on wallet/env state that only resolves on the client. We
+  // gate it behind a mounted flag so SSR and first-pass hydration render the
+  // same neutral placeholder, then the real CTA takes over. Without this,
+  // Farcaster's preview tool flags a React hydration mismatch (#418) because
+  // wagmi reports "connecting" client-side while the SSR HTML had no wallet.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    queueMicrotask(() => setMounted(true));
+  }, []);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-between px-6 py-12">
@@ -64,19 +73,23 @@ export default function HomePage() {
           )}
         </p>
 
-        <PrimaryCTA
-          isConnected={isConnected}
-          isConnecting={isConnecting}
-          isMiniPay={isMiniPay}
-          isWrongChain={isWrongChain}
-          isSwitchingChain={isSwitchingChain}
-          chainId={chainId}
-          username={user?.username ?? null}
-          hasActiveRun={activeRun !== null}
-          env={env}
-          connect={connect}
-          switchToCelo={switchToCelo}
-        />
+        {mounted ? (
+          <PrimaryCTA
+            isConnected={isConnected}
+            isConnecting={isConnecting}
+            isMiniPay={isMiniPay}
+            isWrongChain={isWrongChain}
+            isSwitchingChain={isSwitchingChain}
+            chainId={chainId}
+            username={user?.username ?? null}
+            hasActiveRun={activeRun !== null}
+            env={env}
+            connect={connect}
+            switchToCelo={switchToCelo}
+          />
+        ) : (
+          <div className="h-[80px] w-48 rounded-full bg-zinc-100" aria-hidden />
+        )}
       </div>
 
       <nav className="flex flex-wrap items-center justify-center gap-6 text-xs text-zinc-400">
