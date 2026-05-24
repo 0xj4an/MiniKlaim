@@ -22,10 +22,11 @@ export const dictionaries = {
       "MiniKlaim needs a crypto wallet. Telegram's built-in browser can't run wallets.",
     "home.env.telegram.copy": "Copy link",
     "home.env.telegram.copied": "Copied",
-    "home.env.noWallet.h": "Wallet required",
+    "home.env.noWallet.h": "Open in your wallet",
     "home.env.noWallet.body":
-      "MiniKlaim needs a crypto wallet to play. We use it just to keep your progress.",
-    "home.env.noWallet.installMm": "Install MetaMask",
+      "Mobile browsers don't expose your wallet. Tap below to open MiniKlaim inside MetaMask. Other wallets: paste this URL in their built-in browser.",
+    "home.env.noWallet.openMm": "Open in MetaMask",
+    "home.env.noWallet.installMm": "Don't have one? Install MetaMask",
     "home.env.noWallet.minipay":
       "Or open MiniKlaim inside MiniPay (Android only).",
     "nav.you": "You",
@@ -123,6 +124,7 @@ export const dictionaries = {
     "run.gps.waiting": "Waiting for GPS...",
     "run.gps.waitingHelp":
       "Still waiting? Make sure MiniPay has location permission in your phone settings.",
+    "run.gps.lastError": "Last error",
     "run.gps.denied":
       "Location denied. Enable it in browser settings to track runs.",
     "run.gps.unavailable": "Location unavailable on this device.",
@@ -276,10 +278,11 @@ export const dictionaries = {
       "MiniKlaim necesita una wallet. El navegador de Telegram no las soporta.",
     "home.env.telegram.copy": "Copiar enlace",
     "home.env.telegram.copied": "Copiado",
-    "home.env.noWallet.h": "Necesitas una wallet",
+    "home.env.noWallet.h": "Abre desde tu wallet",
     "home.env.noWallet.body":
-      "MiniKlaim necesita una wallet para guardar tu progreso.",
-    "home.env.noWallet.installMm": "Instala MetaMask",
+      "Los navegadores moviles no exponen tu wallet. Tocá abajo para abrir MiniKlaim dentro de MetaMask. Otras wallets: pegá el URL en su navegador integrado.",
+    "home.env.noWallet.openMm": "Abrir en MetaMask",
+    "home.env.noWallet.installMm": "No tenés una? Instala MetaMask",
     "home.env.noWallet.minipay":
       "O abre MiniKlaim dentro de MiniPay (Android).",
     "nav.you": "Tu",
@@ -377,6 +380,7 @@ export const dictionaries = {
     "run.gps.waiting": "Esperando GPS...",
     "run.gps.waitingHelp":
       "Sigue esperando? Verifica que MiniPay tenga permiso de ubicacion en los ajustes del telefono.",
+    "run.gps.lastError": "Ultimo error",
     "run.gps.denied":
       "Ubicacion denegada. Activala en los ajustes del navegador para correr.",
     "run.gps.unavailable": "Ubicacion no disponible en este dispositivo.",
