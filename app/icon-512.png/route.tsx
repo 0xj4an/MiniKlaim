@@ -1,9 +1,10 @@
 import { ImageResponse } from "next/og";
 
-export const size = { width: 512, height: 512 };
-export const contentType = "image/png";
+export const runtime = "nodejs";
 
-export default function Icon() {
+const size = { width: 512, height: 512 };
+
+export async function GET() {
   return new ImageResponse(
     <div
       style={{
@@ -34,6 +35,12 @@ export default function Icon() {
         MK
       </div>
     </div>,
-    { ...size },
+    {
+      ...size,
+      headers: {
+        "content-type": "image/png",
+        "cache-control": "public, max-age=86400, immutable",
+      },
+    },
   );
 }

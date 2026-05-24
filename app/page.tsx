@@ -196,7 +196,13 @@ function PrimaryCTA({
 }) {
   const { t } = useLocale();
 
-  if (isConnecting) {
+  // Only show the "Signing in..." spinner when an environment that we know
+  // auto-connects is actually doing it. In a plain browser wallet (MetaMask
+  // in-app, Safari with extension) a hung wagmi reconnect from cookieStorage
+  // would otherwise leave the page stuck on "Signing in..." forever.
+  const showAutoSpinner =
+    isConnecting && (env === "minipay" || env === "farcaster" || isMiniPay);
+  if (showAutoSpinner) {
     return <p className="text-sm text-zinc-500">{t("home.cta.signingIn")}</p>;
   }
 

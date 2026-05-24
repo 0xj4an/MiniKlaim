@@ -16,7 +16,7 @@ export async function GET() {
     frame: {
       name: "MiniKlaim",
       version: "1",
-      iconUrl: "https://www.miniklaim.fun/icon2",
+      iconUrl: "https://www.miniklaim.fun/icon-512.png",
       homeUrl: "https://www.miniklaim.fun",
       imageUrl: "https://www.miniklaim.fun/opengraph-image",
       buttonTitle: "Start running",
