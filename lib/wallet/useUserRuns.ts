@@ -11,6 +11,7 @@ export type UserRun = {
   endedAt: string | null;
   hexesClaimed: number;
   distanceMeters: number;
+  mintTxHash: string | null;
 };
 
 export function useUserRuns(

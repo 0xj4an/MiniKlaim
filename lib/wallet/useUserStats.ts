@@ -7,6 +7,7 @@ const log = createLogger("wallet:userStats");
 
 export type UserStats = {
   hexesOwned: number;
+  hexesMinted: number;
   totalRuns: number;
   bestRunHexes: number;
   bestRunDistanceMeters: number;
