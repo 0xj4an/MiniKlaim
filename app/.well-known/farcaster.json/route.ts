@@ -24,7 +24,7 @@ export async function GET() {
       primaryCategory: "games",
       tags: ["running", "fitness", "territory", "celo"],
       tagline: "Run your city. Capture turf.",
-      ogTitle: "MiniKlaim - Run your city",
+      ogTitle: "MiniKlaim: Run your city",
       ogDescription:
         "Walk or run through hex blocks to capture them as NFTs on Celo.",
       ogImageUrl: "https://www.miniklaim.fun/opengraph-image",
