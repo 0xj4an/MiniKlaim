@@ -159,8 +159,12 @@ export function useWallet(): UseWallet {
   // Auto-connect via Farcaster Mini App connector when running inside a
   // Farcaster host (Warpcast, dev preview tool, etc.). Asks the SDK and
   // only fires if it returns true.
+  // Critical: bail if wagmi is mid-reconnect from cookie storage. Otherwise
+  // both our explicit connect and wagmi's reconnect race and one hangs,
+  // leaving the UI stuck on "Signing in..." in regular browsers (MetaMask
+  // in-app, Safari, etc.) where Farcaster isn't actually present.
   useEffect(() => {
-    if (isConnected || isConnectPending) return;
+    if (isConnected || isConnectPending || isReconnecting) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -183,7 +187,13 @@ export function useWallet(): UseWallet {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, isConnectPending, wagmiConnect, connectors]);
+  }, [
+    isConnected,
+    isConnectPending,
+    isReconnecting,
+    wagmiConnect,
+    connectors,
+  ]);
 
   function connectInjected() {
     const injected = connectors.find((c) => c.type === "injected");
