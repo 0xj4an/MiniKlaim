@@ -92,6 +92,14 @@ export default function MePage() {
 
               {(stats.bestRunHexes > 0 || stats.hexesOwned > 0) && (
                 <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 text-xs text-zinc-500">
+                  {stats.hexesMinted > 0 && (
+                    <span>
+                      <span className="font-semibold text-zinc-900">
+                        {stats.hexesMinted}
+                      </span>{" "}
+                      {t("me.onchain.suffix")}
+                    </span>
+                  )}
                   {stats.bestRunHexes > 0 && (
                     <span>
                       {t("me.bestRun.label")}{" "}
@@ -435,6 +443,7 @@ function RunsList({
     endedAt: string | null;
     hexesClaimed: number;
     distanceMeters: number;
+    mintTxHash: string | null;
   }>;
 }) {
   const { t } = useLocale();
@@ -470,6 +479,18 @@ function RunsList({
               {run.hexesClaimed}{" "}
               {run.hexesClaimed === 1 ? t("me.runs.block") : t("me.runs.blocks")}
             </span>
+            {run.mintTxHash ? (
+              <a
+                href={`https://celoscan.io/tx/${run.mintTxHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-[10px] text-orange-600 underline hover:text-orange-700"
+              >
+                {t("me.runs.viewOnChain")}
+              </a>
+            ) : (
+              <span className="w-4" />
+            )}
           </div>
         );
       })}
