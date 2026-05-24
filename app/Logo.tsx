@@ -1,7 +1,7 @@
 /**
  * MiniKlaim logo. A pointy-top hexagon (matches H3 cell visual) filled in
  * brand orange with the "MK" wordmark inside. The same shape is used for
- * /icon, /icon1, /icon2, /apple-icon, /splash.png so favicon, splash, OG and
+ * /icon, /icon-192.png, /icon-512.png, /apple-icon, /splash.png so favicon, splash, OG and
  * in-page heading all read the same.
  */
 
