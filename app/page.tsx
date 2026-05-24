@@ -296,17 +296,31 @@ function TelegramBrowserBlock() {
 
 function NoWalletBlock({ isMobile }: { isMobile: boolean }) {
   const { t } = useLocale();
+  // Strip scheme so MetaMask's deeplink builds a clean dapp URL.
+  const host =
+    typeof window !== "undefined"
+      ? `${window.location.host}${window.location.pathname}`
+      : "www.miniklaim.fun";
+  const mmDeepLink = `https://metamask.app.link/dapp/${host}`;
   return (
     <div className="flex flex-col items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-5 py-4 text-center">
       <p className="text-base font-semibold text-zinc-900">
         {t("home.env.noWallet.h")}
       </p>
       <p className="text-xs text-zinc-700">{t("home.env.noWallet.body")}</p>
+      {isMobile && (
+        <a
+          href={mmDeepLink}
+          className="rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-orange-600"
+        >
+          {t("home.env.noWallet.openMm")}
+        </a>
+      )}
       <a
         href="https://metamask.io/download/"
         target="_blank"
         rel="noopener noreferrer"
-        className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+        className="text-xs text-zinc-500 underline hover:text-zinc-700"
       >
         {t("home.env.noWallet.installMm")}
       </a>
