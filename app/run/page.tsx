@@ -81,6 +81,7 @@ export default function RunPage() {
   const pendingDistanceRef = useRef(0);
 
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("idle");
+  const [geoLastError, setGeoLastError] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [hexCount, setHexCount] = useState(0);
   const [distanceMeters, setDistanceMeters] = useState(0);
@@ -269,6 +270,56 @@ export default function RunPage() {
     }
   }, [refreshClaimed]);
 
+  // Kick the geolocation request as early as possible after mount. Putting it
+  // inside the map.on("load", ...) callback further down loses the iOS user-
+  // gesture context that arrived with the route transition, which makes
+  // WKWebView (MiniPay iOS) silently hang on getCurrentPosition. Calling it
+  // synchronously from this useEffect fires it on the same task as the route
+  // transition, which iOS treats as still-gestured.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      queueMicrotask(() => setGeoStatus("unavailable"));
+      return;
+    }
+    queueMicrotask(() => setGeoStatus("requesting"));
+    log.info("eager geolocation primer");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        log.info("eager primer fix", { acc: pos.coords.accuracy });
+        latestPosRef.current = { lat: latitude, lng: longitude };
+        writeCachedPosition(latitude, longitude);
+        queueMicrotask(() => {
+          setGeoStatus("granted");
+          setGeoLastError(null);
+        });
+        const m = mapRef.current;
+        if (m) {
+          m.flyTo({ center: [longitude, latitude], zoom: FOLLOW_ZOOM });
+        }
+      },
+      (err) => {
+        const label =
+          err.code === err.PERMISSION_DENIED
+            ? "denied"
+            : err.code === err.POSITION_UNAVAILABLE
+              ? "unavailable"
+              : err.code === err.TIMEOUT
+                ? "timeout"
+                : `code ${err.code}`;
+        log.warn("eager primer failed", {
+          code: err.code,
+          message: err.message,
+        });
+        queueMicrotask(() => {
+          setGeoLastError(`${label}: ${err.message}`);
+          if (err.code === err.PERMISSION_DENIED) setGeoStatus("denied");
+        });
+      },
+      { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 },
+    );
+  }, []);
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -418,39 +469,11 @@ export default function RunPage() {
       });
 
       if (!("geolocation" in navigator)) {
-        setGeoStatus("unavailable");
         log.warn("geolocation unavailable");
         return;
       }
-      setGeoStatus("requesting");
-      log.info("requesting geolocation");
-
-      // Fast primer: ask for ANY recent fix (cached, low accuracy is fine).
-      // On iOS WKWebView (MiniPay) this often returns instantly while the
-      // high-accuracy watchPosition is still warming up. Flips the UI to
-      // "granted" so the player can tap Start without waiting 30s.
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          log.info("primer fix", { acc: pos.coords.accuracy });
-          setGeoStatus((prev) => (prev === "granted" ? prev : "granted"));
-          const { latitude, longitude } = pos.coords;
-          latestPosRef.current = { lat: latitude, lng: longitude };
-          writeCachedPosition(latitude, longitude);
-          if (firstFix) {
-            map.flyTo({ center: [longitude, latitude], zoom: FOLLOW_ZOOM });
-            firstFix = false;
-          }
-        },
-        (err) => {
-          // Don't treat primer failure as terminal; the watch below will retry.
-          log.warn("primer getCurrentPosition failed", {
-            code: err.code,
-            message: err.message,
-          });
-        },
-        { enableHighAccuracy: false, maximumAge: 60000, timeout: 5000 },
-      );
-
+      // Primer fires from the top-level eager useEffect; here we only wire
+      // the long-lived watchPosition for ongoing tracking.
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           const { latitude, longitude, accuracy } = pos.coords;
@@ -534,6 +557,17 @@ export default function RunPage() {
           source?.setData(hexes);
         },
         (err) => {
+          const label =
+            err.code === err.PERMISSION_DENIED
+              ? "denied"
+              : err.code === err.POSITION_UNAVAILABLE
+                ? "unavailable"
+                : err.code === err.TIMEOUT
+                  ? "timeout"
+                  : `code ${err.code}`;
+          queueMicrotask(() =>
+            setGeoLastError(`watch ${label}: ${err.message}`),
+          );
           if (err.code === err.PERMISSION_DENIED) {
             setGeoStatus("denied");
             log.warn("geolocation denied");
@@ -602,7 +636,7 @@ export default function RunPage() {
           )}
         </div>
       )}
-      <GeoStatusBanner status={geoStatus} />
+      <GeoStatusBanner status={geoStatus} lastError={geoLastError} />
       <button
         onClick={() => {
           const pos = latestPosRef.current;
@@ -654,7 +688,13 @@ export default function RunPage() {
   );
 }
 
-function GeoStatusBanner({ status }: { status: GeoStatus }) {
+function GeoStatusBanner({
+  status,
+  lastError,
+}: {
+  status: GeoStatus;
+  lastError: string | null;
+}) {
   const { t } = useLocale();
   const [showHelp, setShowHelp] = useState(false);
   useEffect(() => {
@@ -694,6 +734,11 @@ function GeoStatusBanner({ status }: { status: GeoStatus }) {
       {showHelp && (status === "requesting" || status === "idle") && (
         <div className="mt-1 text-[11px] text-zinc-600">
           {t("run.gps.waitingHelp")}
+        </div>
+      )}
+      {lastError && (status === "requesting" || status === "idle") && (
+        <div className="mt-1 font-mono text-[10px] text-zinc-500">
+          {t("run.gps.lastError")}: {lastError}
         </div>
       )}
     </div>
