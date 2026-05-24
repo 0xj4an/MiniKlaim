@@ -156,6 +156,35 @@ export function useWallet(): UseWallet {
     wagmiConnect({ connector: injected });
   }, [inMiniPay, isConnected, isConnectPending, wagmiConnect, connectors]);
 
+  // Auto-connect via Farcaster Mini App connector when running inside a
+  // Farcaster host (Warpcast, dev preview tool, etc.). Asks the SDK and
+  // only fires if it returns true.
+  useEffect(() => {
+    if (isConnected || isConnectPending) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const mod = await import("@farcaster/miniapp-sdk");
+        const inMiniApp = await mod.sdk.isInMiniApp();
+        if (cancelled || !inMiniApp) return;
+        const fc = connectors.find((c) => c.id === "farcasterMiniApp");
+        if (!fc) {
+          log.warn("farcaster connector missing in wagmi config");
+          return;
+        }
+        log.info("auto-connecting via Farcaster");
+        wagmiConnect({ connector: fc });
+      } catch (e) {
+        log.warn("farcaster auto-connect probe failed", {
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, isConnectPending, wagmiConnect, connectors]);
+
   function connectInjected() {
     const injected = connectors.find((c) => c.type === "injected");
     if (!injected) {
