@@ -33,7 +33,7 @@ export default function HomePage() {
   );
   const globalStats = useGlobalStats();
   const { showOnboarding, dismiss } = useFirstVisit();
-  const { locale, setLocale, t } = useLocale();
+  const { t } = useLocale();
   const env = useWalletEnvironment();
   // The CTA depends on wallet/env state that only resolves on the client. We
   // gate it behind a mounted flag so SSR and first-pass hydration render the
@@ -104,12 +104,9 @@ export default function HomePage() {
         <Link href="/about" className="underline hover:text-zinc-700">
           {t("nav.help")}
         </Link>
-        <button
-          onClick={() => setLocale(locale === "en" ? "es" : "en")}
-          className="underline hover:text-zinc-700"
-        >
-          {t("locale.toggle")}
-        </button>
+        <Link href="/stats" className="underline hover:text-zinc-700">
+          {t("nav.stats")}
+        </Link>
       </nav>
     </main>
   );

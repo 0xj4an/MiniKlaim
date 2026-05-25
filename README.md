@@ -19,7 +19,7 @@ Gas is sponsored by the project, so you never sign anything beyond your normal w
 | Contract                             | Address                                      |
 | ------------------------------------ | -------------------------------------------- |
 | MiniKlaimHexes (ERC-721)             | `0xf3C18ECFFEcca156E681cf1Ebfa37cA68c42cb47` |
-| MiniKlaimBadges (ERC-1155 soulbound) | `0xa9aB7390f79b937C9c0A1FdFA1A40c2e145EAbd8` |
+| MiniKlaimBadges (ERC-1155 soulbound) | `0xa9ab7390f79B937C9c0a1FDFA1A40C2E145eAbd8` |
 
 Both verified on Celoscan.
 
