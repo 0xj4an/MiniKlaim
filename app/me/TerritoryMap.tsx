@@ -1,5 +1,6 @@
 "use client";
 
+import { cellToLatLng, cellToParent } from "h3-js";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
@@ -66,16 +67,53 @@ export function TerritoryMap({ address }: { address: string | null }) {
         });
 
         if (mine.length > 0) {
-          const bounds = new maplibregl.LngLatBounds();
+          // A player may own hexes in multiple cities (e.g. ran in Medellin
+          // and Istanbul). Fitting bounds across all of them zooms out to a
+          // world view that hides the actual territory. Instead, group by
+          // resolution-5 parent (~city-scale) and zoom to the largest group.
+          const groups = new Map<string, typeof mine>();
           for (const hex of mine) {
-            const fc = claimedHexesToFeatureCollection([hex], address);
-            const coords = fc.features[0]?.geometry.coordinates[0] ?? [];
-            for (const [lng, lat] of coords) {
-              bounds.extend([lng, lat]);
+            const parent = cellToParent(hex.h3, 5);
+            const arr = groups.get(parent) ?? [];
+            arr.push(hex);
+            groups.set(parent, arr);
+          }
+          let largest = mine;
+          let largestSize = 0;
+          for (const arr of groups.values()) {
+            if (arr.length > largestSize) {
+              largest = arr;
+              largestSize = arr.length;
             }
           }
-          if (!bounds.isEmpty()) {
-            map.fitBounds(bounds, { padding: 40, maxZoom: 16, animate: false });
+          const centroids = largest.map((hex) => cellToLatLng(hex.h3));
+          const lats = centroids.map(([lat]) => lat);
+          const lngs = centroids.map(([, lng]) => lng);
+          const minLat = Math.min(...lats);
+          const maxLat = Math.max(...lats);
+          const minLng = Math.min(...lngs);
+          const maxLng = Math.max(...lngs);
+          // Approx span in degrees; 1 deg lat ~ 111 km. For a tight cluster
+          // (< ~500 m span) fitBounds computes a near-infinite zoom and gets
+          // clamped to maxZoom but maplibre also pulls back to ensure both
+          // edges have padding, leaving the user at city-zoom with the hexes
+          // invisible. Center + setZoom is more reliable for that case.
+          const spanLat = maxLat - minLat;
+          const spanLng = maxLng - minLng;
+          const tight = spanLat < 0.005 && spanLng < 0.005;
+          if (tight) {
+            map.jumpTo({
+              center: [(minLng + maxLng) / 2, (minLat + maxLat) / 2],
+              zoom: 16,
+            });
+          } else {
+            map.fitBounds(
+              [
+                [minLng, minLat],
+                [maxLng, maxLat],
+              ],
+              { padding: 60, maxZoom: 16, animate: false },
+            );
           }
         }
       } catch (e) {
