@@ -809,7 +809,7 @@ function RunControls({
         <button
           onClick={onStart}
           disabled={!canStart || isBusy}
-          className="rounded-full bg-orange-500 px-6 py-3 text-base font-semibold text-white shadow-lg hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-zinc-400"
+          className="rounded-full bg-orange-600 px-6 py-3 text-base font-semibold text-white shadow-lg hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
         >
           {!canStart
             ? t("run.start.signIn")
@@ -849,7 +849,7 @@ function NeedNameOverlay() {
         <p className="text-base text-zinc-700">{t("run.needName.body")}</p>
         <Link
           href="/me"
-          className="rounded-full bg-orange-500 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+          className="rounded-full bg-orange-600 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-700"
         >
           {t("run.needName.cta")} →
         </Link>
@@ -932,7 +932,7 @@ function RunSummaryModal({
           </button>
           <button
             onClick={onClose}
-            className="rounded-full bg-orange-500 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+            className="rounded-full bg-orange-600 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-700"
           >
             {t("run.summary.done")}
           </button>

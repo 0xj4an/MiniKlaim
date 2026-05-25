@@ -452,7 +452,7 @@ function Achievements({
                     href={`https://celoscan.io/token/${contract}?a=${a.onchainId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-mono text-[10px] text-orange-600 underline hover:text-orange-700"
+                    className="font-mono text-[10px] text-orange-700 underline hover:text-orange-800"
                     title="View on Celoscan"
                   >
                     on-chain
@@ -465,7 +465,7 @@ function Achievements({
       </div>
       {newlyUnlocked && (
         <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-zinc-900 px-5 py-3 text-sm text-white shadow-2xl">
-          <span className="text-orange-400">{t("me.badges.toast")}</span>{" "}
+          <span className="text-orange-700">{t("me.badges.toast")}</span>{" "}
           <span className="font-semibold">{t(newlyUnlocked.nameKey)}</span>
         </div>
       )}
@@ -523,7 +523,7 @@ function RunsList({
                 href={`https://celoscan.io/tx/${run.mintTxHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono text-[10px] text-orange-600 underline hover:text-orange-700"
+                className="font-mono text-[10px] text-orange-700 underline hover:text-orange-800"
               >
                 {t("me.runs.viewOnChain")}
               </a>

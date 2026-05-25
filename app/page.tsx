@@ -88,7 +88,7 @@ export default function HomePage() {
             switchToCelo={switchToCelo}
           />
         ) : (
-          <div className="h-[80px] w-48 rounded-full bg-zinc-100" aria-hidden />
+          <WelcomePlaceholder />
         )}
       </div>
 
@@ -112,6 +112,27 @@ export default function HomePage() {
         </button>
       </nav>
     </main>
+  );
+}
+
+/**
+ * Painted at SSR and during the brief window before client-side env detection
+ * resolves. Sized to match the eventual env-aware CTA card so the LCP element
+ * lands at FCP time instead of after wagmi + env detection complete.
+ */
+function WelcomePlaceholder() {
+  const { t } = useLocale();
+  return (
+    <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-5 py-5 text-center">
+      <p className="text-base font-semibold text-zinc-900">
+        {t("home.welcome.h")}
+      </p>
+      <p className="text-xs text-zinc-700">{t("home.welcome.body")}</p>
+      <div
+        className="mt-1 h-9 w-32 rounded-full bg-zinc-200"
+        aria-hidden="true"
+      />
+    </div>
   );
 }
 
@@ -160,7 +181,7 @@ function OnboardingModal({ onClose }: { onClose: () => void }) {
         </ol>
         <button
           onClick={onClose}
-          className="mt-2 rounded-full bg-orange-500 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+          className="mt-2 rounded-full bg-orange-600 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-700"
         >
           {t("onboarding.start")}
         </button>
@@ -255,7 +276,7 @@ function PrimaryCTA({
       <div className="flex flex-col items-center gap-3">
         <Link
           href="/me"
-          className="rounded-full bg-orange-500 px-8 py-4 text-lg font-semibold text-white shadow-md hover:bg-orange-600"
+          className="rounded-full bg-orange-600 px-8 py-4 text-lg font-semibold text-white shadow-md hover:bg-orange-700"
         >
           {t("home.cta.pickName")}
         </Link>
@@ -274,7 +295,7 @@ function PrimaryCTA({
         className={`rounded-full px-8 py-4 text-lg font-semibold text-white shadow-md ${
           hasActiveRun
             ? "bg-red-600 hover:bg-red-700"
-            : "bg-orange-500 hover:bg-orange-600"
+            : "bg-orange-600 hover:bg-orange-700"
         }`}
       >
         {hasActiveRun ? `${t("home.cta.continue")} →` : t("home.cta.start")}
@@ -331,7 +352,7 @@ function NoWalletBlock({ isMobile }: { isMobile: boolean }) {
       {isMobile && (
         <a
           href={mmDeepLink}
-          className="rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-orange-600"
+          className="rounded-full bg-orange-600 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-orange-700"
         >
           {t("home.env.noWallet.openMm")}
         </a>
