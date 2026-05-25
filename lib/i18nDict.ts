@@ -7,7 +7,7 @@ export const dictionaries = {
     "home.tagline": "Run the city. The blocks you cross are yours.",
     "home.welcome.h": "Welcome to MiniKlaim",
     "home.welcome.body":
-      "A territory-capture running game. Every block you run through becomes yours.",
+      "A territory-capture running game on Celo. Every block of your city you run through becomes yours on a shared map. Compete with your neighbors, defend the blocks you own, and watch your territory grow with every run.",
     "home.stats.blocks": "blocks captured",
     "home.stats.player": "player",
     "home.stats.players": "players",
@@ -272,7 +272,7 @@ export const dictionaries = {
     "home.tagline": "Corre la ciudad. Las cuadras que cruzas son tuyas.",
     "home.welcome.h": "Bienvenido a MiniKlaim",
     "home.welcome.body":
-      "Un juego de capturar territorio corriendo. Cada cuadra que cruzas es tuya.",
+      "Un juego de capturar territorio corriendo en Celo. Cada cuadra de tu ciudad que cruzas es tuya en un mapa compartido. Compite con tu barrio, defiende lo que ya conquistaste, y ve crecer tu territorio con cada corrida.",
     "home.stats.blocks": "cuadras capturadas",
     "home.stats.player": "jugador",
     "home.stats.players": "jugadores",
