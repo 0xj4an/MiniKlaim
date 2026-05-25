@@ -49,9 +49,11 @@ export default function HomePage() {
     <main className="flex min-h-screen flex-col items-center justify-between px-6 py-12">
       {showOnboarding && <OnboardingModal onClose={dismiss} />}
       <div className="flex w-full max-w-md flex-col items-center gap-6 text-center">
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-4">
           <LogoWordmark height={48} />
-          <p className="text-lg text-zinc-700">{t("home.tagline")}</p>
+          <h1 className="text-3xl leading-tight font-bold text-zinc-900">
+            {t("home.tagline")}
+          </h1>
         </div>
 
         <p className="text-xs text-zinc-500">
@@ -113,23 +115,18 @@ export default function HomePage() {
 }
 
 /**
- * Painted at SSR and during the brief window before client-side env detection
- * resolves. Sized to match the eventual env-aware CTA card so the LCP element
- * lands at FCP time instead of after wagmi + env detection complete.
+ * Painted at SSR until client-side env detection resolves. Intentionally
+ * lightweight: the LCP element should be the page-level `<h1>` tagline above,
+ * not whatever lands here. A bigger placeholder competes with the swap to
+ * NoWalletBlock and inflates LCP (Lighthouse picks the latest similar-size
+ * text element). Keep this small and visually unobtrusive.
  */
 function WelcomePlaceholder() {
-  const { t } = useLocale();
   return (
-    <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-5 py-5 text-center">
-      <p className="text-base font-semibold text-zinc-900">
-        {t("home.welcome.h")}
-      </p>
-      <p className="text-xs text-zinc-700">{t("home.welcome.body")}</p>
-      <div
-        className="mt-1 h-9 w-32 rounded-full bg-zinc-200"
-        aria-hidden="true"
-      />
-    </div>
+    <div
+      className="h-12 w-44 rounded-full bg-zinc-100"
+      aria-hidden="true"
+    />
   );
 }
 
