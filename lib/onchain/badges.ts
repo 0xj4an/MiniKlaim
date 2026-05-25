@@ -46,6 +46,16 @@ const BADGES_ABI = [
     ],
     outputs: [{ type: "uint256" }],
   },
+  {
+    type: "function",
+    name: "balanceOfBatch",
+    stateMutability: "view",
+    inputs: [
+      { name: "accounts", type: "address[]" },
+      { name: "ids", type: "uint256[]" },
+    ],
+    outputs: [{ type: "uint256[]" }],
+  },
 ] as const;
 
 function isConfigured(): boolean {
@@ -141,4 +151,34 @@ export async function mintBadgesBatch(
 
 export function badgesContractAddress(): Address | null {
   return isConfigured() ? BADGES_ADDRESS : null;
+}
+
+/**
+ * Read which badges this player currently holds on-chain. Returns the set
+ * of badge IDs (as numbers) where the on-chain balance is non-zero.
+ */
+export async function onchainBadgeIdsHeld(player: Address): Promise<number[]> {
+  if (!isConfigured()) return [];
+  const allIds = Object.values(BADGE_IDS);
+  const accounts: Address[] = Array(allIds.length).fill(player);
+  try {
+    const balances = (await badgesPublicClient.readContract({
+      address: BADGES_ADDRESS,
+      abi: BADGES_ABI,
+      functionName: "balanceOfBatch",
+      args: [accounts, allIds],
+      authorizationList: [],
+    })) as readonly bigint[];
+    const held: number[] = [];
+    balances.forEach((bal, i) => {
+      if (bal > BigInt(0)) held.push(Number(allIds[i]));
+    });
+    return held;
+  } catch (e) {
+    log.warn("onchainBadgeIdsHeld failed", {
+      player,
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return [];
+  }
 }
