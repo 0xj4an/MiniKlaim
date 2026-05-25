@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { count, desc, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
 import { db } from "@/lib/db";
@@ -49,11 +49,15 @@ export async function PATCH(
 }
 
 async function mintRunHexes(runId: string, player: Address) {
-  // Pick up every hex captured in THIS run that hasn't been minted yet.
+  // Every hex claimed in this run needs an on-chain action. The contract's
+  // captureBatch is idempotent for owner==player (no-op) and handles the
+  // re-capture transfer when owner!=player. The previous version filtered on
+  // `mintedAt IS NULL` which skipped re-captures (DB kept the old minted_at
+  // from the previous owner's mint) and left the NFT with the wrong owner.
   const rows = await db
     .select({ h3Id: hexes.h3Id })
     .from(hexes)
-    .where(and(eq(hexes.runId, runId), isNull(hexes.mintedAt)));
+    .where(eq(hexes.runId, runId));
 
   const ids = rows.map((r) => r.h3Id);
   if (ids.length === 0) {
@@ -71,12 +75,10 @@ async function mintRunHexes(runId: string, player: Address) {
     return;
   }
 
-  // Mark the hexes as minted with the tx hash. The chain may still be
-  // confirming; we treat broadcast as good enough for UI purposes.
   await db
     .update(hexes)
     .set({ mintedAt: sql`now()`, mintTxHash: result.txHash })
-    .where(and(eq(hexes.runId, runId), isNull(hexes.mintedAt)));
+    .where(eq(hexes.runId, runId));
 
   log.info("on-chain mint queued", {
     runId,
