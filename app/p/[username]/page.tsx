@@ -143,7 +143,7 @@ export default async function PublicProfilePage({
 
       <div className="flex flex-col items-center gap-1">
         <p className="text-2xl font-bold">
-          <span className="text-zinc-400">@</span>
+          <span className="text-zinc-500">@</span>
           <span>{profile.username}</span>
         </p>
         <p className="text-xs text-zinc-500">
@@ -188,7 +188,7 @@ export default async function PublicProfilePage({
         {badges.map((b) => (
           <div
             key={b.nameKey}
-            className={`flex items-center justify-between gap-3 ${b.unlocked ? "text-zinc-900" : "text-zinc-400"}`}
+            className={`flex items-center justify-between gap-3 ${b.unlocked ? "text-zinc-900" : "text-zinc-500"}`}
           >
             <span className={b.unlocked ? "font-semibold" : ""}>
               {t(b.nameKey)}

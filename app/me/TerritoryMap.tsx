@@ -103,7 +103,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
         {count !== null ? ` (${count})` : ""}
       </p>
       {count === 0 ? (
-        <p className="py-8 text-center text-xs text-zinc-400">
+        <p className="py-8 text-center text-xs text-zinc-500">
           {t("me.territory.empty")}
         </p>
       ) : (
