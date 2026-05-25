@@ -5,6 +5,9 @@ export type Locale = "en" | "es";
 export const dictionaries = {
   en: {
     "home.tagline": "Run the city. The blocks you cross are yours.",
+    "home.welcome.h": "Welcome to MiniKlaim",
+    "home.welcome.body":
+      "A territory-capture running game. Every block you run through becomes yours.",
     "home.stats.blocks": "blocks captured",
     "home.stats.player": "player",
     "home.stats.players": "players",
@@ -267,6 +270,9 @@ export const dictionaries = {
   },
   es: {
     "home.tagline": "Corre la ciudad. Las cuadras que cruzas son tuyas.",
+    "home.welcome.h": "Bienvenido a MiniKlaim",
+    "home.welcome.body":
+      "Un juego de capturar territorio corriendo. Cada cuadra que cruzas es tuya.",
     "home.stats.blocks": "cuadras capturadas",
     "home.stats.player": "jugador",
     "home.stats.players": "jugadores",
