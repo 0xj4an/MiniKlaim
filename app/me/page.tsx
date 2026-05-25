@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
+import { type UserBadges, useUserBadges } from "@/lib/wallet/useUserBadges";
 import { useUserRuns } from "@/lib/wallet/useUserRuns";
 import { type UserStats, useUserStats } from "@/lib/wallet/useUserStats";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -27,6 +28,9 @@ export default function MePage() {
     50,
   );
   const balances = useBalances(address, isConnected && !isWrongChain);
+  const onchainBadges = useUserBadges(
+    isConnected && !isWrongChain ? address : null,
+  );
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-8">
@@ -120,7 +124,7 @@ export default function MePage() {
                 </div>
               )}
 
-              <Achievements stats={stats} />
+              <Achievements stats={stats} onchain={onchainBadges} />
             </>
           )}
 
@@ -296,6 +300,7 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
 
 type Achievement = {
   key: string;
+  onchainId: number;
   nameKey: TranslationKey;
   descKey: TranslationKey;
   unlocked: boolean;
@@ -305,60 +310,70 @@ function buildAchievements(stats: UserStats): Achievement[] {
   return [
     {
       key: "first-steps",
+      onchainId: 1,
       nameKey: "badge.firstSteps.name",
       descKey: "badge.firstSteps.desc",
       unlocked: stats.totalRuns >= 1,
     },
     {
       key: "block-hunter",
+      onchainId: 2,
       nameKey: "badge.fiveBlocks.name",
       descKey: "badge.fiveBlocks.desc",
       unlocked: stats.hexesOwned >= 5,
     },
     {
       key: "mayor",
+      onchainId: 3,
       nameKey: "badge.mayor.name",
       descKey: "badge.mayor.desc",
       unlocked: stats.hexesOwned >= 20,
     },
     {
       key: "hundred",
+      onchainId: 4,
       nameKey: "badge.hundred.name",
       descKey: "badge.hundred.desc",
       unlocked: stats.hexesOwned >= 100,
     },
     {
       key: "streak-3",
+      onchainId: 5,
       nameKey: "badge.threeDays.name",
       descKey: "badge.threeDays.desc",
       unlocked: stats.streak >= 3,
     },
     {
       key: "streak-7",
+      onchainId: 6,
       nameKey: "badge.oneWeek.name",
       descKey: "badge.oneWeek.desc",
       unlocked: stats.streak >= 7,
     },
     {
       key: "streak-14",
+      onchainId: 7,
       nameKey: "badge.twoWeeks.name",
       descKey: "badge.twoWeeks.desc",
       unlocked: stats.streak >= 14,
     },
     {
       key: "big-run",
+      onchainId: 8,
       nameKey: "badge.bigRun.name",
       descKey: "badge.bigRun.desc",
       unlocked: stats.bestRunHexes >= 5,
     },
     {
       key: "marathon",
+      onchainId: 9,
       nameKey: "badge.marathon.name",
       descKey: "badge.marathon.desc",
       unlocked: stats.bestRunDistanceMeters >= 10000,
     },
     {
       key: "iron",
+      onchainId: 10,
       nameKey: "badge.iron.name",
       descKey: "badge.iron.desc",
       unlocked: stats.totalRuns >= 50,
@@ -368,11 +383,19 @@ function buildAchievements(stats: UserStats): Achievement[] {
 
 const ACHIEVEMENTS_CACHE_KEY = "miniklaim.unlockedBadges";
 
-function Achievements({ stats }: { stats: UserStats }) {
+function Achievements({
+  stats,
+  onchain,
+}: {
+  stats: UserStats;
+  onchain: UserBadges | null;
+}) {
   const { t } = useLocale();
   const achievements = buildAchievements(stats);
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
   const [newlyUnlocked, setNewlyUnlocked] = useState<Achievement | null>(null);
+  const heldSet = new Set(onchain?.heldIds ?? []);
+  const contract = onchain?.contract ?? null;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -412,17 +435,33 @@ function Achievements({ stats }: { stats: UserStats }) {
           {t("me.badges.header")} {unlockedCount} {t("me.badges.of")}{" "}
           {achievements.length}
         </p>
-        {achievements.map((a) => (
-          <div
-            key={a.key}
-            className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-400"}`}
-          >
-            <span className={a.unlocked ? "font-semibold" : ""}>
-              {t(a.nameKey)}
-            </span>
-            <span className="text-xs text-zinc-500">{t(a.descKey)}</span>
-          </div>
-        ))}
+        {achievements.map((a) => {
+          const minted = heldSet.has(a.onchainId);
+          return (
+            <div
+              key={a.key}
+              className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-400"}`}
+            >
+              <span className={a.unlocked ? "font-semibold" : ""}>
+                {t(a.nameKey)}
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="text-xs text-zinc-500">{t(a.descKey)}</span>
+                {minted && contract && (
+                  <a
+                    href={`https://celoscan.io/token/${contract}?a=${a.onchainId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-[10px] text-orange-600 underline hover:text-orange-700"
+                    title="View on Celoscan"
+                  >
+                    on-chain
+                  </a>
+                )}
+              </span>
+            </div>
+          );
+        })}
       </div>
       {newlyUnlocked && (
         <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-zinc-900 px-5 py-3 text-sm text-white shadow-2xl">
