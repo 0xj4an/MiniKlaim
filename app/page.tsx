@@ -160,7 +160,7 @@ function OnboardingModal({ onClose }: { onClose: () => void }) {
         </ol>
         <button
           onClick={onClose}
-          className="mt-2 rounded-full bg-orange-500 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+          className="mt-2 rounded-full bg-orange-600 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-700"
         >
           {t("onboarding.start")}
         </button>
@@ -255,7 +255,7 @@ function PrimaryCTA({
       <div className="flex flex-col items-center gap-3">
         <Link
           href="/me"
-          className="rounded-full bg-orange-500 px-8 py-4 text-lg font-semibold text-white shadow-md hover:bg-orange-600"
+          className="rounded-full bg-orange-600 px-8 py-4 text-lg font-semibold text-white shadow-md hover:bg-orange-700"
         >
           {t("home.cta.pickName")}
         </Link>
@@ -274,7 +274,7 @@ function PrimaryCTA({
         className={`rounded-full px-8 py-4 text-lg font-semibold text-white shadow-md ${
           hasActiveRun
             ? "bg-red-600 hover:bg-red-700"
-            : "bg-orange-500 hover:bg-orange-600"
+            : "bg-orange-600 hover:bg-orange-700"
         }`}
       >
         {hasActiveRun ? `${t("home.cta.continue")} →` : t("home.cta.start")}
@@ -331,7 +331,7 @@ function NoWalletBlock({ isMobile }: { isMobile: boolean }) {
       {isMobile && (
         <a
           href={mmDeepLink}
-          className="rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-orange-600"
+          className="rounded-full bg-orange-600 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-orange-700"
         >
           {t("home.env.noWallet.openMm")}
         </a>
