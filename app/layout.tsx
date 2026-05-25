@@ -8,7 +8,7 @@ import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://miniklaim.fun",
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.miniklaim.fun",
   ),
   title: "MiniKlaim",
   description: "Run it. Klaim it. A territory-capture running game on Celo.",

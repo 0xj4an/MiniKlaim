@@ -54,7 +54,7 @@ export default function HomePage() {
           <p className="text-lg text-zinc-700">{t("home.tagline")}</p>
         </div>
 
-        <p className="text-xs text-zinc-400">
+        <p className="text-xs text-zinc-500">
           {globalStats ? (
             <>
               <span className="font-semibold text-zinc-600">
@@ -92,7 +92,7 @@ export default function HomePage() {
         )}
       </div>
 
-      <nav className="flex flex-wrap items-center justify-center gap-6 text-xs text-zinc-400">
+      <nav className="flex flex-wrap items-center justify-center gap-6 text-xs text-zinc-500">
         {isConnected && (
           <Link href="/me" className="underline hover:text-zinc-700">
             {t("nav.you")}
@@ -131,7 +131,7 @@ function OnboardingModal({ onClose }: { onClose: () => void }) {
         </h2>
         <ol className="flex flex-col gap-3 text-sm text-zinc-700">
           <li className="flex gap-3">
-            <span className="font-mono text-zinc-400">1.</span>
+            <span className="font-mono text-zinc-500">1.</span>
             <span>
               <span className="font-semibold text-zinc-900">
                 {t("onboarding.step1.title")}.
@@ -140,7 +140,7 @@ function OnboardingModal({ onClose }: { onClose: () => void }) {
             </span>
           </li>
           <li className="flex gap-3">
-            <span className="font-mono text-zinc-400">2.</span>
+            <span className="font-mono text-zinc-500">2.</span>
             <span>
               <span className="font-semibold text-zinc-900">
                 {t("onboarding.step2.title")}.
@@ -149,7 +149,7 @@ function OnboardingModal({ onClose }: { onClose: () => void }) {
             </span>
           </li>
           <li className="flex gap-3">
-            <span className="font-mono text-zinc-400">3.</span>
+            <span className="font-mono text-zinc-500">3.</span>
             <span>
               <span className="font-semibold text-zinc-900">
                 {t("onboarding.step3.title")}.

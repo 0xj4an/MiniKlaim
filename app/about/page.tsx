@@ -73,7 +73,7 @@ export default function AboutPage() {
         </p>
       </section>
 
-      <footer className="mt-8 flex flex-col gap-2 border-t border-zinc-200 pt-6 text-xs text-zinc-400">
+      <footer className="mt-8 flex flex-col gap-2 border-t border-zinc-200 pt-6 text-xs text-zinc-500">
         <div className="flex gap-4">
           <Link href="/stats" className="underline hover:text-zinc-600">
             {t("about.footer.stats")}

@@ -178,7 +178,7 @@ function CopyProfileLink({ username }: { username: string }) {
   return (
     <button
       onClick={onShare}
-      className="text-zinc-400 underline hover:text-zinc-600"
+      className="text-zinc-500 underline hover:text-zinc-600"
     >
       {copied ? t("me.share.copied") : t("me.share.button")}
     </button>
@@ -203,13 +203,13 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
   const [isEditing, setIsEditing] = useState(false);
 
   if (isLoading) {
-    return <p className="text-sm text-zinc-400">{t("common.loading")}</p>;
+    return <p className="text-sm text-zinc-500">{t("common.loading")}</p>;
   }
   if (user?.username && !isEditing) {
     return (
       <div className="flex flex-col items-center gap-1">
         <p className="text-2xl font-bold">
-          <span className="text-zinc-400">@</span>
+          <span className="text-zinc-500">@</span>
           <span>{user.username}</span>
         </p>
         <div className="flex items-center gap-3 text-xs">
@@ -219,7 +219,7 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
               setError(null);
               setIsEditing(true);
             }}
-            className="text-zinc-400 underline hover:text-zinc-600"
+            className="text-zinc-500 underline hover:text-zinc-600"
           >
             {t("me.username.edit")}
           </button>
@@ -440,7 +440,7 @@ function Achievements({
           return (
             <div
               key={a.key}
-              className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-400"}`}
+              className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-500"}`}
             >
               <span className={a.unlocked ? "font-semibold" : ""}>
                 {t(a.nameKey)}
@@ -552,7 +552,7 @@ function BalancesCard({
       <p className="text-center text-xs text-zinc-500">
         {t("me.wallet.header")}
       </p>
-      <p className="mb-1 text-center text-[10px] text-zinc-400">
+      <p className="mb-1 text-center text-[10px] text-zinc-500">
         {t("me.wallet.subtitle")}
       </p>
       <BalanceRow symbol="USDm" balance={balances.USDm} />
