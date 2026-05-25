@@ -3,9 +3,18 @@ import { headers } from "next/headers";
 import { cookieToInitialState } from "wagmi";
 import "./globals.css";
 import { wagmiConfig } from "@/lib/wallet/config";
-import { FarcasterReady } from "./FarcasterReady";
-import { LocaleSwitcher } from "./LocaleSwitcher";
+import dynamic from "next/dynamic";
 import { Providers } from "./providers";
+
+// Both pieces are non-critical UI. `dynamic` puts them in their own chunk
+// so they don't sit in the home critical-path bundle. Each component is
+// "use client" already so no SSR work happens for them.
+const FarcasterReady = dynamic(() =>
+  import("./FarcasterReady").then((m) => m.FarcasterReady),
+);
+const LocaleSwitcher = dynamic(() =>
+  import("./LocaleSwitcher").then((m) => m.LocaleSwitcher),
+);
 
 export const metadata: Metadata = {
   metadataBase: new URL(
