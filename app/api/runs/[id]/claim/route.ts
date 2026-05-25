@@ -82,6 +82,10 @@ export async function POST(
         ownerAddress: run.userAddress,
         runId: id,
         claimedAt: sql`now()`,
+        // Re-capture means the NFT must be transferred to the new owner.
+        // Clear the prior mint state so finish-route picks this hex up.
+        mintedAt: null,
+        mintTxHash: null,
       },
     });
 
