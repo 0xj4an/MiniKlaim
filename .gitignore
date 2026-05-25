@@ -52,3 +52,6 @@ tsconfig.tsbuildinfo
 # Next.js auto-generated
 next-env.d.ts
 
+# Claude Code session state
+.claude/
+
