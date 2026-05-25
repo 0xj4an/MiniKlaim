@@ -104,6 +104,9 @@ export default function HomePage() {
         <Link href="/about" className="underline hover:text-zinc-700">
           {t("nav.help")}
         </Link>
+        <Link href="/stats" className="underline hover:text-zinc-700">
+          {t("nav.stats")}
+        </Link>
         <button
           onClick={() => setLocale(locale === "en" ? "es" : "en")}
           className="underline hover:text-zinc-700"

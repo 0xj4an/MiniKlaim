@@ -15,6 +15,13 @@ type Analytics = {
   runs7d: number;
   activePlayers7d: number;
   totalDistanceMeters: number;
+  hexesOnchain: number;
+  captureTxs: number;
+  onchainHolders: number;
+  hexesContract: string | null;
+  badgesContract: string | null;
+  chain: string;
+  chainId: number;
 };
 
 export default function StatsPage() {
@@ -114,6 +121,40 @@ export default function StatsPage() {
               />
             </div>
           </section>
+
+          <section className="flex flex-col gap-2">
+            <h2 className="text-xs tracking-wide text-zinc-500 uppercase">
+              {t("stats.section.onchain")}
+            </h2>
+            <div className="grid grid-cols-3 gap-3">
+              <StatCard
+                label={t("stats.card.hexesMinted")}
+                value={data.hexesOnchain}
+              />
+              <StatCard
+                label={t("stats.card.captureTxs")}
+                value={data.captureTxs}
+              />
+              <StatCard
+                label={t("stats.card.onchainHolders")}
+                value={data.onchainHolders}
+              />
+            </div>
+            <div className="mt-2 flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 text-xs">
+              <p className="text-center text-zinc-500">
+                {t("stats.contracts.title")}{" "}
+                <span className="font-mono">{t("stats.contracts.chain")}</span>
+              </p>
+              <ContractRow
+                label="MiniKlaimHexes (ERC-721)"
+                address={data.hexesContract}
+              />
+              <ContractRow
+                label="MiniKlaimBadges (ERC-1155)"
+                address={data.badgesContract}
+              />
+            </div>
+          </section>
         </>
       )}
     </main>
@@ -136,6 +177,36 @@ function StatCard({
         {suffix && <span className="text-base">{suffix}</span>}
       </span>
       <span className="text-xs text-zinc-500">{label}</span>
+    </div>
+  );
+}
+
+function ContractRow({
+  label,
+  address,
+}: {
+  label: string;
+  address: string | null;
+}) {
+  if (!address) {
+    return (
+      <div className="flex items-center justify-between gap-2 py-0.5">
+        <span className="text-zinc-700">{label}</span>
+        <span className="text-zinc-400">not deployed</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between gap-2 py-0.5">
+      <span className="text-zinc-700">{label}</span>
+      <a
+        href={`https://celoscan.io/address/${address}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-mono text-[11px] text-orange-700 underline hover:text-orange-800"
+      >
+        {address.slice(0, 6)}…{address.slice(-4)}
+      </a>
     </div>
   );
 }
