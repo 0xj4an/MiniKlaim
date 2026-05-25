@@ -88,7 +88,7 @@ export default function HomePage() {
             switchToCelo={switchToCelo}
           />
         ) : (
-          <div className="h-[80px] w-48 rounded-full bg-zinc-100" aria-hidden />
+          <WelcomePlaceholder />
         )}
       </div>
 
@@ -112,6 +112,27 @@ export default function HomePage() {
         </button>
       </nav>
     </main>
+  );
+}
+
+/**
+ * Painted at SSR and during the brief window before client-side env detection
+ * resolves. Sized to match the eventual env-aware CTA card so the LCP element
+ * lands at FCP time instead of after wagmi + env detection complete.
+ */
+function WelcomePlaceholder() {
+  const { t } = useLocale();
+  return (
+    <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-5 py-5 text-center">
+      <p className="text-base font-semibold text-zinc-900">
+        {t("home.welcome.h")}
+      </p>
+      <p className="text-xs text-zinc-700">{t("home.welcome.body")}</p>
+      <div
+        className="mt-1 h-9 w-32 rounded-full bg-zinc-200"
+        aria-hidden="true"
+      />
+    </div>
   );
 }
 
