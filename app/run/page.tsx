@@ -626,7 +626,7 @@ export default function RunPage() {
         <div className="absolute top-4 right-4 z-10 rounded-md bg-white/90 px-3 py-1.5 text-xs text-zinc-700 shadow-md backdrop-blur">
           {user?.username ? (
             <span>
-              <span className="text-zinc-400">@</span>
+              <span className="text-zinc-500">@</span>
               <span className="font-medium">{user.username}</span>
             </span>
           ) : (

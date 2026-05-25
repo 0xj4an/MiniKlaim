@@ -57,7 +57,7 @@ export default function StatsPage() {
       </p>
 
       {!data && (
-        <p className="text-center text-sm text-zinc-400">
+        <p className="text-center text-sm text-zinc-500">
           {t("common.loading")}
         </p>
       )}

@@ -97,7 +97,7 @@ function Leaderboard({
             key={e.address}
             className={`flex items-center justify-between gap-3 ${isMe ? "font-semibold text-zinc-900" : "text-zinc-700"}`}
           >
-            <span className="w-8 text-zinc-400">#{i + 1}</span>
+            <span className="w-8 text-zinc-500">#{i + 1}</span>
             <span className="flex-1 truncate">
               {e.username ? (
                 <Link
@@ -163,7 +163,7 @@ function ActivityFeed({
                 ? t("community.block")
                 : t("community.blocks")}
             </span>
-            <span className="text-xs text-zinc-400">{when}</span>
+            <span className="text-xs text-zinc-500">{when}</span>
           </div>
         );
       })}

@@ -18,7 +18,7 @@ export default function PrivacyPage() {
         <span className="w-16" />
       </header>
 
-      <p className="text-xs text-zinc-400">{t("common.lastUpdated")} 2026-05-20.</p>
+      <p className="text-xs text-zinc-500">{t("common.lastUpdated")} 2026-05-20.</p>
 
       <section className="flex flex-col gap-2 text-sm leading-relaxed text-zinc-700">
         <h2 className="text-lg font-semibold text-zinc-900">
