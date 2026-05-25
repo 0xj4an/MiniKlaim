@@ -19,7 +19,7 @@ export const dictionaries = {
     "home.env.minipay.connecting": "Connecting to MiniPay...",
     "home.env.telegram.h": "Open in your browser",
     "home.env.telegram.body":
-      "MiniKlaim needs a crypto wallet. Telegram's built-in browser can't run wallets.",
+      "MiniKlaim needs a wallet. Telegram's built-in browser can't run wallets.",
     "home.env.telegram.copy": "Copy link",
     "home.env.telegram.copied": "Copied",
     "home.env.noWallet.h": "Open in your wallet",
