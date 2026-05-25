@@ -4,6 +4,7 @@ import { cookieToInitialState } from "wagmi";
 import "./globals.css";
 import { wagmiConfig } from "@/lib/wallet/config";
 import { FarcasterReady } from "./FarcasterReady";
+import { LocaleSwitcher } from "./LocaleSwitcher";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
@@ -51,6 +52,7 @@ export default async function RootLayout({
       <body className="bg-white text-zinc-900">
         <Providers initialState={initialState}>
           <FarcasterReady />
+          <LocaleSwitcher />
           {children}
         </Providers>
       </body>
