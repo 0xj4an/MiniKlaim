@@ -1,9 +1,10 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
 import { db } from "@/lib/db";
 import { hexes, runs } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
+import { BADGE_IDS, mintBadgesBatch } from "@/lib/onchain/badges";
 import { captureBatch } from "@/lib/onchain/hexes";
 
 const log = createLogger("api:runs:finish");
@@ -42,6 +43,7 @@ export async function PATCH(
   // we don't want the client to wait for Celo confirmation; the player's UI
   // shows the run summary instantly. The mint resolves over the next ~5s.
   void mintRunHexes(updated.id, updated.userAddress as Address);
+  void mintEligibleBadges(updated.userAddress as Address);
 
   return NextResponse.json(updated);
 }
@@ -79,6 +81,73 @@ async function mintRunHexes(runId: string, player: Address) {
   log.info("on-chain mint queued", {
     runId,
     count: ids.length,
+    txHash: result.txHash,
+  });
+}
+
+/**
+ * Read the player's lifetime totals, derive every badge they currently
+ * qualify for, and call the badges contract's `mintBatch`. The contract
+ * skips badges the player already holds, so we can pass the full eligible
+ * list every time without checking on-chain state first.
+ *
+ * Streak badges (3/7/14 day) are intentionally skipped here because day
+ * streak computation requires a separate query; will land in a follow-up.
+ */
+async function mintEligibleBadges(player: Address) {
+  const lower = player.toLowerCase();
+  const [hexCountRow] = await db
+    .select({ c: count() })
+    .from(hexes)
+    .where(eq(hexes.ownerAddress, lower));
+  const [runCountRow] = await db
+    .select({ c: count() })
+    .from(runs)
+    .where(eq(runs.userAddress, lower));
+  const [bestRunRow] = await db
+    .select({ hexesClaimed: runs.hexesClaimed })
+    .from(runs)
+    .where(eq(runs.userAddress, lower))
+    .orderBy(desc(runs.hexesClaimed))
+    .limit(1);
+  const [bestDistRow] = await db
+    .select({ distanceMeters: runs.distanceMeters })
+    .from(runs)
+    .where(eq(runs.userAddress, lower))
+    .orderBy(desc(runs.distanceMeters))
+    .limit(1);
+
+  const hexesOwned = hexCountRow?.c ?? 0;
+  const totalRuns = runCountRow?.c ?? 0;
+  const bestRunHexes = bestRunRow?.hexesClaimed ?? 0;
+  const bestRunDistance = bestDistRow?.distanceMeters ?? 0;
+
+  const candidates: bigint[] = [];
+  if (totalRuns >= 1) candidates.push(BADGE_IDS.firstSteps);
+  if (hexesOwned >= 5) candidates.push(BADGE_IDS.fiveBlocks);
+  if (hexesOwned >= 20) candidates.push(BADGE_IDS.mayor);
+  if (hexesOwned >= 100) candidates.push(BADGE_IDS.hundred);
+  if (bestRunHexes >= 5) candidates.push(BADGE_IDS.bigRun);
+  if (bestRunDistance >= 10000) candidates.push(BADGE_IDS.marathon);
+  if (totalRuns >= 50) candidates.push(BADGE_IDS.iron);
+
+  if (candidates.length === 0) {
+    log.info("no badge candidates", { player: lower });
+    return;
+  }
+
+  const result = await mintBadgesBatch(player, candidates);
+  if (result.ok !== true) {
+    log.warn("badges mint not done", {
+      player: lower,
+      reason: result.reason,
+    });
+    return;
+  }
+
+  log.info("badges mint queued", {
+    player: lower,
+    candidates: candidates.map((b) => Number(b)),
     txHash: result.txHash,
   });
 }
