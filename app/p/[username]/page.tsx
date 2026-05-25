@@ -200,7 +200,7 @@ export default async function PublicProfilePage({
 
       <Link
         href="/"
-        className="mt-2 self-center rounded-md bg-orange-500 px-6 py-3 text-sm font-semibold text-white hover:bg-orange-600"
+        className="mt-2 self-center rounded-md bg-orange-600 px-6 py-3 text-sm font-semibold text-white hover:bg-orange-700"
       >
         {t("p.cta.play")}
       </Link>
