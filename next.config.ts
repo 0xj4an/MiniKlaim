@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // Ship browser source maps in production. The repo is public (MIT) so there
+  // is no IP concern, and the maps let DevTools and Lighthouse insights reach
+  // the original sources for real-user debugging.
+  productionBrowserSourceMaps: true,
 };
 
 export default nextConfig;
