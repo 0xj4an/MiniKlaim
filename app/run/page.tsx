@@ -16,6 +16,7 @@ import {
 import { formatPace, haversineMeters } from "@/lib/map/geo";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
+import { useClaimRun } from "@/lib/wallet/useClaimRun";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
 
@@ -61,6 +62,7 @@ export default function RunPage() {
   const { active: activeRun, isLoading: isActiveLoading } = useActiveRun(
     isConnected && !isWrongChain ? address : null,
   );
+  const { claim } = useClaimRun(address, isConnected && !isWrongChain);
   const capturedByLabel = t("run.popup.capturedBy");
   const youLabel = t("run.popup.you");
 
@@ -258,6 +260,12 @@ export default function RunPage() {
         hexesClaimed: data.hexesClaimed,
         distanceMeters: data.distanceMeters,
       });
+      // Mint on-chain: the player submits their own claimRun tx (so they count
+      // as a unique on-chain wallet), falling back to the sponsored relayer if
+      // they cannot pay gas or decline. Fire-and-forget; the summary shows now.
+      void claim(id).then((outcome) =>
+        log.info("run claim outcome", { id, outcome }),
+      );
       setRunId(null);
       setHexCount(0);
       setDistanceMeters(0);
@@ -268,7 +276,7 @@ export default function RunPage() {
     } finally {
       setIsBusy(false);
     }
-  }, [refreshClaimed]);
+  }, [refreshClaimed, claim]);
 
   // Kick the geolocation request as early as possible after mount. Putting it
   // inside the map.on("load", ...) callback further down loses the iOS user-
