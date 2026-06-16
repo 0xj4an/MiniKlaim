@@ -320,57 +320,68 @@ function buildAchievements(
   // computeEligibleBadgeIds in lib/onchain/badgeEligibility.ts.
   const defs: Array<[number, boolean]> = [
     // Territory.
-    [1, stats.hexesOwned >= 5],
-    [2, stats.hexesOwned >= 20],
-    [3, stats.hexesOwned >= 100],
-    [4, stats.hexesOwned >= 250],
-    [5, stats.hexesOwned >= 500],
-    [6, stats.hexesOwned >= 1000],
-    [7, stats.hexesOwned >= 2500],
-    [8, stats.hexesOwned >= 10000],
+    [1, stats.hexesOwned >= 1],
+    [2, stats.hexesOwned >= 5],
+    [3, stats.hexesOwned >= 20],
+    [4, stats.hexesOwned >= 100],
+    [5, stats.hexesOwned >= 250],
+    [6, stats.hexesOwned >= 500],
+    [7, stats.hexesOwned >= 1000],
+    [8, stats.hexesOwned >= 2500],
+    [9, stats.hexesOwned >= 10000],
     // Runs.
-    [9, stats.totalRuns >= 1],
-    [10, stats.totalRuns >= 50],
-    [11, stats.totalRuns >= 100],
-    [12, stats.totalRuns >= 250],
-    [13, stats.totalRuns >= 500],
-    [14, stats.totalRuns >= 1000],
+    [10, stats.totalRuns >= 1],
+    [11, stats.totalRuns >= 50],
+    [12, stats.totalRuns >= 100],
+    [13, stats.totalRuns >= 250],
+    [14, stats.totalRuns >= 500],
+    [15, stats.totalRuns >= 1000],
     // Single-run feats.
-    [15, stats.bestRunHexes >= 5],
-    [16, stats.bestRunDistanceMeters >= 10000],
-    [17, stats.bestRunDistanceMeters >= 21000],
-    [18, stats.bestRunDistanceMeters >= 42000],
+    [16, stats.bestRunHexes >= 5],
+    [17, stats.bestRunDistanceMeters >= 10000],
+    [18, stats.bestRunDistanceMeters >= 21000],
+    [19, stats.bestRunDistanceMeters >= 42000],
     // Lifetime distance.
-    [19, stats.lifetimeDistanceMeters >= 50000],
-    [20, stats.lifetimeDistanceMeters >= 100000],
-    [21, stats.lifetimeDistanceMeters >= 500000],
-    [22, stats.lifetimeDistanceMeters >= 1000000],
-    [23, stats.lifetimeDistanceMeters >= 5000000],
-    [24, stats.lifetimeDistanceMeters >= 40000000],
+    [20, stats.lifetimeDistanceMeters >= 50000],
+    [21, stats.lifetimeDistanceMeters >= 100000],
+    [22, stats.lifetimeDistanceMeters >= 500000],
+    [23, stats.lifetimeDistanceMeters >= 1000000],
+    [24, stats.lifetimeDistanceMeters >= 5000000],
+    [25, stats.lifetimeDistanceMeters >= 40000000],
     // Streaks.
-    [25, stats.streak >= 3],
-    [26, stats.streak >= 7],
-    [27, stats.streak >= 14],
+    [26, stats.streak >= 3],
+    [27, stats.streak >= 7],
+    [28, stats.streak >= 14],
+    [29, stats.streak >= 30],
+    [30, stats.streak >= 60],
+    [31, stats.streak >= 90],
+    [32, stats.streak >= 180],
+    [33, stats.streak >= 365],
     // Cities.
-    [28, stats.cityCount >= 3],
-    [29, stats.cityCount >= 10],
-    [30, stats.cityCount >= 25],
-    [31, stats.cityCount >= 50],
-    [32, stats.cityCount >= 100],
+    [34, stats.cityCount >= 1],
+    [35, stats.cityCount >= 3],
+    [36, stats.cityCount >= 10],
+    [37, stats.cityCount >= 25],
+    [38, stats.cityCount >= 50],
+    [39, stats.cityCount >= 100],
+    [40, stats.cityCount >= 250],
+    [41, stats.cityCount >= 500],
+    [42, stats.cityCount >= 1000],
     // Conquest.
-    [33, stats.conquests >= 1],
-    [34, stats.conquests >= 25],
-    [35, stats.conquests >= 100],
-    [36, stats.conquests >= 500],
-    [37, stats.conquests >= 1000],
+    [43, stats.conquests >= 1],
+    [44, stats.conquests >= 25],
+    [45, stats.conquests >= 100],
+    [46, stats.conquests >= 500],
+    [47, stats.conquests >= 1000],
     // Countries.
-    [38, stats.countryCount >= 2],
-    [39, stats.countryCount >= 5],
-    [40, stats.countryCount >= 10],
-    [41, stats.countryCount >= 25],
-    [42, stats.countryCount >= 50],
-    [43, stats.countryCount >= 100],
-    [44, stats.countryCount >= 195],
+    [48, stats.countryCount >= 1],
+    [49, stats.countryCount >= 2],
+    [50, stats.countryCount >= 5],
+    [51, stats.countryCount >= 10],
+    [52, stats.countryCount >= 25],
+    [53, stats.countryCount >= 50],
+    [54, stats.countryCount >= 100],
+    [55, stats.countryCount >= 195],
   ];
   return defs.map(([onchainId, unlocked]) => {
     const c = badgeCopy(onchainId, locale);
@@ -383,25 +394,30 @@ const ACHIEVEMENTS_CACHE_KEY = "miniklaim.unlockedBadges";
 // Badge ids the player can mint via the `claimBadges` voucher. Mirrors
 // computeEligibleBadgeIds in lib/onchain/badgeEligibility.ts, which omits the
 // streak badges (5/7/14 day, ids 5-7) pending a day-streak query.
-// Streak badges (25-27) are not yet awarded (no day-streak query); everything
+// Streak badges (26-33) are not yet awarded (no day-streak query); everything
 // else is claimable via the voucher.
 const VOUCHER_CLAIMABLE_IDS = new Set([
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-  23, 24, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44,
+  23, 24, 25, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
+  50, 51, 52, 53, 54, 55,
 ]);
 
-// Display groups follow the contiguous id ranges (territory 1-8, runs 9-14,
-// single-run 15-18, distance 19-24, streaks 25-27, cities 28-32, conquest
-// 33-37, countries 38-43).
+// Display groups follow the contiguous id ranges (territory 1-9, runs 10-15,
+// single-run 16-19, distance 20-25, streaks 26-33, cities 34-42, conquest
+// 43-47, countries 48-55).
 const BADGE_GROUPS: { en: string; es: string; ids: number[] }[] = [
-  { en: "Territory", es: "Territorio", ids: [1, 2, 3, 4, 5, 6, 7, 8] },
-  { en: "Runs", es: "Corridas", ids: [9, 10, 11, 12, 13, 14] },
-  { en: "Single run", es: "Una corrida", ids: [15, 16, 17, 18] },
-  { en: "Distance", es: "Distancia", ids: [19, 20, 21, 22, 23, 24] },
-  { en: "Streaks", es: "Rachas", ids: [25, 26, 27] },
-  { en: "Cities", es: "Ciudades", ids: [28, 29, 30, 31, 32] },
-  { en: "Conquest", es: "Conquista", ids: [33, 34, 35, 36, 37] },
-  { en: "Countries", es: "Paises", ids: [38, 39, 40, 41, 42, 43, 44] },
+  { en: "Territory", es: "Territorio", ids: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
+  { en: "Runs", es: "Corridas", ids: [10, 11, 12, 13, 14, 15] },
+  { en: "Single run", es: "Una corrida", ids: [16, 17, 18, 19] },
+  { en: "Distance", es: "Distancia", ids: [20, 21, 22, 23, 24, 25] },
+  { en: "Streaks", es: "Rachas", ids: [26, 27, 28, 29, 30, 31, 32, 33] },
+  { en: "Cities", es: "Ciudades", ids: [34, 35, 36, 37, 38, 39, 40, 41, 42] },
+  { en: "Conquest", es: "Conquista", ids: [43, 44, 45, 46, 47] },
+  {
+    en: "Countries",
+    es: "Paises",
+    ids: [48, 49, 50, 51, 52, 53, 54, 55],
+  },
 ];
 
 function Achievements({

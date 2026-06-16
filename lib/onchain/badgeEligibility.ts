@@ -68,6 +68,7 @@ export async function computeEligibleBadgeIds(
   if (totalRuns >= 100) candidates.push(BADGE_IDS.veteran);
   if (totalRuns >= 250) candidates.push(BADGE_IDS.relentless);
   // Territory owned.
+  if (hexesOwned >= 1) candidates.push(BADGE_IDS.firstBlock);
   if (hexesOwned >= 5) candidates.push(BADGE_IDS.fiveBlocks);
   if (hexesOwned >= 20) candidates.push(BADGE_IDS.mayor);
   if (hexesOwned >= 100) candidates.push(BADGE_IDS.hundred);
@@ -84,6 +85,7 @@ export async function computeEligibleBadgeIds(
   if (lifetimeDistance >= 100000) candidates.push(BADGE_IDS.roadrunner);
   if (lifetimeDistance >= 500000) candidates.push(BADGE_IDS.ultra);
   // Exploration.
+  if (cityCount >= 1) candidates.push(BADGE_IDS.firstCity);
   if (cityCount >= 3) candidates.push(BADGE_IDS.explorer);
   if (cityCount >= 10) candidates.push(BADGE_IDS.wanderer);
   if (cityCount >= 25) candidates.push(BADGE_IDS.pioneer);
@@ -92,6 +94,7 @@ export async function computeEligibleBadgeIds(
   if (conquests >= 25) candidates.push(BADGE_IDS.raider);
   if (conquests >= 100) candidates.push(BADGE_IDS.warlord);
   // Countries.
+  if (countryCount >= 1) candidates.push(BADGE_IDS.firstCountry);
   if (countryCount >= 2) candidates.push(BADGE_IDS.borderCrosser);
   if (countryCount >= 5) candidates.push(BADGE_IDS.globetrotter);
   if (countryCount >= 10) candidates.push(BADGE_IDS.worldCitizen);
@@ -109,6 +112,9 @@ export async function computeEligibleBadgeIds(
   if (totalRuns >= 1000) candidates.push(BADGE_IDS.legend);
   if (cityCount >= 50) candidates.push(BADGE_IDS.cartographer);
   if (cityCount >= 100) candidates.push(BADGE_IDS.atlas);
+  if (cityCount >= 250) candidates.push(BADGE_IDS.voyager);
+  if (cityCount >= 500) candidates.push(BADGE_IDS.odyssey);
+  if (cityCount >= 1000) candidates.push(BADGE_IDS.worldwalker);
   if (conquests >= 500) candidates.push(BADGE_IDS.conqueror);
   if (conquests >= 1000) candidates.push(BADGE_IDS.overlord);
 
