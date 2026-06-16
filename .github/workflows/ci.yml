@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+
+jobs:
+  contracts:
+    name: Contracts (forge test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install contract deps
+        # lib/ is gitignored, so CI installs the pinned deps explicitly.
+        run: |
+          forge install foundry-rs/forge-std@v1.16.1
+          forge install OpenZeppelin/openzeppelin-contracts@v5.4.0
+          forge install OpenZeppelin/openzeppelin-contracts-upgradeable@v5.4.0
+
+      - name: Run tests
+        run: forge test -vvv
+
+  web:
+    name: Web (lint + typecheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npx eslint .
+
+      - name: Typecheck
+        run: npx tsc --noEmit
