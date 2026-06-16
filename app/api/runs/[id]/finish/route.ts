@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import { hexes, runs } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
 import { BADGE_IDS, mintBadgesBatch } from "@/lib/onchain/badges";
-import { captureBatch } from "@/lib/onchain/hexes";
 
 const log = createLogger("api:runs:finish");
 
@@ -39,52 +38,14 @@ export async function PATCH(
     hexesClaimed: updated.hexesClaimed,
   });
 
-  // Fire on-chain capture batch in the background. We don't await it because
-  // we don't want the client to wait for Celo confirmation; the player's UI
-  // shows the run summary instantly. The mint resolves over the next ~5s.
-  void mintRunHexes(updated.id, updated.userAddress as Address);
+  // Hex minting is now driven by the client after finish: the player either
+  // submits their own `claimRun` tx (POST /voucher then on-chain, recorded via
+  // /claimed) so they count as a unique on-chain wallet, or falls back to the
+  // sponsored relayer (POST /sponsor-mint) when they cannot pay gas. Badges stay
+  // relayer-minted in the background here.
   void mintEligibleBadges(updated.userAddress as Address);
 
   return NextResponse.json(updated);
-}
-
-async function mintRunHexes(runId: string, player: Address) {
-  // Every hex claimed in this run needs an on-chain action. The contract's
-  // captureBatch is idempotent for owner==player (no-op) and handles the
-  // re-capture transfer when owner!=player. The previous version filtered on
-  // `mintedAt IS NULL` which skipped re-captures (DB kept the old minted_at
-  // from the previous owner's mint) and left the NFT with the wrong owner.
-  const rows = await db
-    .select({ h3Id: hexes.h3Id })
-    .from(hexes)
-    .where(eq(hexes.runId, runId));
-
-  const ids = rows.map((r) => r.h3Id);
-  if (ids.length === 0) {
-    log.info("no hexes to mint for run", { runId });
-    return;
-  }
-
-  const result = await captureBatch(player, ids);
-  if (result.ok !== true) {
-    log.warn("on-chain mint not done", {
-      runId,
-      count: ids.length,
-      reason: result.reason,
-    });
-    return;
-  }
-
-  await db
-    .update(hexes)
-    .set({ mintedAt: sql`now()`, mintTxHash: result.txHash })
-    .where(eq(hexes.runId, runId));
-
-  log.info("on-chain mint queued", {
-    runId,
-    count: ids.length,
-    txHash: result.txHash,
-  });
 }
 
 /**
