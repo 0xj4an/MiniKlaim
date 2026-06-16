@@ -4,6 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
+import { useClaimBadges } from "@/lib/wallet/useClaimBadges";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
 import { type UserBadges, useUserBadges } from "@/lib/wallet/useUserBadges";
@@ -124,7 +125,12 @@ export default function MePage() {
                 </div>
               )}
 
-              <Achievements stats={stats} onchain={onchainBadges} />
+              <Achievements
+                stats={stats}
+                onchain={onchainBadges}
+                address={address ?? null}
+                enabled={isConnected && !isWrongChain}
+              />
             </>
           )}
 
@@ -383,12 +389,21 @@ function buildAchievements(stats: UserStats): Achievement[] {
 
 const ACHIEVEMENTS_CACHE_KEY = "miniklaim.unlockedBadges";
 
+// Badge ids the player can mint via the `claimBadges` voucher. Mirrors
+// computeEligibleBadgeIds in lib/onchain/badgeEligibility.ts, which omits the
+// streak badges (5/7/14 day, ids 5-7) pending a day-streak query.
+const VOUCHER_CLAIMABLE_IDS = new Set([1, 2, 3, 4, 8, 9, 10]);
+
 function Achievements({
   stats,
   onchain,
+  address,
+  enabled,
 }: {
   stats: UserStats;
   onchain: UserBadges | null;
+  address: `0x${string}` | null;
+  enabled: boolean;
 }) {
   const { t } = useLocale();
   const achievements = buildAchievements(stats);
@@ -396,6 +411,53 @@ function Achievements({
   const [newlyUnlocked, setNewlyUnlocked] = useState<Achievement | null>(null);
   const heldSet = new Set(onchain?.heldIds ?? []);
   const contract = onchain?.contract ?? null;
+
+  const { claim } = useClaimBadges(address, enabled);
+  const claimable = achievements.filter(
+    (a) =>
+      a.unlocked &&
+      VOUCHER_CLAIMABLE_IDS.has(a.onchainId) &&
+      !heldSet.has(a.onchainId),
+  );
+  const claimableKey = claimable.map((a) => a.onchainId).join(",");
+  const [claimState, setClaimState] = useState<
+    "idle" | "pending" | "done" | "error"
+  >("idle");
+  const [claimTx, setClaimTx] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    setDismissed(false);
+    setClaimState("idle");
+    setClaimTx(null);
+  }, [claimableKey]);
+
+  useEffect(() => {
+    if (claimState !== "done") return;
+    const id = window.setTimeout(() => setClaimState("idle"), 5000);
+    return () => window.clearTimeout(id);
+  }, [claimState]);
+
+  const showPrompt =
+    !!contract && claimable.length > 0 && !dismissed && claimState !== "done";
+
+  const runClaim = async () => {
+    setClaimState("pending");
+    const outcome = await claim();
+    if (outcome.status === "user-claimed") {
+      setClaimTx(outcome.txHash);
+      setDismissed(true);
+      setClaimState("done");
+    } else if (outcome.status === "sponsored") {
+      setDismissed(true);
+      setClaimState("done");
+    } else if (outcome.status === "none") {
+      setDismissed(true);
+      setClaimState("idle");
+    } else {
+      setClaimState("error");
+    }
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -467,6 +529,69 @@ function Achievements({
         <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-zinc-900 px-5 py-3 text-sm text-white shadow-2xl">
           <span className="text-orange-700">{t("me.badges.toast")}</span>{" "}
           <span className="font-semibold">{t(newlyUnlocked.nameKey)}</span>
+        </div>
+      )}
+      {showPrompt && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <p className="text-center text-base font-bold text-zinc-900">
+              {t("me.badges.claim.title")}
+            </p>
+            <p className="mt-2 text-center text-sm text-zinc-500">
+              {t("me.badges.claim.body")}
+            </p>
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              {claimable.map((a) => (
+                <span
+                  key={a.key}
+                  className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700"
+                >
+                  {t(a.nameKey)}
+                </span>
+              ))}
+            </div>
+            {claimState === "error" && (
+              <p className="mt-3 text-center text-xs text-red-600">
+                {t("me.badges.claim.error")}
+              </p>
+            )}
+            <div className="mt-5 flex flex-col gap-2">
+              <button
+                onClick={runClaim}
+                disabled={claimState === "pending"}
+                className="w-full rounded-full bg-orange-600 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
+              >
+                {claimState === "pending"
+                  ? t("me.badges.claim.pending")
+                  : t("me.badges.claim.cta")}
+              </button>
+              <button
+                onClick={() => setDismissed(true)}
+                disabled={claimState === "pending"}
+                className="w-full rounded-full px-4 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 disabled:opacity-60"
+              >
+                {t("me.badges.claim.later")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {claimState === "done" && (
+        <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-zinc-900 px-5 py-3 text-sm text-white shadow-2xl">
+          <span className="text-orange-700">{t("me.badges.claim.done")}</span>
+          {claimTx && (
+            <>
+              {" "}
+              <a
+                href={`https://celoscan.io/tx/${claimTx}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-xs underline"
+              >
+                {t("me.badges.claim.viewTx")}
+              </a>
+            </>
+          )}
         </div>
       )}
     </>
