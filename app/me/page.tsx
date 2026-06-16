@@ -379,6 +379,19 @@ const VOUCHER_CLAIMABLE_IDS = new Set([
   25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43,
 ]);
 
+// Display order: badges grouped by category (tiers ascending within a group)
+// instead of by raw id, which interleaves categories.
+const BADGE_GROUPS: { en: string; es: string; ids: number[] }[] = [
+  { en: "Territory", es: "Territorio", ids: [2, 3, 4, 11, 12, 13, 32, 33] },
+  { en: "Runs", es: "Corridas", ids: [1, 10, 22, 23, 37, 38] },
+  { en: "Single run", es: "Una corrida", ids: [8, 9, 17, 18] },
+  { en: "Distance", es: "Distancia", ids: [14, 15, 16, 34, 35, 36] },
+  { en: "Streaks", es: "Rachas", ids: [5, 6, 7] },
+  { en: "Cities", es: "Ciudades", ids: [19, 20, 21, 39, 40] },
+  { en: "Conquest", es: "Conquista", ids: [24, 25, 26, 41, 42] },
+  { en: "Countries", es: "Paises", ids: [27, 28, 29, 30, 31, 43] },
+];
+
 function Achievements({
   stats,
   onchain,
@@ -392,6 +405,7 @@ function Achievements({
 }) {
   const { t, locale } = useLocale();
   const achievements = buildAchievements(stats, locale);
+  const byId = new Map(achievements.map((a) => [a.onchainId, a]));
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
   const [newlyUnlocked, setNewlyUnlocked] = useState<Achievement | null>(null);
   const heldSet = new Set(onchain?.heldIds ?? []);
@@ -482,40 +496,53 @@ function Achievements({
           {t("me.badges.header")} {unlockedCount} {t("me.badges.of")}{" "}
           {achievements.length}
         </p>
-        {achievements.map((a) => {
-          const minted = heldSet.has(a.onchainId);
-          return (
-            <div
-              key={a.onchainId}
-              className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-500"}`}
-            >
-              <span className="flex items-center gap-2">
-                <span
-                  aria-hidden
-                  className={`inline-block h-7 w-7 shrink-0 ${a.unlocked ? "" : "opacity-40 grayscale"}`}
-                  dangerouslySetInnerHTML={{ __html: badgeSvg(a.onchainId, 28) }}
-                />
-                <span className={a.unlocked ? "font-semibold" : ""}>
-                  {a.name}
-                </span>
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500">{a.description}</span>
-                {minted && contract && (
-                  <a
-                    href={`https://celoscan.io/token/${contract}?a=${a.onchainId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-[10px] text-orange-700 underline hover:text-orange-800"
-                    title="View on Celoscan"
-                  >
-                    on-chain
-                  </a>
-                )}
-              </span>
-            </div>
-          );
-        })}
+        {BADGE_GROUPS.map((group) => (
+          <div key={group.en} className="mt-2 first:mt-1">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+              {locale === "es" ? group.es : group.en}
+            </p>
+            {group.ids.map((id) => {
+              const a = byId.get(id);
+              if (!a) return null;
+              const minted = heldSet.has(a.onchainId);
+              return (
+                <div
+                  key={a.onchainId}
+                  className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-500"}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span
+                      aria-hidden
+                      className={`inline-block h-7 w-7 shrink-0 ${a.unlocked ? "" : "opacity-40 grayscale"}`}
+                      dangerouslySetInnerHTML={{
+                        __html: badgeSvg(a.onchainId, 28),
+                      }}
+                    />
+                    <span className={a.unlocked ? "font-semibold" : ""}>
+                      {a.name}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-500">
+                      {a.description}
+                    </span>
+                    {minted && contract && (
+                      <a
+                        href={`https://celoscan.io/token/${contract}?a=${a.onchainId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-[10px] text-orange-700 underline hover:text-orange-800"
+                        title="View on Celoscan"
+                      >
+                        on-chain
+                      </a>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
       {newlyUnlocked && (
         <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-zinc-900 px-5 py-3 text-sm text-white shadow-2xl">
