@@ -89,58 +89,62 @@ function signerWallet() {
  * (see app/me/page.tsx `buildAchievements`). IDs are uint256 on-chain;
  * tracked here as small integers.
  */
+// Ids are grouped contiguously by category (tiers ascending within a group):
+// territory 1-8, runs 9-14, single-run 15-18, distance 19-24, streaks 25-27,
+// cities 28-32, conquest 33-37, countries 38-43.
 export const BADGE_IDS = {
-  firstSteps: BigInt(1),
-  fiveBlocks: BigInt(2),
-  mayor: BigInt(3),
-  hundred: BigInt(4),
-  threeDays: BigInt(5),
-  oneWeek: BigInt(6),
-  twoWeeks: BigInt(7),
-  bigRun: BigInt(8),
-  marathon: BigInt(9),
+  // Territory owned.
+  fiveBlocks: BigInt(1),
+  mayor: BigInt(2),
+  hundred: BigInt(3),
+  baron: BigInt(4),
+  duke: BigInt(5),
+  kingdom: BigInt(6),
+  empire: BigInt(7),
+  dominion: BigInt(8),
+  // Run volume.
+  firstSteps: BigInt(9),
   iron: BigInt(10),
-  // Territory tiers beyond 100.
-  baron: BigInt(11),
-  duke: BigInt(12),
-  kingdom: BigInt(13),
-  // Lifetime distance.
-  pacer: BigInt(14),
-  roadrunner: BigInt(15),
-  ultra: BigInt(16),
-  // Single-run distance.
+  veteran: BigInt(11),
+  relentless: BigInt(12),
+  machine: BigInt(13),
+  legend: BigInt(14),
+  // Single-run feats.
+  bigRun: BigInt(15),
+  marathon: BigInt(16),
   halfMarathon: BigInt(17),
   fullMarathon: BigInt(18),
+  // Lifetime distance.
+  pacer: BigInt(19),
+  roadrunner: BigInt(20),
+  ultra: BigInt(21),
+  ironLegs: BigInt(22),
+  earthstrider: BigInt(23),
+  equator: BigInt(24),
+  // Streaks (not yet awarded).
+  threeDays: BigInt(25),
+  oneWeek: BigInt(26),
+  twoWeeks: BigInt(27),
   // Exploration (distinct cities = H3 res-5 clusters).
-  explorer: BigInt(19),
-  wanderer: BigInt(20),
-  pioneer: BigInt(21),
-  // Run volume.
-  veteran: BigInt(22),
-  relentless: BigInt(23),
+  explorer: BigInt(28),
+  wanderer: BigInt(29),
+  pioneer: BigInt(30),
+  cartographer: BigInt(31),
+  atlas: BigInt(32),
   // Conquest (hexes captured from rivals).
-  firstBlood: BigInt(24),
-  raider: BigInt(25),
-  warlord: BigInt(26),
+  firstBlood: BigInt(33),
+  raider: BigInt(34),
+  warlord: BigInt(35),
+  conqueror: BigInt(36),
+  overlord: BigInt(37),
   // Distinct countries.
-  borderCrosser: BigInt(27),
-  globetrotter: BigInt(28),
-  worldCitizen: BigInt(29),
-  continental: BigInt(30),
-  planetary: BigInt(31),
-  // Legendary tier (planet-scale goals).
-  empire: BigInt(32),
-  dominion: BigInt(33),
-  ironLegs: BigInt(34),
-  earthstrider: BigInt(35),
-  equator: BigInt(36),
-  machine: BigInt(37),
-  legend: BigInt(38),
-  cartographer: BigInt(39),
-  atlas: BigInt(40),
-  conqueror: BigInt(41),
-  overlord: BigInt(42),
+  borderCrosser: BigInt(38),
+  globetrotter: BigInt(39),
+  worldCitizen: BigInt(40),
+  continental: BigInt(41),
+  planetary: BigInt(42),
   hemispheric: BigInt(43),
+  worldwide: BigInt(44),
 } as const;
 
 export type MintBadgesResult =

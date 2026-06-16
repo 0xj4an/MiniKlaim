@@ -319,49 +319,58 @@ function buildAchievements(
   // [onchainId, unlocked predicate]. Keep ids in sync with BADGE_IDS and
   // computeEligibleBadgeIds in lib/onchain/badgeEligibility.ts.
   const defs: Array<[number, boolean]> = [
-    [1, stats.totalRuns >= 1],
-    [2, stats.hexesOwned >= 5],
-    [3, stats.hexesOwned >= 20],
-    [4, stats.hexesOwned >= 100],
-    [5, stats.streak >= 3],
-    [6, stats.streak >= 7],
-    [7, stats.streak >= 14],
-    [8, stats.bestRunHexes >= 5],
-    [9, stats.bestRunDistanceMeters >= 10000],
+    // Territory.
+    [1, stats.hexesOwned >= 5],
+    [2, stats.hexesOwned >= 20],
+    [3, stats.hexesOwned >= 100],
+    [4, stats.hexesOwned >= 250],
+    [5, stats.hexesOwned >= 500],
+    [6, stats.hexesOwned >= 1000],
+    [7, stats.hexesOwned >= 2500],
+    [8, stats.hexesOwned >= 10000],
+    // Runs.
+    [9, stats.totalRuns >= 1],
     [10, stats.totalRuns >= 50],
-    [11, stats.hexesOwned >= 250],
-    [12, stats.hexesOwned >= 500],
-    [13, stats.hexesOwned >= 1000],
-    [14, stats.lifetimeDistanceMeters >= 50000],
-    [15, stats.lifetimeDistanceMeters >= 100000],
-    [16, stats.lifetimeDistanceMeters >= 500000],
+    [11, stats.totalRuns >= 100],
+    [12, stats.totalRuns >= 250],
+    [13, stats.totalRuns >= 500],
+    [14, stats.totalRuns >= 1000],
+    // Single-run feats.
+    [15, stats.bestRunHexes >= 5],
+    [16, stats.bestRunDistanceMeters >= 10000],
     [17, stats.bestRunDistanceMeters >= 21000],
     [18, stats.bestRunDistanceMeters >= 42000],
-    [19, stats.cityCount >= 3],
-    [20, stats.cityCount >= 10],
-    [21, stats.cityCount >= 25],
-    [22, stats.totalRuns >= 100],
-    [23, stats.totalRuns >= 250],
-    [24, stats.conquests >= 1],
-    [25, stats.conquests >= 25],
-    [26, stats.conquests >= 100],
-    [27, stats.countryCount >= 2],
-    [28, stats.countryCount >= 5],
-    [29, stats.countryCount >= 10],
-    [30, stats.countryCount >= 25],
-    [31, stats.countryCount >= 50],
-    [32, stats.hexesOwned >= 2500],
-    [33, stats.hexesOwned >= 10000],
-    [34, stats.lifetimeDistanceMeters >= 1000000],
-    [35, stats.lifetimeDistanceMeters >= 5000000],
-    [36, stats.lifetimeDistanceMeters >= 40000000],
-    [37, stats.totalRuns >= 500],
-    [38, stats.totalRuns >= 1000],
-    [39, stats.cityCount >= 50],
-    [40, stats.cityCount >= 100],
-    [41, stats.conquests >= 500],
-    [42, stats.conquests >= 1000],
+    // Lifetime distance.
+    [19, stats.lifetimeDistanceMeters >= 50000],
+    [20, stats.lifetimeDistanceMeters >= 100000],
+    [21, stats.lifetimeDistanceMeters >= 500000],
+    [22, stats.lifetimeDistanceMeters >= 1000000],
+    [23, stats.lifetimeDistanceMeters >= 5000000],
+    [24, stats.lifetimeDistanceMeters >= 40000000],
+    // Streaks.
+    [25, stats.streak >= 3],
+    [26, stats.streak >= 7],
+    [27, stats.streak >= 14],
+    // Cities.
+    [28, stats.cityCount >= 3],
+    [29, stats.cityCount >= 10],
+    [30, stats.cityCount >= 25],
+    [31, stats.cityCount >= 50],
+    [32, stats.cityCount >= 100],
+    // Conquest.
+    [33, stats.conquests >= 1],
+    [34, stats.conquests >= 25],
+    [35, stats.conquests >= 100],
+    [36, stats.conquests >= 500],
+    [37, stats.conquests >= 1000],
+    // Countries.
+    [38, stats.countryCount >= 2],
+    [39, stats.countryCount >= 5],
+    [40, stats.countryCount >= 10],
+    [41, stats.countryCount >= 25],
+    [42, stats.countryCount >= 50],
     [43, stats.countryCount >= 100],
+    [44, stats.countryCount >= 195],
   ];
   return defs.map(([onchainId, unlocked]) => {
     const c = badgeCopy(onchainId, locale);
@@ -374,22 +383,25 @@ const ACHIEVEMENTS_CACHE_KEY = "miniklaim.unlockedBadges";
 // Badge ids the player can mint via the `claimBadges` voucher. Mirrors
 // computeEligibleBadgeIds in lib/onchain/badgeEligibility.ts, which omits the
 // streak badges (5/7/14 day, ids 5-7) pending a day-streak query.
+// Streak badges (25-27) are not yet awarded (no day-streak query); everything
+// else is claimable via the voucher.
 const VOUCHER_CLAIMABLE_IDS = new Set([
-  1, 2, 3, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-  25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43,
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+  23, 24, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44,
 ]);
 
-// Display order: badges grouped by category (tiers ascending within a group)
-// instead of by raw id, which interleaves categories.
+// Display groups follow the contiguous id ranges (territory 1-8, runs 9-14,
+// single-run 15-18, distance 19-24, streaks 25-27, cities 28-32, conquest
+// 33-37, countries 38-43).
 const BADGE_GROUPS: { en: string; es: string; ids: number[] }[] = [
-  { en: "Territory", es: "Territorio", ids: [2, 3, 4, 11, 12, 13, 32, 33] },
-  { en: "Runs", es: "Corridas", ids: [1, 10, 22, 23, 37, 38] },
-  { en: "Single run", es: "Una corrida", ids: [8, 9, 17, 18] },
-  { en: "Distance", es: "Distancia", ids: [14, 15, 16, 34, 35, 36] },
-  { en: "Streaks", es: "Rachas", ids: [5, 6, 7] },
-  { en: "Cities", es: "Ciudades", ids: [19, 20, 21, 39, 40] },
-  { en: "Conquest", es: "Conquista", ids: [24, 25, 26, 41, 42] },
-  { en: "Countries", es: "Paises", ids: [27, 28, 29, 30, 31, 43] },
+  { en: "Territory", es: "Territorio", ids: [1, 2, 3, 4, 5, 6, 7, 8] },
+  { en: "Runs", es: "Corridas", ids: [9, 10, 11, 12, 13, 14] },
+  { en: "Single run", es: "Una corrida", ids: [15, 16, 17, 18] },
+  { en: "Distance", es: "Distancia", ids: [19, 20, 21, 22, 23, 24] },
+  { en: "Streaks", es: "Rachas", ids: [25, 26, 27] },
+  { en: "Cities", es: "Ciudades", ids: [28, 29, 30, 31, 32] },
+  { en: "Conquest", es: "Conquista", ids: [33, 34, 35, 36, 37] },
+  { en: "Countries", es: "Paises", ids: [38, 39, 40, 41, 42, 43, 44] },
 ];
 
 function Achievements({

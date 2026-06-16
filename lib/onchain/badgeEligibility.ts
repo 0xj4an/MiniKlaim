@@ -98,6 +98,7 @@ export async function computeEligibleBadgeIds(
   if (countryCount >= 25) candidates.push(BADGE_IDS.continental);
   if (countryCount >= 50) candidates.push(BADGE_IDS.planetary);
   if (countryCount >= 100) candidates.push(BADGE_IDS.hemispheric);
+  if (countryCount >= 195) candidates.push(BADGE_IDS.worldwide);
   // Legendary tier.
   if (hexesOwned >= 2500) candidates.push(BADGE_IDS.empire);
   if (hexesOwned >= 10000) candidates.push(BADGE_IDS.dominion);
