@@ -100,6 +100,47 @@ export const BADGE_IDS = {
   bigRun: BigInt(8),
   marathon: BigInt(9),
   iron: BigInt(10),
+  // Territory tiers beyond 100.
+  baron: BigInt(11),
+  duke: BigInt(12),
+  kingdom: BigInt(13),
+  // Lifetime distance.
+  pacer: BigInt(14),
+  roadrunner: BigInt(15),
+  ultra: BigInt(16),
+  // Single-run distance.
+  halfMarathon: BigInt(17),
+  fullMarathon: BigInt(18),
+  // Exploration (distinct cities = H3 res-5 clusters).
+  explorer: BigInt(19),
+  wanderer: BigInt(20),
+  pioneer: BigInt(21),
+  // Run volume.
+  veteran: BigInt(22),
+  relentless: BigInt(23),
+  // Conquest (hexes captured from rivals).
+  firstBlood: BigInt(24),
+  raider: BigInt(25),
+  warlord: BigInt(26),
+  // Distinct countries.
+  borderCrosser: BigInt(27),
+  globetrotter: BigInt(28),
+  worldCitizen: BigInt(29),
+  continental: BigInt(30),
+  planetary: BigInt(31),
+  // Legendary tier (planet-scale goals).
+  empire: BigInt(32),
+  dominion: BigInt(33),
+  ironLegs: BigInt(34),
+  earthstrider: BigInt(35),
+  equator: BigInt(36),
+  machine: BigInt(37),
+  legend: BigInt(38),
+  cartographer: BigInt(39),
+  atlas: BigInt(40),
+  conqueror: BigInt(41),
+  overlord: BigInt(42),
+  hemispheric: BigInt(43),
 } as const;
 
 export type MintBadgesResult =
