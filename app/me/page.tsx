@@ -4,6 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
+import { badgeSvg } from "@/lib/onchain/badgeArt";
 import { useClaimBadges } from "@/lib/wallet/useClaimBadges";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
@@ -504,8 +505,15 @@ function Achievements({
               key={a.key}
               className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-500"}`}
             >
-              <span className={a.unlocked ? "font-semibold" : ""}>
-                {t(a.nameKey)}
+              <span className="flex items-center gap-2">
+                <span
+                  aria-hidden
+                  className={`inline-block h-7 w-7 shrink-0 ${a.unlocked ? "" : "opacity-40 grayscale"}`}
+                  dangerouslySetInnerHTML={{ __html: badgeSvg(a.onchainId, 28) }}
+                />
+                <span className={a.unlocked ? "font-semibold" : ""}>
+                  {t(a.nameKey)}
+                </span>
               </span>
               <span className="flex items-center gap-2">
                 <span className="text-xs text-zinc-500">{t(a.descKey)}</span>
@@ -544,8 +552,13 @@ function Achievements({
               {claimable.map((a) => (
                 <span
                   key={a.key}
-                  className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700"
+                  className="flex items-center gap-1.5 rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700"
                 >
+                  <span
+                    aria-hidden
+                    className="inline-block h-4 w-4"
+                    dangerouslySetInnerHTML={{ __html: badgeSvg(a.onchainId, 16) }}
+                  />
                   {t(a.nameKey)}
                 </span>
               ))}
