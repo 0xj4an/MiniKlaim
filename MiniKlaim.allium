@@ -1,0 +1,396 @@
+-- allium: 3
+-- MiniKlaim.allium
+
+-- Scope: The territory-capture running game's claim and achievement lifecycle.
+-- Includes:
+--   - Player (wallet) identity and optional username
+--   - Run lifecycle (start, capture hexes, finish, abandon)
+--   - Hex territory ownership: first claim and recapture from another player
+--   - Three on-chain settlement paths for a finished run's hexes
+--     (player-signed voucher claim, sponsored relayer mint)
+--   - Achievement badges: eligibility thresholds and soulbound award
+-- Excludes:
+--   - Wallet detection / auto-connect (MiniPay, Farcaster) - boundary detail
+--   - GPS path tracking and H3 cell math - the app derives a hex id from a
+--     location; how it does so is implementation
+--   - Map rendering, i18n, leaderboard/stats read views, analytics
+--   - Token/secret generation, EIP-712 wire encoding, gas sponsorship mechanics
+--   - Contract upgradeability (UUPS) and storage layout
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+enum Badge {
+    first_steps        -- completed at least one run
+    five_blocks        -- owns at least 5 hexes
+    mayor              -- owns at least 20 hexes
+    hundred            -- owns at least 100 hexes
+    three_days         -- 3-day streak (not yet awarded; see open question)
+    one_week           -- 7-day streak (not yet awarded)
+    two_weeks          -- 14-day streak (not yet awarded)
+    big_run            -- captured at least 5 hexes in a single run
+    marathon           -- ran at least 10km in a single run
+    iron               -- completed at least 50 runs
+}
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+entity Player {
+    address: String
+    username: String?
+
+    runs: Run with player = this
+    hexes: Hex with owner = this
+    awards: BadgeAward with player = this
+
+    completed_runs: runs where status = completed
+
+    hexes_owned: hexes.count
+    total_runs: completed_runs.count
+    best_run_hexes: max_by(completed_runs, r => r.hexes_captured)
+    best_run_distance: max_by(completed_runs, r => r.distance_meters)
+}
+
+entity Run {
+    player: Player
+    status: active | completed
+    started_at: Timestamp
+    ended_at: Timestamp when status = completed
+    hexes_captured: Integer
+    distance_meters: Integer
+
+    transitions status {
+        active -> completed
+        terminal: completed
+    }
+
+    captured_hexes: Hex with run = this
+    is_stale: status = active and started_at + config.stale_after <= now
+}
+
+entity Hex {
+    cell_id: String
+    owner: Player
+    run: Run?
+    claimed_at: Timestamp
+    settlement: unsettled | settled
+    settled_via: voucher_claim | sponsored when settlement = settled
+
+    transitions settlement {
+        unsettled -> settled
+        settled -> unsettled
+    }
+}
+
+entity BadgeAward {
+    player: Player
+    badge: Badge
+    awarded_at: Timestamp
+}
+
+entity ClaimVoucher {
+    run: Run
+    player: Player
+    hexes: Set<Hex>
+    status: issued | redeemed
+
+    transitions status {
+        issued -> redeemed
+        terminal: redeemed
+    }
+}
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+    stale_after: Duration = 2.hours
+    five_blocks_threshold: Integer = 5
+    mayor_threshold: Integer = 20
+    hundred_threshold: Integer = 100
+    big_run_threshold: Integer = 5
+    marathon_distance_meters: Integer = 10000
+    iron_runs_threshold: Integer = 50
+    username_min_length: Integer = 3
+    username_max_length: Integer = 20
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Run lifecycle ------------------------------------------------------------
+
+rule StartRun {
+    when: StartRun(player)
+    ensures: Run.created(
+        player: player,
+        status: active,
+        started_at: now,
+        hexes_captured: 0,
+        distance_meters: 0
+    )
+}
+
+-- A hex passed through during an active run becomes the player's. If unowned
+-- it is a first claim; if owned by someone else it is recaptured. Recapture
+-- resets settlement so the finished run re-settles the moved territory.
+rule CaptureHex {
+    when: CaptureHex(run, cell_id, distance_delta)
+    requires: run.status = active
+    let existing = Hex{cell_id}
+    requires: not exists existing or existing.owner != run.player
+    ensures:
+        if exists existing:
+            existing.owner = run.player
+            existing.run = run
+            existing.claimed_at = now
+            existing.settlement = unsettled
+        else:
+            Hex.created(
+                cell_id: cell_id,
+                owner: run.player,
+                run: run,
+                claimed_at: now,
+                settlement: unsettled
+            )
+        run.hexes_captured = run.hexes_captured + 1
+        run.distance_meters = run.distance_meters + distance_delta
+}
+
+-- Re-entering a hex already owned this run only extends distance, not count.
+rule ReenterOwnHex {
+    when: CaptureHex(run, cell_id, distance_delta)
+    requires: run.status = active
+    let existing = Hex{cell_id}
+    requires: exists existing and existing.owner = run.player and existing.run = run
+    ensures: run.distance_meters = run.distance_meters + distance_delta
+}
+
+rule FinishRun {
+    when: FinishRun(run)
+    requires: run.status = active
+    ensures:
+        run.status = completed
+        run.ended_at = now
+        AwardEligibleBadges(player: run.player)
+}
+
+-- Abandoned sessions are closed after the stale window with an honest duration.
+rule AbandonStaleRun {
+    when: run: Run.is_stale
+    requires: run.status = active
+    ensures:
+        run.status = completed
+        run.ended_at = run.started_at + config.stale_after
+}
+
+-- Settlement of a finished run's territory --------------------------------
+
+-- Player-signed path: the backend authorises the run's hexes with a voucher,
+-- the player redeems it from their own wallet so they count as the on-chain
+-- actor. Single redemption is enforced by the voucher status.
+rule IssueClaimVoucher {
+    when: IssueClaimVoucher(run)
+    requires: run.status = completed
+    requires: run.captured_hexes.count > 0
+    let existing = ClaimVoucher{run}
+    requires: not exists existing
+    ensures: ClaimVoucher.created(
+        run: run,
+        player: run.player,
+        hexes: run.captured_hexes,
+        status: issued
+    )
+}
+
+rule RedeemClaimVoucher {
+    when: RedeemClaimVoucher(voucher)
+    requires: voucher.status = issued
+    ensures:
+        voucher.status = redeemed
+        for hex in voucher.hexes:
+            hex.settlement = settled
+            hex.settled_via = voucher_claim
+}
+
+-- Sponsored fallback: the project relayer settles the run's hexes when the
+-- player cannot pay the network fee or declines the wallet prompt.
+rule SponsorSettleRun {
+    when: SponsorSettleRun(run)
+    requires: run.status = completed
+    requires: run.captured_hexes.count > 0
+    ensures:
+        for hex in run.captured_hexes:
+            hex.settlement = settled
+            hex.settled_via = sponsored
+}
+
+-- Achievements --------------------------------------------------------------
+
+-- Award every badge the player currently qualifies for. Already-held badges
+-- are skipped (a player holds each badge at most once). Streak badges are not
+-- awarded yet (see open question).
+rule AwardEligibleBadges {
+    when: AwardEligibleBadges(player)
+    ensures:
+        if player.total_runs >= 1: GrantBadge(player: player, badge: first_steps)
+        if player.hexes_owned >= config.five_blocks_threshold: GrantBadge(player: player, badge: five_blocks)
+        if player.hexes_owned >= config.mayor_threshold: GrantBadge(player: player, badge: mayor)
+        if player.hexes_owned >= config.hundred_threshold: GrantBadge(player: player, badge: hundred)
+        if player.best_run_hexes >= config.big_run_threshold: GrantBadge(player: player, badge: big_run)
+        if player.best_run_distance >= config.marathon_distance_meters: GrantBadge(player: player, badge: marathon)
+        if player.total_runs >= config.iron_runs_threshold: GrantBadge(player: player, badge: iron)
+}
+
+rule GrantBadge {
+    when: GrantBadge(player, badge)
+    let existing = BadgeAward{player, badge}
+    requires: not exists existing
+    ensures: BadgeAward.created(player: player, badge: badge, awarded_at: now)
+}
+
+-- Identity ------------------------------------------------------------------
+
+rule SetUsername {
+    when: SetUsername(player, username)
+    requires: length(username) >= config.username_min_length
+    requires: length(username) <= config.username_max_length
+    requires: not exists Player{username: username}
+    ensures: player.username = username
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant HexHasSingleOwner {
+    for a in Hexes:
+        for b in Hexes:
+            a != b implies a.cell_id != b.cell_id
+}
+
+invariant UsernameUnique {
+    for a in Players:
+        for b in Players:
+            a != b and a.username != null and b.username != null
+                implies a.username != b.username
+}
+
+invariant BadgeHeldAtMostOnce {
+    for a in BadgeAwards:
+        for b in BadgeAwards:
+            a != b and a.player = b.player implies a.badge != b.badge
+}
+
+invariant SettledHexHasPath {
+    for h in Hexes:
+        h.settlement = settled implies h.settled_via != null
+}
+
+invariant VoucherCoversItsRun {
+    for v in ClaimVouchers:
+        v.player = v.run.player
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor Runner {
+    identified_by: Player where address != null
+}
+
+actor Operator {
+    identified_by: Player where address != null
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface PlayerRun {
+    facing runner: Runner
+
+    context run: Run where player = runner and status = active
+
+    exposes:
+        run.hexes_captured
+        run.distance_meters
+        run.started_at
+
+    provides:
+        CaptureHex(runner, run, cell_id, distance_delta)
+        FinishRun(runner, run)
+
+    timeout:
+        AbandonStaleRun
+}
+
+surface PlayerSettlement {
+    facing runner: Runner
+
+    context run: Run where player = runner and status = completed
+    let voucher = ClaimVoucher{run}
+
+    exposes:
+        run.hexes_captured
+        run.captured_hexes
+
+    provides:
+        IssueClaimVoucher(runner, run)
+        RedeemClaimVoucher(runner, voucher)
+            when voucher != null
+        SponsorSettleRun(runner, run)
+}
+
+surface PlayerProfile {
+    facing runner: Runner
+
+    context player: Player where address = runner.address
+
+    exposes:
+        player.username
+        player.hexes_owned
+        player.total_runs
+        player.awards
+
+    provides:
+        StartRun(runner)
+        SetUsername(runner, username)
+}
+
+surface Territory {
+    facing runner: Runner
+
+    context hex: Hex
+
+    exposes:
+        hex.cell_id
+        hex.owner.username
+        hex.claimed_at
+}
+
+surface OperatorSettlement {
+    facing operator: Operator
+
+    context run: Run where status = completed
+
+    exposes:
+        run.player
+        run.captured_hexes
+
+    provides:
+        SponsorSettleRun(operator, run)
+        IssueClaimVoucher(operator, run)
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "Streak badges (three_days, one_week, two_weeks) are defined but not awarded; day-streak computation is deferred. Which rule awards them and what defines a day of streak?"
