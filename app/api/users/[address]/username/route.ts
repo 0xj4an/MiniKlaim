@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
+import { getChain, parseChainKey } from "@/lib/onchain/chains";
+import { ensurePlayer } from "@/lib/players";
 
 const log = createLogger("api:users:username");
 
@@ -46,6 +48,12 @@ export async function POST(
         username: users.username,
         createdAt: users.createdAt,
       });
+
+    // Ensure this wallet has a player so its name is linkable across chains.
+    const chainId = getChain(
+      parseChainKey(new URL(request.url).searchParams.get("chain")),
+    ).chainId;
+    await ensurePlayer(lower, chainId);
 
     log.info("username set", { address: lower, username });
     return NextResponse.json({ user });
