@@ -4,6 +4,9 @@ export const users = pgTable("users", {
   address: text("address").primaryKey(),
   phone: text("phone"),
   username: text("username").unique(),
+  // Lifetime count of hexes captured from a different player (recapture where
+  // the prior owner was someone else). Drives the conquest badges.
+  conquests: integer("conquests").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -33,6 +36,9 @@ export const hexes = pgTable("hexes", {
   runId: uuid("run_id").references(() => runs.id, { onDelete: "set null" }),
   mintedAt: timestamp("minted_at", { withTimezone: true }),
   mintTxHash: text("mint_tx_hash"),
+  // ISO 3166-1 alpha-3 country of the hex centroid, resolved at capture.
+  // Drives the country badges; null when resolution failed or is pending.
+  country: text("country"),
 });
 
 export type User = typeof users.$inferSelect;

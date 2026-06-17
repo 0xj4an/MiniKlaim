@@ -1,7 +1,8 @@
 import { eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { hexes, runs } from "@/lib/db/schema";
+import { hexes, runs, users } from "@/lib/db/schema";
+import { countryForHex } from "@/lib/geo/country";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("api:runs:claim");
@@ -69,12 +70,15 @@ export async function POST(
     return NextResponse.json({ ok: true, alreadyOwned: true });
   }
 
+  const country = countryForHex(h3);
+
   await db
     .insert(hexes)
     .values({
       h3Id: h3,
       ownerAddress: run.userAddress,
       runId: id,
+      country,
     })
     .onConflictDoUpdate({
       target: hexes.h3Id,
@@ -82,12 +86,23 @@ export async function POST(
         ownerAddress: run.userAddress,
         runId: id,
         claimedAt: sql`now()`,
+        country,
         // Re-capture means the NFT must be transferred to the new owner.
         // Clear the prior mint state so finish-route picks this hex up.
         mintedAt: null,
         mintTxHash: null,
       },
     });
+
+  // Conquest: the hex was held by a different player, so this is a capture from
+  // a rival. Count it toward the conquest badges.
+  const isConquest = !!existing && existing.ownerAddress !== run.userAddress;
+  if (isConquest) {
+    await db
+      .update(users)
+      .set({ conquests: sql`${users.conquests} + 1` })
+      .where(eq(users.address, run.userAddress));
+  }
 
   await db
     .update(runs)
@@ -104,6 +119,8 @@ export async function POST(
     h3,
     owner: run.userAddress,
     distanceDelta: distanceMeters,
+    country,
+    conquest: isConquest,
   });
 
   return NextResponse.json({ ok: true, alreadyOwned: false });

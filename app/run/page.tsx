@@ -16,6 +16,7 @@ import {
 import { formatPace, haversineMeters } from "@/lib/map/geo";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
+import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { useClaimRun } from "@/lib/wallet/useClaimRun";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -63,6 +64,7 @@ export default function RunPage() {
     isConnected && !isWrongChain ? address : null,
   );
   const { claim } = useClaimRun(address, isConnected && !isWrongChain);
+  const [badgeRefresh, setBadgeRefresh] = useState(0);
   const capturedByLabel = t("run.popup.capturedBy");
   const youLabel = t("run.popup.you");
 
@@ -263,9 +265,12 @@ export default function RunPage() {
       // Mint on-chain: the player submits their own claimRun tx (so they count
       // as a unique on-chain wallet), falling back to the sponsored relayer if
       // they cannot pay gas or decline. Fire-and-forget; the summary shows now.
-      void claim(id).then((outcome) =>
-        log.info("run claim outcome", { id, outcome }),
-      );
+      // After the hex claim settles, trigger badge detection so any badge earned
+      // this run pops its own claim prompt (sequenced after the hex tx).
+      void claim(id).then((outcome) => {
+        log.info("run claim outcome", { id, outcome });
+        setBadgeRefresh((k) => k + 1);
+      });
       setRunId(null);
       setHexCount(0);
       setDistanceMeters(0);
@@ -692,6 +697,12 @@ export default function RunPage() {
       {mounted && isConnected && !isWrongChain && user && !user.username && (
         <NeedNameOverlay />
       )}
+      <BadgeClaimPrompt
+        address={address ?? null}
+        enabled={isConnected && !isWrongChain}
+        refreshKey={badgeRefresh}
+        detectOnMount={false}
+      />
     </main>
   );
 }

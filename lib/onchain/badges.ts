@@ -89,17 +89,74 @@ function signerWallet() {
  * (see app/me/page.tsx `buildAchievements`). IDs are uint256 on-chain;
  * tracked here as small integers.
  */
+// Ids are grouped contiguously by category, each group starting with a "first"
+// entry badge (tiers ascending within a group): territory 1-9, runs 10-15,
+// single-run 16-19, distance 20-25, streaks 26-33, cities 34-42, conquest
+// 43-47, countries 48-55.
 export const BADGE_IDS = {
-  firstSteps: BigInt(1),
+  // Territory owned.
+  firstBlock: BigInt(1),
   fiveBlocks: BigInt(2),
   mayor: BigInt(3),
   hundred: BigInt(4),
-  threeDays: BigInt(5),
-  oneWeek: BigInt(6),
-  twoWeeks: BigInt(7),
-  bigRun: BigInt(8),
-  marathon: BigInt(9),
-  iron: BigInt(10),
+  baron: BigInt(5),
+  duke: BigInt(6),
+  kingdom: BigInt(7),
+  empire: BigInt(8),
+  dominion: BigInt(9),
+  // Run volume.
+  firstSteps: BigInt(10),
+  iron: BigInt(11),
+  veteran: BigInt(12),
+  relentless: BigInt(13),
+  machine: BigInt(14),
+  legend: BigInt(15),
+  // Single-run feats.
+  bigRun: BigInt(16),
+  marathon: BigInt(17),
+  halfMarathon: BigInt(18),
+  fullMarathon: BigInt(19),
+  // Lifetime distance.
+  pacer: BigInt(20),
+  roadrunner: BigInt(21),
+  ultra: BigInt(22),
+  ironLegs: BigInt(23),
+  earthstrider: BigInt(24),
+  equator: BigInt(25),
+  // Streaks (not yet awarded).
+  threeDays: BigInt(26),
+  oneWeek: BigInt(27),
+  twoWeeks: BigInt(28),
+  oneMonth: BigInt(29),
+  twoMonths: BigInt(30),
+  threeMonths: BigInt(31),
+  sixMonths: BigInt(32),
+  oneYear: BigInt(33),
+  // Exploration (distinct cities = H3 res-5 clusters).
+  firstCity: BigInt(34),
+  explorer: BigInt(35),
+  wanderer: BigInt(36),
+  pioneer: BigInt(37),
+  cartographer: BigInt(38),
+  atlas: BigInt(39),
+  voyager: BigInt(40),
+  odyssey: BigInt(41),
+  worldwalker: BigInt(42),
+  // Conquest (hexes captured from rivals).
+  firstBlood: BigInt(43),
+  raider: BigInt(44),
+  warlord: BigInt(45),
+  conqueror: BigInt(46),
+  overlord: BigInt(47),
+  // Distinct countries.
+  firstCountry: BigInt(48),
+  borderCrosser: BigInt(49),
+  globetrotter: BigInt(50),
+  worldCitizen: BigInt(51),
+  continental: BigInt(52),
+  planetary: BigInt(53),
+  hemispheric: BigInt(54),
+  worldwide: BigInt(55),
 } as const;
 
 export type MintBadgesResult =

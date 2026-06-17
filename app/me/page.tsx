@@ -3,7 +3,14 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { type TranslationKey, useLocale } from "@/lib/i18n";
+import { useLocale } from "@/lib/i18n";
+import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
+import { badgeSvg } from "@/lib/onchain/badgeArt";
+import {
+  BADGE_GROUPS,
+  evaluateBadges,
+  type EvaluatedBadge,
+} from "@/lib/onchain/badgeCatalog";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
 import { type UserBadges, useUserBadges } from "@/lib/wallet/useUserBadges";
@@ -125,6 +132,10 @@ export default function MePage() {
               )}
 
               <Achievements stats={stats} onchain={onchainBadges} />
+              <BadgeClaimPrompt
+                address={address ?? null}
+                enabled={isConnected && !isWrongChain}
+              />
             </>
           )}
 
@@ -298,89 +309,6 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
   );
 }
 
-type Achievement = {
-  key: string;
-  onchainId: number;
-  nameKey: TranslationKey;
-  descKey: TranslationKey;
-  unlocked: boolean;
-};
-
-function buildAchievements(stats: UserStats): Achievement[] {
-  return [
-    {
-      key: "first-steps",
-      onchainId: 1,
-      nameKey: "badge.firstSteps.name",
-      descKey: "badge.firstSteps.desc",
-      unlocked: stats.totalRuns >= 1,
-    },
-    {
-      key: "block-hunter",
-      onchainId: 2,
-      nameKey: "badge.fiveBlocks.name",
-      descKey: "badge.fiveBlocks.desc",
-      unlocked: stats.hexesOwned >= 5,
-    },
-    {
-      key: "mayor",
-      onchainId: 3,
-      nameKey: "badge.mayor.name",
-      descKey: "badge.mayor.desc",
-      unlocked: stats.hexesOwned >= 20,
-    },
-    {
-      key: "hundred",
-      onchainId: 4,
-      nameKey: "badge.hundred.name",
-      descKey: "badge.hundred.desc",
-      unlocked: stats.hexesOwned >= 100,
-    },
-    {
-      key: "streak-3",
-      onchainId: 5,
-      nameKey: "badge.threeDays.name",
-      descKey: "badge.threeDays.desc",
-      unlocked: stats.streak >= 3,
-    },
-    {
-      key: "streak-7",
-      onchainId: 6,
-      nameKey: "badge.oneWeek.name",
-      descKey: "badge.oneWeek.desc",
-      unlocked: stats.streak >= 7,
-    },
-    {
-      key: "streak-14",
-      onchainId: 7,
-      nameKey: "badge.twoWeeks.name",
-      descKey: "badge.twoWeeks.desc",
-      unlocked: stats.streak >= 14,
-    },
-    {
-      key: "big-run",
-      onchainId: 8,
-      nameKey: "badge.bigRun.name",
-      descKey: "badge.bigRun.desc",
-      unlocked: stats.bestRunHexes >= 5,
-    },
-    {
-      key: "marathon",
-      onchainId: 9,
-      nameKey: "badge.marathon.name",
-      descKey: "badge.marathon.desc",
-      unlocked: stats.bestRunDistanceMeters >= 10000,
-    },
-    {
-      key: "iron",
-      onchainId: 10,
-      nameKey: "badge.iron.name",
-      descKey: "badge.iron.desc",
-      unlocked: stats.totalRuns >= 50,
-    },
-  ];
-}
-
 const ACHIEVEMENTS_CACHE_KEY = "miniklaim.unlockedBadges";
 
 function Achievements({
@@ -390,10 +318,13 @@ function Achievements({
   stats: UserStats;
   onchain: UserBadges | null;
 }) {
-  const { t } = useLocale();
-  const achievements = buildAchievements(stats);
+  const { t, locale } = useLocale();
+  const achievements = evaluateBadges(stats, locale);
+  const byId = new Map(achievements.map((a) => [a.onchainId, a]));
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
-  const [newlyUnlocked, setNewlyUnlocked] = useState<Achievement | null>(null);
+  const [newlyUnlocked, setNewlyUnlocked] = useState<EvaluatedBadge | null>(
+    null,
+  );
   const heldSet = new Set(onchain?.heldIds ?? []);
   const contract = onchain?.contract ?? null;
 
@@ -401,7 +332,7 @@ function Achievements({
     if (typeof window === "undefined") return;
     const unlockedNow = achievements
       .filter((a) => a.unlocked)
-      .map((a) => a.key);
+      .map((a) => String(a.onchainId));
     let prev: string[] = [];
     try {
       const raw = window.localStorage.getItem(ACHIEVEMENTS_CACHE_KEY);
@@ -411,7 +342,7 @@ function Achievements({
     }
     const fresh = unlockedNow.filter((k) => !prev.includes(k));
     if (fresh.length > 0) {
-      const first = achievements.find((a) => a.key === fresh[0]);
+      const first = achievements.find((a) => String(a.onchainId) === fresh[0]);
       if (first) {
         queueMicrotask(() => setNewlyUnlocked(first));
         window.setTimeout(() => setNewlyUnlocked(null), 4000);
@@ -435,38 +366,58 @@ function Achievements({
           {t("me.badges.header")} {unlockedCount} {t("me.badges.of")}{" "}
           {achievements.length}
         </p>
-        {achievements.map((a) => {
-          const minted = heldSet.has(a.onchainId);
-          return (
-            <div
-              key={a.key}
-              className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-500"}`}
-            >
-              <span className={a.unlocked ? "font-semibold" : ""}>
-                {t(a.nameKey)}
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500">{t(a.descKey)}</span>
-                {minted && contract && (
-                  <a
-                    href={`https://celoscan.io/token/${contract}?a=${a.onchainId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-[10px] text-orange-700 underline hover:text-orange-800"
-                    title="View on Celoscan"
-                  >
-                    on-chain
-                  </a>
-                )}
-              </span>
-            </div>
-          );
-        })}
+        {BADGE_GROUPS.map((group) => (
+          <div key={group.en} className="mt-2 first:mt-1">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+              {locale === "es" ? group.es : group.en}
+            </p>
+            {group.ids.map((id) => {
+              const a = byId.get(id);
+              if (!a) return null;
+              const minted = heldSet.has(a.onchainId);
+              return (
+                <div
+                  key={a.onchainId}
+                  className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-500"}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span
+                      aria-hidden
+                      className={`inline-block h-7 w-7 shrink-0 ${a.unlocked ? "" : "opacity-40 grayscale"}`}
+                      dangerouslySetInnerHTML={{
+                        __html: badgeSvg(a.onchainId, 28),
+                      }}
+                    />
+                    <span className={a.unlocked ? "font-semibold" : ""}>
+                      {a.name}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-500">
+                      {a.description}
+                    </span>
+                    {minted && contract && (
+                      <a
+                        href={`https://celoscan.io/token/${contract}?a=${a.onchainId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-[10px] text-orange-700 underline hover:text-orange-800"
+                        title="View on Celoscan"
+                      >
+                        on-chain
+                      </a>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
       {newlyUnlocked && (
         <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-zinc-900 px-5 py-3 text-sm text-white shadow-2xl">
           <span className="text-orange-700">{t("me.badges.toast")}</span>{" "}
-          <span className="font-semibold">{t(newlyUnlocked.nameKey)}</span>
+          <span className="font-semibold">{newlyUnlocked.name}</span>
         </div>
       )}
     </>
