@@ -1,22 +1,20 @@
 import { type Address, type Hex, keccak256, toBytes } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { celo } from "viem/chains";
+import {
+  type ChainKey,
+  DEFAULT_CHAIN_KEY,
+  getChain,
+  isChainConfigured,
+} from "@/lib/onchain/chains";
 import { createLogger } from "@/lib/logger";
 import { h3ToTokenId } from "@/lib/onchain/hexes";
 
 const log = createLogger("onchain:voucher");
 
-const HEXES_ADDRESS = (process.env.NEXT_PUBLIC_MINIKLAIM_HEXES_ADDRESS ??
-  "") as Address;
 const SIGNER_PK = (process.env.SERVER_SIGNER_PRIVATE_KEY ?? "") as Hex;
 
-function isConfigured(): boolean {
-  return (
-    HEXES_ADDRESS.length === 42 &&
-    HEXES_ADDRESS.startsWith("0x") &&
-    SIGNER_PK.length === 66 &&
-    SIGNER_PK.startsWith("0x")
-  );
+function signerConfigured(): boolean {
+  return SIGNER_PK.length === 66 && SIGNER_PK.startsWith("0x");
 }
 
 // EIP-712 type matching MiniKlaimHexes.CLAIM_RUN_TYPEHASH.
@@ -51,21 +49,25 @@ export type SignVoucherResult =
 
 /**
  * Sign an EIP-712 voucher authorizing `player` to capture `h3Ids` (h3 hex
- * strings) in a single `claimRun` tx. The signing key holds CAPTURER_ROLE on
- * the contract, which is what makes the voucher valid on-chain.
+ * strings) in a single `claimRun` tx on `chainKey`. The signing key holds
+ * CAPTURER_ROLE on that chain's Hexes contract, which is what makes the voucher
+ * valid on-chain. The EIP-712 domain (chainId + verifyingContract) is bound to
+ * the target chain so a Celo voucher cannot be replayed on Soneium and vice versa.
  */
 export async function signClaimVoucher(
   player: Address,
   h3Ids: string[],
   runId: string,
+  chainKey: ChainKey = DEFAULT_CHAIN_KEY,
 ): Promise<SignVoucherResult> {
-  if (!isConfigured()) {
-    log.warn("signClaimVoucher skipped: missing env config");
+  if (!signerConfigured() || !isChainConfigured(chainKey)) {
+    log.warn("signClaimVoucher skipped: missing config", { chainKey });
     return { ok: false, reason: "not-configured" };
   }
   if (h3Ids.length === 0) {
     return { ok: false, reason: "empty" };
   }
+  const { hexesAddress, chainId } = getChain(chainKey);
   try {
     const tokenIds = h3Ids.map(h3ToTokenId);
     const nonce = runIdToNonce(runId);
@@ -74,22 +76,22 @@ export async function signClaimVoucher(
       domain: {
         name: "MiniKlaimHexes",
         version: "1",
-        chainId: celo.id,
-        verifyingContract: HEXES_ADDRESS,
+        chainId,
+        verifyingContract: hexesAddress,
       },
       types: CLAIM_RUN_TYPES,
       primaryType: "ClaimRun",
       message: { player, h3Ids: tokenIds, nonce },
     });
-    log.info("voucher signed", { player, count: tokenIds.length });
+    log.info("voucher signed", { player, count: tokenIds.length, chainKey });
     return {
       ok: true,
       voucher: {
         tokenIds: tokenIds.map((t) => t.toString()),
         nonce: nonce.toString(),
         signature,
-        contract: HEXES_ADDRESS,
-        chainId: celo.id,
+        contract: hexesAddress,
+        chainId,
       },
     };
   } catch (e) {

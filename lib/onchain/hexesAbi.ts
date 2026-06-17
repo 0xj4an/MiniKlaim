@@ -1,4 +1,10 @@
 import type { Address } from "viem";
+import {
+  type ChainKey,
+  DEFAULT_CHAIN_KEY,
+  getChain,
+  isChainConfigured,
+} from "@/lib/onchain/chains";
 
 /// Client-safe ABI fragment + address for the Hexes contract. No server key
 /// imports, so this is safe to bundle into the browser for the player-submitted
@@ -17,7 +23,8 @@ export const HEXES_CLAIM_ABI = [
   },
 ] as const;
 
-export function hexesAddress(): Address | null {
-  const addr = process.env.NEXT_PUBLIC_MINIKLAIM_HEXES_ADDRESS ?? "";
-  return addr.length === 42 && addr.startsWith("0x") ? (addr as Address) : null;
+export function hexesAddress(
+  chainKey: ChainKey = DEFAULT_CHAIN_KEY,
+): Address | null {
+  return isChainConfigured(chainKey) ? getChain(chainKey).hexesAddress : null;
 }
