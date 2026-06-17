@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
+import { LinkWallet } from "@/app/LinkWallet";
 import { badgeSvg } from "@/lib/onchain/badgeArt";
 import {
   BADGE_GROUPS,
@@ -144,6 +145,8 @@ export default function MePage() {
           {recentRuns && recentRuns.length > 0 && (
             <RunsList runs={recentRuns} />
           )}
+
+          <LinkWallet address={address ?? null} />
 
           {balances && !isWrongChain && <BalancesCard balances={balances} />}
 
