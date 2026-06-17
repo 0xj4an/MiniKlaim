@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createLogger } from "@/lib/logger";
+import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 
 const log = createLogger("wallet:userBadges");
 
@@ -12,6 +13,7 @@ export type UserBadges = {
 
 export function useUserBadges(address: string | null): UserBadges | null {
   const [data, setData] = useState<UserBadges | null>(null);
+  const chainKey = useActiveChainKey();
 
   useEffect(() => {
     let cancelled = false;
@@ -21,7 +23,9 @@ export function useUserBadges(address: string | null): UserBadges | null {
         return;
       }
       try {
-        const res = await fetch(`/api/users/${address.toLowerCase()}/badges`);
+        const res = await fetch(
+          `/api/users/${address.toLowerCase()}/badges?chain=${chainKey}`,
+        );
         const json = (await res.json()) as UserBadges;
         if (!cancelled) setData(json);
       } catch (e) {
@@ -33,7 +37,7 @@ export function useUserBadges(address: string | null): UserBadges | null {
     return () => {
       cancelled = true;
     };
-  }, [address]);
+  }, [address, chainKey]);
 
   return data;
 }
