@@ -10,6 +10,7 @@ import {
   type WalletEnvironment,
   useWalletEnvironment,
 } from "@/lib/wallet/environment";
+import { LinkExisting } from "@/app/LinkExisting";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
 
@@ -244,6 +245,7 @@ function PrimaryCTA({
         >
           {t("home.cta.pickName")}
         </Link>
+        <LinkExisting />
       </div>
     );
   }
