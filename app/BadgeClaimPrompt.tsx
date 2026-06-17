@@ -5,6 +5,7 @@ import type { Address } from "viem";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { badgeCopy, badgeSvg } from "@/lib/onchain/badgeArt";
+import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { useClaimBadges } from "@/lib/wallet/useClaimBadges";
 
 const log = createLogger("ui:badgeClaim");
@@ -31,6 +32,7 @@ export function BadgeClaimPrompt({
   detectOnMount?: boolean;
 }) {
   const { t, locale } = useLocale();
+  const chainKey = useActiveChainKey();
   const { claim } = useClaimBadges(address, enabled);
   const [claimable, setClaimable] = useState<number[]>([]);
   const [state, setState] = useState<"idle" | "pending" | "done" | "error">(
@@ -53,7 +55,7 @@ export function BadgeClaimPrompt({
     void (async () => {
       try {
         const heldRes = await fetch(
-          `/api/users/${address.toLowerCase()}/badges`,
+          `/api/users/${address.toLowerCase()}/badges?chain=${chainKey}`,
         );
         const held = (await heldRes.json()) as {
           contract: string | null;
@@ -61,7 +63,7 @@ export function BadgeClaimPrompt({
         };
         if (!held.contract) return;
         const vRes = await fetch(
-          `/api/users/${address.toLowerCase()}/badges/voucher`,
+          `/api/users/${address.toLowerCase()}/badges/voucher?chain=${chainKey}`,
           { method: "POST" },
         );
         if (vRes.status === 409) {
@@ -90,7 +92,7 @@ export function BadgeClaimPrompt({
     return () => {
       cancelled = true;
     };
-  }, [address, enabled, refreshKey]);
+  }, [address, enabled, refreshKey, chainKey]);
 
   useEffect(() => {
     if (state !== "done") return;

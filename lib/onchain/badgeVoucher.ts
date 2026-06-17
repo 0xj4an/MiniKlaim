@@ -1,21 +1,19 @@
 import { type Address, type Hex, keccak256, toBytes } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { celo } from "viem/chains";
+import {
+  type ChainKey,
+  DEFAULT_CHAIN_KEY,
+  getChain,
+  isChainConfigured,
+} from "@/lib/onchain/chains";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("onchain:badgeVoucher");
 
-const BADGES_ADDRESS = (process.env.NEXT_PUBLIC_MINIKLAIM_BADGES_ADDRESS ??
-  "") as Address;
 const SIGNER_PK = (process.env.SERVER_SIGNER_PRIVATE_KEY ?? "") as Hex;
 
-function isConfigured(): boolean {
-  return (
-    BADGES_ADDRESS.length === 42 &&
-    BADGES_ADDRESS.startsWith("0x") &&
-    SIGNER_PK.length === 66 &&
-    SIGNER_PK.startsWith("0x")
-  );
+function signerConfigured(): boolean {
+  return SIGNER_PK.length === 66 && SIGNER_PK.startsWith("0x");
 }
 
 // EIP-712 type matching MiniKlaimBadges.CLAIM_BADGES_TYPEHASH.
@@ -58,21 +56,23 @@ export type SignBadgeVoucherResult =
 
 /**
  * Sign an EIP-712 voucher authorizing `player` to unlock `badgeIds` for
- * themselves in a single `claimBadges` tx. The signing key holds MINTER_ROLE on
- * the contract, which is what makes the voucher valid on-chain. The returned
- * `badgeIds` are in the exact order signed; the client must submit them verbatim.
+ * themselves in a single `claimBadges` tx on `chainKey`. The signing key holds
+ * MINTER_ROLE on that chain's Badges contract. The returned `badgeIds` are in
+ * the exact order signed; the client must submit them verbatim.
  */
 export async function signBadgeVoucher(
   player: Address,
   badgeIds: bigint[],
+  chainKey: ChainKey = DEFAULT_CHAIN_KEY,
 ): Promise<SignBadgeVoucherResult> {
-  if (!isConfigured()) {
-    log.warn("signBadgeVoucher skipped: missing env config");
+  if (!signerConfigured() || !isChainConfigured(chainKey)) {
+    log.warn("signBadgeVoucher skipped: missing config", { chainKey });
     return { ok: false, reason: "not-configured" };
   }
   if (badgeIds.length === 0) {
     return { ok: false, reason: "empty" };
   }
+  const { badgesAddress, chainId } = getChain(chainKey);
   try {
     const sorted = sortIds(badgeIds);
     const nonce = badgeClaimNonce(player, sorted);
@@ -81,22 +81,26 @@ export async function signBadgeVoucher(
       domain: {
         name: "MiniKlaimBadges",
         version: "1",
-        chainId: celo.id,
-        verifyingContract: BADGES_ADDRESS,
+        chainId,
+        verifyingContract: badgesAddress,
       },
       types: CLAIM_BADGES_TYPES,
       primaryType: "ClaimBadges",
       message: { player, badgeIds: sorted, nonce },
     });
-    log.info("badge voucher signed", { player, count: sorted.length });
+    log.info("badge voucher signed", {
+      player,
+      count: sorted.length,
+      chainKey,
+    });
     return {
       ok: true,
       voucher: {
         badgeIds: sorted.map((b) => b.toString()),
         nonce: nonce.toString(),
         signature,
-        contract: BADGES_ADDRESS,
-        chainId: celo.id,
+        contract: badgesAddress,
+        chainId,
       },
     };
   } catch (e) {

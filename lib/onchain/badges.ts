@@ -6,13 +6,16 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { celo } from "viem/chains";
+import {
+  type ChainKey,
+  DEFAULT_CHAIN_KEY,
+  getChain,
+  isChainConfigured,
+} from "@/lib/onchain/chains";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("onchain:badges");
 
-const BADGES_ADDRESS = (process.env.NEXT_PUBLIC_MINIKLAIM_BADGES_ADDRESS ??
-  "") as Address;
 const SIGNER_PK = (process.env.SERVER_SIGNER_PRIVATE_KEY ?? "") as Hex;
 
 const BADGES_ABI = [
@@ -58,28 +61,29 @@ const BADGES_ABI = [
   },
 ] as const;
 
-function isConfigured(): boolean {
-  return (
-    BADGES_ADDRESS.length === 42 &&
-    BADGES_ADDRESS.startsWith("0x") &&
-    SIGNER_PK.length === 66 &&
-    SIGNER_PK.startsWith("0x")
-  );
+function signerConfigured(): boolean {
+  return SIGNER_PK.length === 66 && SIGNER_PK.startsWith("0x");
 }
 
-export const badgesPublicClient = createPublicClient({
-  chain: celo,
-  transport: http(),
-});
+function isReady(chainKey: ChainKey): boolean {
+  return signerConfigured() && isChainConfigured(chainKey);
+}
+
+export function badgesPublicClient(chainKey: ChainKey = DEFAULT_CHAIN_KEY) {
+  return createPublicClient({
+    chain: getChain(chainKey).chain,
+    transport: http(),
+  });
+}
 
 function signerAccount() {
   return privateKeyToAccount(SIGNER_PK);
 }
 
-function signerWallet() {
+function signerWallet(chainKey: ChainKey) {
   return createWalletClient({
     account: signerAccount(),
-    chain: celo,
+    chain: getChain(chainKey).chain,
     transport: http(),
   });
 }
@@ -171,22 +175,23 @@ export type MintBadgesResult =
 export async function mintBadgesBatch(
   player: Address,
   badgeIds: bigint[],
+  chainKey: ChainKey = DEFAULT_CHAIN_KEY,
 ): Promise<MintBadgesResult> {
-  if (!isConfigured()) {
-    log.warn("mintBadgesBatch skipped: missing env config");
+  if (!isReady(chainKey)) {
+    log.warn("mintBadgesBatch skipped: missing config", { chainKey });
     return { ok: false, reason: "not-configured" };
   }
   if (badgeIds.length === 0) {
     return { ok: false, reason: "empty" };
   }
   try {
-    const wallet = signerWallet();
+    const wallet = signerWallet(chainKey);
     const txHash = await wallet.writeContract({
-      address: BADGES_ADDRESS,
+      address: getChain(chainKey).badgesAddress,
       abi: BADGES_ABI,
       functionName: "mintBatch",
       args: [player, badgeIds],
-      chain: celo,
+      chain: getChain(chainKey).chain,
       account: signerAccount(),
     });
     log.info("badges mintBatch broadcast", {
@@ -206,21 +211,26 @@ export async function mintBadgesBatch(
   }
 }
 
-export function badgesContractAddress(): Address | null {
-  return isConfigured() ? BADGES_ADDRESS : null;
+export function badgesContractAddress(
+  chainKey: ChainKey = DEFAULT_CHAIN_KEY,
+): Address | null {
+  return isChainConfigured(chainKey) ? getChain(chainKey).badgesAddress : null;
 }
 
 /**
  * Read which badges this player currently holds on-chain. Returns the set
  * of badge IDs (as numbers) where the on-chain balance is non-zero.
  */
-export async function onchainBadgeIdsHeld(player: Address): Promise<number[]> {
-  if (!isConfigured()) return [];
+export async function onchainBadgeIdsHeld(
+  player: Address,
+  chainKey: ChainKey = DEFAULT_CHAIN_KEY,
+): Promise<number[]> {
+  if (!isChainConfigured(chainKey)) return [];
   const allIds = Object.values(BADGE_IDS);
   const accounts: Address[] = Array(allIds.length).fill(player);
   try {
-    const balances = (await badgesPublicClient.readContract({
-      address: BADGES_ADDRESS,
+    const balances = (await badgesPublicClient(chainKey).readContract({
+      address: getChain(chainKey).badgesAddress,
       abi: BADGES_ABI,
       functionName: "balanceOfBatch",
       args: [accounts, allIds],
