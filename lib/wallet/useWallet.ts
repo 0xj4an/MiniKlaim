@@ -11,6 +11,7 @@ import {
 } from "wagmi";
 import { celo } from "wagmi/chains";
 import { createLogger } from "@/lib/logger";
+import { chainKeyById } from "@/lib/onchain/chains";
 import { isMiniPay } from "@/lib/minipay";
 
 const log = createLogger("wallet:useWallet");
@@ -55,7 +56,12 @@ export function useWallet(): UseWallet {
   // even when that chain is not in the wagmi `chains` config. `useChainId()`
   // can fall back to the configured default. Prefer the account-level value.
   const chainId = accountChainId ?? wagmiChainId;
-  const isWrongChain = isConnected && chainId !== celo.id;
+  // "Wrong chain" = connected on a chain MiniKlaim does not support. Celo and
+  // Soneium are both supported, so neither (MiniPay/Celo nor Startale/Soneium)
+  // is wrong. Only a genuinely unsupported network triggers the switch flow,
+  // which targets Celo as the default. Startale forbids in-app chain switching,
+  // so it must never be flagged as wrong here.
+  const isWrongChain = isConnected && chainKeyById(chainId) === undefined;
 
   useAccountEffect({
     onConnect(data) {
