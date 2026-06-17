@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
 import { createLogger } from "@/lib/logger";
+import { parseChainKey } from "@/lib/onchain/chains";
 import { computeEligibleBadgeIds } from "@/lib/onchain/badgeEligibility";
 import { mintBadgesBatch } from "@/lib/onchain/badges";
 
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
  * The contract skips already-held badges, so this is safe to call repeatedly.
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ address: string }> },
 ) {
   const { address } = await params;
@@ -23,12 +24,13 @@ export async function POST(
     return NextResponse.json({ error: "invalid address" }, { status: 400 });
   }
 
+  const chainKey = parseChainKey(new URL(request.url).searchParams.get("chain"));
   const candidates = await computeEligibleBadgeIds(lower as Address);
   if (candidates.length === 0) {
     return NextResponse.json({ minted: [] });
   }
 
-  const result = await mintBadgesBatch(lower as Address, candidates);
+  const result = await mintBadgesBatch(lower as Address, candidates, chainKey);
   if (result.ok !== true) {
     log.warn("badge sponsor mint not done", {
       player: lower,

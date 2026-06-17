@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
 import { createLogger } from "@/lib/logger";
+import { parseChainKey } from "@/lib/onchain/chains";
 import { computeEligibleBadgeIds } from "@/lib/onchain/badgeEligibility";
 import { signBadgeVoucher } from "@/lib/onchain/badgeVoucher";
 
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
  * badges, so the same voucher is safe to re-submit.
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ address: string }> },
 ) {
   const { address } = await params;
@@ -24,12 +25,13 @@ export async function POST(
     return NextResponse.json({ error: "invalid address" }, { status: 400 });
   }
 
+  const chainKey = parseChainKey(new URL(request.url).searchParams.get("chain"));
   const badgeIds = await computeEligibleBadgeIds(lower as Address);
   if (badgeIds.length === 0) {
     return NextResponse.json({ error: "no eligible badges" }, { status: 409 });
   }
 
-  const result = await signBadgeVoucher(lower as Address, badgeIds);
+  const result = await signBadgeVoucher(lower as Address, badgeIds, chainKey);
   if (result.ok !== true) {
     log.warn("badge voucher not issued", { player: lower, reason: result.reason });
     return NextResponse.json(

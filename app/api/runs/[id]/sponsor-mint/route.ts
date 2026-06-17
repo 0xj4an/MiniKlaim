@@ -4,6 +4,7 @@ import type { Address } from "viem";
 import { db } from "@/lib/db";
 import { hexes, runs } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
+import { parseChainKey } from "@/lib/onchain/chains";
 import { captureBatch } from "@/lib/onchain/hexes";
 
 const log = createLogger("api:runs:sponsor-mint");
@@ -18,10 +19,11 @@ export const dynamic = "force-dynamic";
  * it just ensures the player still receives their NFTs.
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const chainKey = parseChainKey(new URL(request.url).searchParams.get("chain"));
 
   const [run] = await db
     .select({ userAddress: runs.userAddress })
@@ -41,7 +43,7 @@ export async function POST(
     return NextResponse.json({ ok: true, minted: 0 });
   }
 
-  const result = await captureBatch(run.userAddress as Address, ids);
+  const result = await captureBatch(run.userAddress as Address, ids, chainKey);
   if (result.ok !== true) {
     log.warn("sponsor mint failed", { runId: id, reason: result.reason });
     return NextResponse.json(
