@@ -4,6 +4,7 @@ import type { Address } from "viem";
 import { db } from "@/lib/db";
 import { hexes, runs } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
+import { parseChainKey } from "@/lib/onchain/chains";
 import { signClaimVoucher } from "@/lib/onchain/voucher";
 
 const log = createLogger("api:runs:voucher");
@@ -16,10 +17,11 @@ export const dynamic = "force-dynamic";
  * the hexes this run captured. Idempotent: same run -> same nonce + signature.
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const chainKey = parseChainKey(new URL(request.url).searchParams.get("chain"));
 
   const [run] = await db
     .select({ userAddress: runs.userAddress })
@@ -45,6 +47,7 @@ export async function POST(
     run.userAddress as Address,
     h3Ids,
     id,
+    chainKey,
   );
   if (result.ok !== true) {
     log.warn("voucher not issued", { runId: id, reason: result.reason });
