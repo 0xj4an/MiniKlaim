@@ -13,6 +13,10 @@ export type UserStats = {
   bestRunDistanceMeters: number;
   rank: number;
   streak: number;
+  lifetimeDistanceMeters: number;
+  cityCount: number;
+  conquests: number;
+  countryCount: number;
 };
 
 export function useUserStats(address: string | null): UserStats | null {

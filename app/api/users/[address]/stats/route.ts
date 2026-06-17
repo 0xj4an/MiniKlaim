@@ -1,9 +1,14 @@
+import { cellToParent } from "h3-js";
 import { and, count, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { hexes, runs } from "@/lib/db/schema";
+import { hexes, runs, users } from "@/lib/db/schema";
+import { computeStreak } from "@/lib/runs/streak";
 
 export const dynamic = "force-dynamic";
+
+// H3 resolution-5 cluster = one "city" (matches the territory map grouping).
+const CITY_RESOLUTION = 5;
 
 export async function GET(
   _request: Request,
@@ -20,6 +25,10 @@ export async function GET(
     bestRunDist,
     rankResult,
     runDays,
+    lifetimeRow,
+    ownedHexes,
+    userRow,
+    countryRows,
   ] = await Promise.all([
     db
       .select({ count: count() })
@@ -64,11 +73,24 @@ export async function GET(
       ORDER BY day DESC
       LIMIT 365
     `),
+    db
+      .select({ total: sql<number>`coalesce(sum(${runs.distanceMeters}), 0)` })
+      .from(runs)
+      .where(eq(runs.userAddress, lower)),
+    db.select({ h3Id: hexes.h3Id }).from(hexes).where(eq(hexes.ownerAddress, lower)),
+    db.select({ conquests: users.conquests }).from(users).where(eq(users.address, lower)),
+    db
+      .selectDistinct({ country: hexes.country })
+      .from(hexes)
+      .where(and(eq(hexes.ownerAddress, lower), isNotNull(hexes.country))),
   ]);
 
   const rank = (rankResult as unknown as Array<{ rank: number }>)[0]?.rank ?? 1;
   const days = (runDays as unknown as Array<{ day: string }>).map((r) => r.day);
   const streak = computeStreak(days);
+  const cityCount = new Set(
+    ownedHexes.map((h) => cellToParent(h.h3Id, CITY_RESOLUTION)),
+  ).size;
 
   return NextResponse.json({
     hexesOwned: hexResult[0]?.count ?? 0,
@@ -78,27 +100,9 @@ export async function GET(
     bestRunDistanceMeters: bestRunDist[0]?.distanceMeters ?? 0,
     rank,
     streak,
+    lifetimeDistanceMeters: Number(lifetimeRow[0]?.total ?? 0),
+    cityCount,
+    conquests: userRow[0]?.conquests ?? 0,
+    countryCount: countryRows.length,
   });
-}
-
-/**
- * Walk a list of run days (UTC, ISO yyyy-mm-dd, newest first) and count
- * consecutive days ending today or yesterday. A streak only "counts" if the
- * most recent run day is today or yesterday; otherwise the streak is over.
- */
-function computeStreak(days: string[]): number {
-  if (days.length === 0) return 0;
-  const todayUtc = new Date().toISOString().slice(0, 10);
-  const yesterdayUtc = new Date(Date.now() - 86_400_000)
-    .toISOString()
-    .slice(0, 10);
-  const set = new Set(days.map((d) => d.slice(0, 10)));
-  if (!set.has(todayUtc) && !set.has(yesterdayUtc)) return 0;
-  let streak = 0;
-  let cursor = new Date(set.has(todayUtc) ? todayUtc : yesterdayUtc);
-  while (set.has(cursor.toISOString().slice(0, 10))) {
-    streak += 1;
-    cursor = new Date(cursor.getTime() - 86_400_000);
-  }
-  return streak;
 }
