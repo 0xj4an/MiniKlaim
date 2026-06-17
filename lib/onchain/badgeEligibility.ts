@@ -4,6 +4,7 @@ import type { Address } from "viem";
 import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
 import { BADGE_IDS } from "@/lib/onchain/badges";
+import { getPlayerStreak } from "@/lib/runs/streak";
 
 // A "city" is an H3 resolution-5 cluster (~city scale), the same grouping the
 // territory map uses. Distinct res-5 parents of a player's owned hexes.
@@ -14,17 +15,22 @@ const CITY_RESOLUTION = 5;
  * from their lifetime stats. The contract skips badges already held, so callers
  * can pass this whole list. Shared by the voucher endpoint (player-claim) and
  * the sponsor-mint fallback.
- *
- * Streak badges (3/7/14 day) are intentionally omitted; they need a separate
- * day-streak query and will land in a follow-up.
  */
 export async function computeEligibleBadgeIds(
   player: Address,
 ): Promise<bigint[]> {
   const lower = player.toLowerCase();
 
-  const [ownedHexes, runCountRow, bestRunRow, bestDistRow, lifetimeRow, userRow, countryRows] =
-    await Promise.all([
+  const [
+    ownedHexes,
+    runCountRow,
+    bestRunRow,
+    bestDistRow,
+    lifetimeRow,
+    userRow,
+    countryRows,
+    streak,
+  ] = await Promise.all([
       db.select({ h3Id: hexes.h3Id }).from(hexes).where(eq(hexes.ownerAddress, lower)),
       db.select({ c: count() }).from(runs).where(eq(runs.userAddress, lower)),
       db
@@ -48,6 +54,7 @@ export async function computeEligibleBadgeIds(
         .selectDistinct({ country: hexes.country })
         .from(hexes)
         .where(and(eq(hexes.ownerAddress, lower), isNotNull(hexes.country))),
+      getPlayerStreak(lower),
     ]);
 
   const hexesOwned = ownedHexes.length;
@@ -117,6 +124,15 @@ export async function computeEligibleBadgeIds(
   if (cityCount >= 1000) candidates.push(BADGE_IDS.worldwalker);
   if (conquests >= 500) candidates.push(BADGE_IDS.conqueror);
   if (conquests >= 1000) candidates.push(BADGE_IDS.overlord);
+  // Streaks (consecutive days with a finished run).
+  if (streak >= 3) candidates.push(BADGE_IDS.threeDays);
+  if (streak >= 7) candidates.push(BADGE_IDS.oneWeek);
+  if (streak >= 14) candidates.push(BADGE_IDS.twoWeeks);
+  if (streak >= 30) candidates.push(BADGE_IDS.oneMonth);
+  if (streak >= 60) candidates.push(BADGE_IDS.twoMonths);
+  if (streak >= 90) candidates.push(BADGE_IDS.threeMonths);
+  if (streak >= 180) candidates.push(BADGE_IDS.sixMonths);
+  if (streak >= 365) candidates.push(BADGE_IDS.oneYear);
 
   return candidates;
 }

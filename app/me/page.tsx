@@ -394,13 +394,10 @@ const ACHIEVEMENTS_CACHE_KEY = "miniklaim.unlockedBadges";
 // Badge ids the player can mint via the `claimBadges` voucher. Mirrors
 // computeEligibleBadgeIds in lib/onchain/badgeEligibility.ts, which omits the
 // streak badges (5/7/14 day, ids 5-7) pending a day-streak query.
-// Streak badges (26-33) are not yet awarded (no day-streak query); everything
-// else is claimable via the voucher.
-const VOUCHER_CLAIMABLE_IDS = new Set([
-  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-  23, 24, 25, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
-  50, 51, 52, 53, 54, 55,
-]);
+// All 55 badges are claimable via the voucher (eligibility computes streaks too).
+const VOUCHER_CLAIMABLE_IDS = new Set(
+  Array.from({ length: 55 }, (_, i) => i + 1),
+);
 
 // Display groups follow the contiguous id ranges (territory 1-9, runs 10-15,
 // single-run 16-19, distance 20-25, streaks 26-33, cities 34-42, conquest
