@@ -1,9 +1,14 @@
-import { count, desc, eq, sql } from "drizzle-orm";
+import { cellToParent } from "h3-js";
+import { and, count, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
+import { getPlayerStreak } from "@/lib/runs/streak";
 
 export const dynamic = "force-dynamic";
+
+// H3 resolution-5 cluster = one "city" (matches the territory map grouping).
+const CITY_RESOLUTION = 5;
 
 export async function GET(
   _request: Request,
@@ -21,6 +26,7 @@ export async function GET(
       address: users.address,
       username: users.username,
       createdAt: users.createdAt,
+      conquests: users.conquests,
     })
     .from(users)
     .where(eq(users.username, cleanUsername))
@@ -30,12 +36,8 @@ export async function GET(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  const [hexResult, runResult, bestRun, bestRunDist, runDays] =
+  const [runResult, bestRun, bestRunDist, lifetimeRow, ownedHexes, countryRows, streak] =
     await Promise.all([
-      db
-        .select({ count: count() })
-        .from(hexes)
-        .where(eq(hexes.ownerAddress, user.address)),
       db
         .select({ count: count() })
         .from(runs)
@@ -52,42 +54,36 @@ export async function GET(
         .where(eq(runs.userAddress, user.address))
         .orderBy(desc(runs.distanceMeters))
         .limit(1),
-      db.execute(sql`
-        SELECT DISTINCT DATE(ended_at AT TIME ZONE 'UTC') AS day
-        FROM runs
-        WHERE user_address = ${user.address} AND ended_at IS NOT NULL
-        ORDER BY day DESC
-        LIMIT 365
-      `),
+      db
+        .select({ total: sql<number>`coalesce(sum(${runs.distanceMeters}), 0)` })
+        .from(runs)
+        .where(eq(runs.userAddress, user.address)),
+      db
+        .select({ h3Id: hexes.h3Id })
+        .from(hexes)
+        .where(eq(hexes.ownerAddress, user.address)),
+      db
+        .selectDistinct({ country: hexes.country })
+        .from(hexes)
+        .where(and(eq(hexes.ownerAddress, user.address), isNotNull(hexes.country))),
+      getPlayerStreak(user.address),
     ]);
 
-  const days = (runDays as unknown as Array<{ day: string }>).map((r) => r.day);
-  const streak = computeStreak(days);
+  const cityCount = new Set(
+    ownedHexes.map((h) => cellToParent(h.h3Id, CITY_RESOLUTION)),
+  ).size;
 
   return NextResponse.json({
     username: user.username,
     joinedAt: user.createdAt,
-    hexesOwned: hexResult[0]?.count ?? 0,
+    hexesOwned: ownedHexes.length,
     totalRuns: runResult[0]?.count ?? 0,
     bestRunHexes: bestRun[0]?.hexesClaimed ?? 0,
     bestRunDistanceMeters: bestRunDist[0]?.distanceMeters ?? 0,
     streak,
+    lifetimeDistanceMeters: Number(lifetimeRow[0]?.total ?? 0),
+    cityCount,
+    conquests: user.conquests ?? 0,
+    countryCount: countryRows.length,
   });
-}
-
-function computeStreak(days: string[]): number {
-  if (days.length === 0) return 0;
-  const todayUtc = new Date().toISOString().slice(0, 10);
-  const yesterdayUtc = new Date(Date.now() - 86_400_000)
-    .toISOString()
-    .slice(0, 10);
-  const set = new Set(days.map((d) => d.slice(0, 10)));
-  if (!set.has(todayUtc) && !set.has(yesterdayUtc)) return 0;
-  let streak = 0;
-  let cursor = new Date(set.has(todayUtc) ? todayUtc : yesterdayUtc);
-  while (set.has(cursor.toISOString().slice(0, 10))) {
-    streak += 1;
-    cursor = new Date(cursor.getTime() - 86_400_000);
-  }
-  return streak;
 }

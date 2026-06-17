@@ -5,7 +5,12 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
-import { badgeCopy, badgeSvg } from "@/lib/onchain/badgeArt";
+import { badgeSvg } from "@/lib/onchain/badgeArt";
+import {
+  BADGE_GROUPS,
+  evaluateBadges,
+  type EvaluatedBadge,
+} from "@/lib/onchain/badgeCatalog";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
 import { type UserBadges, useUserBadges } from "@/lib/wallet/useUserBadges";
@@ -304,112 +309,7 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
   );
 }
 
-type Achievement = {
-  onchainId: number;
-  name: string;
-  description: string;
-  unlocked: boolean;
-};
-
-function buildAchievements(
-  stats: UserStats,
-  locale: "en" | "es",
-): Achievement[] {
-  // [onchainId, unlocked predicate]. Keep ids in sync with BADGE_IDS and
-  // computeEligibleBadgeIds in lib/onchain/badgeEligibility.ts.
-  const defs: Array<[number, boolean]> = [
-    // Territory.
-    [1, stats.hexesOwned >= 1],
-    [2, stats.hexesOwned >= 5],
-    [3, stats.hexesOwned >= 20],
-    [4, stats.hexesOwned >= 100],
-    [5, stats.hexesOwned >= 250],
-    [6, stats.hexesOwned >= 500],
-    [7, stats.hexesOwned >= 1000],
-    [8, stats.hexesOwned >= 2500],
-    [9, stats.hexesOwned >= 10000],
-    // Runs.
-    [10, stats.totalRuns >= 1],
-    [11, stats.totalRuns >= 50],
-    [12, stats.totalRuns >= 100],
-    [13, stats.totalRuns >= 250],
-    [14, stats.totalRuns >= 500],
-    [15, stats.totalRuns >= 1000],
-    // Single-run feats.
-    [16, stats.bestRunHexes >= 5],
-    [17, stats.bestRunDistanceMeters >= 10000],
-    [18, stats.bestRunDistanceMeters >= 21000],
-    [19, stats.bestRunDistanceMeters >= 42000],
-    // Lifetime distance.
-    [20, stats.lifetimeDistanceMeters >= 50000],
-    [21, stats.lifetimeDistanceMeters >= 100000],
-    [22, stats.lifetimeDistanceMeters >= 500000],
-    [23, stats.lifetimeDistanceMeters >= 1000000],
-    [24, stats.lifetimeDistanceMeters >= 5000000],
-    [25, stats.lifetimeDistanceMeters >= 40000000],
-    // Streaks.
-    [26, stats.streak >= 3],
-    [27, stats.streak >= 7],
-    [28, stats.streak >= 14],
-    [29, stats.streak >= 30],
-    [30, stats.streak >= 60],
-    [31, stats.streak >= 90],
-    [32, stats.streak >= 180],
-    [33, stats.streak >= 365],
-    // Cities.
-    [34, stats.cityCount >= 1],
-    [35, stats.cityCount >= 3],
-    [36, stats.cityCount >= 10],
-    [37, stats.cityCount >= 25],
-    [38, stats.cityCount >= 50],
-    [39, stats.cityCount >= 100],
-    [40, stats.cityCount >= 250],
-    [41, stats.cityCount >= 500],
-    [42, stats.cityCount >= 1000],
-    // Conquest.
-    [43, stats.conquests >= 1],
-    [44, stats.conquests >= 25],
-    [45, stats.conquests >= 100],
-    [46, stats.conquests >= 500],
-    [47, stats.conquests >= 1000],
-    // Countries.
-    [48, stats.countryCount >= 1],
-    [49, stats.countryCount >= 2],
-    [50, stats.countryCount >= 5],
-    [51, stats.countryCount >= 10],
-    [52, stats.countryCount >= 25],
-    [53, stats.countryCount >= 50],
-    [54, stats.countryCount >= 100],
-    [55, stats.countryCount >= 195],
-  ];
-  return defs.map(([onchainId, unlocked]) => {
-    const c = badgeCopy(onchainId, locale);
-    return { onchainId, name: c.name, description: c.description, unlocked };
-  });
-}
-
 const ACHIEVEMENTS_CACHE_KEY = "miniklaim.unlockedBadges";
-
-// Badge ids the player can mint via the `claimBadges` voucher. Mirrors
-// computeEligibleBadgeIds in lib/onchain/badgeEligibility.ts, which omits the
-// streak badges (5/7/14 day, ids 5-7) pending a day-streak query.
-// Display groups follow the contiguous id ranges (territory 1-9, runs 10-15,
-// single-run 16-19, distance 20-25, streaks 26-33, cities 34-42, conquest
-// 43-47, countries 48-55).
-const BADGE_GROUPS: { en: string; es: string; ids: number[] }[] = [
-  { en: "Territory", es: "Territorio", ids: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
-  { en: "Runs", es: "Corridas", ids: [10, 11, 12, 13, 14, 15] },
-  { en: "Single run", es: "Una corrida", ids: [16, 17, 18, 19] },
-  { en: "Distance", es: "Distancia", ids: [20, 21, 22, 23, 24, 25] },
-  { en: "Streaks", es: "Rachas", ids: [26, 27, 28, 29, 30, 31, 32, 33] },
-  { en: "Cities", es: "Ciudades", ids: [34, 35, 36, 37, 38, 39, 40, 41, 42] },
-  { en: "Conquest", es: "Conquista", ids: [43, 44, 45, 46, 47] },
-  {
-    en: "Countries",
-    es: "Paises",
-    ids: [48, 49, 50, 51, 52, 53, 54, 55],
-  },
-];
 
 function Achievements({
   stats,
@@ -419,10 +319,12 @@ function Achievements({
   onchain: UserBadges | null;
 }) {
   const { t, locale } = useLocale();
-  const achievements = buildAchievements(stats, locale);
+  const achievements = evaluateBadges(stats, locale);
   const byId = new Map(achievements.map((a) => [a.onchainId, a]));
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
-  const [newlyUnlocked, setNewlyUnlocked] = useState<Achievement | null>(null);
+  const [newlyUnlocked, setNewlyUnlocked] = useState<EvaluatedBadge | null>(
+    null,
+  );
   const heldSet = new Set(onchain?.heldIds ?? []);
   const contract = onchain?.contract ?? null;
 
