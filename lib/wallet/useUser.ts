@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createLogger } from "@/lib/logger";
+import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 
 const log = createLogger("wallet:user");
 
@@ -22,6 +23,7 @@ export type UseUser = {
 export function useUser(address: string | null): UseUser {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const chainKey = useActiveChainKey();
 
   useEffect(() => {
     let cancelled = false;
@@ -32,7 +34,9 @@ export function useUser(address: string | null): UseUser {
       }
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/users/${address.toLowerCase()}`);
+        const res = await fetch(
+          `/api/users/${address.toLowerCase()}?chain=${chainKey}`,
+        );
         const data = (await res.json()) as { user: User | null };
         if (!cancelled) setUser(data.user);
       } catch (e) {
@@ -46,14 +50,14 @@ export function useUser(address: string | null): UseUser {
     return () => {
       cancelled = true;
     };
-  }, [address]);
+  }, [address, chainKey]);
 
   const setUsername = useCallback<UseUser["setUsername"]>(
     async (username) => {
       if (!address) return { ok: false, error: "not connected" };
       try {
         const res = await fetch(
-          `/api/users/${address.toLowerCase()}/username`,
+          `/api/users/${address.toLowerCase()}/username?chain=${chainKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -75,7 +79,7 @@ export function useUser(address: string | null): UseUser {
         return { ok: false, error };
       }
     },
-    [address],
+    [address, chainKey],
   );
 
   return { user, isLoading, setUsername };
