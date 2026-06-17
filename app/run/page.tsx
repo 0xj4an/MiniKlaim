@@ -17,6 +17,7 @@ import { formatPace, haversineMeters } from "@/lib/map/geo";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
+import { LinkExisting } from "@/app/LinkExisting";
 import { useClaimRun } from "@/lib/wallet/useClaimRun";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -872,6 +873,7 @@ function NeedNameOverlay() {
         >
           {t("run.needName.cta")} →
         </Link>
+        <LinkExisting />
       </div>
     </div>
   );
