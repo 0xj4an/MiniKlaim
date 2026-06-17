@@ -238,13 +238,16 @@ function PrimaryCTA({
 
   if (!username) {
     return (
-      <div className="flex flex-col items-center gap-3">
+      <div className="flex w-full max-w-xs flex-col items-center gap-3">
         <Link
           href="/me"
-          className="rounded-full bg-orange-700 px-8 py-4 text-lg font-semibold text-white shadow-md hover:bg-orange-800"
+          className="w-full rounded-full bg-orange-700 px-8 py-4 text-center text-lg font-semibold text-white shadow-md hover:bg-orange-800"
         >
           {t("home.cta.pickName")}
         </Link>
+        <span className="text-xs uppercase tracking-wide text-zinc-400">
+          {t("link.or")}
+        </span>
         <LinkExisting />
       </div>
     );
