@@ -69,7 +69,8 @@ export function LinkExisting() {
   }
 
   return (
-    <div className="flex w-full max-w-xs flex-col gap-2">
+    <div className="flex w-full max-w-xs flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-4">
+      <p className="text-xs leading-snug text-zinc-600">{t("link.steps")}</p>
       <div className="flex gap-2">
         <input
           value={input}
@@ -85,6 +86,9 @@ export function LinkExisting() {
           {state === "linking" ? t("me.link.linking") : t("me.link.cta")}
         </button>
       </div>
+      {state === "idle" && (
+        <p className="text-[11px] text-zinc-400">{t("link.signNote")}</p>
+      )}
       {state === "linked" && (
         <p className="text-xs text-green-700">{t("me.link.linked")}</p>
       )}
