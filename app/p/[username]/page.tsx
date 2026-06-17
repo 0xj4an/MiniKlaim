@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
-import type { TranslationKey } from "@/lib/i18nDict";
 import { serverT } from "@/lib/i18nServer";
+import { badgeSvg } from "@/lib/onchain/badgeArt";
+import { BADGE_GROUPS, evaluateBadges } from "@/lib/onchain/badgeCatalog";
 
 type PublicProfile = {
   username: string;
@@ -13,6 +14,10 @@ type PublicProfile = {
   bestRunHexes: number;
   bestRunDistanceMeters: number;
   streak: number;
+  lifetimeDistanceMeters: number;
+  cityCount: number;
+  conquests: number;
+  countryCount: number;
 };
 
 async function fetchProfile(username: string): Promise<PublicProfile | null> {
@@ -43,66 +48,6 @@ export async function generateMetadata({
   };
 }
 
-type Badge = {
-  nameKey: TranslationKey;
-  descKey: TranslationKey;
-  unlocked: boolean;
-};
-
-function buildBadges(profile: PublicProfile): Badge[] {
-  return [
-    {
-      nameKey: "badge.firstSteps.name",
-      descKey: "badge.firstSteps.desc",
-      unlocked: profile.totalRuns >= 1,
-    },
-    {
-      nameKey: "badge.fiveBlocks.name",
-      descKey: "badge.fiveBlocks.desc",
-      unlocked: profile.hexesOwned >= 5,
-    },
-    {
-      nameKey: "badge.mayor.name",
-      descKey: "badge.mayor.desc",
-      unlocked: profile.hexesOwned >= 20,
-    },
-    {
-      nameKey: "badge.hundred.name",
-      descKey: "badge.hundred.desc",
-      unlocked: profile.hexesOwned >= 100,
-    },
-    {
-      nameKey: "badge.threeDays.name",
-      descKey: "badge.threeDays.desc",
-      unlocked: profile.streak >= 3,
-    },
-    {
-      nameKey: "badge.oneWeek.name",
-      descKey: "badge.oneWeek.desc",
-      unlocked: profile.streak >= 7,
-    },
-    {
-      nameKey: "badge.twoWeeks.name",
-      descKey: "badge.twoWeeks.desc",
-      unlocked: profile.streak >= 14,
-    },
-    {
-      nameKey: "badge.bigRun.name",
-      descKey: "badge.bigRun.desc",
-      unlocked: profile.bestRunHexes >= 5,
-    },
-    {
-      nameKey: "badge.marathon.name",
-      descKey: "badge.marathon.desc",
-      unlocked: profile.bestRunDistanceMeters >= 10000,
-    },
-    {
-      nameKey: "badge.iron.name",
-      descKey: "badge.iron.desc",
-      unlocked: profile.totalRuns >= 50,
-    },
-  ];
-}
 
 export default async function PublicProfilePage({
   params,
@@ -120,7 +65,8 @@ export default async function PublicProfilePage({
       ? `${(profile.bestRunDistanceMeters / 1000).toFixed(2)} km`
       : `${profile.bestRunDistanceMeters} m`;
 
-  const badges = buildBadges(profile);
+  const badges = evaluateBadges(profile, locale === "es" ? "es" : "en");
+  const byId = new Map(badges.map((b) => [b.onchainId, b]));
   const unlockedCount = badges.filter((b) => b.unlocked).length;
 
   const joinedLabel = new Date(profile.joinedAt).toLocaleDateString(
@@ -185,15 +131,35 @@ export default async function PublicProfilePage({
         <p className="mb-1 text-center text-xs text-zinc-500">
           {t("p.badges.header")} {unlockedCount} {t("p.badges.of")} {badges.length}
         </p>
-        {badges.map((b) => (
-          <div
-            key={b.nameKey}
-            className={`flex items-center justify-between gap-3 ${b.unlocked ? "text-zinc-900" : "text-zinc-500"}`}
-          >
-            <span className={b.unlocked ? "font-semibold" : ""}>
-              {t(b.nameKey)}
-            </span>
-            <span className="text-xs text-zinc-500">{t(b.descKey)}</span>
+        {BADGE_GROUPS.map((group) => (
+          <div key={group.en} className="mt-2 first:mt-1">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+              {locale === "es" ? group.es : group.en}
+            </p>
+            {group.ids.map((id) => {
+              const b = byId.get(id);
+              if (!b) return null;
+              return (
+                <div
+                  key={b.onchainId}
+                  className={`flex items-center justify-between gap-3 ${b.unlocked ? "text-zinc-900" : "text-zinc-500"}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span
+                      aria-hidden
+                      className={`inline-block h-7 w-7 shrink-0 ${b.unlocked ? "" : "opacity-40 grayscale"}`}
+                      dangerouslySetInnerHTML={{
+                        __html: badgeSvg(b.onchainId, 28),
+                      }}
+                    />
+                    <span className={b.unlocked ? "font-semibold" : ""}>
+                      {b.name}
+                    </span>
+                  </span>
+                  <span className="text-xs text-zinc-500">{b.description}</span>
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>
