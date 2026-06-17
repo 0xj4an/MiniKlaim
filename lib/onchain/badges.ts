@@ -224,7 +224,11 @@ export async function onchainBadgeIdsHeld(player: Address): Promise<number[]> {
       abi: BADGES_ABI,
       functionName: "balanceOfBatch",
       args: [accounts, allIds],
-      authorizationList: [],
+      // viem 2.50.4's readContract type requires `authorizationList`, but passing
+      // an empty array makes the RPC reject the call ("Missing or invalid
+      // parameters"), which silently returned no held badges. `undefined`
+      // satisfies the type and is ignored at runtime. Do not change to [].
+      authorizationList: undefined,
     })) as readonly bigint[];
     const held: number[] = [];
     balances.forEach((bal, i) => {
