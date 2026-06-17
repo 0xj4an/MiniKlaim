@@ -2,11 +2,11 @@
 
 import { useCallback } from "react";
 import type { Address, Hex } from "viem";
-import { celo } from "viem/chains";
 import { useWalletClient } from "wagmi";
 import { createLogger } from "@/lib/logger";
+import { getChain } from "@/lib/onchain/chains";
 import { HEXES_CLAIM_ABI, hexesAddress } from "@/lib/onchain/hexesAbi";
-import { TOKENS } from "@/lib/tokens";
+import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { useBalances } from "@/lib/wallet/useBalances";
 
 const log = createLogger("wallet:claimRun");
@@ -22,25 +22,23 @@ type Voucher = {
 };
 
 /**
- * Drives the post-finish on-chain mint.
- *
- * Primary path: the player submits their own `claimRun` tx (gated by a backend
- * EIP-712 voucher), which makes them the on-chain `msg.sender` so they count as
- * a unique active wallet. Gas is paid in USDm via fee abstraction when they hold
- * USDm (MiniPay), otherwise in native CELO.
- *
- * Fallback: if the player has no funds / declines / the wallet errors, the
- * backend relayer mints for them (sponsored). They still receive their NFTs.
+ * Drives the post-finish on-chain hex mint on the active chain (Celo via
+ * MiniPay/Farcaster, Soneium via Startale). Player submits their own `claimRun`
+ * tx (gated by a backend EIP-712 voucher for that chain) so they are the
+ * on-chain msg.sender; falls back to the sponsored relayer on failure. Gas is
+ * paid in USDm via fee abstraction only on chains that support it (Celo).
  */
 export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
   const { data: walletClient } = useWalletClient();
+  const chainKey = useActiveChainKey();
   const balances = useBalances(address, enabled);
 
   const sponsorFallback = useCallback(
     async (runId: string): Promise<ClaimOutcome> => {
-      const res = await fetch(`/api/runs/${runId}/sponsor-mint`, {
-        method: "POST",
-      });
+      const res = await fetch(
+        `/api/runs/${runId}/sponsor-mint?chain=${chainKey}`,
+        { method: "POST" },
+      );
       if (!res.ok) {
         log.error("sponsor fallback failed", { runId, status: res.status });
       } else {
@@ -48,21 +46,21 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
       }
       return "sponsored";
     },
-    [],
+    [chainKey],
   );
 
   const claim = useCallback(
     async (runId: string): Promise<ClaimOutcome> => {
-      const contract = hexesAddress();
+      const chain = getChain(chainKey);
+      const contract = hexesAddress(chainKey);
       if (!walletClient || !address || !contract) {
         log.info("no wallet/contract; using sponsor fallback", { runId });
         return sponsorFallback(runId);
       }
 
-      // 1. Ask the backend for a voucher authorizing exactly this run's hexes.
       let voucher: Voucher;
       try {
-        const res = await fetch(`/api/runs/${runId}/voucher`, {
+        const res = await fetch(`/api/runs/${runId}/voucher?chain=${chainKey}`, {
           method: "POST",
         });
         if (res.status === 409) {
@@ -79,10 +77,10 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
         return sponsorFallback(runId);
       }
 
-      // 2. Player submits their own claimRun tx. Pay gas in USDm if they hold
-      //    it (MiniPay fee abstraction); otherwise let the wallet use CELO.
+      // Fee abstraction only where supported (Celo CIP-64 + USDm held).
       const hasUsdm = (balances.USDm?.value ?? 0n) > 0n;
-      const feeCurrency = hasUsdm ? TOKENS.USDm.feeAdapter : undefined;
+      const feeCurrency =
+        chain.feeCurrency && hasUsdm ? chain.feeCurrency : undefined;
       try {
         const txHash = await walletClient.writeContract({
           address: contract,
@@ -93,12 +91,11 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
             BigInt(voucher.nonce),
             voucher.signature,
           ],
-          chain: celo,
+          chain: chain.chain,
           account: address,
           ...(feeCurrency ? { feeCurrency } : {}),
         });
-        log.info("claimRun submitted by player", { runId, txHash });
-        // 3. Record the player's own mint reference.
+        log.info("claimRun submitted by player", { runId, chainKey, txHash });
         await fetch(`/api/runs/${runId}/claimed`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -106,7 +103,6 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
         });
         return "user-claimed";
       } catch (e) {
-        // Rejected / insufficient funds / unsupported -> never block the player.
         log.warn("player claim failed; sponsoring", {
           runId,
           message: e instanceof Error ? e.message : String(e),
@@ -114,7 +110,7 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
         return sponsorFallback(runId);
       }
     },
-    [walletClient, address, balances.USDm, sponsorFallback],
+    [walletClient, address, chainKey, balances.USDm, sponsorFallback],
   );
 
   return { claim };

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
+import { parseChainKey } from "@/lib/onchain/chains";
 import {
   badgesContractAddress,
   onchainBadgeIdsHeld,
@@ -8,7 +9,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ address: string }> },
 ) {
   const { address } = await params;
@@ -17,11 +18,12 @@ export async function GET(
     return NextResponse.json({ error: "invalid address" }, { status: 400 });
   }
 
-  const contract = badgesContractAddress();
+  const chainKey = parseChainKey(new URL(request.url).searchParams.get("chain"));
+  const contract = badgesContractAddress(chainKey);
   if (!contract) {
     return NextResponse.json({ contract: null, heldIds: [] });
   }
 
-  const heldIds = await onchainBadgeIdsHeld(lower as Address);
+  const heldIds = await onchainBadgeIdsHeld(lower as Address, chainKey);
   return NextResponse.json({ contract, heldIds });
 }
