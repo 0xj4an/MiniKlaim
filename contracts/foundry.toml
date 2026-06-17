@@ -15,7 +15,10 @@ remappings = [
 [rpc_endpoints]
 celo = "https://forno.celo.org"
 alfajores = "https://alfajores-forno.celo-testnet.org"
+soneium = "https://rpc.soneium.org"
 
 [etherscan]
 celo = { key = "${ETHERSCAN_API_KEY}", chain = 42220 }
 alfajores = { key = "${ETHERSCAN_API_KEY}", chain = 44787 }
+# Soneium verifies via Blockscout (no API key required).
+soneium = { key = "blockscout", url = "https://soneium.blockscout.com/api", chain = 1868 }

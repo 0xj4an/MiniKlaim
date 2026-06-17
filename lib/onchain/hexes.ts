@@ -6,13 +6,16 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { celo } from "viem/chains";
+import {
+  type ChainKey,
+  DEFAULT_CHAIN_KEY,
+  getChain,
+  isChainConfigured,
+} from "@/lib/onchain/chains";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("onchain:hexes");
 
-const HEXES_ADDRESS = (process.env.NEXT_PUBLIC_MINIKLAIM_HEXES_ADDRESS ??
-  "") as Address;
 const SIGNER_PK = (process.env.SERVER_SIGNER_PRIVATE_KEY ?? "") as Hex;
 
 const HEXES_ABI = [
@@ -52,28 +55,29 @@ const HEXES_ABI = [
   },
 ] as const;
 
-function isConfigured(): boolean {
-  return (
-    HEXES_ADDRESS.length === 42 &&
-    HEXES_ADDRESS.startsWith("0x") &&
-    SIGNER_PK.length === 66 &&
-    SIGNER_PK.startsWith("0x")
-  );
+function signerConfigured(): boolean {
+  return SIGNER_PK.length === 66 && SIGNER_PK.startsWith("0x");
 }
 
-export const hexesPublicClient = createPublicClient({
-  chain: celo,
-  transport: http(),
-});
+function isReady(chainKey: ChainKey): boolean {
+  return signerConfigured() && isChainConfigured(chainKey);
+}
+
+export function hexesPublicClient(chainKey: ChainKey = DEFAULT_CHAIN_KEY) {
+  return createPublicClient({
+    chain: getChain(chainKey).chain,
+    transport: http(),
+  });
+}
 
 function signerAccount() {
   return privateKeyToAccount(SIGNER_PK);
 }
 
-function signerWallet() {
+function signerWallet(chainKey: ChainKey) {
   return createWalletClient({
     account: signerAccount(),
-    chain: celo,
+    chain: getChain(chainKey).chain,
     transport: http(),
   });
 }
@@ -91,35 +95,37 @@ export type CaptureBatchResult =
   | { ok: false; reason: "not-configured" | "empty" | "error"; error?: string };
 
 /**
- * Mint/transfer every hex in `h3Ids` to `player` in a single tx.
- * Fire-and-forget callers should handle the returned promise; the function
- * never throws.
+ * Mint/transfer every hex in `h3Ids` to `player` in a single tx on `chainKey`.
+ * Never throws.
  */
 export async function captureBatch(
   player: Address,
   h3Ids: string[],
+  chainKey: ChainKey = DEFAULT_CHAIN_KEY,
 ): Promise<CaptureBatchResult> {
-  if (!isConfigured()) {
-    log.warn("captureBatch skipped: missing env config");
+  if (!isReady(chainKey)) {
+    log.warn("captureBatch skipped: missing config", { chainKey });
     return { ok: false, reason: "not-configured" };
   }
   if (h3Ids.length === 0) {
     return { ok: false, reason: "empty" };
   }
+  const { hexesAddress, chain } = getChain(chainKey);
   try {
     const tokenIds = h3Ids.map(h3ToTokenId);
-    const wallet = signerWallet();
+    const wallet = signerWallet(chainKey);
     const txHash = await wallet.writeContract({
-      address: HEXES_ADDRESS,
+      address: hexesAddress,
       abi: HEXES_ABI,
       functionName: "captureBatch",
       args: [player, tokenIds],
-      chain: celo,
+      chain,
       account: signerAccount(),
     });
     log.info("captureBatch broadcast", {
       player,
       count: h3Ids.length,
+      chainKey,
       txHash,
     });
     return { ok: true, txHash };
@@ -128,12 +134,15 @@ export async function captureBatch(
     log.error("captureBatch failed", {
       player,
       count: h3Ids.length,
+      chainKey,
       error: error.slice(0, 300),
     });
     return { ok: false, reason: "error", error };
   }
 }
 
-export function hexesContractAddress(): Address | null {
-  return isConfigured() ? HEXES_ADDRESS : null;
+export function hexesContractAddress(
+  chainKey: ChainKey = DEFAULT_CHAIN_KEY,
+): Address | null {
+  return isChainConfigured(chainKey) ? getChain(chainKey).hexesAddress : null;
 }

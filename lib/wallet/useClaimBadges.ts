@@ -2,11 +2,11 @@
 
 import { useCallback } from "react";
 import type { Address, Hex } from "viem";
-import { celo } from "viem/chains";
 import { useWalletClient } from "wagmi";
 import { createLogger } from "@/lib/logger";
+import { getChain } from "@/lib/onchain/chains";
 import { BADGES_CLAIM_ABI, badgesAddress } from "@/lib/onchain/badgesAbi";
-import { TOKENS } from "@/lib/tokens";
+import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { useBalances } from "@/lib/wallet/useBalances";
 
 const log = createLogger("wallet:claimBadges");
@@ -26,22 +26,19 @@ type Voucher = {
 };
 
 /**
- * Drives the player-submitted badge mint. Primary path: the player submits their
- * own `claimBadges` tx (gated by a backend EIP-712 voucher), so they are the
- * on-chain `msg.sender` and count as a unique active wallet. Gas is paid in USDm
- * via fee abstraction when they hold USDm (MiniPay), otherwise in native CELO.
- *
- * Fallback: if the player has no funds / declines / the wallet errors, the
- * backend relayer mints for them (sponsored). They still receive their badges.
+ * Player-submitted badge mint on the active chain. Player submits their own
+ * `claimBadges` tx (gated by a per-chain EIP-712 voucher); relayer sponsor is
+ * the fallback. USDm fee abstraction only where supported (Celo).
  */
 export function useClaimBadges(address: Address | null, enabled: boolean) {
   const { data: walletClient } = useWalletClient();
+  const chainKey = useActiveChainKey();
   const balances = useBalances(address, enabled);
 
   const sponsorFallback = useCallback(
     async (addr: string): Promise<BadgeClaimOutcome> => {
       const res = await fetch(
-        `/api/users/${addr.toLowerCase()}/badges/sponsor-mint`,
+        `/api/users/${addr.toLowerCase()}/badges/sponsor-mint?chain=${chainKey}`,
         { method: "POST" },
       );
       if (!res.ok) {
@@ -51,22 +48,22 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
       log.info("sponsored badge mint done", { addr });
       return { status: "sponsored" };
     },
-    [],
+    [chainKey],
   );
 
   const claim = useCallback(async (): Promise<BadgeClaimOutcome> => {
-    const contract = badgesAddress();
+    const chain = getChain(chainKey);
+    const contract = badgesAddress(chainKey);
     if (!address) return { status: "none" };
     if (!walletClient || !contract) {
       log.info("no wallet/contract; using sponsor fallback");
       return sponsorFallback(address);
     }
 
-    // 1. Ask the backend for a voucher authorizing the player's eligible badges.
     let voucher: Voucher;
     try {
       const res = await fetch(
-        `/api/users/${address.toLowerCase()}/badges/voucher`,
+        `/api/users/${address.toLowerCase()}/badges/voucher?chain=${chainKey}`,
         { method: "POST" },
       );
       if (res.status === 409) {
@@ -82,10 +79,9 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
       return sponsorFallback(address);
     }
 
-    // 2. Player submits their own claimBadges tx. Pay gas in USDm if they hold
-    //    it (MiniPay fee abstraction); otherwise let the wallet use CELO.
     const hasUsdm = (balances.USDm?.value ?? 0n) > 0n;
-    const feeCurrency = hasUsdm ? TOKENS.USDm.feeAdapter : undefined;
+    const feeCurrency =
+      chain.feeCurrency && hasUsdm ? chain.feeCurrency : undefined;
     try {
       const txHash = await walletClient.writeContract({
         address: contract,
@@ -96,20 +92,19 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
           BigInt(voucher.nonce),
           voucher.signature,
         ],
-        chain: celo,
+        chain: chain.chain,
         account: address,
         ...(feeCurrency ? { feeCurrency } : {}),
       });
-      log.info("claimBadges submitted by player", { txHash });
+      log.info("claimBadges submitted by player", { chainKey, txHash });
       return { status: "user-claimed", txHash };
     } catch (e) {
-      // Rejected / insufficient funds / unsupported -> never block the player.
       log.warn("player badge claim failed; sponsoring", {
         message: e instanceof Error ? e.message : String(e),
       });
       return sponsorFallback(address);
     }
-  }, [walletClient, address, balances.USDm, sponsorFallback]);
+  }, [walletClient, address, chainKey, balances.USDm, sponsorFallback]);
 
   return { claim };
 }
