@@ -78,6 +78,45 @@ export async function walletsForAddress(
     .where(eq(playerWallets.playerId, w.playerId));
 }
 
+/**
+ * All distinct wallet addresses attached to this address's player, across
+ * every chain. Chain-agnostic: for aggregated reads (stats, runs, badges,
+ * leaderboard) where we want the combined view over ALL linked wallets.
+ * Falls back to `[address]` if the wallet has no player yet.
+ */
+export async function addressesForPlayer(address: string): Promise<string[]> {
+  const lower = address.toLowerCase();
+  const [w] = await db
+    .select({ playerId: playerWallets.playerId })
+    .from(playerWallets)
+    .where(eq(playerWallets.address, lower))
+    .limit(1);
+  if (!w) return [lower];
+  const rows = await db
+    .select({ address: playerWallets.address })
+    .from(playerWallets)
+    .where(eq(playerWallets.playerId, w.playerId));
+  const set = new Set(rows.map((r) => r.address.toLowerCase()));
+  set.add(lower);
+  return Array.from(set);
+}
+
+/**
+ * Delete a player row if no wallets point at it anymore. Called after
+ * `redeemLinkCode` moves the last wallet off the old player, to keep
+ * `players` clean.
+ */
+async function cleanupOrphanPlayer(playerId: string): Promise<void> {
+  const remaining = await db
+    .select({ address: playerWallets.address })
+    .from(playerWallets)
+    .where(eq(playerWallets.playerId, playerId))
+    .limit(1);
+  if (remaining.length > 0) return;
+  await db.delete(players).where(eq(players.id, playerId));
+  log.info("orphan player deleted", { playerId });
+}
+
 const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 /** Generate a short link code bound to the requesting wallet's player. */
@@ -129,6 +168,19 @@ export async function redeemLinkCode(
     });
     if (!valid) return { ok: false, reason: "bad-signature" };
 
+    // Snapshot the wallet's current player before we move it, so we can
+    // clean up the old player row if it becomes orphaned.
+    const [prior] = await db
+      .select({ playerId: playerWallets.playerId })
+      .from(playerWallets)
+      .where(
+        and(
+          eq(playerWallets.address, lower),
+          eq(playerWallets.chainId, chain.chainId),
+        ),
+      )
+      .limit(1);
+
     // Attach the wallet to the code's player (replace any prior mapping).
     await db
       .insert(playerWallets)
@@ -143,6 +195,11 @@ export async function redeemLinkCode(
         set: { playerId: row.playerId },
       });
     await db.delete(linkCodes).where(eq(linkCodes.code, code));
+
+    if (prior && prior.playerId !== row.playerId) {
+      await cleanupOrphanPlayer(prior.playerId);
+    }
+
     log.info("wallet linked", { address: lower, chainKey });
     return { ok: true };
   } catch (e) {
