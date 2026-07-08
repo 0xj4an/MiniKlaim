@@ -23,6 +23,14 @@ export async function GET(
   // unchanged.
   const linked = await addressesForPlayer(lower);
 
+  // `sql` interpolates a JS array as a record `($1, $2, $3)`, which
+  // Postgres cannot cast to `text[]`. Emit as an inline list via
+  // `sql.join` so raw-SQL clauses read `IN ($1, $2, $3)` instead.
+  const addressList = sql.join(
+    linked.map((a) => sql`${a}`),
+    sql`, `,
+  );
+
   const [
     hexResult,
     hexMintedResult,
@@ -104,7 +112,7 @@ export async function GET(
     db.execute(sql`
       SELECT DISTINCT DATE(ended_at AT TIME ZONE 'UTC') AS day
       FROM runs
-      WHERE user_address = ANY(${linked}::text[])
+      WHERE user_address IN (${addressList})
         AND ended_at IS NOT NULL
       ORDER BY day DESC
       LIMIT 365
