@@ -8,6 +8,7 @@ import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE } from "@/lib/map/config";
 import { claimedHexesToFeatureCollection } from "@/lib/map/hex";
+import { useLinkedAddresses } from "@/lib/wallet/useLinkedAddresses";
 
 type HexFeatureProps = {
   owner: string;
@@ -17,9 +18,8 @@ type HexFeatureProps = {
 
 function hexesToPointCollection(
   rows: HexRow[],
-  myAddress: string,
+  myAddresses: ReadonlySet<string>,
 ): GeoJSON.FeatureCollection<GeoJSON.Point, HexFeatureProps> {
-  const me = myAddress.toLowerCase();
   return {
     type: "FeatureCollection",
     features: rows.map((h) => {
@@ -30,7 +30,7 @@ function hexesToPointCollection(
         properties: {
           owner: h.owner,
           ownerUsername: h.ownerUsername,
-          isMine: h.owner.toLowerCase() === me,
+          isMine: myAddresses.has(h.owner.toLowerCase()),
         },
       };
     }),
@@ -46,6 +46,9 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [count, setCount] = useState<number | null>(null);
   const { t } = useLocale();
+  // Every wallet linked to this player, lowercase. Drives the mine-vs-others
+  // split so runs from a linked wallet also show as green.
+  const linked = useLinkedAddresses(myAddress, myAddress !== null);
 
   const capturedByLabel = t("community.popup.capturedBy");
   const youLabel = t("community.popup.you");
@@ -111,17 +114,17 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
         if (cancelled) return;
         setCount(data.hexes.length);
 
-        const me = myAddress?.toLowerCase() ?? null;
-        const mine = me
-          ? data.hexes.filter((h) => h.owner.toLowerCase() === me)
+        const hasMe = myAddress !== null && linked.size > 0;
+        const mine = hasMe
+          ? data.hexes.filter((h) => linked.has(h.owner.toLowerCase()))
           : [];
-        const others = me
-          ? data.hexes.filter((h) => h.owner.toLowerCase() !== me)
+        const others = hasMe
+          ? data.hexes.filter((h) => !linked.has(h.owner.toLowerCase()))
           : data.hexes;
 
         map.addSource("others", {
           type: "geojson",
-          data: claimedHexesToFeatureCollection(others, myAddress ?? ""),
+          data: claimedHexesToFeatureCollection(others, linked),
         });
         map.addLayer({
           id: "others-fill",
@@ -144,7 +147,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
 
         map.addSource("others-points", {
           type: "geojson",
-          data: hexesToPointCollection(others, myAddress ?? ""),
+          data: hexesToPointCollection(others, linked),
         });
         map.addLayer({
           id: "others-points",
@@ -175,7 +178,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
         if (mine.length > 0) {
           map.addSource("mine", {
             type: "geojson",
-            data: claimedHexesToFeatureCollection(mine, myAddress ?? ""),
+            data: claimedHexesToFeatureCollection(mine, linked),
           });
           map.addLayer({
             id: "mine-fill",
@@ -198,7 +201,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
 
           map.addSource("mine-points", {
             type: "geojson",
-            data: hexesToPointCollection(mine, myAddress ?? ""),
+            data: hexesToPointCollection(mine, linked),
           });
           map.addLayer({
             id: "mine-points",
@@ -251,8 +254,9 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
 
         if (data.hexes.length > 0) {
           const bounds = new maplibregl.LngLatBounds();
+          const emptySet: ReadonlySet<string> = new Set();
           for (const hex of data.hexes) {
-            const fc = claimedHexesToFeatureCollection([hex], "");
+            const fc = claimedHexesToFeatureCollection([hex], emptySet);
             const coords = fc.features[0]?.geometry.coordinates[0] ?? [];
             for (const [lng, lat] of coords) {
               bounds.extend([lng, lat]);
@@ -278,7 +282,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
       map.remove();
       mapRef.current = null;
     };
-  }, [myAddress, capturedByLabel, youLabel]);
+  }, [myAddress, linked, capturedByLabel, youLabel]);
 
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">

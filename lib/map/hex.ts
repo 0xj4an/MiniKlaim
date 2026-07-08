@@ -51,11 +51,18 @@ export function hexesAround(
   };
 }
 
+/**
+ * Build a feature collection colored by ownership.
+ *
+ * `myAddresses` is the SET of addresses the current player owns across every
+ * linked wallet, all lowercase. A hex is "mine" when its owner (also
+ * lowercased for the check) is in the set. Callers who don't need the "mine"
+ * distinction (e.g. rendering a popup for one hex) can pass an empty set.
+ */
 export function claimedHexesToFeatureCollection(
   rows: Array<{ h3: string; owner: string; ownerUsername?: string | null }>,
-  myAddress: string | null,
+  myAddresses: ReadonlySet<string>,
 ): ClaimedHexFeatureCollection {
-  const me = myAddress?.toLowerCase() ?? null;
   return {
     type: "FeatureCollection",
     features: rows.map((row) => ({
@@ -64,7 +71,7 @@ export function claimedHexesToFeatureCollection(
         hex: row.h3,
         owner: row.owner,
         ownerUsername: row.ownerUsername ?? null,
-        isMine: me !== null && row.owner.toLowerCase() === me,
+        isMine: myAddresses.has(row.owner.toLowerCase()),
       },
       geometry: { type: "Polygon", coordinates: [hexToPolygon(row.h3)] },
     })),
