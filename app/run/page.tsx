@@ -20,6 +20,7 @@ import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { LinkExisting } from "@/app/LinkExisting";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
 import { useClaimRun } from "@/lib/wallet/useClaimRun";
+import { useLinkedAddresses } from "@/lib/wallet/useLinkedAddresses";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
 
@@ -66,6 +67,11 @@ export default function RunPage() {
     isConnected && !isWrongChain ? address : null,
   );
   const { claim } = useClaimRun(address, isConnected && !isWrongChain);
+  const linked = useLinkedAddresses(address, isConnected && !isWrongChain);
+  const linkedRef = useRef<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    linkedRef.current = linked;
+  }, [linked]);
   const [badgeRefresh, setBadgeRefresh] = useState(0);
   const capturedByLabel = t("run.popup.capturedBy");
   const youLabel = t("run.popup.you");
@@ -152,7 +158,7 @@ export default function RunPage() {
         | maplibregl.GeoJSONSource
         | undefined;
       source?.setData(
-        claimedHexesToFeatureCollection(data.hexes, addressRef.current),
+        claimedHexesToFeatureCollection(data.hexes, linkedRef.current),
       );
       log.debug("claimed hexes refreshed", { count: data.hexes.length });
     } catch (e) {
