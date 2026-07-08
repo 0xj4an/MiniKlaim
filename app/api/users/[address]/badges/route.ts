@@ -5,6 +5,7 @@ import {
   badgesContractAddress,
   onchainBadgeIdsHeld,
 } from "@/lib/onchain/badges";
+import { addressesForPlayer } from "@/lib/players";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,17 @@ export async function GET(
     return NextResponse.json({ contract: null, heldIds: [] });
   }
 
-  const heldIds = await onchainBadgeIdsHeld(lower as Address, chainKey);
+  // Union the on-chain held badges across every linked wallet (same chain).
+  // Addresses that never held anything on this chain harmlessly return an
+  // empty set. Per-chain aggregation avoids double-mint issues when the
+  // same badge is claimable on multiple chains.
+  const linked = await addressesForPlayer(lower);
+  const perAddress = await Promise.all(
+    linked.map((a) => onchainBadgeIdsHeld(a as Address, chainKey)),
+  );
+  const heldIds = Array.from(new Set(perAddress.flat())).sort(
+    (a, b) => a - b,
+  );
+
   return NextResponse.json({ contract, heldIds });
 }

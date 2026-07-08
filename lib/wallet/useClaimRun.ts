@@ -11,7 +11,7 @@ import { useBalances } from "@/lib/wallet/useBalances";
 
 const log = createLogger("wallet:claimRun");
 
-export type ClaimOutcome = "user-claimed" | "sponsored" | "no-hexes";
+export type ClaimOutcome = "user-claimed" | "sponsored" | "no-hexes" | "failed";
 
 type Voucher = {
   tokenIds: string[];
@@ -35,16 +35,24 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
 
   const sponsorFallback = useCallback(
     async (runId: string): Promise<ClaimOutcome> => {
-      const res = await fetch(
-        `/api/runs/${runId}/sponsor-mint?chain=${chainKey}`,
-        { method: "POST" },
-      );
-      if (!res.ok) {
-        log.error("sponsor fallback failed", { runId, status: res.status });
-      } else {
+      try {
+        const res = await fetch(
+          `/api/runs/${runId}/sponsor-mint?chain=${chainKey}`,
+          { method: "POST" },
+        );
+        if (!res.ok) {
+          log.error("sponsor fallback failed", { runId, status: res.status });
+          return "failed";
+        }
         log.info("sponsored mint done", { runId });
+        return "sponsored";
+      } catch (e) {
+        log.error("sponsor fallback threw", {
+          runId,
+          message: e instanceof Error ? e.message : String(e),
+        });
+        return "failed";
       }
-      return "sponsored";
     },
     [chainKey],
   );
