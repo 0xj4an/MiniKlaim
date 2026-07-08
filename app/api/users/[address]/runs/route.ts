@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { addressesForPlayer } from "@/lib/players";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,10 @@ export async function GET(
     100,
   );
 
+  // Aggregate runs across every wallet linked to this address's player.
+  // Falls back to `[lower]` when unlinked, so pre-link behavior matches.
+  const linked = await addressesForPlayer(lower);
+
   // Each run's hexes share the same captureBatch tx hash; pick any one.
   const rows = await db.execute(sql`
     SELECT
@@ -32,7 +37,7 @@ export async function GET(
         LIMIT 1
       ) AS "mintTxHash"
     FROM runs r
-    WHERE r.user_address = ${lower}
+    WHERE r.user_address = ANY(${linked}::text[])
     ORDER BY r.started_at DESC
     LIMIT ${limit}
   `);
