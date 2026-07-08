@@ -1,6 +1,6 @@
 "use client";
 
-import { cellToLatLng, cellToParent } from "h3-js";
+import { cellToLatLng } from "h3-js";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
@@ -51,6 +51,10 @@ export function TerritoryMap({ address }: { address: string | null }) {
         if (cancelled) return;
         setCount(mine.length);
 
+        // Hex polygons are at H3 res 12 (~50m edge), invisible below city
+        // zoom. Render them as filled hexes when zoomed in (>= 11), and as
+        // dots when zoomed out so the territory is always visible even at
+        // country/world scale.
         map.addSource("mine", {
           type: "geojson",
           data: claimedHexesToFeatureCollection(mine, linked),
@@ -59,12 +63,14 @@ export function TerritoryMap({ address }: { address: string | null }) {
           id: "mine-fill",
           type: "fill",
           source: "mine",
+          minzoom: 11,
           paint: { "fill-color": "#10B981", "fill-opacity": 0.55 },
         });
         map.addLayer({
           id: "mine-line",
           type: "line",
           source: "mine",
+          minzoom: 11,
           paint: {
             "line-color": "#10B981",
             "line-width": 1.5,
@@ -72,27 +78,53 @@ export function TerritoryMap({ address }: { address: string | null }) {
           },
         });
 
+        const pointFeatures = mine.map((h) => {
+          const [lat, lng] = cellToLatLng(h.h3);
+          return {
+            type: "Feature" as const,
+            geometry: {
+              type: "Point" as const,
+              coordinates: [lng, lat],
+            },
+            properties: {},
+          };
+        });
+        map.addSource("mine-points", {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: pointFeatures },
+        });
+        map.addLayer({
+          id: "mine-points",
+          type: "circle",
+          source: "mine-points",
+          maxzoom: 13,
+          paint: {
+            "circle-color": "#10B981",
+            "circle-opacity": 0.9,
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": 1,
+            "circle-radius": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0,
+              2.5,
+              4,
+              4,
+              8,
+              6,
+              12,
+              5,
+            ],
+          },
+        });
+
         if (mine.length > 0) {
-          // A player may own hexes in multiple cities (e.g. ran in Medellin
-          // and Istanbul). Fitting bounds across all of them zooms out to a
-          // world view that hides the actual territory. Instead, group by
-          // resolution-5 parent (~city-scale) and zoom to the largest group.
-          const groups = new Map<string, typeof mine>();
-          for (const hex of mine) {
-            const parent = cellToParent(hex.h3, 5);
-            const arr = groups.get(parent) ?? [];
-            arr.push(hex);
-            groups.set(parent, arr);
-          }
-          let largest = mine;
-          let largestSize = 0;
-          for (const arr of groups.values()) {
-            if (arr.length > largestSize) {
-              largest = arr;
-              largestSize = arr.length;
-            }
-          }
-          const centroids = largest.map((hex) => cellToLatLng(hex.h3));
+          // Fit bounds to every owned hex so all territory is visible at
+          // first paint. Users with runs in multiple cities will see a
+          // country/world-scale view rendered as dots (via the points layer
+          // above); the fill layer kicks in when they zoom to city scale.
+          const centroids = mine.map((hex) => cellToLatLng(hex.h3));
           const lats = centroids.map(([lat]) => lat);
           const lngs = centroids.map(([, lng]) => lng);
           const minLat = Math.min(...lats);
@@ -118,7 +150,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
                 [minLng, minLat],
                 [maxLng, maxLat],
               ],
-              { padding: 60, maxZoom: 16, animate: false },
+              { padding: 30, maxZoom: 15, animate: false },
             );
           }
         }
