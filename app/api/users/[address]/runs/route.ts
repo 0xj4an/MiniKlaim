@@ -22,6 +22,14 @@ export async function GET(
   // Falls back to `[lower]` when unlinked, so pre-link behavior matches.
   const linked = await addressesForPlayer(lower);
 
+  // `sql` interpolates a JS array as a record `($1, $2, $3)`, which
+  // Postgres cannot cast to `text[]`. Emit the values as an inline list
+  // via `sql.join` so the query is `IN ($1, $2, $3)` instead.
+  const addressList = sql.join(
+    linked.map((a) => sql`${a}`),
+    sql`, `,
+  );
+
   // Each run's hexes share the same captureBatch tx hash; pick any one.
   const rows = await db.execute(sql`
     SELECT
@@ -37,7 +45,7 @@ export async function GET(
         LIMIT 1
       ) AS "mintTxHash"
     FROM runs r
-    WHERE r.user_address = ANY(${linked}::text[])
+    WHERE r.user_address IN (${addressList})
     ORDER BY r.started_at DESC
     LIMIT ${limit}
   `);
