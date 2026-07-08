@@ -8,6 +8,7 @@ import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE } from "@/lib/map/config";
 import { claimedHexesToFeatureCollection } from "@/lib/map/hex";
+import { useLinkedAddresses } from "@/lib/wallet/useLinkedAddresses";
 
 const log = createLogger("page:me:map");
 
@@ -18,11 +19,14 @@ export function TerritoryMap({ address }: { address: string | null }) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [count, setCount] = useState<number | null>(null);
   const { t } = useLocale();
+  // Includes the connected wallet plus every linked wallet on this player.
+  // Loads asynchronously; defaults to {connected} while pending, so pre-link
+  // users see no difference in timing.
+  const linked = useLinkedAddresses(address, address !== null);
 
   useEffect(() => {
     if (!containerRef.current) return;
     if (!address) return;
-    const lower = address.toLowerCase();
 
     const map = new maplibregl.Map({
       container: containerRef.current,
@@ -41,13 +45,15 @@ export function TerritoryMap({ address }: { address: string | null }) {
       try {
         const res = await fetch("/api/hexes");
         const data = (await res.json()) as { hexes: HexRow[] };
-        const mine = data.hexes.filter((h) => h.owner.toLowerCase() === lower);
+        const mine = data.hexes.filter((h) =>
+          linked.has(h.owner.toLowerCase()),
+        );
         if (cancelled) return;
         setCount(mine.length);
 
         map.addSource("mine", {
           type: "geojson",
-          data: claimedHexesToFeatureCollection(mine, address),
+          data: claimedHexesToFeatureCollection(mine, linked),
         });
         map.addLayer({
           id: "mine-fill",
@@ -132,7 +138,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
       map.remove();
       mapRef.current = null;
     };
-  }, [address]);
+  }, [address, linked]);
 
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
