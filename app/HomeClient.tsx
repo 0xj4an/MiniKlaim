@@ -11,6 +11,7 @@ import {
   useWalletEnvironment,
 } from "@/lib/wallet/environment";
 import { LinkExisting } from "@/app/LinkExisting";
+import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
 
@@ -81,6 +82,12 @@ export function HomeClient() {
       )}
 
       {mounted && isConnected ? <YouNavLink /> : null}
+      {mounted && (
+        <PendingClaimPrompt
+          address={address ?? null}
+          enabled={isConnected && !isWrongChain}
+        />
+      )}
     </>
   );
 }

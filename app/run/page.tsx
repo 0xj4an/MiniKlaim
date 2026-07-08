@@ -18,6 +18,7 @@ import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { LinkExisting } from "@/app/LinkExisting";
+import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
 import { useClaimRun } from "@/lib/wallet/useClaimRun";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -703,6 +704,10 @@ export default function RunPage() {
         enabled={isConnected && !isWrongChain}
         refreshKey={badgeRefresh}
         detectOnMount={false}
+      />
+      <PendingClaimPrompt
+        address={address ?? null}
+        enabled={isConnected && !isWrongChain}
       />
     </main>
   );
