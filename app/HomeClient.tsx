@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { useFirstVisit } from "@/lib/useFirstVisit";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { useLocale } from "@/lib/i18n";
@@ -36,10 +37,29 @@ export function HomeClient() {
   const { showOnboarding, dismiss } = useFirstVisit();
   const { t } = useLocale();
   const env = useWalletEnvironment();
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     queueMicrotask(() => setMounted(true));
   }, []);
+
+  // Auto-navigate to /run once the wallet is ready after the user tapped the
+  // sign-in CTA. Skips the intermediate "Run" button-tap so the whole flow
+  // is a single "Sign in to run" action. Only fires when the user explicitly
+  // initiated the connect, so returning to home after a run does not bounce
+  // them straight back into /run.
+  const pendingRunRef = useRef(false);
+  const requestSignInAndRun = () => {
+    pendingRunRef.current = true;
+    connect();
+  };
+  useEffect(() => {
+    if (!pendingRunRef.current) return;
+    if (isConnected && !isWrongChain && user?.username) {
+      pendingRunRef.current = false;
+      router.push("/run");
+    }
+  }, [isConnected, isWrongChain, user?.username, router]);
 
   return (
     <>
@@ -74,14 +94,13 @@ export function HomeClient() {
           username={user?.username ?? null}
           hasActiveRun={activeRun !== null}
           env={env}
-          connect={connect}
+          connect={requestSignInAndRun}
           switchToCelo={switchToCelo}
         />
       ) : (
         <WelcomePlaceholder />
       )}
 
-      {mounted && isConnected ? <YouNavLink /> : null}
       {mounted && (
         <PendingClaimPrompt
           address={address ?? null}
@@ -89,18 +108,6 @@ export function HomeClient() {
         />
       )}
     </>
-  );
-}
-
-function YouNavLink() {
-  const { t } = useLocale();
-  return (
-    <Link
-      href="/me"
-      className="-mt-4 text-xs text-zinc-500 underline hover:text-zinc-700"
-    >
-      {t("nav.you")}
-    </Link>
   );
 }
 
@@ -216,8 +223,9 @@ function PrimaryCTA({
       <div className="flex flex-col items-center gap-2">
         <button
           onClick={connect}
-          className="rounded-full bg-zinc-900 px-8 py-4 text-lg font-semibold text-white hover:bg-zinc-800"
+          className="flex items-center gap-2 rounded-full bg-zinc-900 px-8 py-4 text-lg font-semibold text-white hover:bg-zinc-800"
         >
+          <span aria-hidden>🏃</span>
           {t("home.cta.signIn")}
         </button>
       </div>
@@ -268,12 +276,13 @@ function PrimaryCTA({
       </p>
       <Link
         href="/run"
-        className={`rounded-full px-8 py-4 text-lg font-semibold text-white shadow-md ${
+        className={`flex items-center gap-2 rounded-full px-8 py-4 text-lg font-semibold text-white shadow-md ${
           hasActiveRun
             ? "bg-red-600 hover:bg-red-700"
             : "bg-orange-700 hover:bg-orange-800"
         }`}
       >
+        <span aria-hidden>🏃</span>
         {hasActiveRun ? `${t("home.cta.continue")} →` : t("home.cta.start")}
       </Link>
     </div>

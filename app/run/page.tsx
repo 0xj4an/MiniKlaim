@@ -75,6 +75,7 @@ export default function RunPage() {
   const [badgeRefresh, setBadgeRefresh] = useState(0);
   const capturedByLabel = t("run.popup.capturedBy");
   const youLabel = t("run.popup.you");
+  const anonymousLabel = t("common.anonymous");
 
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -453,7 +454,6 @@ export default function RunPage() {
           ownerUsername: string | null;
           isMine: boolean;
         };
-        const fallback = `${props.owner.slice(0, 6)}...${props.owner.slice(-4)}`;
         popupRef.current?.remove();
         const el = document.createElement("div");
         el.style.fontSize = "13px";
@@ -468,7 +468,7 @@ export default function RunPage() {
           link.style.textDecoration = "underline";
           el.appendChild(link);
         } else {
-          el.appendChild(document.createTextNode(fallback));
+          el.appendChild(document.createTextNode(anonymousLabel));
         }
         if (props.isMine) {
           el.appendChild(document.createTextNode(` ${youLabel}`));
@@ -619,7 +619,7 @@ export default function RunPage() {
       map.remove();
       mapRef.current = null;
     };
-  }, [claimHex, refreshClaimed, capturedByLabel, youLabel]);
+  }, [claimHex, refreshClaimed, capturedByLabel, youLabel, anonymousLabel]);
 
   const canStart = isConnected && !isWrongChain && address && !isActiveLoading;
   const isActive = runId !== null;
@@ -643,18 +643,12 @@ export default function RunPage() {
       >
         ← Back
       </Link>
-      {mounted && address && (
+      {mounted && address && user?.username && (
         <div className="absolute top-4 right-4 z-10 rounded-md bg-white/90 px-3 py-1.5 text-xs text-zinc-700 shadow-md backdrop-blur">
-          {user?.username ? (
-            <span>
-              <span className="text-zinc-500">@</span>
-              <span className="font-medium">{user.username}</span>
-            </span>
-          ) : (
-            <span className="font-mono">
-              {address.slice(0, 6)}...{address.slice(-4)}
-            </span>
-          )}
+          <span>
+            <span className="text-zinc-500">@</span>
+            <span className="font-medium">{user.username}</span>
+          </span>
         </div>
       )}
       <GeoStatusBanner status={geoStatus} lastError={geoLastError} />

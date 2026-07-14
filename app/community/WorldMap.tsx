@@ -52,6 +52,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
 
   const capturedByLabel = t("community.popup.capturedBy");
   const youLabel = t("community.popup.you");
+  const anonymousLabel = t("common.anonymous");
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -77,7 +78,6 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
         ownerUsername: string | null;
         isMine: boolean;
       };
-      const fallback = `${props.owner.slice(0, 6)}...${props.owner.slice(-4)}`;
       popupRef.current?.remove();
       const el = document.createElement("div");
       el.style.fontSize = "13px";
@@ -92,7 +92,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
         link.style.textDecoration = "underline";
         el.appendChild(link);
       } else {
-        el.appendChild(document.createTextNode(fallback));
+        el.appendChild(document.createTextNode(anonymousLabel));
       }
       if (props.isMine) {
         el.appendChild(document.createTextNode(` ${youLabel}`));
@@ -282,7 +282,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
       map.remove();
       mapRef.current = null;
     };
-  }, [myAddress, linked, capturedByLabel, youLabel]);
+  }, [myAddress, linked, capturedByLabel, youLabel, anonymousLabel]);
 
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
