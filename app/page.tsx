@@ -16,6 +16,9 @@ export default async function HomePage() {
         <HomeClient />
       </div>
       <nav className="flex flex-wrap items-center justify-center gap-6 text-xs text-zinc-500">
+        <a href="/me" className="underline hover:text-zinc-700">
+          {t("nav.you")}
+        </a>
         <a href="/community" className="underline hover:text-zinc-700">
           {t("nav.community")}
         </a>
