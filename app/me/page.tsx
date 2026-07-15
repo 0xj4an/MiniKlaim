@@ -14,7 +14,6 @@ import {
 } from "@/lib/onchain/badgeCatalog";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
-import { type UserBadges, useUserBadges } from "@/lib/wallet/useUserBadges";
 import { useUserRuns } from "@/lib/wallet/useUserRuns";
 import { type UserStats, useUserStats } from "@/lib/wallet/useUserStats";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -36,9 +35,6 @@ export default function MePage() {
     50,
   );
   const balances = useBalances(address, isConnected && !isWrongChain);
-  const onchainBadges = useUserBadges(
-    isConnected && !isWrongChain ? address : null,
-  );
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-8">
@@ -104,14 +100,6 @@ export default function MePage() {
 
               {(stats.bestRunHexes > 0 || stats.hexesOwned > 0) && (
                 <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 text-xs text-zinc-500">
-                  {stats.hexesMinted > 0 && (
-                    <span>
-                      <span className="font-semibold text-zinc-900">
-                        {stats.hexesMinted}
-                      </span>{" "}
-                      {t("me.onchain.suffix")}
-                    </span>
-                  )}
                   {stats.bestRunHexes > 0 && (
                     <span>
                       {t("me.bestRun.label")}{" "}
@@ -132,7 +120,7 @@ export default function MePage() {
                 </div>
               )}
 
-              <Achievements stats={stats} onchain={onchainBadges} />
+              <Achievements stats={stats} />
               <BadgeClaimPrompt
                 address={address ?? null}
                 enabled={isConnected && !isWrongChain}
@@ -314,13 +302,7 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
 
 const ACHIEVEMENTS_CACHE_KEY = "miniklaim.unlockedBadges";
 
-function Achievements({
-  stats,
-  onchain,
-}: {
-  stats: UserStats;
-  onchain: UserBadges | null;
-}) {
+function Achievements({ stats }: { stats: UserStats }) {
   const { t, locale } = useLocale();
   const achievements = evaluateBadges(stats, locale);
   const byId = new Map(achievements.map((a) => [a.onchainId, a]));
@@ -328,8 +310,6 @@ function Achievements({
   const [newlyUnlocked, setNewlyUnlocked] = useState<EvaluatedBadge | null>(
     null,
   );
-  const heldSet = new Set(onchain?.heldIds ?? []);
-  const contract = onchain?.contract ?? null;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -377,7 +357,6 @@ function Achievements({
             {group.ids.map((id) => {
               const a = byId.get(id);
               if (!a) return null;
-              const minted = heldSet.has(a.onchainId);
               return (
                 <div
                   key={a.onchainId}
@@ -395,21 +374,8 @@ function Achievements({
                       {a.name}
                     </span>
                   </span>
-                  <span className="flex items-center gap-2">
-                    <span className="text-xs text-zinc-500">
-                      {a.description}
-                    </span>
-                    {minted && contract && (
-                      <a
-                        href={`https://celoscan.io/token/${contract}?a=${a.onchainId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono text-[10px] text-orange-700 underline hover:text-orange-800"
-                        title="View on Celoscan"
-                      >
-                        on-chain
-                      </a>
-                    )}
+                  <span className="text-xs text-zinc-500">
+                    {a.description}
                   </span>
                 </div>
               );
@@ -436,7 +402,6 @@ function RunsList({
     endedAt: string | null;
     hexesClaimed: number;
     distanceMeters: number;
-    mintTxHash: string | null;
   }>;
 }) {
   const { t } = useLocale();
@@ -472,18 +437,6 @@ function RunsList({
               {run.hexesClaimed}{" "}
               {run.hexesClaimed === 1 ? t("me.runs.block") : t("me.runs.blocks")}
             </span>
-            {run.mintTxHash ? (
-              <a
-                href={`https://celoscan.io/tx/${run.mintTxHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-[10px] text-orange-700 underline hover:text-orange-800"
-              >
-                {t("me.runs.viewOnChain")}
-              </a>
-            ) : (
-              <span className="w-4" />
-            )}
           </div>
         );
       })}
