@@ -6,7 +6,7 @@ import { useLocale } from "@/lib/i18n";
 export default function PrivacyPage() {
   const { t } = useLocale();
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-12">
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-12 pb-24">
       <header className="flex items-center justify-between">
         <Link
           href="/about"
