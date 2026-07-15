@@ -15,6 +15,9 @@ const FarcasterReady = dynamic(() =>
 const LocaleSwitcher = dynamic(() =>
   import("./LocaleSwitcher").then((m) => m.LocaleSwitcher),
 );
+const BottomNav = dynamic(() =>
+  import("./BottomNav").then((m) => m.BottomNav),
+);
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -63,6 +66,7 @@ export default async function RootLayout({
           <FarcasterReady />
           <LocaleSwitcher />
           {children}
+          <BottomNav />
         </Providers>
       </body>
     </html>
