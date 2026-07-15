@@ -90,7 +90,7 @@ function Leaderboard({
         {t("community.leaderboard.header")}
       </p>
       {entries.map((e, i) => {
-        const fallback = `${e.address.slice(0, 6)}...${e.address.slice(-4)}`;
+        const fallback = t("common.anonymous");
         const isMe = me !== null && e.address.toLowerCase() === me;
         return (
           <div
@@ -137,7 +137,7 @@ function ActivityFeed({
         {t("community.activity.header")}
       </p>
       {entries.map((e) => {
-        const fallback = `${e.address.slice(0, 6)}...${e.address.slice(-4)}`;
+        const fallback = t("common.anonymous");
         const isMe = me !== null && e.address.toLowerCase() === me;
         const when = relativeTime(new Date(e.endedAt).getTime(), t);
         return (

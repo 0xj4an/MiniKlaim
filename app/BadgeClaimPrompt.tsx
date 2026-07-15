@@ -38,7 +38,6 @@ export function BadgeClaimPrompt({
   const [state, setState] = useState<"idle" | "pending" | "done" | "error">(
     "idle",
   );
-  const [tx, setTx] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const skipNext = useRef(!detectOnMount);
 
@@ -103,11 +102,7 @@ export function BadgeClaimPrompt({
   const runClaim = async () => {
     setState("pending");
     const outcome = await claim();
-    if (outcome.status === "user-claimed") {
-      setTx(outcome.txHash);
-      setDismissed(true);
-      setState("done");
-    } else if (outcome.status === "sponsored") {
+    if (outcome.status === "user-claimed" || outcome.status === "sponsored") {
       setDismissed(true);
       setState("done");
     } else if (outcome.status === "none") {
@@ -175,19 +170,6 @@ export function BadgeClaimPrompt({
       {state === "done" && (
         <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-zinc-900 px-5 py-3 text-sm text-white shadow-2xl">
           <span className="text-orange-700">{t("me.badges.claim.done")}</span>
-          {tx && (
-            <>
-              {" "}
-              <a
-                href={`https://celoscan.io/tx/${tx}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-xs underline"
-              >
-                {t("me.badges.claim.viewTx")}
-              </a>
-            </>
-          )}
         </div>
       )}
     </>
