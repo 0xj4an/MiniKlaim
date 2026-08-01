@@ -52,7 +52,11 @@ export type ChainMetrics = {
   badges: BadgesMetrics | null;
 };
 
-const LABELS: Record<ChainKey, string> = { celo: "Celo", soneium: "Soneium" };
+const LABELS: Record<ChainKey, string> = {
+  celo: "Celo",
+  celoSepolia: "Celo Sepolia",
+  soneium: "Soneium",
+};
 
 export async function readChainMetrics(key: ChainKey): Promise<ChainMetrics> {
   const c = getChain(key);
