@@ -1,11 +1,13 @@
 import {
   createPublicClient,
   createWalletClient,
+  encodeFunctionData,
   http,
   type Address,
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { withAttribution } from "@/lib/onchain/attribution";
 import {
   type ChainKey,
   DEFAULT_CHAIN_KEY,
@@ -186,13 +188,17 @@ export async function mintBadgesBatch(
   }
   try {
     const wallet = signerWallet(chainKey);
-    const txHash = await wallet.writeContract({
-      address: getChain(chainKey).badgesAddress,
+    const data = encodeFunctionData({
       abi: BADGES_ABI,
       functionName: "mintBatch",
       args: [player, badgeIds],
+    });
+    const txHash = await wallet.sendTransaction({
+      to: getChain(chainKey).badgesAddress,
+      data: withAttribution(data),
       chain: getChain(chainKey).chain,
       account: signerAccount(),
+      kzg: undefined,
     });
     log.info("badges mintBatch broadcast", {
       player,
