@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { LinkWallet } from "@/app/LinkWallet";
+import { RewardsSection } from "@/app/me/RewardsSection";
 import { badgeSvg } from "@/lib/onchain/badgeArt";
 import {
   BADGE_GROUPS,
@@ -125,6 +126,7 @@ export default function MePage() {
                 address={address ?? null}
                 enabled={isConnected && !isWrongChain}
               />
+              <RewardsSection address={address ?? null} />
             </>
           )}
 

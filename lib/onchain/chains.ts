@@ -1,5 +1,6 @@
 import type { Address, Chain } from "viem";
-import { celo, soneium } from "viem/chains";
+import { celo, celoSepolia, soneium } from "viem/chains";
+import { TOKENS, type TokenSymbol } from "@/lib/tokens";
 
 // Generic multichain registry. Adding a chain = one entry here + a deploy of
 // Hexes/Badges + the NEXT_PUBLIC_<KEY>_*_ADDRESS env vars. Everything onchain
@@ -7,7 +8,19 @@ import { celo, soneium } from "viem/chains";
 //
 // Client-safe: only public env + viem chain objects, no signer key.
 
-export type ChainKey = "celo" | "soneium";
+export type ChainKey = "celo" | "celoSepolia" | "soneium";
+
+/**
+ * A stablecoin the client can offer as `feeCurrency` on Celo (CIP-64). Order
+ * in `ChainConfig.feeCurrencies` is preference: first entry the user has a
+ * balance in wins. USDm's `adapter` equals the token address; USDC/USDT need
+ * the dedicated Mento adapter.
+ */
+export type FeeCurrency = {
+  symbol: TokenSymbol;
+  token: Address;
+  adapter: Address;
+};
 
 export type ChainConfig = {
   key: ChainKey;
@@ -16,11 +29,24 @@ export type ChainConfig = {
   hexesAddress: Address;
   badgesAddress: Address;
   /**
-   * Fee-currency adapter for paying gas in a stablecoin (Celo CIP-64). When set,
-   * the client may pass it as `feeCurrency` if the player holds that token.
-   * Undefined on chains without fee abstraction (gas paid natively / by the host).
+   * MiniKlaimRewards contract address. Optional: only Celo mainnet ships the
+   * rewards MVP; other chains leave this empty. Backend + UI guard on this
+   * being non-zero before offering the claim flow.
    */
-  feeCurrency?: Address;
+  rewardsAddress: Address;
+  /**
+   * Fee-currency adapters for paying gas in a stablecoin (Celo CIP-64).
+   * Ordered by preference: the client picks the first one for which the user
+   * has a positive balance. Empty on chains without fee abstraction (gas paid
+   * natively / by the host).
+   */
+  feeCurrencies: FeeCurrency[];
+  /**
+   * Destination address for the link-flow "prove wallet ownership" tx. Client
+   * sends a 0-value tx with `keccak256(code)` as calldata; backend reads the
+   * receipt to derive the redeemer. Set to the relayer EOA by default.
+   */
+  linkVerifier: Address;
   /** Base URL for explorer links (no trailing slash). */
   explorerBase: string;
 };
@@ -35,23 +61,54 @@ function addr(...candidates: (string | undefined)[]): Address {
   return ZERO;
 }
 
+const LINK_VERIFIER = addr(process.env.NEXT_PUBLIC_LINK_VERIFIER_ADDRESS);
+
+// Celo CIP-64 fee-currency adapters, in preference order. USDm is native and
+// self-adapting; USDC/USDT need Mento's on-chain adapter (source: celopedia
+// minipay-guide "Allowed Fee Currencies (Mainnet)"). Order matters: client
+// picks the first one the user holds.
+const CELO_FEE_CURRENCIES: FeeCurrency[] = [
+  {
+    symbol: "USDm",
+    token: TOKENS.USDm.address,
+    adapter: TOKENS.USDm.feeAdapter,
+  },
+  {
+    symbol: "USDC",
+    token: TOKENS.USDC.address,
+    adapter: TOKENS.USDC.feeAdapter,
+  },
+  {
+    symbol: "USDT",
+    token: TOKENS.USDT.address,
+    adapter: TOKENS.USDT.feeAdapter,
+  },
+];
+
 export const CHAINS: Record<ChainKey, ChainConfig> = {
   celo: {
     key: "celo",
     chain: celo,
     chainId: celo.id,
-    // Back-compat: fall back to the legacy single-chain env vars.
-    hexesAddress: addr(
-      process.env.NEXT_PUBLIC_CELO_HEXES_ADDRESS,
-      process.env.NEXT_PUBLIC_MINIKLAIM_HEXES_ADDRESS,
-    ),
-    badgesAddress: addr(
-      process.env.NEXT_PUBLIC_CELO_BADGES_ADDRESS,
-      process.env.NEXT_PUBLIC_MINIKLAIM_BADGES_ADDRESS,
-    ),
-    // USDm adapter (CIP-64). Source: celopedia minipay-guide.
-    feeCurrency: "0x765DE816845861e75A25fCA122bb6898B8B1282a",
+    hexesAddress: addr(process.env.NEXT_PUBLIC_CELO_HEXES_ADDRESS),
+    badgesAddress: addr(process.env.NEXT_PUBLIC_CELO_BADGES_ADDRESS),
+    rewardsAddress: addr(process.env.NEXT_PUBLIC_CELO_REWARDS_ADDRESS),
+    feeCurrencies: CELO_FEE_CURRENCIES,
+    linkVerifier: LINK_VERIFIER,
     explorerBase: "https://celoscan.io",
+  },
+  celoSepolia: {
+    key: "celoSepolia",
+    chain: celoSepolia,
+    chainId: celoSepolia.id,
+    hexesAddress: addr(process.env.NEXT_PUBLIC_CELO_SEPOLIA_HEXES_ADDRESS),
+    badgesAddress: addr(process.env.NEXT_PUBLIC_CELO_SEPOLIA_BADGES_ADDRESS),
+    rewardsAddress: addr(process.env.NEXT_PUBLIC_CELO_SEPOLIA_REWARDS_ADDRESS),
+    // Testnet also supports CIP-64 fee abstraction but the adapter set is
+    // different. Leave empty until testnet Mento adapters are wired.
+    feeCurrencies: [],
+    linkVerifier: LINK_VERIFIER,
+    explorerBase: "https://celo-sepolia.blockscout.com",
   },
   soneium: {
     key: "soneium",
@@ -59,7 +116,10 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     chainId: soneium.id,
     hexesAddress: addr(process.env.NEXT_PUBLIC_SONEIUM_HEXES_ADDRESS),
     badgesAddress: addr(process.env.NEXT_PUBLIC_SONEIUM_BADGES_ADDRESS),
-    feeCurrency: undefined,
+    // Rewards MVP is Celo-only.
+    rewardsAddress: ZERO,
+    feeCurrencies: [],
+    linkVerifier: LINK_VERIFIER,
     explorerBase: "https://soneium.blockscout.com",
   },
 };
@@ -85,4 +145,22 @@ export function parseChainKey(value: string | null | undefined): ChainKey {
 export function isChainConfigured(key: ChainKey): boolean {
   const c = CHAINS[key];
   return c.hexesAddress !== ZERO && c.badgesAddress !== ZERO;
+}
+
+/**
+ * Pick the best fee-currency adapter for a client tx: the first entry in
+ * `chain.feeCurrencies` for which the user's balance (from `useBalances`)
+ * is positive. Returns undefined when no stablecoin is held or the chain
+ * doesn't support fee abstraction, so the caller can omit `feeCurrency` and
+ * let the wallet pay natively (or fall through to the sponsored relayer).
+ */
+export function pickFeeAdapter(
+  feeCurrencies: FeeCurrency[],
+  balances: Partial<Record<TokenSymbol, { value: bigint } | null>>,
+): Address | undefined {
+  for (const fc of feeCurrencies) {
+    const bal = balances[fc.symbol];
+    if (bal && bal.value > 0n) return fc.adapter;
+  }
+  return undefined;
 }

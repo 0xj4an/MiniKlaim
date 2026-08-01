@@ -5,31 +5,30 @@ import { redeemLinkCode } from "@/lib/players";
 
 export const dynamic = "force-dynamic";
 
-/** Redeem a link code from a new wallet (proven by a signature of the challenge). */
+/**
+ * Redeem a link code by pointing at the ownership-proof tx the client just
+ * broadcast. Tx must send 0 value to `chain.linkVerifier` with
+ * `keccak256(code)` as calldata; backend reads the receipt to derive the
+ * redeemer address and links it to the code's player. Returns 202 if the tx
+ * hasn't confirmed yet so the client can retry.
+ */
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as {
     code?: string;
-    address?: string;
-    signature?: string;
+    txHash?: string;
   };
   const code = body.code?.trim().toUpperCase();
-  const lower = (body.address ?? "").toLowerCase();
-  if (!code || !/^0x[a-f0-9]{40}$/.test(lower) || !body.signature) {
+  const txHash = body.txHash?.trim() as Hex | undefined;
+  if (!code || !txHash || !/^0x[a-f0-9]{64}$/i.test(txHash)) {
     return NextResponse.json({ error: "missing fields" }, { status: 400 });
   }
   const chainKey = parseChainKey(new URL(request.url).searchParams.get("chain"));
-  const result = await redeemLinkCode(
-    code,
-    lower,
-    chainKey,
-    body.signature as Hex,
-  );
+  const result = await redeemLinkCode(code, chainKey, txHash);
   if (result.ok) {
     return NextResponse.json({ ok: true });
   }
   const reason = result.reason ?? "error";
-  return NextResponse.json(
-    { error: reason },
-    { status: reason === "bad-code" ? 404 : 400 },
-  );
+  const status =
+    reason === "bad-code" ? 404 : reason === "tx-pending" ? 202 : 400;
+  return NextResponse.json({ error: reason }, { status });
 }
