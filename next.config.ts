@@ -1,4 +1,11 @@
+import bundleAnalyzer from "@next/bundle-analyzer";
 import type { NextConfig } from "next";
+
+const withBundleAnalyzer = bundleAnalyzer({
+  // Set ANALYZE=true when running `npm run build` to open the interactive
+  // HTML report. Off by default so normal builds are unaffected.
+  enabled: process.env.ANALYZE === "true",
+});
 
 const nextConfig: NextConfig = {
   // Pin the Turbopack workspace root to this directory so it does not climb up
@@ -26,4 +33,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

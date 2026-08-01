@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { erc20Abi, formatUnits } from "viem";
-import { useReadContract } from "wagmi";
+import { useReadContracts } from "wagmi";
 import { celo } from "wagmi/chains";
 import { createLogger } from "@/lib/logger";
 import { TOKENS, type TokenSymbol } from "@/lib/tokens";
@@ -24,6 +24,12 @@ export type UseBalances = {
   isError: boolean;
 };
 
+/**
+ * Read the player's USDm, USDC, and USDT balances on Celo. Uses a single
+ * `useReadContracts` (multicall under the hood) so the three balances land
+ * in one RPC round-trip instead of three sequential calls. Matters on
+ * mobile 3G connections (MiniPay's primary audience).
+ */
 export function useBalances(
   address: `0x${string}` | null,
   enabled: boolean,
@@ -31,34 +37,48 @@ export function useBalances(
   const queryEnabled = enabled && !!address;
   const args = address ? ([address] as const) : undefined;
 
-  const usdmQ = useReadContract({
-    abi: erc20Abi,
-    address: TOKENS.USDm.address,
-    functionName: "balanceOf",
-    args,
-    chainId: celo.id,
+  const q = useReadContracts({
+    contracts: args
+      ? [
+          {
+            abi: erc20Abi,
+            address: TOKENS.USDm.address,
+            functionName: "balanceOf",
+            args,
+            chainId: celo.id,
+          },
+          {
+            abi: erc20Abi,
+            address: TOKENS.USDC.address,
+            functionName: "balanceOf",
+            args,
+            chainId: celo.id,
+          },
+          {
+            abi: erc20Abi,
+            address: TOKENS.USDT.address,
+            functionName: "balanceOf",
+            args,
+            chainId: celo.id,
+          },
+        ]
+      : [],
     query: { enabled: queryEnabled },
-  });
-  const usdcQ = useReadContract({
-    abi: erc20Abi,
-    address: TOKENS.USDC.address,
-    functionName: "balanceOf",
-    args,
-    chainId: celo.id,
-    query: { enabled: queryEnabled },
-  });
-  const usdtQ = useReadContract({
-    abi: erc20Abi,
-    address: TOKENS.USDT.address,
-    functionName: "balanceOf",
-    args,
-    chainId: celo.id,
-    query: { enabled: queryEnabled },
+    allowFailure: true,
   });
 
-  const USDm = useMemo(() => buildBalance("USDm", usdmQ.data), [usdmQ.data]);
-  const USDC = useMemo(() => buildBalance("USDC", usdcQ.data), [usdcQ.data]);
-  const USDT = useMemo(() => buildBalance("USDT", usdtQ.data), [usdtQ.data]);
+  const USDm = useMemo(
+    () => buildBalance("USDm", pick(q.data, 0)),
+    [q.data],
+  );
+  const USDC = useMemo(
+    () => buildBalance("USDC", pick(q.data, 1)),
+    [q.data],
+  );
+  const USDT = useMemo(
+    () => buildBalance("USDT", pick(q.data, 2)),
+    [q.data],
+  );
 
   useEffect(() => {
     if (USDm) log.debug("USDm balance", { formatted: USDm.formatted });
@@ -73,18 +93,25 @@ export function useBalances(
   }, [USDT]);
 
   useEffect(() => {
-    if (usdmQ.error) log.error("USDm read failed", usdmQ.error);
-    if (usdcQ.error) log.error("USDC read failed", usdcQ.error);
-    if (usdtQ.error) log.error("USDT read failed", usdtQ.error);
-  }, [usdmQ.error, usdcQ.error, usdtQ.error]);
+    if (q.error) log.error("balances multicall failed", q.error);
+  }, [q.error]);
 
   return {
     USDm,
     USDC,
     USDT,
-    isLoading: usdmQ.isLoading || usdcQ.isLoading || usdtQ.isLoading,
-    isError: usdmQ.isError || usdcQ.isError || usdtQ.isError,
+    isLoading: q.isLoading,
+    isError: q.isError,
   };
+}
+
+function pick(
+  data: ReadonlyArray<{ result?: unknown; status: string }> | undefined,
+  idx: number,
+): bigint | undefined {
+  const r = data?.[idx];
+  if (!r || r.status !== "success") return undefined;
+  return r.result as bigint;
 }
 
 function buildBalance(
