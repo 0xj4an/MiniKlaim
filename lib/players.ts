@@ -1,10 +1,16 @@
 import { randomBytes } from "node:crypto";
 import { and, eq, gt } from "drizzle-orm";
-import { createPublicClient, http, type Address } from "viem";
+import {
+  createPublicClient,
+  http,
+  keccak256,
+  toBytes,
+  type Address,
+  type Hex,
+} from "viem";
 import { db } from "@/lib/db";
 import { linkCodes, playerWallets, players, users } from "@/lib/db/schema";
 import { type ChainKey, getChain } from "@/lib/onchain/chains";
-import { linkChallenge } from "@/lib/linkChallenge";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("players");
@@ -136,21 +142,30 @@ export async function createLinkCode(
 
 export type RedeemResult = {
   ok: boolean;
-  reason?: "bad-code" | "bad-signature" | "error";
+  reason?:
+    | "bad-code"
+    | "bad-tx"
+    | "tx-pending"
+    | "tx-not-verifier"
+    | "tx-wrong-data"
+    | "tx-failed"
+    | "error";
 };
 
 /**
- * Redeem a link code from a new wallet: verify the wallet signed the challenge
- * (ECDSA for EOAs, EIP-1271 for smart accounts via the chain's RPC), then move
- * that (address, chainId) onto the code's player.
+ * Redeem a link code from a new wallet by verifying an on-chain ownership tx.
+ *
+ * The client sends a 0-value tx to `chain.linkVerifier` with `keccak256(code)`
+ * as calldata (see `LinkExisting.tsx` / `LinkWallet.tsx`). We read the tx
+ * receipt + tx here, verify the shape, extract `from = B`, and link B to the
+ * code's player. Replaces the previous `personal_sign` flow (which failed
+ * silently in MiniPay because MiniPay does not support message signing).
  */
 export async function redeemLinkCode(
   code: string,
-  address: string,
   chainKey: ChainKey,
-  signature: `0x${string}`,
+  txHash: Hex,
 ): Promise<RedeemResult> {
-  const lower = address.toLowerCase() as Address;
   const [row] = await db
     .select({ playerId: linkCodes.playerId })
     .from(linkCodes)
@@ -159,14 +174,28 @@ export async function redeemLinkCode(
   if (!row) return { ok: false, reason: "bad-code" };
 
   const chain = getChain(chainKey);
+  const expectedData = keccak256(toBytes(code));
+  const client = createPublicClient({ chain: chain.chain, transport: http() });
+
   try {
-    const client = createPublicClient({ chain: chain.chain, transport: http() });
-    const valid = await client.verifyMessage({
-      address: lower,
-      message: linkChallenge(code),
-      signature,
-    });
-    if (!valid) return { ok: false, reason: "bad-signature" };
+    const [receipt, tx] = await Promise.all([
+      client.getTransactionReceipt({ hash: txHash }).catch(() => null),
+      client.getTransaction({ hash: txHash }).catch(() => null),
+    ]);
+    if (!receipt || !tx) return { ok: false, reason: "tx-pending" };
+    if (receipt.status !== "success") return { ok: false, reason: "tx-failed" };
+    if (!tx.to || tx.to.toLowerCase() !== chain.linkVerifier.toLowerCase()) {
+      return { ok: false, reason: "tx-not-verifier" };
+    }
+    // The client appends an ERC-8021 attribution suffix, so we match by
+    // prefix. Suffix is fixed-length (see @celo/attribution-tags spec), so
+    // `startsWith(expectedData)` is safe: an attacker cannot get a prefix
+    // match without knowing the code (32-byte keccak256).
+    if (!tx.input.toLowerCase().startsWith(expectedData.toLowerCase())) {
+      return { ok: false, reason: "tx-wrong-data" };
+    }
+
+    const lower = tx.from.toLowerCase() as Address;
 
     // Snapshot the wallet's current player before we move it, so we can
     // clean up the old player row if it becomes orphaned.
@@ -200,11 +229,11 @@ export async function redeemLinkCode(
       await cleanupOrphanPlayer(prior.playerId);
     }
 
-    log.info("wallet linked", { address: lower, chainKey });
+    log.info("wallet linked", { address: lower, chainKey, txHash });
     return { ok: true };
   } catch (e) {
     log.error("redeemLinkCode failed", {
-      address: lower,
+      txHash,
       error: e instanceof Error ? e.message : String(e),
     });
     return { ok: false, reason: "error" };

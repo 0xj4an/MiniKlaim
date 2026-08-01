@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
 import { countryForHex } from "@/lib/geo/country";
 import { createLogger } from "@/lib/logger";
+import { validateClaim } from "@/lib/runs/validation";
 
 const log = createLogger("api:runs:claim");
 
@@ -17,6 +18,7 @@ export async function POST(
   const body = (await request.json()) as {
     h3?: string;
     distanceMeters?: number;
+    accuracy?: number;
   };
   const h3 = body.h3;
   const distanceMeters =
@@ -25,9 +27,27 @@ export async function POST(
     body.distanceMeters > 0
       ? Math.round(body.distanceMeters)
       : 0;
+  const accuracy =
+    typeof body.accuracy === "number" && Number.isFinite(body.accuracy)
+      ? body.accuracy
+      : null;
 
   if (!h3 || typeof h3 !== "string") {
     return NextResponse.json({ error: "invalid h3" }, { status: 400 });
+  }
+
+  const validation = await validateClaim({ runId: id, distanceMeters, accuracy });
+  if (validation.ok === false) {
+    log.warn("hex claim rejected", {
+      runId: id,
+      h3,
+      reason: validation.reason,
+      detail: validation.detail,
+    });
+    return NextResponse.json(
+      { error: validation.reason, detail: validation.detail },
+      { status: 429 },
+    );
   }
 
   const [run] = await db
