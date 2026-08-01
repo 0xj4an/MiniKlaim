@@ -1,5 +1,4 @@
-import { createPublicClient, http, type Address } from "viem";
-import { erc20Abi } from "viem";
+import { createPublicClient, erc20Abi, http, type Address } from "viem";
 import {
   type ChainKey,
   DEFAULT_CHAIN_KEY,

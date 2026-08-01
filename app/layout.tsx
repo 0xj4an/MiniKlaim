@@ -6,14 +6,12 @@ import { wagmiConfig } from "@/lib/wallet/config";
 import dynamic from "next/dynamic";
 import { Providers } from "./providers";
 
-// Both pieces are non-critical UI. `dynamic` puts them in their own chunk
-// so they don't sit in the home critical-path bundle. Each component is
-// "use client" already so no SSR work happens for them.
+// Non-critical client UI split into its own chunk so it doesn't sit on the
+// home critical-path bundle. Each component is "use client" already so no
+// SSR work happens for them. The language toggle used to be a separate
+// floating widget; it now lives inside BottomNav (see there for rationale).
 const FarcasterReady = dynamic(() =>
   import("./FarcasterReady").then((m) => m.FarcasterReady),
-);
-const LocaleSwitcher = dynamic(() =>
-  import("./LocaleSwitcher").then((m) => m.LocaleSwitcher),
 );
 const BottomNav = dynamic(() =>
   import("./BottomNav").then((m) => m.BottomNav),
@@ -64,7 +62,6 @@ export default async function RootLayout({
       <body className="bg-white text-zinc-900">
         <Providers initialState={initialState}>
           <FarcasterReady />
-          <LocaleSwitcher />
           {children}
           <BottomNav />
         </Providers>
