@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback } from "react";
-import type { Address, Hex } from "viem";
+import { encodeFunctionData, type Address, type Hex } from "viem";
 import { useWalletClient } from "wagmi";
 import { createLogger } from "@/lib/logger";
-import { getChain } from "@/lib/onchain/chains";
+import { withAttribution } from "@/lib/onchain/attribution";
+import { getChain, pickFeeAdapter } from "@/lib/onchain/chains";
 import { HEXES_CLAIM_ABI, hexesAddress } from "@/lib/onchain/hexesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { useBalances } from "@/lib/wallet/useBalances";
@@ -85,13 +86,11 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
         return sponsorFallback(runId);
       }
 
-      // Fee abstraction only where supported (Celo CIP-64 + USDm held).
-      const hasUsdm = (balances.USDm?.value ?? 0n) > 0n;
-      const feeCurrency =
-        chain.feeCurrency && hasUsdm ? chain.feeCurrency : undefined;
+      // Fee abstraction only where supported (Celo CIP-64). Pick the first
+      // stablecoin the player holds; falls back to native/sponsored otherwise.
+      const feeCurrency = pickFeeAdapter(chain.feeCurrencies, balances);
       try {
-        const txHash = await walletClient.writeContract({
-          address: contract,
+        const data = encodeFunctionData({
           abi: HEXES_CLAIM_ABI,
           functionName: "claimRun",
           args: [
@@ -99,8 +98,13 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
             BigInt(voucher.nonce),
             voucher.signature,
           ],
+        });
+        const txHash = await walletClient.sendTransaction({
+          to: contract,
+          data: withAttribution(data),
           chain: chain.chain,
           account: address,
+          kzg: undefined,
           ...(feeCurrency ? { feeCurrency } : {}),
         });
         log.info("claimRun submitted by player", { runId, chainKey, txHash });
@@ -118,7 +122,20 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
         return sponsorFallback(runId);
       }
     },
-    [walletClient, address, chainKey, balances.USDm, sponsorFallback],
+    // The individual `balances.<sym>` values are memoized inside useBalances,
+    // so listing them keeps the callback stable across renders. Depending on
+    // `balances` directly (a new object each render) would re-create the
+    // callback on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      walletClient,
+      address,
+      chainKey,
+      balances.USDm,
+      balances.USDC,
+      balances.USDT,
+      sponsorFallback,
+    ],
   );
 
   return { claim };
