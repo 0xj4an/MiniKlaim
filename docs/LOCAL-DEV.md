@@ -72,21 +72,14 @@ cp .env.example .env.local
 
 Minimum for the app to run locally:
 
-```
+```dotenv
 DATABASE_URL=postgresql://postgres:miniklaim@localhost:5432/miniklaim
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
-If you want on-chain reads and mint testing, add:
+If you want on-chain reads and mint testing, also set the contract addresses (Celo mainnet values in [CONTRACTS.md](CONTRACTS.md)) plus `NEXT_PUBLIC_LINK_VERIFIER_ADDRESS` (the relayer EOA) and `SERVER_SIGNER_PRIVATE_KEY` (only needed for the sponsored / voucher flows).
 
-```
-NEXT_PUBLIC_CELO_HEXES_ADDRESS=0x9945dDEAa9C52c3C4e667B71B698c4e4551F242B
-NEXT_PUBLIC_CELO_BADGES_ADDRESS=0x79c5d6365f447d1F707EA6d4bDE5D6A96f181cf7
-NEXT_PUBLIC_LINK_VERIFIER_ADDRESS=0x8da26Ae1B32a7e4Cd158622D7d70Fe16D6F1dE83
-SERVER_SIGNER_PRIVATE_KEY=0x...   # only if you run the sponsored / voucher flows
-```
-
-Full list of env vars: see `.env.example` at the repo root.
+Full env-var reference: see `.env.example` at the repo root and [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Run the app
 
@@ -94,7 +87,7 @@ Full list of env vars: see `.env.example` at the repo root.
 npm run dev
 ```
 
-Open http://localhost:3000. The app opens on the "You" (home) route.
+Open <http://localhost:3000>. The app opens on the "You" (home) route.
 
 To test wallet flows, use:
 
@@ -138,30 +131,33 @@ Expected response: HTTP 429 with `{"error":"accuracy-too-poor","detail":"accurac
 ## Testing MiniPay compliance locally
 
 - No `useSignMessage` calls should appear in any wallet-interaction path. Grep for it:
+
   ```bash
   grep -rn "useSignMessage\|personal_sign" app lib
   ```
+
   Expected: zero matches in `app/` or `lib/`.
 - Speed display should show `km/h`, not `M:SS/km`.
 - Wrong-network banner should use the i18n key `home.cta.wrongNetwork`, never a hardcoded string containing "Chain".
 
 ## Common issues
 
-**`Error: relation "hexes" does not exist`**
+### `Error: relation "hexes" does not exist`
 
 Run `npm run db:push` to apply the schema, or `npm run db:migrate` if you have local migration state.
 
-**`viem returns "Missing or invalid parameters" on multicall`**
+### `viem returns "Missing or invalid parameters" on multicall`
 
 You've probably added a `multicall` call with `allowFailure: true` but missed `authorizationList: undefined`. viem 2.x requires it explicitly. See existing usages in `lib/onchain/rewards.ts` and `lib/onchain/badges.ts`.
 
-**`preDeployCommand failed` in Railway build**
+### `preDeployCommand failed` in Railway build
 
 Migration order matters. If Railway's DB is behind, apply the missing migrations manually with `npm run db:migrate` connected to that DB.
 
-**MiniPay shows blank screen**
+### MiniPay shows blank screen
 
 Check that:
+
 - The site is HTTPS (use ngrok, not raw http).
 - The route calls `sdk.actions.ready()` at some point (see `app/FarcasterReady.tsx`).
 - There's no `personal_sign` in the initial connect flow.
