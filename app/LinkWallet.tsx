@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { useSignMessage } from "wagmi";
+import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
-import { linkChallenge } from "@/lib/linkChallenge";
 import { createLogger } from "@/lib/logger";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
+import { useLinkRedeem } from "@/lib/wallet/useLinkRedeem";
 
 const log = createLogger("ui:linkWallet");
 
@@ -13,19 +12,25 @@ const log = createLogger("ui:linkWallet");
  * Link the connected wallet to an existing MiniKlaim player so identity (name,
  * profile) is shared across chains. Two paths: generate a code here to enter on
  * another wallet, or enter a code from another wallet and prove control by
- * signing the challenge.
+ * broadcasting an ownership tx (MiniPay-safe, no `personal_sign`).
  */
 export function LinkWallet({ address }: { address: `0x${string}` | null }) {
   const { t } = useLocale();
   const chainKey = useActiveChainKey();
-  const { signMessageAsync } = useSignMessage();
+  const { redeem, state } = useLinkRedeem(address);
   const [code, setCode] = useState<string | null>(null);
   const [input, setInput] = useState("");
-  const [state, setState] = useState<"idle" | "linking" | "linked" | "error">(
-    "idle",
-  );
+
+  useEffect(() => {
+    if (state === "linked") {
+      const timer = window.setTimeout(() => window.location.reload(), 1500);
+      return () => window.clearTimeout(timer);
+    }
+  }, [state]);
 
   if (!address) return null;
+
+  const busy = state === "sending" || state === "confirming";
 
   async function generate() {
     try {
@@ -40,34 +45,6 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
       log.warn("generate code failed", {
         message: e instanceof Error ? e.message : String(e),
       });
-    }
-  }
-
-  async function redeem() {
-    const c = input.trim().toUpperCase();
-    if (!c || !address) return;
-    setState("linking");
-    try {
-      const signature = await signMessageAsync({
-        account: address,
-        message: linkChallenge(c),
-      });
-      const res = await fetch(`/api/link/redeem?chain=${chainKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: c, address, signature }),
-      });
-      if (res.ok) {
-        setState("linked");
-        window.setTimeout(() => window.location.reload(), 1500);
-      } else {
-        setState("error");
-      }
-    } catch (e) {
-      log.warn("redeem failed", {
-        message: e instanceof Error ? e.message : String(e),
-      });
-      setState("error");
     }
   }
 
@@ -99,7 +76,9 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-zinc-500">{t("me.link.enterLabel")}</label>
+        <label className="text-xs text-zinc-500">
+          {t("me.link.enterLabel")}
+        </label>
         <div className="flex gap-2">
           <input
             value={input}
@@ -108,11 +87,15 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
             className="min-w-0 flex-1 rounded-md border border-zinc-300 px-3 py-2 font-mono text-sm uppercase"
           />
           <button
-            onClick={redeem}
-            disabled={state === "linking" || !input.trim()}
+            onClick={() => void redeem(input)}
+            disabled={busy || !input.trim()}
             className="rounded-full bg-orange-600 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
           >
-            {state === "linking" ? t("me.link.linking") : t("me.link.cta")}
+            {state === "sending"
+              ? t("me.link.sending")
+              : state === "confirming"
+                ? t("me.link.confirming")
+                : t("me.link.cta")}
           </button>
         </div>
         {state === "linked" && (
