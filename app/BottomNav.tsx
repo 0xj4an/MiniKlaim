@@ -24,12 +24,16 @@ const TABS: Tab[] = [
  * translated label, and highlights the current route. Renders `bottom-0`
  * with safe-area inset so it clears the iOS home indicator.
  *
+ * Also hosts the language toggle on the far right (was previously a
+ * floating top-right widget that collided with per-page headers, most
+ * visibly on /me's refresh button).
+ *
  * Pages that show the tab bar must reserve room via `pb-20` (or equivalent)
  * on their main container so content is not clipped by the bar.
  */
 export function BottomNav() {
   const pathname = usePathname();
-  const { t } = useLocale();
+  const { locale, setLocale, t } = useLocale();
 
   if (pathname === "/run") return null;
 
@@ -61,6 +65,15 @@ export function BottomNav() {
             </Link>
           );
         })}
+        <button
+          type="button"
+          onClick={() => setLocale(locale === "en" ? "es" : "en")}
+          aria-label="Toggle language"
+          className="flex w-12 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-zinc-200 py-2.5 text-[10px] font-medium tracking-wide uppercase text-zinc-500 hover:text-zinc-900"
+        >
+          <GlobeIcon className="h-6 w-6" />
+          <span>{locale === "en" ? "EN" : "ES"}</span>
+        </button>
       </div>
     </nav>
   );
@@ -138,6 +151,25 @@ function ChartIcon({ className }: { className?: string }) {
       <line x1="18" y1="20" x2="18" y2="10" />
       <line x1="12" y1="20" x2="12" y2="4" />
       <line x1="6" y1="20" x2="6" y2="14" />
+    </svg>
+  );
+}
+
+function GlobeIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
     </svg>
   );
 }
