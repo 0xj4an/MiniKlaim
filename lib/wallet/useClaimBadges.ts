@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback } from "react";
-import type { Address, Hex } from "viem";
+import { encodeFunctionData, type Address, type Hex } from "viem";
 import { useWalletClient } from "wagmi";
 import { createLogger } from "@/lib/logger";
-import { getChain } from "@/lib/onchain/chains";
+import { withAttribution } from "@/lib/onchain/attribution";
+import { getChain, pickFeeAdapter } from "@/lib/onchain/chains";
 import { BADGES_CLAIM_ABI, badgesAddress } from "@/lib/onchain/badgesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { useBalances } from "@/lib/wallet/useBalances";
@@ -79,12 +80,9 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
       return sponsorFallback(address);
     }
 
-    const hasUsdm = (balances.USDm?.value ?? 0n) > 0n;
-    const feeCurrency =
-      chain.feeCurrency && hasUsdm ? chain.feeCurrency : undefined;
+    const feeCurrency = pickFeeAdapter(chain.feeCurrencies, balances);
     try {
-      const txHash = await walletClient.writeContract({
-        address: contract,
+      const data = encodeFunctionData({
         abi: BADGES_CLAIM_ABI,
         functionName: "claimBadges",
         args: [
@@ -92,8 +90,13 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
           BigInt(voucher.nonce),
           voucher.signature,
         ],
+      });
+      const txHash = await walletClient.sendTransaction({
+        to: contract,
+        data: withAttribution(data),
         chain: chain.chain,
         account: address,
+        kzg: undefined,
         ...(feeCurrency ? { feeCurrency } : {}),
       });
       log.info("claimBadges submitted by player", { chainKey, txHash });
@@ -104,7 +107,19 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
       });
       return sponsorFallback(address);
     }
-  }, [walletClient, address, chainKey, balances.USDm, sponsorFallback]);
+    // Individual balance fields are memoized in useBalances; listing them
+    // keeps the callback stable across renders (unlike the whole `balances`
+    // object, which is re-created on every render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    walletClient,
+    address,
+    chainKey,
+    balances.USDm,
+    balances.USDC,
+    balances.USDT,
+    sponsorFallback,
+  ]);
 
   return { claim };
 }

@@ -1,11 +1,13 @@
 import {
   createPublicClient,
   createWalletClient,
+  encodeFunctionData,
   http,
   type Address,
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { withAttribution } from "@/lib/onchain/attribution";
 import {
   type ChainKey,
   DEFAULT_CHAIN_KEY,
@@ -114,13 +116,17 @@ export async function captureBatch(
   try {
     const tokenIds = h3Ids.map(h3ToTokenId);
     const wallet = signerWallet(chainKey);
-    const txHash = await wallet.writeContract({
-      address: hexesAddress,
+    const data = encodeFunctionData({
       abi: HEXES_ABI,
       functionName: "captureBatch",
       args: [player, tokenIds],
+    });
+    const txHash = await wallet.sendTransaction({
+      to: hexesAddress,
+      data: withAttribution(data),
       chain,
       account: signerAccount(),
+      kzg: undefined,
     });
     log.info("captureBatch broadcast", {
       player,
