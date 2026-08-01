@@ -54,7 +54,7 @@ async function main() {
       AND r.ended_at IS NOT NULL
       AND r.ended_at < ${cutoff}
     GROUP BY h.run_id, r.user_address
-    ORDER BY r.ended_at ASC
+    ORDER BY MIN(r.ended_at) ASC
     LIMIT ${MAX_RUNS_PER_INVOCATION}
   `);
 
