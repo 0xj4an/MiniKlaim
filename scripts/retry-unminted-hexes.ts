@@ -38,7 +38,11 @@ async function main() {
   const client = postgres(url, { max: 1 });
   const db = drizzle(client, { schema: { runs, hexes } });
 
-  const cutoff = new Date(Date.now() - MIN_AGE_MIN * 60_000);
+  // ISO string, not Date. postgres-js's parameter binding in db.execute(sql`...`)
+  // does not serialize Date instances; passing one raises
+  // `ERR_INVALID_ARG_TYPE` at bind time. Postgres accepts ISO 8601 strings for
+  // timestamptz comparisons.
+  const cutoff = new Date(Date.now() - MIN_AGE_MIN * 60_000).toISOString();
 
   // Distinct runs with at least one unminted hex, finished more than MIN_AGE_MIN ago.
   const rows = await db.execute<{
