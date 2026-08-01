@@ -13,7 +13,7 @@ import {
   FOLLOW_ZOOM,
   HEX_RESOLUTION,
 } from "@/lib/map/config";
-import { formatPace, haversineMeters } from "@/lib/map/geo";
+import { formatSpeed, haversineMeters } from "@/lib/map/geo";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
@@ -170,7 +170,7 @@ export default function RunPage() {
   }, []);
 
   const claimHex = useCallback(
-    async (h3: string, distanceDelta = 0) => {
+    async (h3: string, distanceDelta = 0, accuracy?: number) => {
       const id = runIdRef.current;
       if (!id) return;
       try {
@@ -180,6 +180,9 @@ export default function RunPage() {
           body: JSON.stringify({
             h3,
             ...(distanceDelta > 0 ? { distanceMeters: distanceDelta } : {}),
+            ...(typeof accuracy === "number" && Number.isFinite(accuracy)
+              ? { accuracy }
+              : {}),
           }),
         });
         if (!res.ok) {
@@ -501,6 +504,15 @@ export default function RunPage() {
           setGeoStatus("granted");
           log.debug("position", { lat: latitude, lng: longitude, accuracy });
 
+          // Anti-spoof / anti-jitter: drop samples whose reported accuracy is
+          // worse than 30m. Server enforces the same threshold in
+          // `lib/runs/validation.ts` (single source of truth). Client filter
+          // is UX + bandwidth save; server is the security boundary.
+          if (typeof accuracy === "number" && accuracy > 30) {
+            log.debug("dropped low-accuracy sample", { accuracy });
+            return;
+          }
+
           latestPosRef.current = { lat: latitude, lng: longitude };
           writeCachedPosition(latitude, longitude);
 
@@ -561,7 +573,7 @@ export default function RunPage() {
             if (runIdRef.current) {
               const delta = pendingDistanceRef.current;
               pendingDistanceRef.current = 0;
-              void claimHex(currentHex, delta);
+              void claimHex(currentHex, delta, accuracy);
               // Auto-follow the runner: re-center the camera on each new hex
               // during an active run so they don't lose themselves off-screen
               // while moving. Cheap enough (once per ~50m), and players can
@@ -902,7 +914,7 @@ function RunSummaryModal({
     summary.distanceMeters >= 1000
       ? `${(summary.distanceMeters / 1000).toFixed(2)} km`
       : `${summary.distanceMeters} m`;
-  const paceLabel = formatPace(summary.durationMs, summary.distanceMeters);
+  const speedLabel = formatSpeed(summary.durationMs, summary.distanceMeters);
   return (
     <div
       className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -942,10 +954,10 @@ function RunSummaryModal({
           </div>
           <div>
             <div className="font-mono text-2xl font-bold text-zinc-900">
-              {paceLabel.replace("/km", "")}
+              {speedLabel.replace(" km/h", "")}
             </div>
             <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
-              {t("run.summary.pace")}
+              {t("run.summary.speed")}
             </div>
           </div>
         </div>
@@ -1024,14 +1036,14 @@ function ElapsedBanner({
     distanceMeters >= 1000
       ? `${(distanceMeters / 1000).toFixed(2)} km`
       : `${Math.round(distanceMeters)} m`;
-  const paceLabel = formatPace(elapsedMs, distanceMeters);
+  const speedLabel = formatSpeed(elapsedMs, distanceMeters);
   return (
     <div className="rounded-md bg-white/95 px-4 py-2 text-center shadow-md backdrop-blur">
       <div className="font-mono text-xl font-bold text-zinc-900">{time}</div>
       <div className="text-xs text-zinc-600">
         {hexCount}{" "}
         {hexCount === 1 ? t("run.banner.block") : t("run.banner.blocks")} ·{" "}
-        {distLabel} · {paceLabel}
+        {distLabel} · {speedLabel}
       </div>
     </div>
   );
