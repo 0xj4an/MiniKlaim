@@ -1,7 +1,7 @@
 import { config as loadEnv } from "dotenv";
 loadEnv({ path: ".env.local" });
 loadEnv();
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { hexes, runs } from "../lib/db/schema";
@@ -28,6 +28,16 @@ import { captureBatch } from "../lib/onchain/hexes";
 
 const MIN_AGE_MIN = 15;
 const MAX_RUNS_PER_INVOCATION = 20;
+
+/**
+ * Cap how many hexes go into a single captureBatch tx. Solidity itself has
+ * no limit but block gas and relayer wallet balance do. A batch of 100 hexes
+ * is ~5M gas (~0.025 CELO at 5 gwei); safely below Celo's ~30M block cap and
+ * within any reasonable relayer balance. Runs with more hexes get chunked
+ * across multiple txs so a partial-fund state still makes progress instead
+ * of failing the entire run.
+ */
+const HEXES_PER_BATCH = 100;
 
 async function main() {
   const url = process.env.DATABASE_URL;
@@ -79,8 +89,9 @@ async function main() {
     console.log(`  run ${job.run_id} (${job.hex_count} unminted, player ${job.user_address})`);
   }
 
-  let ok = 0;
-  let fail = 0;
+  let batchesOk = 0;
+  let batchesFail = 0;
+  let hexesMinted = 0;
   for (const job of jobs) {
     const unminted = await db
       .select({ h3Id: hexes.h3Id })
@@ -89,23 +100,44 @@ async function main() {
     const h3Ids = unminted.map((h) => h.h3Id);
     if (h3Ids.length === 0) continue;
 
-    const result = await captureBatch(job.user_address as `0x${string}`, h3Ids);
-    if (result.ok === true) {
-      await db
-        .update(hexes)
-        .set({ mintedAt: sql`now()`, mintTxHash: result.txHash })
-        .where(and(eq(hexes.runId, job.run_id), isNull(hexes.mintedAt)));
-      console.log(`  ok run ${job.run_id} minted ${h3Ids.length} hexes (tx ${result.txHash})`);
-      ok += 1;
-    } else {
-      console.log(
-        `  fail run ${job.run_id}: ${result.reason} ${result.error?.slice(0, 100) ?? ""}`,
+    // Chunk: caps per-tx gas usage + protects against undercapitalized
+    // relayer. Each chunk is independent, so partial success still moves
+    // hexes on-chain and unblocks the player for that subset.
+    for (let i = 0; i < h3Ids.length; i += HEXES_PER_BATCH) {
+      const chunk = h3Ids.slice(i, i + HEXES_PER_BATCH);
+      const result = await captureBatch(
+        job.user_address as `0x${string}`,
+        chunk,
       );
-      fail += 1;
+      if (result.ok === true) {
+        // Target ONLY the hex ids from this specific chunk so its tx hash
+        // is attributed correctly. A run with 274 hexes across 3 chunks
+        // should end up with 3 distinct mintTxHash values, not 3 identical
+        // ones pointing at the first successful chunk.
+        await db
+          .update(hexes)
+          .set({ mintedAt: sql`now()`, mintTxHash: result.txHash })
+          .where(inArray(hexes.h3Id, chunk));
+        console.log(
+          `  ok run ${job.run_id} chunk ${i / HEXES_PER_BATCH + 1} minted ${chunk.length} hexes (tx ${result.txHash})`,
+        );
+        hexesMinted += chunk.length;
+        batchesOk += 1;
+      } else {
+        console.log(
+          `  fail run ${job.run_id} chunk ${i / HEXES_PER_BATCH + 1}: ${result.reason} ${result.error?.slice(0, 100) ?? ""}`,
+        );
+        batchesFail += 1;
+        // Stop chunking this run: likely undercapitalized relayer or RPC
+        // outage. Next cron fire retries what's still un-minted.
+        break;
+      }
     }
   }
 
-  console.log(`\ndone: ${ok} succeeded, ${fail} failed`);
+  console.log(
+    `\ndone: ${batchesOk} chunks succeeded (${hexesMinted} hexes minted), ${batchesFail} chunks failed`,
+  );
   await client.end();
 }
 
