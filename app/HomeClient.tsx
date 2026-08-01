@@ -24,7 +24,6 @@ export function HomeClient() {
     isMiniPay,
     isWrongChain,
     isSwitchingChain,
-    chainId,
     connect,
     switchToCelo,
   } = useWallet();
@@ -90,7 +89,6 @@ export function HomeClient() {
           isMiniPay={isMiniPay}
           isWrongChain={isWrongChain}
           isSwitchingChain={isSwitchingChain}
-          chainId={chainId}
           username={user?.username ?? null}
           hasActiveRun={activeRun !== null}
           env={env}
@@ -180,7 +178,6 @@ function PrimaryCTA({
   isMiniPay,
   isWrongChain,
   isSwitchingChain,
-  chainId,
   username,
   hasActiveRun,
   env,
@@ -192,7 +189,6 @@ function PrimaryCTA({
   isMiniPay: boolean;
   isWrongChain: boolean;
   isSwitchingChain: boolean;
-  chainId: number | null;
   username: string | null;
   hasActiveRun: boolean;
   env: WalletEnvironment;
@@ -238,7 +234,7 @@ function PrimaryCTA({
         <p className="text-sm text-amber-900">
           {isSwitchingChain
             ? t("home.cta.switching")
-            : `Chain ${chainId}. Switching to Celo...`}
+            : t("home.cta.wrongNetwork")}
         </p>
         <button
           onClick={switchToCelo}
