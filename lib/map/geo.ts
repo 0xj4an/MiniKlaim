@@ -19,16 +19,15 @@ export function haversineMeters(
 }
 
 /**
- * Format a running pace as `M:SS/km` from duration (ms) + distance (m).
- * Returns `--/km` when distance is below 50m (signal-to-noise too low for
- * a meaningful pace; jitter would dominate).
+ * Format speed as `X.X km/h` from duration (ms) + distance (m). Universal unit
+ * (matches speedometers) instead of runner-jargon pace (M:SS/km). Returns
+ * `-- km/h` when the signal is too noisy: distance <50m, elapsed <1s, or the
+ * computed speed falls outside a plausible human range (1-50 km/h; below is
+ * stopped, above is GPS jitter).
  */
-export function formatPace(durationMs: number, distanceMeters: number): string {
-  if (distanceMeters < 50) return "--/km";
-  const secondsPerKm = (durationMs / 1000 / distanceMeters) * 1000;
-  // Pace above 30 min/km is walking-or-stopped territory; clamp display.
-  if (!Number.isFinite(secondsPerKm) || secondsPerKm > 30 * 60) return "--/km";
-  const m = Math.floor(secondsPerKm / 60);
-  const s = Math.floor(secondsPerKm % 60);
-  return `${m}:${String(s).padStart(2, "0")}/km`;
+export function formatSpeed(durationMs: number, distanceMeters: number): string {
+  if (distanceMeters < 50 || durationMs < 1000) return "-- km/h";
+  const kmh = (distanceMeters / (durationMs / 1000)) * 3.6;
+  if (!Number.isFinite(kmh) || kmh < 1 || kmh > 50) return "-- km/h";
+  return `${kmh.toFixed(1)} km/h`;
 }
