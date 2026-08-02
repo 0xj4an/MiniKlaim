@@ -5,7 +5,7 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { hexes, runs } from "../lib/db/schema";
-import { captureBatch } from "../lib/onchain/hexes";
+import { captureBatch, hexesPublicClient } from "../lib/onchain/hexes";
 
 /**
  * Retry the sponsored `captureBatch` for runs that finished but never got
@@ -89,6 +89,14 @@ async function main() {
     console.log(`  run ${job.run_id} (${job.hex_count} unminted, player ${job.user_address})`);
   }
 
+  // captureBatch returns after broadcast, not after mining. Chunking without
+  // waiting between txs causes chunk N+1 to fetch the same "pending" nonce as
+  // chunk N (still in the mempool) and the RPC rejects it with "Missing or
+  // invalid parameters". Waiting for the receipt before the next chunk lets
+  // the nonce advance and also gives us confirmation the on-chain state
+  // actually changed.
+  const publicClient = hexesPublicClient();
+
   let batchesOk = 0;
   let batchesFail = 0;
   let hexesMinted = 0;
@@ -110,6 +118,19 @@ async function main() {
         chunk,
       );
       if (result.ok === true) {
+        // Wait for mining before touching the DB or firing the next chunk.
+        // If the tx reverts we skip the DB update and let the next cron fire
+        // retry the same hexes.
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash: result.txHash,
+        });
+        if (receipt.status !== "success") {
+          console.log(
+            `  fail run ${job.run_id} chunk ${i / HEXES_PER_BATCH + 1}: tx ${result.txHash} reverted`,
+          );
+          batchesFail += 1;
+          break;
+        }
         // Target ONLY the hex ids from this specific chunk so its tx hash
         // is attributed correctly. A run with 274 hexes across 3 chunks
         // should end up with 3 distinct mintTxHash values, not 3 identical
