@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
 
 type Tab = {
@@ -33,6 +33,7 @@ const TABS: Tab[] = [
  */
 export function BottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const { locale, setLocale, t } = useLocale();
 
   if (pathname === "/run") return null;
@@ -67,7 +68,15 @@ export function BottomNav() {
         })}
         <button
           type="button"
-          onClick={() => setLocale(locale === "en" ? "es" : "en")}
+          onClick={() => {
+            const next = locale === "en" ? "es" : "en";
+            setLocale(next);
+            // Server Components (home tagline, /p/[username]) read the locale
+            // from the cookie at render time. router.refresh() reruns them
+            // with the new cookie so their translations flip too, without a
+            // full page reload flash.
+            router.refresh();
+          }}
           aria-label="Toggle language"
           className="flex w-12 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-zinc-200 py-2.5 text-[10px] font-medium tracking-wide uppercase text-zinc-500 hover:text-zinc-900"
         >
