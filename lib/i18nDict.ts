@@ -393,6 +393,7 @@ export const dictionaries = {
     "me.badges.claim.later": "Despues",
     "me.badges.claim.pending": "Confirmando...",
     "me.badges.claim.done": "Insignias reclamadas!",
+    "me.badges.claim.viewTx": "Ver transaccion",
     "me.badges.claim.error": "No se pudo reclamar. Intenta de nuevo.",
     "me.rewards.header": "Recompensas",
     "me.rewards.pending": "Tenes {amount} USDm de {count} sin reclamar",
