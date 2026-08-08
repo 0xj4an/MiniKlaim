@@ -19,15 +19,70 @@ export function haversineMeters(
 }
 
 /**
- * Format speed as `X.X km/h` from duration (ms) + distance (m). Universal unit
- * (matches speedometers) instead of runner-jargon pace (M:SS/km). Returns
- * `-- km/h` when the signal is too noisy: distance <50m, elapsed <1s, or the
- * computed speed falls outside a plausible human range (1-50 km/h; below is
- * stopped, above is GPS jitter).
+ * Format the overall average speed for a finished run as `X.X km/h`. Uses
+ * total distance / total duration, so it's the honest lifetime pace of the
+ * session. No upper cap: bikes, cars, planes, all valid modes now.
+ * Returns `-- km/h` only when the signal is objectively invalid (no distance
+ * yet, or non-finite math).
  */
 export function formatSpeed(durationMs: number, distanceMeters: number): string {
-  if (distanceMeters < 50 || durationMs < 1000) return "-- km/h";
+  if (distanceMeters <= 0 || durationMs < 500) return "-- km/h";
   const kmh = (distanceMeters / (durationMs / 1000)) * 3.6;
-  if (!Number.isFinite(kmh) || kmh < 1 || kmh > 50) return "-- km/h";
-  return `${kmh.toFixed(1)} km/h`;
+  if (!Number.isFinite(kmh) || kmh < 0) return "-- km/h";
+  return `${formatKmh(kmh)} km/h`;
+}
+
+/**
+ * Rolling-window speed. Takes an ordered buffer of `{ts, cumulativeMeters}`
+ * samples and computes the km/h across the samples that fall inside the last
+ * `windowMs` milliseconds. This is what the live banner should show — closer
+ * to a car speedometer than to session average. A stopped runner drops toward
+ * 0 quickly; a plane sitting at cruise reads cruise, not the ramp-up from
+ * takeoff.
+ *
+ * Returns `-- km/h` while we don't yet have enough recent samples.
+ */
+export function formatRollingSpeed(
+  samples: Array<{ ts: number; cumulativeMeters: number }>,
+  windowMs = 30_000,
+): string {
+  if (samples.length < 2) return "-- km/h";
+  const now = samples[samples.length - 1].ts;
+  const cutoff = now - windowMs;
+  let baseline = samples[0];
+  for (const s of samples) {
+    if (s.ts >= cutoff) {
+      baseline = s;
+      break;
+    }
+    baseline = s;
+  }
+  const elapsedMs = now - baseline.ts;
+  const distance = samples[samples.length - 1].cumulativeMeters - baseline.cumulativeMeters;
+  if (elapsedMs < 1000 || distance < 0) return "-- km/h";
+  const kmh = (distance / (elapsedMs / 1000)) * 3.6;
+  if (!Number.isFinite(kmh) || kmh < 0) return "-- km/h";
+  return `${formatKmh(kmh)} km/h`;
+}
+
+/**
+ * Trim old samples out of a rolling buffer while returning a new appended
+ * copy. Callers keep the buffer in a ref and swap it on each new GPS fix.
+ * `retainMs` is generous (2x the display window) so we never accidentally
+ * drop a sample the display still needs.
+ */
+export function appendSpeedSample(
+  samples: Array<{ ts: number; cumulativeMeters: number }>,
+  ts: number,
+  cumulativeMeters: number,
+  retainMs = 60_000,
+): Array<{ ts: number; cumulativeMeters: number }> {
+  const cutoff = ts - retainMs;
+  const kept = samples.filter((s) => s.ts >= cutoff);
+  kept.push({ ts, cumulativeMeters });
+  return kept;
+}
+
+function formatKmh(kmh: number): string {
+  return kmh >= 100 ? kmh.toFixed(0) : kmh.toFixed(1);
 }

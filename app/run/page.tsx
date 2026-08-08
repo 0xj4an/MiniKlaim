@@ -15,7 +15,11 @@ import {
   HEX_RESOLUTION,
 } from "@/lib/map/config";
 import { haversineMeters } from "@/lib/map/geo";
-import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
+import {
+  claimedHexesToFeatureCollection,
+  hexesAround,
+  interpolateHexIds,
+} from "@/lib/map/hex";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
@@ -141,38 +145,66 @@ export default function RunPage() {
     }
   }, []);
 
-  const claimHex = useCallback(
-    async (h3: string, distanceDelta = 0, accuracy?: number) => {
+  /**
+   * Batch-claim every hex crossed since the previous GPS fix. Splits the
+   * segment's total declared distance across the hexes so per-hex distances
+   * stay small and pass the server's DISTANCE_MAX_PER_CAPTURE guard even at
+   * high speeds. One HTTP round trip per GPS ping regardless of hex count.
+   */
+  const claimHexes = useCallback(
+    async (h3Ids: string[], totalDistance: number, accuracy?: number) => {
       const id = runIdRef.current;
-      if (!id) return;
+      if (!id || h3Ids.length === 0) return;
+      const perHexDistance =
+        totalDistance > 0 ? Math.round(totalDistance / h3Ids.length) : 0;
+      const payload = {
+        hexes: h3Ids.map((h3) => ({
+          h3,
+          ...(perHexDistance > 0 ? { distanceMeters: perHexDistance } : {}),
+          ...(typeof accuracy === "number" && Number.isFinite(accuracy)
+            ? { accuracy }
+            : {}),
+        })),
+      };
       try {
         const res = await fetch(`/api/runs/${id}/claim`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            h3,
-            ...(distanceDelta > 0 ? { distanceMeters: distanceDelta } : {}),
-            ...(typeof accuracy === "number" && Number.isFinite(accuracy)
-              ? { accuracy }
-              : {}),
-          }),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) {
-          log.warn("claim failed", { status: res.status, h3 });
+          log.warn("batch claim failed", {
+            status: res.status,
+            count: h3Ids.length,
+          });
           return;
         }
         const data = (await res.json()) as {
           ok: boolean;
-          alreadyOwned: boolean;
+          results: Array<{
+            h3: string;
+            alreadyOwned?: boolean;
+            rejected?: { reason: string; detail?: string };
+          }>;
         };
-        if (!data.alreadyOwned) {
-          setHexCount((c) => c + 1);
+        const newly = data.results.filter(
+          (r) => !r.rejected && r.alreadyOwned === false,
+        ).length;
+        if (newly > 0) {
+          setHexCount((c) => c + newly);
           await refreshClaimed();
-          log.info("hex claimed", { h3 });
+          log.info("batch hexes claimed", {
+            submitted: h3Ids.length,
+            newly,
+          });
+        }
+        const rejected = data.results.filter((r) => r.rejected).length;
+        if (rejected > 0) {
+          log.warn("batch hexes rejected", { rejected });
         }
       } catch (e) {
-        log.error("claim error", {
-          h3,
+        log.error("batch claim error", {
+          count: h3Ids.length,
           message: e instanceof Error ? e.message : String(e),
         });
       }
@@ -207,12 +239,12 @@ export default function RunPage() {
       const here = currentHexRef.current;
       if (here) {
         runIdRef.current = data.id;
-        await claimHex(here);
+        await claimHexes([here], 0);
       }
     } finally {
       setIsBusy(false);
     }
-  }, [claimHex]);
+  }, [claimHexes]);
 
   useEffect(() => {
     if (mapRef.current?.isStyleLoaded()) {
@@ -526,11 +558,15 @@ export default function RunPage() {
             ],
           });
 
+          // Snapshot the previous GPS fix before it gets overwritten so the
+          // interpolation below can walk the segment.
+          const previousPos = lastPosRef.current;
+
           // Accumulate distance while a run is active.
-          if (runIdRef.current && lastPosRef.current) {
+          if (runIdRef.current && previousPos) {
             const seg = haversineMeters(
-              lastPosRef.current.lat,
-              lastPosRef.current.lng,
+              previousPos.lat,
+              previousPos.lng,
               latitude,
               longitude,
             );
@@ -557,7 +593,23 @@ export default function RunPage() {
             if (runIdRef.current) {
               const delta = pendingDistanceRef.current;
               pendingDistanceRef.current = 0;
-              void claimHex(currentHex, delta, accuracy);
+              // Interpolate the straight line since the previous GPS fix so
+              // every hex physically crossed between pings gets captured, not
+              // just the current one. Any mode of movement is fine (walk,
+              // run, bike, car, plane) — the server enforces only accuracy
+              // and a distance-per-capture sanity cap.
+              const interpolated = previousPos
+                ? interpolateHexIds(
+                    previousPos.lat,
+                    previousPos.lng,
+                    latitude,
+                    longitude,
+                    HEX_RESOLUTION,
+                  )
+                : [currentHex];
+              const claimList =
+                interpolated.length > 0 ? interpolated : [currentHex];
+              void claimHexes(claimList, delta, accuracy);
               // Auto-follow the runner: re-center the camera on each new hex
               // during an active run so they don't lose themselves off-screen
               // while moving. Cheap enough (once per ~50m), and players can
@@ -615,7 +667,7 @@ export default function RunPage() {
       map.remove();
       mapRef.current = null;
     };
-  }, [claimHex, refreshClaimed, capturedByLabel, youLabel, anonymousLabel]);
+  }, [claimHexes, refreshClaimed, capturedByLabel, youLabel, anonymousLabel]);
 
   const canStart = isConnected && !isWrongChain && address && !isActiveLoading;
   const isActive = runId !== null;

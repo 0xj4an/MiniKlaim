@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
@@ -10,6 +10,18 @@ const log = createLogger("api:runs:claim");
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Claim one or more hexes for a run. Accepts two body shapes:
+ *   - Legacy: { h3, distanceMeters?, accuracy? } — one hex per request.
+ *   - Batch:  { hexes: [{ h3, distanceMeters?, accuracy? }, ...] } — one round
+ *     trip per GPS ping, no matter how many hexes the player crossed in that
+ *     interval (matters at car / bike / plane speed where a single ping may
+ *     span 5-40 hexes).
+ *
+ * Response for batch:
+ *   { ok: true, results: [{ h3, alreadyOwned?, rejected?: { reason, detail } }, ...] }
+ * Response for legacy: preserved as { ok: true, alreadyOwned }.
+ */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -19,35 +31,17 @@ export async function POST(
     h3?: string;
     distanceMeters?: number;
     accuracy?: number;
+    hexes?: Array<{ h3: string; distanceMeters?: number; accuracy?: number }>;
   };
-  const h3 = body.h3;
-  const distanceMeters =
-    typeof body.distanceMeters === "number" &&
-    Number.isFinite(body.distanceMeters) &&
-    body.distanceMeters > 0
-      ? Math.round(body.distanceMeters)
-      : 0;
-  const accuracy =
-    typeof body.accuracy === "number" && Number.isFinite(body.accuracy)
-      ? body.accuracy
-      : null;
 
-  if (!h3 || typeof h3 !== "string") {
-    return NextResponse.json({ error: "invalid h3" }, { status: 400 });
-  }
+  const items = Array.isArray(body.hexes)
+    ? body.hexes
+    : body.h3
+      ? [{ h3: body.h3, distanceMeters: body.distanceMeters, accuracy: body.accuracy }]
+      : [];
 
-  const validation = await validateClaim({ runId: id, distanceMeters, accuracy });
-  if (validation.ok === false) {
-    log.warn("hex claim rejected", {
-      runId: id,
-      h3,
-      reason: validation.reason,
-      detail: validation.detail,
-    });
-    return NextResponse.json(
-      { error: validation.reason, detail: validation.detail },
-      { status: 429 },
-    );
+  if (items.length === 0) {
+    return NextResponse.json({ error: "no hexes provided" }, { status: 400 });
   }
 
   const [run] = await db
@@ -67,81 +61,147 @@ export async function POST(
     return NextResponse.json({ error: "run already ended" }, { status: 409 });
   }
 
-  const [existing] = await db
-    .select({ ownerAddress: hexes.ownerAddress, runId: hexes.runId })
-    .from(hexes)
-    .where(eq(hexes.h3Id, h3))
-    .limit(1);
+  // Prefetch existing rows in a single query. Avoids N sequential SELECTs when
+  // a plane-speed ping submits 30+ hexes at once.
+  const h3Ids = Array.from(new Set(items.map((h) => h.h3).filter(Boolean)));
+  const existingRows =
+    h3Ids.length > 0
+      ? await db
+          .select({
+            h3Id: hexes.h3Id,
+            ownerAddress: hexes.ownerAddress,
+            runId: hexes.runId,
+          })
+          .from(hexes)
+          .where(inArray(hexes.h3Id, h3Ids))
+      : [];
+  const existingByH3 = new Map(existingRows.map((r) => [r.h3Id, r]));
 
-  const alreadyOwnedThisRun =
-    existing &&
-    existing.ownerAddress === run.userAddress &&
-    existing.runId === id;
+  const results: Array<{
+    h3: string;
+    alreadyOwned?: boolean;
+    rejected?: { reason: string; detail?: string };
+  }> = [];
+  let newlyCaptured = 0;
+  let distanceDelta = 0;
+  let conquestDelta = 0;
 
-  if (alreadyOwnedThisRun) {
-    if (distanceMeters > 0) {
-      await db
-        .update(runs)
-        .set({
-          distanceMeters: sql`${runs.distanceMeters} + ${distanceMeters}`,
-        })
-        .where(eq(runs.id, id));
+  for (const raw of items) {
+    const h3 = raw.h3;
+    if (!h3 || typeof h3 !== "string") {
+      results.push({ h3: "", rejected: { reason: "invalid-h3" } });
+      continue;
     }
-    return NextResponse.json({ ok: true, alreadyOwned: true });
-  }
 
-  const country = countryForHex(h3);
+    const distanceMeters =
+      typeof raw.distanceMeters === "number" &&
+      Number.isFinite(raw.distanceMeters) &&
+      raw.distanceMeters > 0
+        ? Math.round(raw.distanceMeters)
+        : 0;
+    const accuracy =
+      typeof raw.accuracy === "number" && Number.isFinite(raw.accuracy)
+        ? raw.accuracy
+        : null;
 
-  await db
-    .insert(hexes)
-    .values({
+    const validation = validateClaim({ distanceMeters, accuracy });
+    if (validation.ok === false) {
+      results.push({
+        h3,
+        rejected: { reason: validation.reason, detail: validation.detail },
+      });
+      continue;
+    }
+
+    const existing = existingByH3.get(h3);
+    const alreadyOwnedThisRun =
+      existing &&
+      existing.ownerAddress === run.userAddress &&
+      existing.runId === id;
+
+    if (alreadyOwnedThisRun) {
+      distanceDelta += distanceMeters;
+      results.push({ h3, alreadyOwned: true });
+      continue;
+    }
+
+    const country = countryForHex(h3);
+    await db
+      .insert(hexes)
+      .values({
+        h3Id: h3,
+        ownerAddress: run.userAddress,
+        runId: id,
+        country,
+      })
+      .onConflictDoUpdate({
+        target: hexes.h3Id,
+        set: {
+          ownerAddress: run.userAddress,
+          runId: id,
+          claimedAt: sql`now()`,
+          country,
+          // Re-capture: clear prior mint state so the finish flow re-mints
+          // the hex to the new owner.
+          mintedAt: null,
+          mintTxHash: null,
+        },
+      });
+
+    // Update the in-memory cache so a duplicate h3 later in the same batch
+    // is treated as owned-this-run instead of a second conquest.
+    existingByH3.set(h3, {
       h3Id: h3,
       ownerAddress: run.userAddress,
       runId: id,
-      country,
-    })
-    .onConflictDoUpdate({
-      target: hexes.h3Id,
-      set: {
-        ownerAddress: run.userAddress,
-        runId: id,
-        claimedAt: sql`now()`,
-        country,
-        // Re-capture means the NFT must be transferred to the new owner.
-        // Clear the prior mint state so finish-route picks this hex up.
-        mintedAt: null,
-        mintTxHash: null,
-      },
     });
 
-  // Conquest: the hex was held by a different player, so this is a capture from
-  // a rival. Count it toward the conquest badges.
-  const isConquest = !!existing && existing.ownerAddress !== run.userAddress;
-  if (isConquest) {
+    newlyCaptured += 1;
+    distanceDelta += distanceMeters;
+    if (existing && existing.ownerAddress !== run.userAddress) {
+      conquestDelta += 1;
+    }
+    results.push({ h3, alreadyOwned: false });
+  }
+
+  if (conquestDelta > 0) {
     await db
       .update(users)
-      .set({ conquests: sql`${users.conquests} + 1` })
+      .set({ conquests: sql`${users.conquests} + ${conquestDelta}` })
       .where(eq(users.address, run.userAddress));
   }
 
-  await db
-    .update(runs)
-    .set({
-      hexesClaimed: sql`${runs.hexesClaimed} + 1`,
-      ...(distanceMeters > 0
-        ? { distanceMeters: sql`${runs.distanceMeters} + ${distanceMeters}` }
-        : {}),
-    })
-    .where(eq(runs.id, id));
+  if (newlyCaptured > 0 || distanceDelta > 0) {
+    await db
+      .update(runs)
+      .set({
+        ...(newlyCaptured > 0
+          ? { hexesClaimed: sql`${runs.hexesClaimed} + ${newlyCaptured}` }
+          : {}),
+        ...(distanceDelta > 0
+          ? { distanceMeters: sql`${runs.distanceMeters} + ${distanceDelta}` }
+          : {}),
+      })
+      .where(eq(runs.id, id));
+  }
 
-  log.info("hex claimed", {
+  log.info("hex batch processed", {
     runId: id,
-    h3,
-    owner: run.userAddress,
-    distanceDelta: distanceMeters,
-    country,
-    conquest: isConquest,
+    submitted: items.length,
+    newlyCaptured,
+    distanceDelta,
+    conquestDelta,
   });
 
-  return NextResponse.json({ ok: true, alreadyOwned: false });
+  // Legacy single-hex response shape preserved so old clients don't break
+  // during the rollout window.
+  if (!Array.isArray(body.hexes)) {
+    const only = results[0];
+    return NextResponse.json({
+      ok: true,
+      alreadyOwned: only?.alreadyOwned === true,
+    });
+  }
+
+  return NextResponse.json({ ok: true, results });
 }
