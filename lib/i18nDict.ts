@@ -24,8 +24,8 @@ export const dictionaries = {
     "home.env.telegram.h": "Open in your browser",
     "home.env.telegram.body":
       "MiniKlaim needs a wallet. Telegram's built-in browser can't run wallets.",
-    "home.env.telegram.copy": "Copy link",
-    "home.env.telegram.copied": "Copied",
+    "home.env.telegram.copy": "📋 Copy link",
+    "home.env.telegram.copied": "✅ Copied",
     "home.env.noWallet.h": "Open in your wallet",
     "home.env.noWallet.body":
       "Mobile browsers don't expose your wallet. Tap below to open MiniKlaim inside MetaMask. Other wallets: paste this URL in their built-in browser.",
@@ -38,13 +38,13 @@ export const dictionaries = {
     "nav.help": "Help",
     "nav.stats": "Stats",
     "onboarding.title": "Welcome to MiniKlaim",
-    "onboarding.step1.title": "Run anywhere",
+    "onboarding.step1.title": "🗺️ Move anywhere",
     "onboarding.step1.body":
-      "When you walk or run through a block on the map, that block becomes yours.",
-    "onboarding.step2.title": "Pick your name",
+      "Walk, run, bike, drive, fly — cross a block on the map and it's yours.",
+    "onboarding.step2.title": "👤 Pick your name",
     "onboarding.step2.body":
       "Choose a name so other players see you on the leaderboard.",
-    "onboarding.step3.title": "Capture more territory",
+    "onboarding.step3.title": "🏆 Capture more territory",
     "onboarding.step3.body":
       "The more blocks you own, the higher you rank. Streaks count too.",
     "onboarding.next": "Next",
@@ -69,7 +69,7 @@ export const dictionaries = {
     "me.bestRun.suffix": "blocks",
     "me.rank.before": "You're",
     "me.rank.after": "worldwide",
-    "me.badges.header": "Badges",
+    "me.badges.header": "🏅 Badges",
     "me.badges.of": "of",
     "me.badges.toast": "Badge unlocked:",
     "me.badges.claim.title": "Claim your badges on-chain",
@@ -81,7 +81,7 @@ export const dictionaries = {
     "me.badges.claim.done": "Badges claimed!",
     "me.badges.claim.viewTx": "View transaction",
     "me.badges.claim.error": "Could not claim. Please try again.",
-    "me.rewards.header": "Rewards",
+    "me.rewards.header": "💰 Rewards",
     "me.rewards.pending": "You have {amount} USDm from {count} unclaimed",
     "me.rewards.pendingOne": "badge",
     "me.rewards.pendingMany": "badges",
@@ -91,7 +91,7 @@ export const dictionaries = {
     "me.rewards.noPending": "No rewards to claim right now.",
     "me.rewards.poolLow": "Rewards pool topping up soon.",
     "me.rewards.error": "Could not claim. Please try again.",
-    "me.link.title": "Link another wallet",
+    "me.link.title": "🔗 Link another wallet",
     "me.link.desc":
       "Use the same MiniKlaim identity (name, profile) across chains.",
     "me.link.generate": "Generate link code",
@@ -119,7 +119,7 @@ export const dictionaries = {
     "me.wallet.subtitle":
       "Shown for reference. MiniKlaim doesn't take payments. Rewards coming soon.",
     "me.signOut": "Sign out",
-    "me.username.pick": "Pick a name. This is how people will see you.",
+    "me.username.pick": "✨ Pick a name. This is how people will see you.",
     "me.username.change": "Change your name",
     "me.username.placeholder": "your name",
     "me.username.save": "Save",
@@ -237,7 +237,7 @@ export const dictionaries = {
     "about.faq.q4": "Is this safe?",
     "about.faq.a4":
       "Don't run while staring at your phone. Don't run in dangerous places just to grab a block. The street is more important than the map.",
-    "about.contact.header": "Get in touch",
+    "about.contact.header": "💬 Get in touch",
     "about.contact.body": "Bugs, ideas, anything else:",
     "about.contact.handle": "@0xj4an on X",
     "about.sla.header": "Support & SLA",
@@ -344,8 +344,8 @@ export const dictionaries = {
     "home.env.telegram.h": "Abre desde tu navegador",
     "home.env.telegram.body":
       "MiniKlaim necesita una wallet. El navegador de Telegram no las soporta.",
-    "home.env.telegram.copy": "Copiar enlace",
-    "home.env.telegram.copied": "Copiado",
+    "home.env.telegram.copy": "📋 Copiar enlace",
+    "home.env.telegram.copied": "✅ Copiado",
     "home.env.noWallet.h": "Abre desde tu wallet",
     "home.env.noWallet.body":
       "Los navegadores móviles no exponen tu wallet. Toca abajo para abrir MiniKlaim dentro de MetaMask. Otras wallets: pega el URL en su navegador integrado.",
@@ -358,13 +358,13 @@ export const dictionaries = {
     "nav.help": "Ayuda",
     "nav.stats": "Estadísticas",
     "onboarding.title": "Bienvenido a MiniKlaim",
-    "onboarding.step1.title": "Corre donde quieras",
+    "onboarding.step1.title": "🗺️ Muévete donde sea",
     "onboarding.step1.body":
-      "Cuando caminas o corres por una cuadra del mapa, esa cuadra es tuya.",
-    "onboarding.step2.title": "Elige tu nombre",
+      "Camina, corre, monta bici, maneja, vuela — cruza una cuadra del mapa y es tuya.",
+    "onboarding.step2.title": "👤 Elige tu nombre",
     "onboarding.step2.body":
       "Pon un nombre para que otros jugadores te vean en la tabla.",
-    "onboarding.step3.title": "Captura más territorio",
+    "onboarding.step3.title": "🏆 Captura más territorio",
     "onboarding.step3.body":
       "Mientras más cuadras tengas, más subes. Las rachas también cuentan.",
     "onboarding.next": "Siguiente",
@@ -389,7 +389,7 @@ export const dictionaries = {
     "me.bestRun.suffix": "cuadras",
     "me.rank.before": "Eres el",
     "me.rank.after": "del mundo",
-    "me.badges.header": "Insignias",
+    "me.badges.header": "🏅 Insignias",
     "me.badges.of": "de",
     "me.badges.toast": "Insignia desbloqueada:",
     "me.badges.claim.title": "Reclama tus insignias on-chain",
@@ -401,7 +401,7 @@ export const dictionaries = {
     "me.badges.claim.done": "Insignias reclamadas!",
     "me.badges.claim.viewTx": "Ver transacción",
     "me.badges.claim.error": "No se pudo reclamar. Intenta de nuevo.",
-    "me.rewards.header": "Recompensas",
+    "me.rewards.header": "💰 Recompensas",
     "me.rewards.pending": "Tienes {amount} USDm de {count} sin reclamar",
     "me.rewards.pendingOne": "badge",
     "me.rewards.pendingMany": "badges",
@@ -411,7 +411,7 @@ export const dictionaries = {
     "me.rewards.noPending": "No tienes recompensas para reclamar por ahora.",
     "me.rewards.poolLow": "El pool de recompensas se esta recargando.",
     "me.rewards.error": "No se pudo reclamar. Intenta de nuevo.",
-    "me.link.title": "Vincular otra wallet",
+    "me.link.title": "🔗 Vincular otra wallet",
     "me.link.desc":
       "Usa la misma identidad MiniKlaim (nombre, perfil) en todas las chains.",
     "me.link.generate": "Generar código",
@@ -439,7 +439,7 @@ export const dictionaries = {
     "me.wallet.subtitle":
       "Mostrado como referencia. MiniKlaim no recibe pagos. Recompensas próximamente.",
     "me.signOut": "Cerrar sesión",
-    "me.username.pick": "Elige un nombre. Así te verán los demás jugadores.",
+    "me.username.pick": "✨ Elige un nombre. Así te verán los demás jugadores.",
     "me.username.change": "Cambia tu nombre",
     "me.username.placeholder": "tu nombre",
     "me.username.save": "Guardar",
@@ -558,7 +558,7 @@ export const dictionaries = {
     "about.faq.q4": "¿Es seguro?",
     "about.faq.a4":
       "No corras mirando el celular. No corras a sitios peligrosos solo por agarrar una cuadra. La calle vale más que el mapa.",
-    "about.contact.header": "Contacto",
+    "about.contact.header": "💬 Contacto",
     "about.contact.body": "Errores, ideas, lo que sea:",
     "about.contact.handle": "@0xj4an en X",
     "about.sla.header": "Soporte y SLA",
