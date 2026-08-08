@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
+import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 import { isRewardsConfigured } from "@/lib/onchain/rewards";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
@@ -92,12 +93,24 @@ export function RewardsSection({
   if (!address || reason === "not-configured") return null;
 
   async function onClaim() {
+    track("reward_claim_started", {
+      amount_usdm: pending ? formatUsdm(pending.amountWei) : "0",
+      badge_count: pending?.count ?? 0,
+    });
     const result = await claim();
     if (result.status === "claimed") {
+      track("reward_claim_confirmed", {
+        amount_usdm: formatUsdm(result.amountWei),
+        tx_hash: result.txHash,
+      });
       setLastClaim(result.amountWei);
       // Trigger a refresh of pending state.
       setPending(null);
       setReason("loading");
+    } else if (result.status === "error") {
+      track("reward_claim_failed", { reason: "error" });
+    } else if (result.status === "no-op") {
+      track("reward_claim_failed", { reason: result.reason });
     }
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 
 export type GeoStatus =
@@ -28,6 +29,23 @@ export function GeoStatusBanner({
   const { t } = useLocale();
   const [showHelp, setShowHelp] = useState(false);
   const [showMinipayIosEscape, setShowMinipayIosEscape] = useState(false);
+
+  // Fire denied/unavailable/minipay-ios-blocked events once per status
+  // transition, not on every render. The ref survives re-renders and gets
+  // reset when the user leaves and re-enters the page.
+  const trackedStatusRef = useRef<GeoStatus | null>(null);
+  const trackedMinipayIosRef = useRef(false);
+  useEffect(() => {
+    if (trackedStatusRef.current === status) return;
+    trackedStatusRef.current = status;
+    if (status === "denied") track("gps_denied");
+    else if (status === "unavailable") track("gps_unavailable");
+  }, [status]);
+  useEffect(() => {
+    if (!showMinipayIosEscape || trackedMinipayIosRef.current) return;
+    trackedMinipayIosRef.current = true;
+    track("gps_minipay_ios_blocked");
+  }, [showMinipayIosEscape]);
 
   useEffect(() => {
     if (status !== "requesting" && status !== "idle") return;
