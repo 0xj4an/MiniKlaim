@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Address } from "viem";
+import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { badgeCopy, badgeSvg } from "@/lib/onchain/badgeArt";
@@ -79,6 +80,12 @@ export function BadgeClaimPrompt({
           setClaimable(fresh);
           setDismissed(false);
           setState("idle");
+          for (const id of fresh) {
+            track("badge_unlocked", {
+              badge_id: id,
+              badge_name: badgeCopy(id, "en").name,
+            });
+          }
         } else if (!cancelled) {
           setClaimable([]);
         }
@@ -101,14 +108,26 @@ export function BadgeClaimPrompt({
 
   const runClaim = async () => {
     setState("pending");
+    track("badge_claim_started", { count: claimable.length });
     const outcome = await claim();
     if (outcome.status === "user-claimed" || outcome.status === "sponsored") {
+      track("badge_claim_confirmed", {
+        count: claimable.length,
+        tx_hash:
+          "txHash" in outcome && typeof outcome.txHash === "string"
+            ? outcome.txHash
+            : "",
+      });
       setDismissed(true);
       setState("done");
     } else if (outcome.status === "none") {
       setDismissed(true);
       setState("idle");
     } else {
+      track("badge_claim_failed", {
+        count: claimable.length,
+        reason: outcome.status,
+      });
       setState("error");
     }
   };

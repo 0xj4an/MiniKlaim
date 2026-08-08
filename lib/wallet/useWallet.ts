@@ -10,6 +10,7 @@ import {
   useSwitchChain,
 } from "wagmi";
 import { celo } from "wagmi/chains";
+import { track } from "@/lib/analytics";
 import { createLogger } from "@/lib/logger";
 import { chainKeyById } from "@/lib/onchain/chains";
 import { isMiniPay } from "@/lib/minipay";
@@ -70,11 +71,28 @@ export function useWallet(): UseWallet {
         chainId: data.chainId,
         connector: data.connector.name,
       });
+      // is_first_time: no wagmi cookie means this is a fresh connect (not a
+      // reconnect on page refresh). Approximate via connector.type; a robust
+      // "first ever" flag would need server-side state, out of scope.
+      track("wallet_connected", {
+        env: detectWalletEnv(data.connector.name),
+        chain_id: data.chainId,
+        is_first_time: data.isReconnected === false,
+      });
     },
     onDisconnect() {
       log.info("disconnected");
+      track("wallet_disconnected", {});
     },
   });
+
+  useEffect(() => {
+    if (!isConnected || !isWrongChain) return;
+    track("wrong_chain_detected", {
+      current_chain_id: chainId,
+      expected_chain_id: celo.id,
+    });
+  }, [isConnected, isWrongChain, chainId]);
 
   useEffect(() => {
     if (!connectError) return;
@@ -243,4 +261,19 @@ export function useWallet(): UseWallet {
     disconnect,
     switchToCelo,
   };
+}
+
+function detectWalletEnv(
+  connectorName: string,
+): "minipay" | "farcaster" | "metamask" | "browser" | "other" {
+  const n = connectorName.toLowerCase();
+  if (n.includes("farcaster")) return "farcaster";
+  if (n.includes("metamask")) return "metamask";
+  if (n.includes("injected")) {
+    if (typeof window === "undefined") return "other";
+    const w = window as unknown as { ethereum?: { isMiniPay?: boolean } };
+    if (w.ethereum?.isMiniPay) return "minipay";
+    return "browser";
+  }
+  return "other";
 }

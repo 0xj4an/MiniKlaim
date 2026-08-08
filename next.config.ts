@@ -29,8 +29,28 @@ const nextConfig: NextConfig = {
       "@tanstack/react-query",
       "@farcaster/miniapp-sdk",
       "@farcaster/miniapp-wagmi-connector",
+      "posthog-js",
     ],
   },
+  // Proxy PostHog through same-origin /ingest so MiniPay's WebView and mobile
+  // ad blockers don't drop calls to us.i.posthog.com. Assets go to the static
+  // host, everything else to the ingest host. Region: US.
+  async rewrites() {
+    return [
+      {
+        source: "/ingest/static/:path*",
+        destination: "https://us-assets.i.posthog.com/static/:path*",
+      },
+      {
+        source: "/ingest/:path*",
+        destination: "https://us.i.posthog.com/:path*",
+      },
+    ];
+  },
+  // PostHog ingest endpoints have trailing slashes. Next's default strips them
+  // from source patterns, breaking the rewrite. Skip trailing-slash redirects
+  // so requests reach PostHog verbatim.
+  skipTrailingSlashRedirect: true,
 };
 
 export default withBundleAnalyzer(nextConfig);

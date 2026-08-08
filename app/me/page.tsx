@@ -3,6 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { LinkWallet } from "@/app/LinkWallet";
@@ -160,6 +161,7 @@ function CopyProfileLink({ username }: { username: string }) {
 
   async function onShare() {
     if (typeof window === "undefined") return;
+    track("share_button_pressed", { surface: "profile" });
     const url = `${window.location.origin}/p/${username}`;
     const text = `Check my MiniKlaim profile: @${username}`;
     if (typeof navigator !== "undefined" && "share" in navigator) {
@@ -237,9 +239,19 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
     if (!input.trim()) return;
     setIsSaving(true);
     setError(null);
-    const result = await setUsername(input.trim());
+    const trimmed = input.trim();
+    const isFirstTime = !user?.username;
+    const result = await setUsername(trimmed);
     setIsSaving(false);
     if (result.ok) {
+      if (isFirstTime) {
+        track("username_picked", {
+          length: trimmed.length,
+          is_first_time: true,
+        });
+      } else {
+        track("username_changed", { length: trimmed.length });
+      }
       setInput("");
       setIsEditing(false);
     } else {

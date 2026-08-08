@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "@/lib/analytics";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
 import { formatSpeed } from "@/lib/map/geo";
 
@@ -105,6 +106,7 @@ async function shareRun(
   username: string | null,
   t: (key: TranslationKey) => string,
 ): Promise<void> {
+  track("share_button_pressed", { surface: "run_summary" });
   const captured =
     summary.hexesClaimed === 1
       ? t("run.share.text.one")

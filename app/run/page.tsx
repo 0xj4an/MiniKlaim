@@ -4,6 +4,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import {
@@ -195,6 +196,7 @@ export default function RunPage() {
       }
       const data = (await res.json()) as { id: string; startedAt: string };
       log.info("run started", { id: data.id });
+      track("run_started");
       setRunId(data.id);
       setHexCount(0);
       setDistanceMeters(0);
@@ -234,14 +236,25 @@ export default function RunPage() {
         startedAt: string;
         endedAt: string;
       };
+      const durationMs =
+        new Date(data.endedAt).getTime() - new Date(data.startedAt).getTime();
       log.info("run finished", {
         id,
         hexesClaimed: data.hexesClaimed,
         distanceMeters: data.distanceMeters,
       });
+      const durationSec = Math.round(durationMs / 1000);
+      track("run_finished", {
+        duration_sec: durationSec,
+        blocks: data.hexesClaimed,
+        distance_m: Math.round(data.distanceMeters),
+        speed_kmh:
+          durationSec > 0
+            ? Math.round((data.distanceMeters / durationSec) * 3.6 * 10) / 10
+            : 0,
+      });
       setLastFinishedRun({
-        durationMs:
-          new Date(data.endedAt).getTime() - new Date(data.startedAt).getTime(),
+        durationMs,
         hexesClaimed: data.hexesClaimed,
         distanceMeters: data.distanceMeters,
       });

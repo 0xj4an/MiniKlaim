@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { track } from "@/lib/analytics";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
 
 type Tab = {
@@ -70,6 +71,7 @@ export function BottomNav() {
           type="button"
           onClick={() => {
             const next = locale === "en" ? "es" : "en";
+            track("locale_toggled", { from: locale, to: next });
             setLocale(next);
             // Server Components (home tagline, /p/[username]) read the locale
             // from the cookie at render time. router.refresh() reruns them
