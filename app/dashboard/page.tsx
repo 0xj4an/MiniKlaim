@@ -3,52 +3,77 @@ import {
   type ChainMetrics,
   readAllMetrics,
 } from "@/lib/onchain/metrics";
+import { serverT } from "@/lib/i18nServer";
+import type { TranslationKey } from "@/lib/i18nDict";
 
 // Independent web-only dashboard of on-chain contract metrics, per chain and
 // aggregated. Not part of the in-app (MiniPay) flow; desktop-first. Re-reads
-// the chains every 60s.
+// the chains every 60s. Localized so partners opening it in either language
+// see a polished view.
 export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: "MiniKlaim - On-chain dashboard",
-  description: "Live on-chain stats across every chain MiniKlaim runs on.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await serverT();
+  return {
+    title: `MiniKlaim - ${t("dashboard.title")}`,
+    description: t("dashboard.metadata.desc"),
+  };
+}
 
 export default async function DashboardPage() {
-  const { chains, totals } = await readAllMetrics();
+  const [{ chains, totals }, { t }] = await Promise.all([
+    readAllMetrics(),
+    serverT(),
+  ]);
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-10">
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-zinc-900">
-          MiniKlaim on-chain dashboard
+          {t("dashboard.title")}
         </h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          Live contract metrics across every chain. Auto-refreshes each minute.
-        </p>
+        <p className="mt-1 text-sm text-zinc-500">{t("dashboard.subtitle")}</p>
       </header>
 
       <section className="mb-10">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-          All chains combined
+          {t("dashboard.section.all")}
         </h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          <Stat label="Hexes captured" value={totals.captures} />
-          <Stat label="Claim-run txs" value={totals.claimRuns} />
-          <Stat label="Hex players" value={totals.hexPlayers} />
-          <Stat label="Badges minted" value={totals.badgesMinted} />
-          <Stat label="Badge claim txs" value={totals.badgeClaimTxns} />
-          <Stat label="Badge holders" value={totals.badgeHolders} />
+          <Stat
+            label={t("dashboard.stat.hexesCaptured")}
+            value={totals.captures}
+          />
+          <Stat
+            label={t("dashboard.stat.claimRunTxs")}
+            value={totals.claimRuns}
+          />
+          <Stat
+            label={t("dashboard.stat.hexPlayers")}
+            value={totals.hexPlayers}
+          />
+          <Stat
+            label={t("dashboard.stat.badgesMinted")}
+            value={totals.badgesMinted}
+          />
+          <Stat
+            label={t("dashboard.stat.badgeClaimTxs")}
+            value={totals.badgeClaimTxns}
+          />
+          <Stat
+            label={t("dashboard.stat.badgeHolders")}
+            value={totals.badgeHolders}
+          />
         </div>
       </section>
 
       <section>
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-          Per chain
+          {t("dashboard.section.perChain")}
         </h2>
         <div className="grid gap-6 md:grid-cols-2">
           {chains.map((c) => (
-            <ChainCard key={c.key} c={c} />
+            <ChainCard key={c.key} c={c} t={t} />
           ))}
         </div>
       </section>
@@ -67,41 +92,64 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function ChainCard({ c }: { c: ChainMetrics }) {
+function ChainCard({
+  c,
+  t,
+}: {
+  c: ChainMetrics;
+  t: (key: TranslationKey) => string;
+}) {
   const configured = c.hexes !== null || c.badges !== null;
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-6">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-lg font-bold text-zinc-900">{c.label}</h3>
         <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-500">
-          chain {c.chainId}
+          {t("dashboard.chain.prefix")} {c.chainId}
         </span>
       </div>
 
       {!configured ? (
-        <p className="text-sm text-zinc-400">Not deployed on this chain yet.</p>
+        <p className="text-sm text-zinc-400">
+          {t("dashboard.chain.notDeployed")}
+        </p>
       ) : (
         <div className="grid grid-cols-3 gap-3">
-          <Mini label="Hexes" value={c.hexes?.captures ?? 0} />
-          <Mini label="Claim txs" value={c.hexes?.claimRuns ?? 0} />
-          <Mini label="Players" value={c.hexes?.players ?? 0} />
-          <Mini label="Badges" value={c.badges?.minted ?? 0} />
-          <Mini label="Claim txs" value={c.badges?.claimTxns ?? 0} />
-          <Mini label="Holders" value={c.badges?.holders ?? 0} />
+          <Mini label={t("dashboard.mini.hexes")} value={c.hexes?.captures ?? 0} />
+          <Mini
+            label={t("dashboard.mini.hexClaimTxs")}
+            value={c.hexes?.claimRuns ?? 0}
+          />
+          <Mini
+            label={t("dashboard.mini.players")}
+            value={c.hexes?.players ?? 0}
+          />
+          <Mini
+            label={t("dashboard.mini.badges")}
+            value={c.badges?.minted ?? 0}
+          />
+          <Mini
+            label={t("dashboard.mini.badgeClaimTxs")}
+            value={c.badges?.claimTxns ?? 0}
+          />
+          <Mini
+            label={t("dashboard.mini.holders")}
+            value={c.badges?.holders ?? 0}
+          />
         </div>
       )}
 
       <div className="mt-5 space-y-1 text-xs text-zinc-400">
         {c.hexesAddress && (
           <ContractLink
-            label="Hexes"
+            label={t("dashboard.contract.hexes")}
             address={c.hexesAddress}
             explorerBase={c.explorerBase}
           />
         )}
         {c.badgesAddress && (
           <ContractLink
-            label="Badges"
+            label={t("dashboard.contract.badges")}
             address={c.badgesAddress}
             explorerBase={c.explorerBase}
           />
