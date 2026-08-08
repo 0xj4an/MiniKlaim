@@ -42,7 +42,7 @@ export default function OpengraphImage() {
           fontWeight: 400,
         }}
       >
-        Territory-capture running game on Celo
+        Territory-capture game on Celo
       </div>
     </div>,
     { ...size },

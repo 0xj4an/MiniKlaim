@@ -7,11 +7,11 @@ export const dictionaries = {
     "home.tagline": "Run the city. The blocks you cross are yours.",
     "home.welcome.h": "Welcome to MiniKlaim",
     "home.welcome.body":
-      "A territory-capture running game on Celo. Every block of your city you run through becomes yours on a shared map. Compete with your neighbors, defend the blocks you own, and watch your territory grow with every run.",
+      "A territory-capture game on Celo. Every block of your city you cross — on foot, by bike, in a car — becomes yours on a shared map. Compete with your neighbors, defend the blocks you own, and watch your territory grow.",
     "home.stats.blocks": "blocks captured",
     "home.stats.player": "player",
     "home.stats.players": "players",
-    "home.cta.signIn": "Sign in to run",
+    "home.cta.signIn": "Sign in to play",
     "home.cta.signingIn": "Signing in...",
     "home.cta.switchChain": "Switch to Celo",
     "home.cta.switching": "Switching...",
@@ -113,7 +113,7 @@ export const dictionaries = {
     "me.runs.header": "Your runs",
     "me.runs.block": "block",
     "me.runs.blocks": "blocks",
-    "me.runs.running": "running",
+    "me.runs.running": "active",
     "me.money.header": "Your money",
     "me.wallet.header": "Wallet",
     "me.wallet.subtitle":
@@ -130,7 +130,7 @@ export const dictionaries = {
     "me.share.button": "share profile",
     "me.territory.header": "Your territory",
     "me.territory.empty":
-      "You haven't captured any blocks yet. Start running to claim your first.",
+      "You haven't captured any blocks yet. Start moving to claim your first.",
     "badge.firstSteps.name": "First steps",
     "badge.firstSteps.desc": "Finish your first run",
     "badge.fiveBlocks.name": "Five blocks",
@@ -217,7 +217,7 @@ export const dictionaries = {
     "about.howTo.step1": "Sign in with your wallet on the home page.",
     "about.howTo.step2": "Pick a name on the You page.",
     "about.howTo.step3.before": "From the home screen, tap",
-    "about.howTo.step3.cta": "Start running",
+    "about.howTo.step3.cta": "Start moving",
     "about.howTo.step3.after": ".",
     "about.howTo.step4":
       "Walk or run outside. Every block you cross becomes yours on the map.",
@@ -228,7 +228,7 @@ export const dictionaries = {
     "about.faq.header": "Common questions",
     "about.faq.q1": "Do I lose blocks if someone else runs through them?",
     "about.faq.a1":
-      "Yes. The block goes to whoever ran through last. So keep running to keep your turf.",
+      "Yes. The block goes to whoever passed through last. So keep moving to keep your turf.",
     "about.faq.q2": "Does it cost anything?",
     "about.faq.a2": "No. Playing is free. We don't charge fees.",
     "about.faq.q3": "Why a wallet?",
@@ -293,7 +293,7 @@ export const dictionaries = {
     "terms.title": "Terms",
     "terms.what.h": "What it is",
     "terms.what.body":
-      "MiniKlaim is a hobby running game. You connect a wallet, you run through blocks on a map, and the blocks become yours until someone else claims them.",
+      "MiniKlaim is a hobby movement game. You connect a wallet, you cross blocks on a map, and the blocks become yours until someone else claims them.",
     "terms.noWarranty.h": "No warranty",
     "terms.noWarranty.body":
       "The service is provided as-is. We do not promise it works, will keep working, will not lose your runs, or will protect you from heat, cold, traffic, dogs, or any other real-world hazard. Run safely.",
@@ -331,7 +331,7 @@ export const dictionaries = {
     "home.stats.blocks": "cuadras capturadas",
     "home.stats.player": "jugador",
     "home.stats.players": "jugadores",
-    "home.cta.signIn": "Entra para correr",
+    "home.cta.signIn": "Entra a jugar",
     "home.cta.signingIn": "Entrando...",
     "home.cta.switchChain": "Cambia a Celo",
     "home.cta.switching": "Cambiando...",
@@ -433,7 +433,7 @@ export const dictionaries = {
     "me.runs.header": "Tus corridas",
     "me.runs.block": "cuadra",
     "me.runs.blocks": "cuadras",
-    "me.runs.running": "corriendo",
+    "me.runs.running": "activa",
     "me.money.header": "Tu plata",
     "me.wallet.header": "Tu wallet",
     "me.wallet.subtitle":
@@ -450,7 +450,7 @@ export const dictionaries = {
     "me.share.button": "compartir perfil",
     "me.territory.header": "Tu territorio",
     "me.territory.empty":
-      "Aún no has capturado ninguna cuadra. Empieza a correr para reclamar la primera.",
+      "Aún no has capturado ninguna cuadra. Empieza a moverte para reclamar la primera.",
     "badge.firstSteps.name": "Primeros pasos",
     "badge.firstSteps.desc": "Termina tu primera corrida",
     "badge.fiveBlocks.name": "Cinco cuadras",
@@ -498,7 +498,7 @@ export const dictionaries = {
       "La app iOS de MiniPay no pasa la ubicación a las mini apps todavia. Abri MiniKlaim en MetaMask (o el navegador de cualquier wallet) para jugar.",
     "run.gps.openInMetamask": "Abrir en MetaMask",
     "run.gps.denied":
-      "Ubicación denegada. Actívala en los ajustes del navegador para correr.",
+      "Ubicación denegada. Actívala en los ajustes del navegador para jugar.",
     "run.gps.unavailable": "Ubicación no disponible en este dispositivo.",
     "run.start.signIn": "Entra primero",
     "run.start.starting": "Empezando...",
@@ -538,7 +538,7 @@ export const dictionaries = {
     "about.howTo.step1": "Entra con tu wallet desde la página de inicio.",
     "about.howTo.step2": "Elige un nombre en la página Tu.",
     "about.howTo.step3.before": "Desde la pantalla de inicio, toca",
-    "about.howTo.step3.cta": "Empezar a correr",
+    "about.howTo.step3.cta": "Empezar",
     "about.howTo.step3.after": ".",
     "about.howTo.step4":
       "Camina o corre afuera. Cada cuadra que cruzas se vuelve tuya en el mapa.",
@@ -615,7 +615,7 @@ export const dictionaries = {
     "terms.title": "Términos",
     "terms.what.h": "Qué es",
     "terms.what.body":
-      "MiniKlaim es un juego de correr hecho por hobby. Conectas una wallet, corres por cuadras en un mapa y las cuadras son tuyas hasta que alguien más las reclame.",
+      "MiniKlaim es un juego de mapa hecho por hobby. Conectas una wallet, cruzas cuadras en un mapa y las cuadras son tuyas hasta que alguien más las reclame.",
     "terms.noWarranty.h": "Sin garantía",
     "terms.noWarranty.body":
       "El servicio se ofrece tal cual. No prometemos que funcione, que siga funcionando, que no se pierdan tus corridas, ni que te proteja del calor, frío, tráfico, perros u otros peligros del mundo real. Corre seguro.",
