@@ -337,6 +337,10 @@ export default function RunPage() {
         const m = mapRef.current;
         if (m) {
           m.flyTo({ center: [longitude, latitude], zoom: FOLLOW_ZOOM });
+          // Paint the position dot immediately if the map source exists. If
+          // the map hasn't finished its `load` event yet (source not created),
+          // the map init effect below reads latestPosRef and paints on load.
+          renderPositionDot(m, latitude, longitude);
         }
       },
       (err) => {
@@ -458,6 +462,15 @@ export default function RunPage() {
         },
       });
 
+      // If the eager primer already got a fix before the map finished loading
+      // (common when the user has cached permission), paint the dot now that
+      // the source exists. Otherwise the player stares at a map with no
+      // "you are here" marker until watchPosition eventually fires.
+      const initialPos = latestPosRef.current;
+      if (initialPos) {
+        renderPositionDot(map, initialPos.lat, initialPos.lng);
+      }
+
       void refreshClaimed();
 
       const popupRef = { current: null as maplibregl.Popup | null };
@@ -520,17 +533,13 @@ export default function RunPage() {
           setGeoStatus("granted");
           log.debug("position", { lat: latitude, lng: longitude, accuracy });
 
-          // Anti-spoof / anti-jitter: drop samples whose reported accuracy is
-          // worse than 30m. Server enforces the same threshold in
-          // `lib/runs/validation.ts` (single source of truth). Client filter
-          // is UX + bandwidth save; server is the security boundary.
-          if (typeof accuracy === "number" && accuracy > 30) {
-            log.debug("dropped low-accuracy sample", { accuracy });
-            return;
-          }
-
+          // Always render the live position dot and refresh the "center on
+          // me" ref, even if accuracy is poor. The dot is UX (better a rough
+          // marker than none), the accuracy gate below is only for hex
+          // capture where a wrong-hex claim would corrupt the game.
           latestPosRef.current = { lat: latitude, lng: longitude };
           writeCachedPosition(latitude, longitude);
+          renderPositionDot(map, latitude, longitude);
 
           if (firstFix) {
             log.info("first fix", { lat: latitude, lng: longitude });
@@ -541,22 +550,13 @@ export default function RunPage() {
             firstFix = false;
           }
 
-          const positionSource = map.getSource("position") as
-            | maplibregl.GeoJSONSource
-            | undefined;
-          positionSource?.setData({
-            type: "FeatureCollection",
-            features: [
-              {
-                type: "Feature",
-                properties: {},
-                geometry: {
-                  type: "Point",
-                  coordinates: [longitude, latitude],
-                },
-              },
-            ],
-          });
+          // Gate the capture pipeline on accuracy. Server enforces the same
+          // threshold in `lib/runs/validation.ts` (single source of truth);
+          // the client filter is UX + bandwidth save.
+          if (typeof accuracy === "number" && accuracy > 30) {
+            log.debug("skipped capture: low accuracy", { accuracy });
+            return;
+          }
 
           // Snapshot the previous GPS fix before it gets overwritten so the
           // interpolation below can walk the segment.
@@ -759,4 +759,30 @@ export default function RunPage() {
       />
     </main>
   );
+}
+
+/**
+ * Push a "you are here" point feature to the map's `position` source. No-op
+ * if the source has not been created yet (map still loading), so callers can
+ * fire this at any time without checking readiness.
+ */
+function renderPositionDot(
+  map: maplibregl.Map,
+  lat: number,
+  lng: number,
+): void {
+  const src = map.getSource("position") as
+    | maplibregl.GeoJSONSource
+    | undefined;
+  if (!src) return;
+  src.setData({
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {},
+        geometry: { type: "Point", coordinates: [lng, lat] },
+      },
+    ],
+  });
 }
