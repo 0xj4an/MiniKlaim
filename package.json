@@ -2,7 +2,7 @@
   "name": "miniklaim",
   "version": "0.0.1",
   "private": true,
-  "description": "Run it. Klaim it. A territory-capture running MiniPay app on Celo.",
+  "description": "Run it. Klaim it. A territory-capture MiniPay app on Celo — cross blocks any way you move (walk, run, bike, drive).",
   "type": "module",
   "scripts": {
     "dev": "next dev",
@@ -70,5 +70,8 @@
     "Opera >= 90",
     "OperaMobile >= 90",
     "Samsung >= 19"
-  ]
+  ],
+  "engines": {
+    "node": ">=22"
+  }
 }

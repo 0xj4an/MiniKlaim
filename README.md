@@ -2,13 +2,13 @@
 
 > Run it. Klaim it.
 
-A territory-capture running game. Every block of your city you run through becomes yours on a shared map. Built with Next.js, deployed on Celo (and Soneium).
+A territory-capture game. Every block of your city you cross — on foot, by bike, in a car, on a plane — becomes yours on a shared map. Built with Next.js, deployed on Celo (and Soneium).
 
 Live: [www.miniklaim.fun](https://www.miniklaim.fun)
 
 ## How it works
 
-The world is a grid of ~13-meter hexagons (H3 resolution 12). When you start a run, the app tracks your GPS path and claims every hex you pass through. Claimed hexes are minted as ERC-721 NFTs on Celo. If another runner crosses a hex you own, the contract transfers it to them. The only way to take it back is to run there yourself.
+The world is a grid of ~13-meter hexagons (H3 resolution 12). When you start a run, the app tracks your GPS path and claims every hex you pass through. Any mode of movement counts — walk, run, bike, drive, fly. Claimed hexes are minted as ERC-721 NFTs on Celo. If another player crosses a hex you own, the contract transfers it to them. The only way to take it back is to go there yourself.
 
 Achievements (First Steps, Mayor, Marathon, and 52 more) are tracked as soulbound ERC-1155 badges across 8 categories.
 

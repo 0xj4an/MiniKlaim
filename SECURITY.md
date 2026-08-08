@@ -17,7 +17,7 @@ The contracts are deployed under the MIT license. There is no warranty (see [LIC
   - (Future) `REWARDER_ROLE` on `MiniKlaimRewards` (can sign reward vouchers).
 - **The same private key runs the backend relayer** and lives in the Railway environment. Compromise of that key allows arbitrary mint, upgrade, and (when rewards are activated) drain of the USDm pool.
 - **Player-submitted transactions are gated by EIP-712 vouchers** signed by the backend. Nonces prevent replay; role membership gates voucher issuance.
-- **GPS validation is server-authoritative.** See [`lib/runs/validation.ts`](../lib/runs/validation.ts) for thresholds (accuracy 30m, rate limit 15 hex/min, min 2s between, run avg speed <8 m/s).
+- **GPS sanity is server-side.** See [`lib/runs/validation.ts`](../lib/runs/validation.ts) for thresholds (accuracy 30m, per-capture distance 10km). Rate limits, min-interval between captures, and avg-speed caps were removed intentionally: the game accepts any mode of movement, so those checks were doing more damage to legitimate fast users than they were preventing spoofers who can simulate any transport mode anyway.
 - **Fee abstraction (CIP-64)** lets players pay Celo gas in USDm, USDC, or USDT via Mento adapters.
 - **Every Celo write transaction carries an ERC-8021 attribution suffix** (`miniklaim` code).
 
