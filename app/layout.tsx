@@ -22,10 +22,10 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.miniklaim.fun",
   ),
   title: "MiniKlaim",
-  description: "Run it. Klaim it. A territory-capture running game on Celo.",
+  description: "Run it. Klaim it. A territory-capture game on Celo.",
   openGraph: {
     title: "MiniKlaim",
-    description: "Run it. Klaim it. A territory-capture running game on Celo.",
+    description: "Run it. Klaim it. A territory-capture game on Celo.",
     type: "website",
   },
   twitter: {
