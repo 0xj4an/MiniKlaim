@@ -29,7 +29,7 @@ jobs:
         run: forge test -vvv
 
   web:
-    name: Web (lint + typecheck)
+    name: Web (lint + typecheck + test + build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,3 +48,17 @@ jobs:
 
       - name: Typecheck
         run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        # Catches Turbopack / Next-only failures that pass tsc + eslint alone
+        # (server-only imports in client components, PPR boundary violations,
+        # missing generateMetadata returns). Hardcoded placeholder
+        # DATABASE_URL prevents route handlers that read process.env eagerly
+        # from crashing the static-generation phase. Value is a literal, not
+        # from GitHub event input, so no workflow injection risk.
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+        run: npm run build

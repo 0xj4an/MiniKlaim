@@ -98,8 +98,8 @@ High-level view of how MiniKlaim is put together. For contract details see [CONT
 
 ### Anti-abuse
 
-- GPS spoof guards in `lib/runs/validation.ts`: accuracy 30m, distance 200m/capture, rate 15 hex/min, min 2s between, run avg speed 8 m/s. See the module for rationale.
-- Rate limits derive from PostgreSQL count-over-window queries; no in-memory session state.
+- GPS sanity guards in `lib/runs/validation.ts`: accuracy 30m (bad GPS captures the wrong hex, UX not anti-cheat) and per-capture distance 10km (bug canary against GPS teleport). No rate limit, no min-interval, no avg-speed cap — the game accepts any transport mode (walk, run, bike, car, plane) per product decision.
+- Client interpolation (`interpolateHexIds` in `lib/map/hex.ts`) walks the segment between GPS pings so hexes are never skipped at speed. The `/api/runs/[id]/claim` endpoint accepts a batch `{ hexes: [...] }` payload so a single fast-movement ping is one HTTP round trip regardless of hex count.
 
 ### Attribution
 

@@ -18,10 +18,9 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 | Method + path | Purpose |
 |---|---|
 | `POST /api/runs` | Start a run for the connected wallet. Body: `{ address }`. Returns `{ id, startedAt }`. |
-| `POST /api/runs/[id]/claim` | Add a captured hex to an active run. Body: `{ h3, distanceMeters?, accuracy? }`. Runs GPS spoof validation before insert. Returns 429 on rate/accuracy/distance/time violation. |
-| `PATCH /api/runs/[id]/finish` | Close a run. Runs whole-run sanity validation (`avg_speed > 8 m/s` rejected). Returns 400 with `{suspicious: true, reason, detail}` if the run trips the check (still closes the run so client flow doesn't hang). |
+| `POST /api/runs/[id]/claim` | Add captured hexes to an active run. Two body shapes accepted: (1) legacy single `{ h3, distanceMeters?, accuracy? }`; (2) batch `{ hexes: [{ h3, distanceMeters?, accuracy? }, ...] }` used by the interpolation path (client sends every hex crossed since the previous GPS ping in one round trip). Each hex is validated for accuracy (`> 30m` rejected) and distance canary (`> 10km` rejected). Returns per-hex results in `{ ok, results: [{ h3, alreadyOwned?, rejected? }] }` for batch calls; legacy `{ ok, alreadyOwned }` for singular. |
+| `PATCH /api/runs/[id]/finish` | Close a run. No anti-cheat sanity check — game accepts any transport mode. Returns the closed run row. |
 | `POST /api/runs/[id]/voucher` | Issue an EIP-712 voucher for the player to submit `claimRun` on-chain. Returns `{ tokenIds, nonce, signature, contract, chainId }`. Returns 409 if the run has no captured hexes. |
-| `POST /api/runs/[id]/claim` | (Distinct from the hex claim above) confirmed player claim tx notified to backend. Body: `{ txHash }`. Marks hexes as minted. |
 | `POST /api/runs/[id]/claimed` | Backend hook confirming a mint tx has landed. Body: `{ txHash }`. |
 | `POST /api/runs/[id]/sponsor-mint` | Sponsored fallback: backend relayer runs `captureBatch` on-chain when the player cannot pay gas. |
 
