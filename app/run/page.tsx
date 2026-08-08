@@ -555,6 +555,14 @@ export default function RunPage() {
           // the client filter is UX + bandwidth save.
           if (typeof accuracy === "number" && accuracy > 30) {
             log.debug("skipped capture: low accuracy", { accuracy });
+            // 1-in-20 sample so we can see whether "run had 5 minutes of
+            // motion but captured 0 hexes" comes from a chronically-bad
+            // GPS signal without spamming the event stream.
+            if (Math.random() < 0.05) {
+              track("gps_low_accuracy_dropped", {
+                accuracy: Math.round(accuracy),
+              });
+            }
             return;
           }
 

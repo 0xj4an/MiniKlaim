@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { track } from "@/lib/analytics";
 import { useFirstVisit } from "@/lib/useFirstVisit";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { useLocale } from "@/lib/i18n";
@@ -120,10 +121,14 @@ function WelcomePlaceholder() {
 
 function OnboardingModal({ onClose }: { onClose: () => void }) {
   const { t } = useLocale();
+  const closeWith = (via: "cta" | "backdrop") => {
+    track("onboarding_completed", { via });
+    onClose();
+  };
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
+      onClick={() => closeWith("backdrop")}
     >
       <div
         className="mx-6 flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-white p-6 shadow-2xl"
@@ -162,7 +167,7 @@ function OnboardingModal({ onClose }: { onClose: () => void }) {
           </li>
         </ol>
         <button
-          onClick={onClose}
+          onClick={() => closeWith("cta")}
           className="mt-2 rounded-full bg-orange-700 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-800"
         >
           {t("onboarding.start")}
@@ -279,7 +284,7 @@ function PrimaryCTA({
         }`}
       >
         <span aria-hidden>🏃</span>
-        {hasActiveRun ? `${t("home.cta.continue")} →` : t("home.cta.start")}
+        {hasActiveRun ? t("home.cta.continue") : t("home.cta.start")}
       </Link>
     </div>
   );

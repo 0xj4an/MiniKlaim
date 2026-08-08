@@ -22,8 +22,10 @@ type EventMap = {
   username_picked: { length: number; is_first_time: boolean };
   username_changed: { length: number };
   wallet_linked: { linked_chain_id: number };
-  onboarding_step: { step_index: 1 | 2 | 3 };
-  onboarding_completed: Record<string, never>;
+  // Onboarding is a single static 3-step card, so there is nothing to page
+  // through. Only fire on dismiss with the exit path so we can tell engaged
+  // users (tapped the CTA) from disengaged (clicked the backdrop).
+  onboarding_completed: { via: "cta" | "backdrop" };
 
   // Run lifecycle.
   run_started: Record<string, never>;
@@ -50,6 +52,10 @@ type EventMap = {
   gps_denied: Record<string, never>;
   gps_unavailable: Record<string, never>;
   gps_minipay_ios_blocked: Record<string, never>;
+  // Fired on a 1-in-20 sample when a GPS fix is dropped because accuracy
+  // exceeds the capture threshold. Sampled to avoid drowning the event
+  // stream in a bad-signal urban canyon or an indoor session.
+  gps_low_accuracy_dropped: { accuracy: number };
   wallet_missing: { env: string };
   sponsor_mint_failed: { reason: string };
 
@@ -88,6 +94,10 @@ export function initAnalytics(): PostHog | null {
     capture_pageview: "history_change",
     capture_pageleave: true,
     capture_performance: true,
+    // Global window.onerror + unhandledrejection hooks. Errors show up as
+    // $exception events in PostHog with stack traces (grouped by fingerprint).
+    // Cheaper than wiring a full Sentry SDK, sufficient for a hobby MVP.
+    capture_exceptions: true,
     // Session replay for MiniPay debugging. Masks by default: no text inside
     // form inputs, no textarea content, no <img> pixels. Wallet addresses in
     // rendered spans stay visible on purpose (they are already public).
