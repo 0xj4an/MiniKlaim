@@ -35,6 +35,14 @@ import { RunSummaryModal } from "./RunSummaryModal";
 
 const log = createLogger("page:run");
 
+// If more than this many seconds pass between two GPS fixes while a run is
+// active, we treat the segment as untrustworthy (signal loss, backgrounded
+// app, phone locked, tunnel, elevator) and DO NOT interpolate hexes between
+// oldPos and newPos — only the current hex gets claimed. A continuous run
+// with normal signal gets fixes every 1-3s on mobile; anything past ~10s is
+// almost always a gap where the runner wasn't walking in a straight line.
+const GPS_GAP_STALE_SECONDS = 10;
+
 export default function RunPage() {
   const { address, isConnected, isWrongChain } = useWallet();
   const { user } = useUser(isConnected ? address : null);
@@ -61,6 +69,13 @@ export default function RunPage() {
   // Last GPS coordinate seen *during the active run*. Used to compute the
   // haversine segment per tick. Reset to null on Start, set on each fix.
   const lastPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  // Timestamp (Date.now()) of the last accepted GPS fix while a run is active.
+  // Used to detect stale gaps: if too long has passed since the previous fix
+  // (signal loss, app backgrounded, phone locked, tunnel, elevator), the
+  // interpolated straight line from oldPos to newPos is a lie — the runner
+  // did not physically walk that line, they were somewhere else in between.
+  // On a stale gap we drop back to endpoint-only capture.
+  const lastPosTsRef = useRef<number>(0);
   // Most recent GPS coordinate from any fix, regardless of run state. Used by
   // the "center on me" button so it works before/after a run too.
   const latestPosRef = useRef<{ lat: number; lng: number } | null>(null);
@@ -97,6 +112,26 @@ export default function RunPage() {
   useEffect(() => {
     addressRef.current = address;
   }, [address]);
+
+  // When the app returns from background (screen unlock, tab switch back,
+  // iOS home button, Android task switcher), reset the "previous GPS fix"
+  // marker so the first fix post-visibility does NOT interpolate hexes
+  // between wherever the runner was when they left the app and wherever
+  // they are now. The gap could be seconds or hours; either way the
+  // straight line is a lie. Distance keeps accumulating from the raw
+  // haversine, but no phantom hexes get claimed.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!runIdRef.current) return;
+      log.info("visibility returned, dropping stale GPS anchor");
+      lastPosRef.current = null;
+      lastPosTsRef.current = 0;
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
 
   // Restore state from an active server-side run (e.g. after a page reload
   // mid-run). Only seeds local state if there is no local runId yet, so a
@@ -234,6 +269,7 @@ export default function RunPage() {
       setDistanceMeters(0);
       setRunStartTime(Date.now());
       lastPosRef.current = null;
+      lastPosTsRef.current = 0;
       pendingDistanceRef.current = 0;
       // Claim the hex we are currently standing in, if any.
       const here = currentHexRef.current;
@@ -304,6 +340,7 @@ export default function RunPage() {
       setDistanceMeters(0);
       setRunStartTime(null);
       lastPosRef.current = null;
+      lastPosTsRef.current = 0;
       pendingDistanceRef.current = 0;
       await refreshClaimed();
     } finally {
@@ -566,11 +603,20 @@ export default function RunPage() {
             return;
           }
 
-          // Snapshot the previous GPS fix before it gets overwritten so the
-          // interpolation below can walk the segment.
+          // Snapshot the previous GPS fix (and its timestamp) before either
+          // gets overwritten. The timestamp is what tells us whether the
+          // segment is a real continuous stretch of movement or a "gap"
+          // (signal loss / backgrounded app / phone locked).
           const previousPos = lastPosRef.current;
+          const previousTs = lastPosTsRef.current;
+          const now = Date.now();
+          const gapSeconds = previousTs > 0 ? (now - previousTs) / 1000 : 0;
+          const staleGap = gapSeconds > GPS_GAP_STALE_SECONDS;
 
-          // Accumulate distance while a run is active.
+          // Accumulate distance while a run is active. Distance still counts
+          // even across stale gaps (the runner did cover ground between A
+          // and B), we just refuse to CLAIM the intermediate hexes because
+          // we cannot prove they walked the straight line.
           if (runIdRef.current && previousPos) {
             const seg = haversineMeters(
               previousPos.lat,
@@ -587,6 +633,7 @@ export default function RunPage() {
           }
           if (runIdRef.current) {
             lastPosRef.current = { lat: latitude, lng: longitude };
+            lastPosTsRef.current = now;
           }
 
           const { hexes, currentHex } = hexesAround(
@@ -596,7 +643,7 @@ export default function RunPage() {
           );
           const previousHex = currentHexRef.current;
           if (currentHex !== previousHex) {
-            log.info("entered hex", { hex: currentHex });
+            log.info("entered hex", { hex: currentHex, gapSeconds, staleGap });
             currentHexRef.current = currentHex;
             if (runIdRef.current) {
               const delta = pendingDistanceRef.current;
@@ -606,15 +653,22 @@ export default function RunPage() {
               // just the current one. Any mode of movement is fine (walk,
               // run, bike, car, plane) — the server enforces only accuracy
               // and a distance-per-capture sanity cap.
-              const interpolated = previousPos
-                ? interpolateHexIds(
-                    previousPos.lat,
-                    previousPos.lng,
-                    latitude,
-                    longitude,
-                    HEX_RESOLUTION,
-                  )
-                : [currentHex];
+              //
+              // BUT: skip interpolation if the gap since the last fix is too
+              // long. During a real gap (signal loss, backgrounded app,
+              // phone locked) the runner could be anywhere; a straight line
+              // from oldPos to newPos hallucinates hexes they never crossed.
+              // Fall back to endpoint-only capture in that case.
+              const interpolated =
+                previousPos && !staleGap
+                  ? interpolateHexIds(
+                      previousPos.lat,
+                      previousPos.lng,
+                      latitude,
+                      longitude,
+                      HEX_RESOLUTION,
+                    )
+                  : [currentHex];
               const claimList =
                 interpolated.length > 0 ? interpolated : [currentHex];
               void claimHexes(claimList, delta, accuracy);
