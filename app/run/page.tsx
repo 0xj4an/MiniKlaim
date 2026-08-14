@@ -76,6 +76,14 @@ export default function RunPage() {
   // did not physically walk that line, they were somewhere else in between.
   // On a stale gap we drop back to endpoint-only capture.
   const lastPosTsRef = useRef<number>(0);
+  // When the tab goes hidden, we cache the last (pos, ts) here so the very
+  // next fix after returning can report a real gap size to analytics before
+  // discarding the anchor. Cleared once consumed.
+  const visibilityResetRef = useRef<{
+    ts: number;
+    lat: number;
+    lng: number;
+  } | null>(null);
   // Most recent GPS coordinate from any fix, regardless of run state. Used by
   // the "center on me" button so it works before/after a run too.
   const latestPosRef = useRef<{ lat: number; lng: number } | null>(null);
@@ -125,6 +133,15 @@ export default function RunPage() {
     const onVisibility = () => {
       if (document.visibilityState !== "visible") return;
       if (!runIdRef.current) return;
+      // Snapshot the pre-nuke anchor so the next fix can report the actual
+      // gap size to analytics. Then reset so no interpolation happens.
+      if (lastPosRef.current && lastPosTsRef.current > 0) {
+        visibilityResetRef.current = {
+          ts: lastPosTsRef.current,
+          lat: lastPosRef.current.lat,
+          lng: lastPosRef.current.lng,
+        };
+      }
       log.info("visibility returned, dropping stale GPS anchor");
       lastPosRef.current = null;
       lastPosTsRef.current = 0;
@@ -612,6 +629,39 @@ export default function RunPage() {
           const now = Date.now();
           const gapSeconds = previousTs > 0 ? (now - previousTs) / 1000 : 0;
           const staleGap = gapSeconds > GPS_GAP_STALE_SECONDS;
+
+          // Analytics: report visibility-triggered gaps first (the fix cache
+          // was already nuked by the visibility handler, so `previousPos` is
+          // null here and we cannot compute it inline). Then report time-only
+          // gaps that survived visibility. Two branches, one event.
+          const visReset = visibilityResetRef.current;
+          if (runIdRef.current && visReset) {
+            const visGapSec = (now - visReset.ts) / 1000;
+            const visDist = haversineMeters(
+              visReset.lat,
+              visReset.lng,
+              latitude,
+              longitude,
+            );
+            track("gps_gap_detected", {
+              trigger: "visibility",
+              gap_seconds: Math.round(visGapSec),
+              segment_distance_m: Math.round(visDist),
+            });
+            visibilityResetRef.current = null;
+          } else if (runIdRef.current && staleGap && previousPos) {
+            const gapDist = haversineMeters(
+              previousPos.lat,
+              previousPos.lng,
+              latitude,
+              longitude,
+            );
+            track("gps_gap_detected", {
+              trigger: "time",
+              gap_seconds: Math.round(gapSeconds),
+              segment_distance_m: Math.round(gapDist),
+            });
+          }
 
           // Accumulate distance while a run is active. Distance still counts
           // even across stale gaps (the runner did cover ground between A

@@ -56,6 +56,17 @@ type EventMap = {
   // exceeds the capture threshold. Sampled to avoid drowning the event
   // stream in a bad-signal urban canyon or an indoor session.
   gps_low_accuracy_dropped: { accuracy: number };
+  // Fired when the client refuses to interpolate hexes between the previous
+  // GPS fix and the current one because the gap is too long (>10s since last
+  // fix) or the tab returned from a hidden state. Trigger tells which guard
+  // fired; gap_seconds and segment_distance_m size the "how much did the
+  // runner miss?" question. Data feeds the decision on whether to add a
+  // routing service (Mapbox/OSRM/Google Directions) for gap recovery.
+  gps_gap_detected: {
+    trigger: "time" | "visibility";
+    gap_seconds: number;
+    segment_distance_m: number;
+  };
   wallet_missing: { env: string };
   sponsor_mint_failed: { reason: string };
 
