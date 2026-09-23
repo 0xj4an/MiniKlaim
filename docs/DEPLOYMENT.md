@@ -144,9 +144,21 @@ forge script script/DeployHexes.s.sol:DeployHexes \
   --broadcast \
   --slow \
   --verify \
-  --etherscan-api-key "$ETHERSCAN_API_KEY" \
-  --verifier-url "https://api.celoscan.io/api"
+  --etherscan-api-key "$ETHERSCAN_API_KEY"
 ```
+
+Do **not** pass `--verifier-url https://api.celoscan.io/api`. That is Etherscan's V1 API and it now rejects submissions with "You are using a deprecated V1 endpoint". Let Foundry derive the V2 endpoint from the `[etherscan]` block in `foundry.toml` instead.
+
+If `--verify` fails for network reasons rather than payload reasons, the deploy still succeeded; verification is a separate, re-runnable step:
+
+```bash
+ARGS=$(cast abi-encode "constructor(address,address,address)" <a> <b> <c>)
+forge verify-contract <DEPLOYED_ADDRESS> src/<File>.sol:<Contract> \
+  --chain-id 42220 --compiler-version 0.8.28 --num-of-optimizations 200 \
+  --constructor-args "$ARGS" --etherscan-api-key "$ETHERSCAN_API_KEY" --watch
+```
+
+`forge verify-contract --show-standard-json-input` dumps the exact payload if you need to submit it by hand from another machine.
 
 The console prints the implementation address and the PROXY address. The PROXY goes in the env.
 
@@ -178,7 +190,7 @@ forge script script/DeployClaimRouter.s.sol --rpc-url celo --broadcast --verify
 
 If those two variables come back empty, `.env.local` is carrying the legacy `NEXT_PUBLIC_MINIKLAIM_*` names. Canonical values are in [CONTRACTS.md](CONTRACTS.md#deployed-addresses).
 
-Reference figures from the 2026-09-23 dry run on Celo mainnet: 1,543,437 gas at a 200 gwei base fee, roughly 0.31 CELO at spot and 0.62 CELO with Foundry's estimate buffer. Celo's base fee sits at 200 gwei as a floor, so waiting for a cheaper moment does not help.
+Actual cost of the 2026-09-23 Celo mainnet deploy: 1,176,972 gas across four transactions (1,012,334 for the CREATE plus three grants of 51k-57k each), which came to 0.235 CELO at the 200 gwei base fee. Foundry estimated 1,543,437 gas and asked for a 0.62 CELO buffer, so budget the buffer and expect to spend about a third of it. Celo's base fee sits at 200 gwei as a floor, so waiting for a cheaper moment does not help.
 
 After a successful broadcast:
 
