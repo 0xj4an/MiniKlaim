@@ -35,6 +35,13 @@ export type ChainConfig = {
    */
   rewardsAddress: Address;
   /**
+   * MiniKlaimClaimRouter address. Optional: when set, a finished run settles
+   * hexes and badges in one tx (one wallet approval). When zero the client
+   * falls back to the two-tx `claimRun` + `claimBadges` path, so the app works
+   * before and after the router is deployed on a given chain.
+   */
+  claimRouterAddress: Address;
+  /**
    * Fee-currency adapters for paying gas in a stablecoin (Celo CIP-64).
    * Ordered by preference: the client picks the first one for which the user
    * has a positive balance. Empty on chains without fee abstraction (gas paid
@@ -93,6 +100,7 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     hexesAddress: addr(process.env.NEXT_PUBLIC_CELO_HEXES_ADDRESS),
     badgesAddress: addr(process.env.NEXT_PUBLIC_CELO_BADGES_ADDRESS),
     rewardsAddress: addr(process.env.NEXT_PUBLIC_CELO_REWARDS_ADDRESS),
+    claimRouterAddress: addr(process.env.NEXT_PUBLIC_CELO_CLAIM_ROUTER_ADDRESS),
     feeCurrencies: CELO_FEE_CURRENCIES,
     linkVerifier: LINK_VERIFIER,
     explorerBase: "https://celoscan.io",
@@ -104,6 +112,9 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     hexesAddress: addr(process.env.NEXT_PUBLIC_CELO_SEPOLIA_HEXES_ADDRESS),
     badgesAddress: addr(process.env.NEXT_PUBLIC_CELO_SEPOLIA_BADGES_ADDRESS),
     rewardsAddress: addr(process.env.NEXT_PUBLIC_CELO_SEPOLIA_REWARDS_ADDRESS),
+    claimRouterAddress: addr(
+      process.env.NEXT_PUBLIC_CELO_SEPOLIA_CLAIM_ROUTER_ADDRESS,
+    ),
     // Testnet also supports CIP-64 fee abstraction but the adapter set is
     // different. Leave empty until testnet Mento adapters are wired.
     feeCurrencies: [],
@@ -118,6 +129,9 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     badgesAddress: addr(process.env.NEXT_PUBLIC_SONEIUM_BADGES_ADDRESS),
     // Rewards MVP is Celo-only.
     rewardsAddress: ZERO,
+    claimRouterAddress: addr(
+      process.env.NEXT_PUBLIC_SONEIUM_CLAIM_ROUTER_ADDRESS,
+    ),
     feeCurrencies: [],
     linkVerifier: LINK_VERIFIER,
     explorerBase: "https://soneium.blockscout.com",
@@ -145,6 +159,15 @@ export function parseChainKey(value: string | null | undefined): ChainKey {
 export function isChainConfigured(key: ChainKey): boolean {
   const c = CHAINS[key];
   return c.hexesAddress !== ZERO && c.badgesAddress !== ZERO;
+}
+
+/**
+ * Whether this chain can settle a run in one transaction. False until the
+ * router is deployed and its address is set, which is what gates the combined
+ * claim flow on and off.
+ */
+export function isClaimRouterConfigured(key: ChainKey): boolean {
+  return isChainConfigured(key) && CHAINS[key].claimRouterAddress !== ZERO;
 }
 
 /**

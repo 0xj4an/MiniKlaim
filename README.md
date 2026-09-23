@@ -2,13 +2,13 @@
 
 > Run it. Klaim it.
 
-A territory-capture game. Every block of your city you cross — on foot, by bike, in a car, on a plane — becomes yours on a shared map. Built with Next.js, deployed on Celo (and Soneium).
+A territory-capture game. Every block of your city you cross - on foot, by bike, in a car, on a plane - becomes yours on a shared map. Built with Next.js, deployed on Celo (and Soneium).
 
 Live: [www.miniklaim.fun](https://www.miniklaim.fun)
 
 ## How it works
 
-The world is a grid of ~13-meter hexagons (H3 resolution 12). When you start a run, the app tracks your GPS path and claims every hex you pass through. Any mode of movement counts — walk, run, bike, drive, fly. Claimed hexes are minted as ERC-721 NFTs on Celo. If another player crosses a hex you own, the contract transfers it to them. The only way to take it back is to go there yourself.
+The world is a grid of ~13-meter hexagons (H3 resolution 12). When you start a run, the app tracks your GPS path and claims every hex you pass through. Any mode of movement counts - walk, run, bike, drive, fly. Claimed hexes are minted as ERC-721 NFTs on Celo. If another player crosses a hex you own, the contract transfers it to them. The only way to take it back is to go there yourself.
 
 Achievements (First Steps, Mayor, Marathon, and 52 more) are tracked as soulbound ERC-1155 badges across 8 categories.
 
@@ -16,8 +16,10 @@ Gas is sponsored by the project when needed, so you never have to think about it
 
 ## Documentation
 
+- **[Documentation index](docs/README.md)** - what each document owns, and which one to trust.
 - **[Architecture](docs/ARCHITECTURE.md)** - system diagram, layers, cross-cutting concerns.
-- **[Contracts](docs/CONTRACTS.md)** - addresses, roles, upgrade model, fee abstraction.
+- **[Contracts](docs/CONTRACTS.md)** - addresses, roles, provenance, upgrade model, fee abstraction.
+- **[Contracts workspace](contracts/README.md)** - Foundry setup, build, test, lint.
 - **[API](docs/API.md)** - REST endpoint reference.
 - **[Local development](docs/LOCAL-DEV.md)** - full setup guide.
 - **[Deployment](docs/DEPLOYMENT.md)** - Railway + Foundry playbook.
@@ -31,7 +33,7 @@ Gas is sponsored by the project when needed, so you never have to think about it
 - Next.js 16 (App Router) + React 19 + Tailwind v4 + MapLibre GL
 - wagmi + viem, multichain (Celo via MiniPay / Farcaster, Soneium via Startale)
 - Postgres via Drizzle ORM
-- Solidity 0.8.24, Foundry, OpenZeppelin v5, UUPS proxies
+- Solidity 0.8.24, Foundry, OpenZeppelin v5, UUPS proxies (the claim router is intentionally non-upgradeable)
 - ERC-8021 attribution tags on every Celo write tx
 - Hosted on Railway
 
@@ -83,19 +85,14 @@ docs/               Public documentation
 
 ## Contracts
 
-Verified on-chain. See [docs/CONTRACTS.md](docs/CONTRACTS.md) for the full table with roles, ABIs, and upgrade notes.
+Two token contracts per chain, live and verified on Celo mainnet and Soneium mainnet:
 
-**Celo mainnet (chain 42220)**:
+- `MiniKlaimHexes` - ERC-721 territory, one token per H3 hex.
+- `MiniKlaimBadges` - ERC-1155 soulbound achievements.
 
-- MiniKlaimHexes proxy: `0x9945dDEAa9C52c3C4e667B71B698c4e4551F242B`
-- MiniKlaimBadges proxy: `0x79c5d6365f447d1F707EA6d4bDE5D6A96f181cf7`
+A third, `MiniKlaimClaimRouter`, settles a whole run in one wallet approval and is live on Celo mainnet. `MiniKlaimRewards` is written and tested but dormant.
 
-**Soneium mainnet (chain 1868)**:
-
-- MiniKlaimHexes proxy: `0x4FE122eC088501Be53c5a12E1f0F313eD71AeB4C`
-- MiniKlaimBadges proxy: `0xa9ab7390f79B937C9c0a1FDFA1A40C2E145eAbd8`
-
-Admin / deployer / relayer (all chains): `0x8da26Ae1B32a7e4Cd158622D7d70Fe16D6F1dE83`
+Addresses, deploy provenance, roles and the upgrade model live in one place so they cannot drift: **[docs/CONTRACTS.md](docs/CONTRACTS.md)**. Deploying or upgrading anything goes through **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 
 ## Security
 

@@ -8,6 +8,7 @@ import { withAttribution } from "@/lib/onchain/attribution";
 import { getChain, pickFeeAdapter } from "@/lib/onchain/chains";
 import { HEXES_CLAIM_ABI, hexesAddress } from "@/lib/onchain/hexesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
+import { clearRunClaiming, markRunClaiming } from "@/lib/wallet/claimInFlight";
 import { useBalances } from "@/lib/wallet/useBalances";
 
 const log = createLogger("wallet:claimRun");
@@ -58,7 +59,7 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
     [chainKey],
   );
 
-  const claim = useCallback(
+  const submit = useCallback(
     async (runId: string): Promise<ClaimOutcome> => {
       const chain = getChain(chainKey);
       const contract = hexesAddress(chainKey);
@@ -69,9 +70,12 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
 
       let voucher: Voucher;
       try {
-        const res = await fetch(`/api/runs/${runId}/voucher?chain=${chainKey}`, {
-          method: "POST",
-        });
+        const res = await fetch(
+          `/api/runs/${runId}/voucher?chain=${chainKey}`,
+          {
+            method: "POST",
+          },
+        );
         if (res.status === 409) {
           log.info("run has no hexes", { runId });
           return "no-hexes";
@@ -136,6 +140,23 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
       balances.USDT,
       sponsorFallback,
     ],
+  );
+
+  /**
+   * Register the run as in-flight for the whole attempt, including the time
+   * the wallet drawer is open. `PendingClaimPrompt` consults this so a focus
+   * event mid-approval cannot offer the player the same run a second time.
+   */
+  const claim = useCallback(
+    async (runId: string): Promise<ClaimOutcome> => {
+      markRunClaiming(runId);
+      try {
+        return await submit(runId);
+      } finally {
+        clearRunClaiming(runId);
+      }
+    },
+    [submit],
   );
 
   return { claim };
