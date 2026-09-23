@@ -8,6 +8,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { withAttribution } from "@/lib/onchain/attribution";
+import { sendExclusive } from "@/lib/onchain/relayerQueue";
 import {
   type ChainKey,
   DEFAULT_CHAIN_KEY,
@@ -193,13 +194,17 @@ export async function mintBadgesBatch(
       functionName: "mintBatch",
       args: [player, badgeIds],
     });
-    const txHash = await wallet.sendTransaction({
-      to: getChain(chainKey).badgesAddress,
-      data: withAttribution(data),
-      chain: getChain(chainKey).chain,
-      account: signerAccount(),
-      kzg: undefined,
-    });
+    // Serialised: shares the relayer key with the hex capture path, and a
+    // finished run fires both close enough together to collide on the nonce.
+    const txHash = await sendExclusive(() =>
+      wallet.sendTransaction({
+        to: getChain(chainKey).badgesAddress,
+        data: withAttribution(data),
+        chain: getChain(chainKey).chain,
+        account: signerAccount(),
+        kzg: undefined,
+      }),
+    );
     log.info("badges mintBatch broadcast", {
       player,
       candidates: badgeIds.map((b) => Number(b)),

@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { encodeFunctionData, type Hex } from "viem";
 import { useWalletClient } from "wagmi";
+import { track } from "@/lib/analytics";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
 import { getChain, pickFeeAdapter } from "@/lib/onchain/chains";
@@ -20,6 +21,11 @@ import { useBalances } from "@/lib/wallet/useBalances";
 import { useClaimRun } from "@/lib/wallet/useClaimRun";
 
 const log = createLogger("wallet:claimAll");
+
+/** Provider errors are long and stack-y; keep enough to identify the cause. */
+function reasonOf(e: unknown): string {
+  return (e instanceof Error ? e.message : String(e)).slice(0, 200);
+}
 
 export type ClaimAllOutcome = "claimed" | "sponsored" | "nothing" | "failed";
 
@@ -53,6 +59,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
       runId: string,
       addr: string,
       hadBadges: boolean,
+      trigger: string,
     ): Promise<ClaimAllOutcome> => {
       try {
         const res = await fetch(
@@ -61,21 +68,32 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
         );
         if (!res.ok) {
           log.error("sponsor fallback failed", { runId, status: res.status });
+          track("run_claim_failed", { trigger: `sponsor_http_${res.status}` });
           return "failed";
         }
         if (hadBadges) {
-          await fetch(
+          const bRes = await fetch(
             `/api/users/${addr.toLowerCase()}/badges/sponsor-mint?chain=${chainKey}`,
             { method: "POST" },
           );
+          // Hexes already landed, so the run is not a loss. Record the badge
+          // half separately rather than failing the whole claim over it.
+          if (!bRes.ok) {
+            log.warn("sponsored badge mint failed", {
+              runId,
+              status: bRes.status,
+            });
+          }
         }
         log.info("sponsored combined claim done", { runId });
+        track("run_claim_sponsored", { had_badges: hadBadges, trigger });
         return "sponsored";
       } catch (e) {
         log.error("sponsor fallback threw", {
           runId,
-          message: e instanceof Error ? e.message : String(e),
+          message: reasonOf(e),
         });
+        track("run_claim_failed", { trigger: `sponsor_threw:${reasonOf(e)}` });
         return "failed";
       }
     },
@@ -89,6 +107,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
         // No router on this chain yet: the two-tx path is still correct, and it
         // does its own in-flight bookkeeping.
         log.info("no router/wallet; using two-tx path", { runId, chainKey });
+        track("run_claim_started", { path: "two_tx" });
         const outcome = await legacyClaim(runId);
         if (outcome === "user-claimed") return "claimed";
         if (outcome === "sponsored") return "sponsored";
@@ -97,8 +116,10 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
       }
 
       markRunClaiming(runId);
+      track("run_claim_started", { path: "router" });
       try {
         let voucher: Voucher;
+        let voucherStatus = 0;
         try {
           const res = await fetch(
             `/api/runs/${runId}/claim-all/voucher?chain=${chainKey}`,
@@ -106,16 +127,22 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           );
           if (res.status === 409) {
             log.info("nothing to settle for run", { runId });
+            track("run_claim_nothing", {});
             return "nothing";
           }
+          voucherStatus = res.status;
           if (!res.ok) throw new Error(`voucher status ${res.status}`);
           voucher = (await res.json()) as Voucher;
         } catch (e) {
           log.warn("claimAll voucher fetch failed; sponsoring", {
             runId,
-            message: e instanceof Error ? e.message : String(e),
+            message: reasonOf(e),
           });
-          return sponsorFallback(runId, address, true);
+          track("run_claim_voucher_failed", {
+            status: voucherStatus,
+            reason: reasonOf(e),
+          });
+          return sponsorFallback(runId, address, true, "voucher_failed");
         }
 
         const badgeIds = voucher.badgeIds.map(Number);
@@ -149,6 +176,12 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           });
           // These badges are now on-chain but unconfirmed, so the badge prompt
           // must not offer them again while the chain read still lags.
+          track("run_claim_submitted", {
+            hex_count: voucher.h3Ids.length,
+            badge_count: badgeIds.length,
+            tx_hash: txHash,
+            fee_currency: !!feeCurrency,
+          });
           markBadgeClaimSubmitted(badgeIds);
           if (voucher.h3Ids.length > 0) {
             await fetch(`/api/runs/${runId}/claimed`, {
@@ -161,9 +194,19 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
         } catch (e) {
           log.warn("player claimAll failed; sponsoring", {
             runId,
-            message: e instanceof Error ? e.message : String(e),
+            message: reasonOf(e),
           });
-          return sponsorFallback(runId, address, badgeIds.length > 0);
+          track("run_claim_rejected", {
+            hex_count: voucher.h3Ids.length,
+            badge_count: badgeIds.length,
+            reason: reasonOf(e),
+          });
+          return sponsorFallback(
+            runId,
+            address,
+            badgeIds.length > 0,
+            "tx_rejected",
+          );
         }
       } finally {
         clearRunClaiming(runId);
