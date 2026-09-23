@@ -23,7 +23,7 @@ import {
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
-import { useClaimRun } from "@/lib/wallet/useClaimRun";
+import { useClaimAll } from "@/lib/wallet/useClaimAll";
 import { useLinkedAddresses } from "@/lib/wallet/useLinkedAddresses";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -38,7 +38,7 @@ const log = createLogger("page:run");
 // If more than this many seconds pass between two GPS fixes while a run is
 // active, we treat the segment as untrustworthy (signal loss, backgrounded
 // app, phone locked, tunnel, elevator) and DO NOT interpolate hexes between
-// oldPos and newPos — only the current hex gets claimed. A continuous run
+// oldPos and newPos. Only the current hex gets claimed. A continuous run
 // with normal signal gets fixes every 1-3s on mobile; anything past ~10s is
 // almost always a gap where the runner wasn't walking in a straight line.
 const GPS_GAP_STALE_SECONDS = 10;
@@ -50,7 +50,7 @@ export default function RunPage() {
   const { active: activeRun, isLoading: isActiveLoading } = useActiveRun(
     isConnected && !isWrongChain ? address : null,
   );
-  const { claim } = useClaimRun(address, isConnected && !isWrongChain);
+  const { claim } = useClaimAll(address, isConnected && !isWrongChain);
   const linked = useLinkedAddresses(address, isConnected && !isWrongChain);
   const linkedRef = useRef<ReadonlySet<string>>(new Set());
   useEffect(() => {
@@ -72,7 +72,7 @@ export default function RunPage() {
   // Timestamp (Date.now()) of the last accepted GPS fix while a run is active.
   // Used to detect stale gaps: if too long has passed since the previous fix
   // (signal loss, app backgrounded, phone locked, tunnel, elevator), the
-  // interpolated straight line from oldPos to newPos is a lie — the runner
+  // interpolated straight line from oldPos to newPos is a lie, because the runner
   // did not physically walk that line, they were somewhere else in between.
   // On a stale gap we drop back to endpoint-only capture.
   const lastPosTsRef = useRef<number>(0);
@@ -343,11 +343,15 @@ export default function RunPage() {
         hexesClaimed: data.hexesClaimed,
         distanceMeters: data.distanceMeters,
       });
-      // Mint on-chain: the player submits their own claimRun tx (so they count
-      // as a unique on-chain wallet), falling back to the sponsored relayer if
-      // they cannot pay gas or decline. Fire-and-forget; the summary shows now.
-      // After the hex claim settles, trigger badge detection so any badge earned
-      // this run pops its own claim prompt (sequenced after the hex tx).
+      // Settle on-chain in ONE wallet approval: the player submits a single
+      // claimAll tx covering this run's hexes and any badge it unlocked (so they
+      // stay the on-chain sender and count as a unique wallet), falling back to
+      // the sponsored relayer if they cannot pay gas or decline.
+      // Fire-and-forget; the summary shows now.
+      //
+      // Badge detection still runs afterwards as a safety net: the combined
+      // claim already registered the badges it submitted, so the prompt stays
+      // quiet unless something was genuinely left unclaimed.
       void claim(id).then((outcome) => {
         log.info("run claim outcome", { id, outcome });
         setBadgeRefresh((k) => k + 1);
@@ -423,7 +427,7 @@ export default function RunPage() {
     if (!containerRef.current) return;
 
     // Use last known position from localStorage as initial center if we have
-    // one. Avoids the Bogota → user-pos flash for returning visitors. New
+    // one. Avoids the Bogota -> user-pos flash for returning visitors. New
     // visitors fall back to DEFAULT_CENTER until first GPS fix flies them in.
     const cached = readCachedPosition();
     const initialCenter: [number, number] = cached
@@ -701,7 +705,7 @@ export default function RunPage() {
               // Interpolate the straight line since the previous GPS fix so
               // every hex physically crossed between pings gets captured, not
               // just the current one. Any mode of movement is fine (walk,
-              // run, bike, car, plane) — the server enforces only accuracy
+              // run, bike, car, plane). The server enforces only accuracy
               // and a distance-per-capture sanity cap.
               //
               // BUT: skip interpolation if the gap since the last fix is too
@@ -883,9 +887,7 @@ function renderPositionDot(
   lat: number,
   lng: number,
 ): void {
-  const src = map.getSource("position") as
-    | maplibregl.GeoJSONSource
-    | undefined;
+  const src = map.getSource("position") as maplibregl.GeoJSONSource | undefined;
   if (!src) return;
   src.setData({
     type: "FeatureCollection",
