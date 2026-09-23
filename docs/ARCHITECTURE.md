@@ -29,9 +29,10 @@ High-level view of how MiniKlaim is put together. For contract details see [CONT
 |  Postgres         |   |  Celo L2 mainnet     |
 |  users, runs,     |   |  MiniKlaimHexes      |
 |  hexes, players,  |   |  MiniKlaimBadges     |
-|  player_wallets,  |   |  (MiniKlaimRewards)  |
-|  link_codes       |   +----------------------+
-+-------------------+   |  Soneium mainnet     |
+|  player_wallets,  |   |  MiniKlaimClaimRouter|
+|  link_codes       |   |  (MiniKlaimRewards)  |
++-------------------+   +----------------------+
+                        |  Soneium mainnet     |
                         |  MiniKlaimHexes      |
                         |  MiniKlaimBadges     |
                         +----------------------+
@@ -49,14 +50,14 @@ High-level view of how MiniKlaim is put together. For contract details see [CONT
   - **Farcaster Mini App**: `@farcaster/miniapp-sdk` detection, `farcasterMiniApp()` connector.
   - **Startale**: `@startale/app-sdk` connector for Soneium smart-account wallets.
   - **Browser**: standard `injected()` connector.
-- MapLibre GL renders CARTO tiles + the H3 hex grid as a live GeoJSON source updated per `watchPosition` callback.
+- MapLibre GL renders OpenFreeMap Positron vector tiles (`lib/map/config.ts`) + the H3 hex grid as a live GeoJSON source updated per `watchPosition` callback. CARTO was dropped once it started stamping "API KEY REQUIRED" on its unauthenticated basemap CDN.
 
 ### Backend (Next.js API routes)
 
 - All routes are `dynamic: "force-dynamic"` (no ISR).
 - Postgres via `drizzle-orm` and `postgres-js`; connection pooled by the driver.
-- Server-side signing via viem `privateKeyToAccount(SERVER_SIGNER_PRIVATE_KEY)`. Signs EIP-712 vouchers for `claimRun`, `claimBadges`, `claimRewards` (dormant).
-- Sponsored fallback: same signer sends `captureBatch` / `mintBatch` from the backend when the player can't or won't sign the tx themselves.
+- Server-side signing via viem `privateKeyToAccount(SERVER_SIGNER_PRIVATE_KEY)`. Signs EIP-712 vouchers for `claimAll` (combined, preferred), `claimRun`, `claimBadges`, `claimRewards` (dormant).
+- Sponsored fallback: same signer sends `captureBatch` / `mintBatch` from the backend when the player can't or won't sign the tx themselves. This path spends the relayer's native balance, so it stops working silently when that account runs dry (see [DEPLOYMENT.md](DEPLOYMENT.md#funding-the-relayer)).
 - GPS validation module at `lib/runs/validation.ts` acts as the choke point for `/api/runs/[id]/claim`.
 
 ### Persistence
@@ -68,12 +69,26 @@ High-level view of how MiniKlaim is put together. For contract details see [CONT
 
 ### On-chain
 
-- Two contracts per chain, both UUPS-upgradeable: `MiniKlaimHexes` (ERC-721 territory) and `MiniKlaimBadges` (ERC-1155 soulbound achievements).
+- Two token contracts per chain, both UUPS-upgradeable: `MiniKlaimHexes` (ERC-721 territory) and `MiniKlaimBadges` (ERC-1155 soulbound achievements).
+- `MiniKlaimClaimRouter` settles a finished run in one transaction across both, so the player approves once instead of twice. Not upgradeable by design. Gated on `NEXT_PUBLIC_<CHAIN>_CLAIM_ROUTER_ADDRESS`; unset falls back to the two-tx path.
 - Player transactions carry an ERC-8021 attribution suffix (`@celo/attribution-tags`) so the Celo ecosystem can attribute the activity.
 - Fee abstraction via CIP-64 on Celo (USDm / USDC / USDT adapters), with `pickFeeAdapter` selecting the first token the player holds.
 - See [CONTRACTS.md](CONTRACTS.md) for addresses, roles, and upgrade model.
 
 ## Cross-cutting concerns
+
+### Run settlement
+
+Finishing a run has to put two things on-chain: the hexes captured, and any badge the run unlocked.
+
+1. `PATCH /api/runs/[id]/finish` closes the run server-side and returns the summary. The UI shows it immediately.
+2. `POST /api/runs/[id]/claim-all/voucher` returns one EIP-712 voucher covering the run's hexes plus every earned-but-unheld badge.
+3. The client submits a single `claimAll` tx to `MiniKlaimClaimRouter`. One wallet approval.
+4. On failure or refusal, the sponsored relayer covers both halves instead.
+
+Chains without a deployed router fall back to two separate player transactions (`claimRun`, then `claimBadges`), which is the original flow.
+
+Both claim prompts consult `lib/wallet/claimInFlight.ts` before asking for a signature. Neither the server's `hexes.mint_tx_hash` nor an on-chain `heldIds` read can see a claim that is mid-flight, and in MiniPay the wallet drawer opening and closing fires a `window.focus` event that re-triggers detection, so without that registry the player gets asked twice for work they already approved.
 
 ### Identity model
 
@@ -85,6 +100,7 @@ High-level view of how MiniKlaim is put together. For contract details see [CONT
 ### MiniPay constraints (enforced everywhere)
 
 - No `personal_sign` or `eth_signTypedData` (MiniPay does not support message signing). All auth is wallet address only.
+- No EIP-5792 (`wallet_sendCalls`). The injected provider is plain EIP-1193, so the wallet cannot bundle calls and one approval means one transaction. Batching several contract calls behind a single approval has to happen in a contract, which is what `MiniKlaimClaimRouter` is for. The only batching MiniPay documents is `useReadContracts`, which is reads.
 - No CELO display in the UI. Fee abstraction is USDm / USDC / USDT.
 - UI copy avoids `gas`, `crypto`, `wallet address as primary identifier`, `onramp`, `offramp`, and similar jargon.
 - Zero-click connect inside MiniPay: `useWallet` auto-fires the connect on `isMiniPay` detection.
@@ -98,7 +114,7 @@ High-level view of how MiniKlaim is put together. For contract details see [CONT
 
 ### Anti-abuse
 
-- GPS sanity guards in `lib/runs/validation.ts`: accuracy 30m (bad GPS captures the wrong hex, UX not anti-cheat) and per-capture distance 10km (bug canary against GPS teleport). No rate limit, no min-interval, no avg-speed cap — the game accepts any transport mode (walk, run, bike, car, plane) per product decision.
+- GPS sanity guards in `lib/runs/validation.ts`: accuracy 30m (bad GPS captures the wrong hex, UX not anti-cheat) and per-capture distance 10km (bug canary against GPS teleport). No rate limit, no min-interval, no avg-speed cap - the game accepts any transport mode (walk, run, bike, car, plane) per product decision.
 - Client interpolation (`interpolateHexIds` in `lib/map/hex.ts`) walks the segment between GPS pings so hexes are never skipped at speed. The `/api/runs/[id]/claim` endpoint accepts a batch `{ hexes: [...] }` payload so a single fast-movement ping is one HTTP round trip regardless of hex count.
 
 ### Attribution
@@ -110,7 +126,7 @@ High-level view of how MiniKlaim is put together. For contract details see [CONT
 - Web app hosts on Railway from `main` branch. `preDeployCommand: npm run db:migrate` applies Drizzle migrations automatically.
 - Two cron services on Railway:
   - `cron-finalize-orphans`: hourly (`0 * * * *`), runs `npm run runs:finalize-orphans` to close abandoned runs.
-  - `cron-retry-unminted`: every 20 min (`*/20 * * * *`), runs `npm run runs:retry-unminted` to re-sync any hex that failed to mint on-chain.
+  - `cron-retry-unminted`: every 4 hours (`0 */4 * * *`), runs `npm run runs:retry-unminted` to re-sync any hex that failed to mint on-chain.
 - Contracts deployed via Foundry scripts (see `contracts/script/`). All chains use the same deployer address.
 
 ## What isn't in the code

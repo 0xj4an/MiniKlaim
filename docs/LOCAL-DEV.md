@@ -79,6 +79,10 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 If you want on-chain reads and mint testing, also set the contract addresses (Celo mainnet values in [CONTRACTS.md](CONTRACTS.md)) plus `NEXT_PUBLIC_LINK_VERIFIER_ADDRESS` (the relayer EOA) and `SERVER_SIGNER_PRIVATE_KEY` (only needed for the sponsored / voucher flows).
 
+Use the `NEXT_PUBLIC_CELO_*` names, not the older `NEXT_PUBLIC_MINIKLAIM_*` ones: `lib/onchain/chains.ts` reads only the former, so a `.env.local` carrying the legacy names runs with no contracts configured and every on-chain read silently returns empty.
+
+Leave `NEXT_PUBLIC_CELO_CLAIM_ROUTER_ADDRESS` unset unless you have a router deployed. Unset means the app uses the two-transaction claim path, which works fine locally.
+
 Full env-var reference: see `.env.example` at the repo root and [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Run the app
