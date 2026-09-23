@@ -72,38 +72,87 @@ Single-key model. No multisig, no timelock.
 
 That account also pays gas for every sponsored mint. When its balance runs out the sponsored fallback and the `cron-retry-unminted` job both fail with "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account", and player hexes silently stop reaching the chain. See [DEPLOYMENT.md](DEPLOYMENT.md#funding-the-relayer) for the funding runbook.
 
+Every contract listed below was deployed by that account. Verified by enumerating its full transaction history on both chains, not by trusting this file: 6 contract creations on Celo, 4 on Soneium, 10 in total, all accounted for here. `cast code` returns `0x` for the account on both chains, so it is a plain EOA, not a Safe or a timelock.
+
 ### Celo mainnet (chain 42220) - verified on Celoscan
 
 Use the PROXY address in env, dApps, explorers. The implementation address is deployed alongside for the UUPS proxy delegatecall target only.
 
-| Contract | Role | Address |
-|---|---|---|
-| MiniKlaimHexes | proxy | `0x9945dDEAa9C52c3C4e667B71B698c4e4551F242B` |
-| MiniKlaimHexes | implementation | `0x9Ae06a93154b6f54E4Ad44A2664b321AC68554EE` |
-| MiniKlaimBadges | proxy | `0x79c5d6365f447d1F707EA6d4bDE5D6A96f181cf7` |
-| MiniKlaimBadges | implementation | `0x332D8Aa1B0CA847Fb7B95Ed020eF9600860ae406` |
-| MiniKlaimRewards | proxy | (not deployed) |
-| MiniKlaimClaimRouter | single (no proxy) | (not deployed) |
+| Contract | Role | Address | Block | Deployed |
+|---|---|---|---|---|
+| MiniKlaimHexes | proxy | `0x9945dDEAa9C52c3C4e667B71B698c4e4551F242B` | 69727199 | 2026-06-16 |
+| MiniKlaimHexes | implementation | `0x9Ae06a93154b6f54E4Ad44A2664b321AC68554EE` | 69727198 | 2026-06-16 |
+| MiniKlaimBadges | proxy | `0x79c5d6365f447d1F707EA6d4bDE5D6A96f181cf7` | 69759385 | 2026-06-17 |
+| MiniKlaimBadges | implementation | `0x332D8Aa1B0CA847Fb7B95Ed020eF9600860ae406` | 69759385 | 2026-06-17 |
+| MiniKlaimRewards | proxy | (not deployed) | - | - |
+| MiniKlaimClaimRouter | single (no proxy) | (not deployed) | - | - |
+
+Creation transactions:
+
+- Hexes proxy: `0xe2a3c853929d23ee74e3f474f62aaecf904c1debf09991a1a24cc6b8fc64eca8`
+- Hexes implementation: `0x3afaf852c0baec8004f5be83c438fdce515359caa4a836225c8d461c37456a55`
+- Badges proxy: `0xf839c9bbffbc217cd9c16bc9f32cf3779a377099b6da3d1cb5876d715726ad83`
+- Badges implementation: `0x2edc0b150e647d1709fddabf05ef78586737d95b352d3efc83c6f9db21ea5533`
 
 ### Soneium mainnet (chain 1868) - verified on Blockscout
 
-| Contract | Role | Address |
+| Contract | Role | Address | Block | Deployed |
+|---|---|---|---|---|
+| MiniKlaimHexes | proxy | `0x4FE122eC088501Be53c5a12E1f0F313eD71AeB4C` | 24267464 | 2026-06-17 |
+| MiniKlaimHexes | implementation | `0xF5E2E7467E047e88e73048aE1520Ecf7ecAF19d9` | 24267464 | 2026-06-17 |
+| MiniKlaimBadges | proxy | `0xa9ab7390f79B937C9c0a1FDFA1A40C2E145eAbd8` | 24267413 | 2026-06-17 |
+| MiniKlaimBadges | implementation | `0xf3C18ECFFEcca156E681cf1Ebfa37cA68c42cb47` | 24267413 | 2026-06-17 |
+
+Creation transactions:
+
+- Hexes proxy: `0x926124df838b00855306005d6227fcbc69926e5a67e121ed7170f8ae45e4b9fb`
+- Hexes implementation: `0x197697a4039fa348963fb5224f8e95c3c75f4f09782f44994d6eb5a0dfdfee3e`
+- Badges proxy: `0x7b2b361683dd14b5fd1f6381351860f2c290be284ba8969418956eee55ad70ed`
+- Badges implementation: `0x6c1592d19c046812507fe6e6d9a568f18f6231582d81978b325a2771b283ec1e`
+
+Two Soneium addresses are byte-identical to the two legacy Celo addresses below. That is the deployer replaying the same nonce sequence on a fresh chain, so CREATE produced the same addresses:
+
+| Address | On Celo | On Soneium |
 |---|---|---|
-| MiniKlaimHexes | proxy | `0x4FE122eC088501Be53c5a12E1f0F313eD71AeB4C` |
-| MiniKlaimHexes | implementation | `0xF5E2E7467E047e88e73048aE1520Ecf7ecAF19d9` |
-| MiniKlaimBadges | proxy | `0xa9ab7390f79B937C9c0a1FDFA1A40C2E145eAbd8` |
-| MiniKlaimBadges | implementation | `0xf3C18ECFFEcca156E681cf1Ebfa37cA68c42cb47` |
+| `0xa9ab7390f79B937C9c0a1FDFA1A40C2E145eAbd8` | legacy MiniKlaimBadges, abandoned | MiniKlaimBadges proxy, **live** |
+| `0xf3C18ECFFEcca156E681cf1Ebfa37cA68c42cb47` | legacy MiniKlaimHexes, abandoned | MiniKlaimBadges implementation, **live** |
 
-Some Soneium addresses collide with legacy Celo addresses. That is just the deployer reusing the same nonces on a fresh chain. They are distinct contracts on distinct chains.
+Different bytecode, different chains, different roles. Confirmed: `totalBadgesMinted()` on `0xa9ab7390f79B937C9c0a1FDFA1A40C2E145eAbd8` reverts on Celo and returns a value on Soneium. Treat this as a copy-paste hazard when editing per-chain config: the wrong address will exist and answer calls instead of failing loudly.
 
-### Legacy Celo addresses (do NOT use)
+### Legacy Celo contracts (do NOT use, but they are still live)
 
-Superseded by the upgradeable proxies above. Kept here for historical reference only.
+The first generation on Celo was deployed **without proxies**, as direct non-upgradeable instances. The June 2026 redeploy moved to UUPS proxies and re-minted the ownership into them via `adminImport`, so players did not lose territory. The originals were never destroyed and still hold the tokens minted before the migration.
 
-| Contract | Chain | Address |
-|---|---|---|
-| MiniKlaimHexes (legacy) | Celo | `0xf3C18ECFFEcca156E681cf1Ebfa37cA68c42cb47` |
-| MiniKlaimBadges (legacy) | Celo | `0xa9ab7390f79B937C9c0a1FDFA1A40C2E145eAbd8` |
+| Contract | Address | Standard | Block | Deployed | Holders | Transfers |
+|---|---|---|---|---|---|---|
+| MiniKlaimHexes (legacy) | `0xf3C18ECFFEcca156E681cf1Ebfa37cA68c42cb47` | ERC-721 | 67570693 | 2026-05-22 | 6 | 148 |
+| MiniKlaimBadges (legacy) | `0xa9ab7390f79B937C9c0a1FDFA1A40C2E145eAbd8` | ERC-1155 | 67756595 | 2026-05-24 | 10 | 17 |
+
+Creation transactions:
+
+- Hexes (legacy): `0x1b84ec6172f7ca8ab0294d00f88a887ba68bd8990ff6e91939c2472792fae6fb`
+- Badges (legacy): `0x04c062797cd2ad051aefca327d66618cdc3834c89ee5e21b78f3d59ff0c7f1d6`
+
+Both are still verified on Celoscan, so those orphaned tokens remain visible in player wallets and on marketplaces. Neither appears in any env var, so the app never reads them.
+
+They predate the on-chain metrics counters: `totalCaptures()`, `uniquePlayers()`, `totalClaimRuns()` and `totalBadgesMinted()` all revert on them, while `name()` still answers. Do not point a dashboard or a metrics reader at these.
+
+### Role and upgrade history
+
+Audited from the full event history of all four live proxies, using the explorers' server-side topic filter (paginating the v2 logs endpoint gives up long before reaching the deploy block on Hexes, which has 13k+ captures):
+
+- **`RoleGranted`: exactly 2 per proxy**, both to the deployer, both in the deploy transaction. No third party has ever held a role on any of them.
+- **`RoleRevoked`: zero, ever, on any contract.**
+- **`Upgraded`: exactly 1 per proxy**, the initial one. No contract has ever been upgraded, so every implementation listed above is the original.
+
+Re-verify at any time:
+
+```bash
+cast call <PROXY> 'hasRole(bytes32,address)(bool)' \
+  0x0000000000000000000000000000000000000000000000000000000000000000 \
+  0x8da26Ae1B32a7e4Cd158622D7d70Fe16D6F1dE83 \
+  --rpc-url https://forno.celo.org
+```
 
 ## Attribution
 
