@@ -16,8 +16,10 @@ Gas is sponsored by the project when needed, so you never have to think about it
 
 ## Documentation
 
+- **[Documentation index](docs/README.md)** - what each document owns, and which one to trust.
 - **[Architecture](docs/ARCHITECTURE.md)** - system diagram, layers, cross-cutting concerns.
-- **[Contracts](docs/CONTRACTS.md)** - addresses, roles, upgrade model, fee abstraction.
+- **[Contracts](docs/CONTRACTS.md)** - addresses, roles, provenance, upgrade model, fee abstraction.
+- **[Contracts workspace](contracts/README.md)** - Foundry setup, build, test, lint.
 - **[API](docs/API.md)** - REST endpoint reference.
 - **[Local development](docs/LOCAL-DEV.md)** - full setup guide.
 - **[Deployment](docs/DEPLOYMENT.md)** - Railway + Foundry playbook.
@@ -83,20 +85,14 @@ docs/               Public documentation
 
 ## Contracts
 
-Verified on-chain. See [docs/CONTRACTS.md](docs/CONTRACTS.md) for the full table with roles, ABIs, and upgrade notes.
+Two token contracts per chain, live and verified on Celo mainnet and Soneium mainnet:
 
-**Celo mainnet (chain 42220)**:
+- `MiniKlaimHexes` - ERC-721 territory, one token per H3 hex.
+- `MiniKlaimBadges` - ERC-1155 soulbound achievements.
 
-- MiniKlaimHexes proxy: `0x9945dDEAa9C52c3C4e667B71B698c4e4551F242B`
-- MiniKlaimBadges proxy: `0x79c5d6365f447d1F707EA6d4bDE5D6A96f181cf7`
-- MiniKlaimClaimRouter: not deployed yet
+A third, `MiniKlaimClaimRouter`, settles a run in one wallet approval and is not deployed yet. `MiniKlaimRewards` is written and tested but dormant.
 
-**Soneium mainnet (chain 1868)**:
-
-- MiniKlaimHexes proxy: `0x4FE122eC088501Be53c5a12E1f0F313eD71AeB4C`
-- MiniKlaimBadges proxy: `0xa9ab7390f79B937C9c0a1FDFA1A40C2E145eAbd8`
-
-Admin / deployer / relayer (all chains): `0x8da26Ae1B32a7e4Cd158622D7d70Fe16D6F1dE83`
+Addresses, deploy provenance, roles and the upgrade model live in one place so they cannot drift: **[docs/CONTRACTS.md](docs/CONTRACTS.md)**. Deploying or upgrading anything goes through **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 
 ## Security
 
