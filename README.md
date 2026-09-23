@@ -90,7 +90,7 @@ Two token contracts per chain, live and verified on Celo mainnet and Soneium mai
 - `MiniKlaimHexes` - ERC-721 territory, one token per H3 hex.
 - `MiniKlaimBadges` - ERC-1155 soulbound achievements.
 
-A third, `MiniKlaimClaimRouter`, settles a run in one wallet approval and is not deployed yet. `MiniKlaimRewards` is written and tested but dormant.
+A third, `MiniKlaimClaimRouter`, settles a whole run in one wallet approval and is live on Celo mainnet. `MiniKlaimRewards` is written and tested but dormant.
 
 Addresses, deploy provenance, roles and the upgrade model live in one place so they cannot drift: **[docs/CONTRACTS.md](docs/CONTRACTS.md)**. Deploying or upgrading anything goes through **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 

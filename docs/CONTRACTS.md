@@ -44,7 +44,7 @@ Roles:
 - `DEFAULT_ADMIN_ROLE`: upgrade + fund + configure amounts + pause + emergency withdraw.
 - `REWARDER_ROLE`: sign claim vouchers.
 
-### `MiniKlaimClaimRouter` (NOT upgradeable) - NOT YET DEPLOYED
+### `MiniKlaimClaimRouter` (NOT upgradeable)
 
 Settles a finished run in a single transaction, so the player sees one wallet approval instead of two.
 
@@ -84,8 +84,8 @@ Use the PROXY address in env, dApps, explorers. The implementation address is de
 | MiniKlaimHexes | implementation | `0x9Ae06a93154b6f54E4Ad44A2664b321AC68554EE` | 69727198 | 2026-06-16 |
 | MiniKlaimBadges | proxy | `0x79c5d6365f447d1F707EA6d4bDE5D6A96f181cf7` | 69759385 | 2026-06-17 |
 | MiniKlaimBadges | implementation | `0x332D8Aa1B0CA847Fb7B95Ed020eF9600860ae406` | 69759385 | 2026-06-17 |
+| MiniKlaimClaimRouter | single (no proxy) | `0x9C3369e1519B03c16C329aCE13dB528eC8Ca8c74` | 78286681 | 2026-09-23 |
 | MiniKlaimRewards | proxy | (not deployed) | - | - |
-| MiniKlaimClaimRouter | single (no proxy) | (not deployed) | - | - |
 
 Creation transactions:
 
@@ -93,6 +93,9 @@ Creation transactions:
 - Hexes implementation: `0x3afaf852c0baec8004f5be83c438fdce515359caa4a836225c8d461c37456a55`
 - Badges proxy: `0xf839c9bbffbc217cd9c16bc9f32cf3779a377099b6da3d1cb5876d715726ad83`
 - Badges implementation: `0x2edc0b150e647d1709fddabf05ef78586737d95b352d3efc83c6f9db21ea5533`
+- ClaimRouter: `0x500a52e3ccb2e52efba0afee55d6c935f262c94965a546d7ab6acfbaad665ccf`
+
+All four are verified on both Celoscan and Celo's Blockscout instance.
 
 ### Soneium mainnet (chain 1868) - verified on Blockscout
 
@@ -141,9 +144,25 @@ They predate the on-chain metrics counters: `totalCaptures()`, `uniquePlayers()`
 
 Audited from the full event history of all four live proxies, using the explorers' server-side topic filter (paginating the v2 logs endpoint gives up long before reaching the deploy block on Hexes, which has 13k+ captures):
 
-- **`RoleGranted`: exactly 2 per proxy**, both to the deployer, both in the deploy transaction. No third party has ever held a role on any of them.
 - **`RoleRevoked`: zero, ever, on any contract.**
 - **`Upgraded`: exactly 1 per proxy**, the initial one. No contract has ever been upgraded, so every implementation listed above is the original.
+- **`RoleGranted`**, per contract:
+
+| Contract | Grants | To |
+|---|---|---|
+| Celo Hexes | 3 | `DEFAULT_ADMIN_ROLE` + `CAPTURER_ROLE` to the deployer at deploy; `CAPTURER_ROLE` to the claim router on 2026-09-23 |
+| Celo Badges | 3 | `DEFAULT_ADMIN_ROLE` + `MINTER_ROLE` to the deployer at deploy; `MINTER_ROLE` to the claim router on 2026-09-23 |
+| Celo ClaimRouter | 2 | `DEFAULT_ADMIN_ROLE` + `VOUCHER_SIGNER_ROLE` to the deployer at deploy |
+| Soneium Hexes | 2 | `DEFAULT_ADMIN_ROLE` + `CAPTURER_ROLE` to the deployer at deploy |
+| Soneium Badges | 2 | `DEFAULT_ADMIN_ROLE` + `MINTER_ROLE` to the deployer at deploy |
+
+The claim router is therefore the only non-deployer address that holds a role anywhere. It holds mint authority and nothing else: it has no admin role on either token contract, verified after deploy.
+
+Role-grant transactions for the router, all on 2026-09-23:
+
+- `VOUCHER_SIGNER_ROLE` on the router: `0x342a44bcf21990bdcfc273fe03ea77cf1bf2046096262c266e02df47070bf024`
+- `CAPTURER_ROLE` on Hexes: `0x16b6c57c131d9052643d9627f45c5bfaed8420740f904974b5b38e4782c78257`
+- `MINTER_ROLE` on Badges: `0x030fb7ac89a85316c8f926c89bbeec90f516268349b149484daa6ccd51961c65`
 
 Re-verify at any time:
 
