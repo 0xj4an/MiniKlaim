@@ -37,6 +37,32 @@ type EventMap = {
   };
   run_capture_milestone: { hex_count: number };
 
+  // Combined single-approval run settlement (MiniKlaimClaimRouter).
+  // Every branch of `useClaimAll` fires exactly one terminal event, so a run
+  // that produced no wallet prompt can be told apart from one the player
+  // declined, and a client-side provider refusal is visible without a console.
+  run_claim_started: { path: "router" | "two_tx" };
+  // The voucher endpoint answered non-OK. `status` separates "nothing to
+  // settle" (409) from "router not configured" (503) from a server fault.
+  run_claim_voucher_failed: { status: number; reason: string };
+  run_claim_nothing: Record<string, never>;
+  run_claim_submitted: {
+    hex_count: number;
+    badge_count: number;
+    tx_hash: string;
+    fee_currency: boolean;
+  };
+  // The wallet or its provider refused the transaction. `reason` carries the
+  // provider's own message, which is the only way to see a method the host
+  // wallet declines to sign.
+  run_claim_rejected: {
+    hex_count: number;
+    badge_count: number;
+    reason: string;
+  };
+  run_claim_sponsored: { had_badges: boolean; trigger: string };
+  run_claim_failed: { trigger: string };
+
   // Badges.
   badge_unlocked: { badge_id: number; badge_name: string };
   badge_claim_started: { count: number };
