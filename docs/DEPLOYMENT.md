@@ -46,7 +46,8 @@ Set via Railway UI or `railway variables --service web --set "KEY=VALUE"`:
 | `NEXT_PUBLIC_CELO_CLAIM_ROUTER_ADDRESS` | (Optional) MiniKlaimClaimRouter. When set, finishing a run costs one wallet approval instead of two. Unset falls back to the two-tx path. | (unset) |
 | `NEXT_PUBLIC_SONEIUM_CLAIM_ROUTER_ADDRESS` | Same, for Soneium. | (unset) |
 | `NEXT_PUBLIC_POSTHOG_KEY` | PostHog client key (`phc_...`). Public. | `phc_...` |
-| `ETHERSCAN_API_KEY` | For contract verification | `...` |
+
+`ETHERSCAN_API_KEY` is deliberately **not** in that table. No application code reads it; only Foundry does, for contract verification, and Foundry never runs on Railway. It belongs in the local `.env.local` and nowhere else. It was set on the production service until 2026-09-23 and was removed as dead config.
 
 Two notes on the live production service, verified against Railway rather than assumed:
 
