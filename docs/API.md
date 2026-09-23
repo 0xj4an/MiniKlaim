@@ -19,8 +19,9 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 |---|---|
 | `POST /api/runs` | Start a run for the connected wallet. Body: `{ address }`. Returns `{ id, startedAt }`. |
 | `POST /api/runs/[id]/claim` | Add captured hexes to an active run. Two body shapes accepted: (1) legacy single `{ h3, distanceMeters?, accuracy? }`; (2) batch `{ hexes: [{ h3, distanceMeters?, accuracy? }, ...] }` used by the interpolation path (client sends every hex crossed since the previous GPS ping in one round trip). Each hex is validated for accuracy (`> 30m` rejected) and distance canary (`> 10km` rejected). Returns per-hex results in `{ ok, results: [{ h3, alreadyOwned?, rejected? }] }` for batch calls; legacy `{ ok, alreadyOwned }` for singular. |
-| `PATCH /api/runs/[id]/finish` | Close a run. No anti-cheat sanity check — game accepts any transport mode. Returns the closed run row. |
+| `PATCH /api/runs/[id]/finish` | Close a run. No anti-cheat sanity check, game accepts any transport mode. Returns the closed run row. |
 | `POST /api/runs/[id]/voucher` | Issue an EIP-712 voucher for the player to submit `claimRun` on-chain. Returns `{ tokenIds, nonce, signature, contract, chainId }`. Returns 409 if the run has no captured hexes. |
+| `POST /api/runs/[id]/claim-all/voucher` | Issue the single EIP-712 voucher that settles a whole run through `MiniKlaimClaimRouter.claimAll`: this run's hexes plus every earned-but-unheld badge, in one tx and therefore one wallet approval. Returns `{ h3Ids, badgeIds, nonce, signature, contract, chainId }`. Returns 409 when there is nothing to settle, and 503 when no router is deployed for the chain (the client then falls back to the two-tx `claimRun` + `claimBadges` path). |
 | `POST /api/runs/[id]/claimed` | Backend hook confirming a mint tx has landed. Body: `{ txHash }`. |
 | `POST /api/runs/[id]/sponsor-mint` | Sponsored fallback: backend relayer runs `captureBatch` on-chain when the player cannot pay gas. |
 
