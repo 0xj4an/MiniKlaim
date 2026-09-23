@@ -2,13 +2,13 @@
 
 > Run it. Klaim it.
 
-A territory-capture game. Every block of your city you cross — on foot, by bike, in a car, on a plane — becomes yours on a shared map. Built with Next.js, deployed on Celo (and Soneium).
+A territory-capture game. Every block of your city you cross - on foot, by bike, in a car, on a plane - becomes yours on a shared map. Built with Next.js, deployed on Celo (and Soneium).
 
 Live: [www.miniklaim.fun](https://www.miniklaim.fun)
 
 ## How it works
 
-The world is a grid of ~13-meter hexagons (H3 resolution 12). When you start a run, the app tracks your GPS path and claims every hex you pass through. Any mode of movement counts — walk, run, bike, drive, fly. Claimed hexes are minted as ERC-721 NFTs on Celo. If another player crosses a hex you own, the contract transfers it to them. The only way to take it back is to go there yourself.
+The world is a grid of ~13-meter hexagons (H3 resolution 12). When you start a run, the app tracks your GPS path and claims every hex you pass through. Any mode of movement counts - walk, run, bike, drive, fly. Claimed hexes are minted as ERC-721 NFTs on Celo. If another player crosses a hex you own, the contract transfers it to them. The only way to take it back is to go there yourself.
 
 Achievements (First Steps, Mayor, Marathon, and 52 more) are tracked as soulbound ERC-1155 badges across 8 categories.
 
@@ -31,7 +31,7 @@ Gas is sponsored by the project when needed, so you never have to think about it
 - Next.js 16 (App Router) + React 19 + Tailwind v4 + MapLibre GL
 - wagmi + viem, multichain (Celo via MiniPay / Farcaster, Soneium via Startale)
 - Postgres via Drizzle ORM
-- Solidity 0.8.24, Foundry, OpenZeppelin v5, UUPS proxies
+- Solidity 0.8.24, Foundry, OpenZeppelin v5, UUPS proxies (the claim router is intentionally non-upgradeable)
 - ERC-8021 attribution tags on every Celo write tx
 - Hosted on Railway
 
@@ -89,6 +89,7 @@ Verified on-chain. See [docs/CONTRACTS.md](docs/CONTRACTS.md) for the full table
 
 - MiniKlaimHexes proxy: `0x9945dDEAa9C52c3C4e667B71B698c4e4551F242B`
 - MiniKlaimBadges proxy: `0x79c5d6365f447d1F707EA6d4bDE5D6A96f181cf7`
+- MiniKlaimClaimRouter: not deployed yet
 
 **Soneium mainnet (chain 1868)**:
 

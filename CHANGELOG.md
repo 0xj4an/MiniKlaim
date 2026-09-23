@@ -2,11 +2,30 @@
 
 All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project does not use SemVer tags today, so entries are dated instead.
 
+## 2026-09-23
+
+### Added
+
+- **One wallet approval per run.** New `MiniKlaimClaimRouter` settles a finished run's hexes and badges in a single `claimAll` transaction, so finishing a run costs one approval instead of two. MiniPay blocked the Mini App listing over this: its provider is plain EIP-1193 with no EIP-5792 (`wallet_sendCalls`), so the wallet cannot bundle calls and the batching has to live in a contract. The router holds `CAPTURER_ROLE` on Hexes and `MINTER_ROLE` on Badges and always mints to the caller, which needs no upgrade to either live contract and no address change. Deliberately non-upgradeable. Gated on `NEXT_PUBLIC_<CHAIN>_CLAIM_ROUTER_ADDRESS`; unset falls back to the previous two-transaction path. Not deployed to any chain yet.
+- **`POST /api/runs/[id]/claim-all/voucher`** issues the single EIP-712 voucher covering a run's hexes plus every earned-but-unheld badge.
+- **17 new Foundry tests** for the router (voucher forgery, cross-player replay, padded id lists, nonce reuse, idempotent re-claims, role revocation as a kill switch). Suite is now 74 passing across four files.
+- **`@/*` path alias in `vitest.config.ts`**, mirroring tsconfig. Any test importing an app module previously failed with "Cannot find package".
+
+### Fixed
+
+- **Duplicate claim prompts after finishing a run.** Two of the prompts MiniPay complained about were races, not design. `usePendingClaim` refetches on `window.focus`, and in MiniPay the wallet drawer opening and closing _is_ a focus event; since `hexes.mint_tx_hash` is only written after `sendTransaction` resolves, the pending-claim prompt offered the player the very run they were approving. Separately, `BadgeClaimPrompt` compares chain-read `heldIds` against voucher eligibility, and a submitted badge transaction is invisible to that read until it confirms. New `lib/wallet/claimInFlight.ts` registry, consulted by both prompts, closes both windows. Not a regression of the earlier `authorizationList: []` fix: that one made `heldIds` come back non-empty at all, this is the timing window that remains once it works.
+
+### Documentation
+
+- **Docs reconciled against live state** rather than against each other. Corrections: the basemap is OpenFreeMap, not CARTO (swapped 2026-08-27); `cron-retry-unminted` runs `0 */4 * * *`, not `*/20 * * * *` (confirmed from the Railway service manifest); the Foundry suite is 74 tests, not 57.
+- **New "Funding the relayer" runbook** in DEPLOYMENT.md. The relayer's gas balance is an availability dependency: when it runs dry, sponsored mints and the retry cron fail and player territory silently stops reaching the chain. Documented with the real failure signature and the reason Celo needs a larger buffer than Soneium (200 gwei base fee vs ~0.001 gwei).
+- **Production env drift recorded**: `NEXT_PUBLIC_SITE_URL` is not actually set on the `web` service, and the legacy `NEXT_PUBLIC_MINIKLAIM_*` address vars are still present but dead.
+
 ## 2026-08-08
 
 ### Added
 
-- **Open-mode capture: any transport counts.** Walk, run, bike, drive, fly — the game claims every hex you cross regardless of speed. New `interpolateHexIds` helper walks the segment between GPS pings so hexes are never skipped, and the `/api/runs/[id]/claim` endpoint accepts batched hexes in one round trip.
+- **Open-mode capture: any transport counts.** Walk, run, bike, drive, fly - the game claims every hex you cross regardless of speed. New `interpolateHexIds` helper walks the segment between GPS pings so hexes are never skipped, and the `/api/runs/[id]/claim` endpoint accepts batched hexes in one round trip.
 - **PostHog product analytics + session replay + Web Vitals + exception capture.** Typed event catalog (`lib/analytics.ts`), same-origin `/ingest` proxy so mobile ad blockers cannot drop calls, `capture_exceptions` wired to global `window.onerror`. Dashboard "MiniKlaim health" pinned in the project with 5 tiles (run funnel, onboarding engagement, wallet-env split, LCP p75 by pathname, exceptions). Alert fires if exceptions exceed 5/hour.
 - **Emoji sweep** on high-value UI strings across EN and ES: 📋 Copy link, ✅ Copied, 🗺️ Move anywhere, 👤 Pick your name, 🏆 Capture more territory, 🏅 Badges, 💰 Rewards, 🔗 Link another wallet, ✨ Pick a name, 💬 Get in touch.
 - **`Privacy · Terms` footer** on the home page. Data showed 0 discovery through /about; MiniPay Stage 2 also requires these linkable from the home surface.
@@ -15,21 +34,21 @@ All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Ch
 
 ### Changed
 
-- **Copy neutralization** where wording gated the mental model on running: home CTA "Sign in to run" → "Sign in to play"; welcome body "running game" → "game" with "on foot, by bike, in a car" aside; `me.runs.running` badge → "active"; onboarding step 1 → "Move anywhere". Farcaster manifest description + tags aligned. Kept: MiniKlaim name, "Run it. Klaim it." tagline, 🏃 emoji, short button labels.
+- **Copy neutralization** where wording gated the mental model on running: home CTA "Sign in to run" -> "Sign in to play"; welcome body "running game" -> "game" with "on foot, by bike, in a car" aside; `me.runs.running` badge -> "active"; onboarding step 1 -> "Move anywhere". Farcaster manifest description + tags aligned. Kept: MiniKlaim name, "Run it. Klaim it." tagline, 🏃 emoji, short button labels.
 - **Speed display switched to a rolling 30s window** in the live banner (`formatRollingSpeed`). The run summary still shows session average (`formatSpeed`). No upper km/h cap.
-- **Spanish orthography restored** across the dictionary and on-chain badge names: `Un ano` → `Un año`, `dias` → `días`, `Estadisticas` → `Estadísticas`, `Terminos` → `Términos`, `Anonimo` → `Anónimo`, etc.
+- **Spanish orthography restored** across the dictionary and on-chain badge names: `Un ano` -> `Un año`, `dias` -> `días`, `Estadisticas` -> `Estadísticas`, `Terminos` -> `Términos`, `Anonimo` -> `Anónimo`, etc.
 - **Retry-unminted cron** now waits for each chunk's tx receipt before firing the next (fixes a nonce collision that rejected chunk 2 with "Missing or invalid parameters"). Cron schedule moved from every 20 min to every 4 hours.
 
 ### Fixed
 
 - **Locale toggle** was silently a no-op for 20 of the 21 components that consume the i18n hook. Each had its own `useState<Locale>` copy. Now backed by a `useSyncExternalStore` over module-level state; a single toggle flips every consumer, and `router.refresh()` re-runs server components so the home tagline and `/p/[username]` update too.
-- **GPS position dot** was blank until the first high-accuracy `watchPosition` update (5–30s on mobile, sometimes never on iOS MiniPay). Three chained bugs — eager primer never painted, source-not-ready race with the map's `load` event, accuracy filter dropping the whole sample including the render. Extracted `renderPositionDot` helper called from all three sites; accuracy gate now only affects capture, not the visual marker.
+- **GPS position dot** was blank until the first high-accuracy `watchPosition` update (5-30s on mobile, sometimes never on iOS MiniPay). Three chained bugs - eager primer never painted, source-not-ready race with the map's `load` event, accuracy filter dropping the whole sample including the render. Extracted `renderPositionDot` helper called from all three sites; accuracy gate now only affects capture, not the visual marker.
 - **`badgeArt.ts` `BADGE_META_ES`** contained multiple ASCII-only Spanish words, most visibly `Un ano` (anus) for badge 33 instead of `Un año` (one year). Fixed across all 55 badges.
 
 ### Removed
 
 - **Anti-cheat rate limits and speed caps.** `HEX_RATE_LIMIT_PER_MIN`, `MIN_SECONDS_BETWEEN_HEX`, `RUN_AVG_SPEED_MAX_MPS`, and `validateFinish` are gone by product decision. Kept `ACCURACY_MAX_METERS = 30` (UX) and `DISTANCE_MAX_PER_CAPTURE = 10000` (GPS-teleport bug canary).
-- **25 stale branches** (10 local, 15 remote) — all already merged into `main`.
+- **25 stale branches** (10 local, 15 remote) - all already merged into `main`.
 
 ## 2026-08-01
 

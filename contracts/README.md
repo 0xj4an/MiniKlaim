@@ -4,11 +4,12 @@ Foundry workspace for the on-chain half of MiniKlaim. See [../docs/CONTRACTS.md]
 
 ## Contracts in this workspace
 
-| File | Purpose | Status |
-|---|---|---|
-| `src/MiniKlaimHexes.sol` | ERC-721 territory NFT. Player captures a hex, contract mints or transfers. UUPS-upgradeable. | Deployed Celo + Soneium |
-| `src/MiniKlaimBadges.sol` | ERC-1155 soulbound achievements (55 badges, 8 categories). UUPS-upgradeable. | Deployed Celo + Soneium |
-| `src/MiniKlaimRewards.sol` | USDm reward vault with EIP-712 voucher claim. Pausable, UUPS-upgradeable. | Not deployed. Activation deferred until MiniPay Stage 2 listing. |
+| File                           | Purpose                                                                                                                                                            | Status                                                           |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `src/MiniKlaimHexes.sol`       | ERC-721 territory NFT. Player captures a hex, contract mints or transfers. UUPS-upgradeable.                                                                       | Deployed Celo + Soneium                                          |
+| `src/MiniKlaimBadges.sol`      | ERC-1155 soulbound achievements (55 badges, 8 categories). UUPS-upgradeable.                                                                                       | Deployed Celo + Soneium                                          |
+| `src/MiniKlaimRewards.sol`     | USDm reward vault with EIP-712 voucher claim. Pausable, UUPS-upgradeable.                                                                                          | Not deployed. Activation deferred until MiniPay Stage 2 listing. |
+| `src/MiniKlaimClaimRouter.sol` | Settles a run's hexes and badges in one tx, so the player approves once. Holds `CAPTURER_ROLE` on Hexes and `MINTER_ROLE` on Badges. Deliberately NOT upgradeable. | Not deployed.                                                    |
 
 ## Setup
 
@@ -37,11 +38,14 @@ forge fmt                                           # format
 
 ## Test suites
 
-- `test/MiniKlaimHexes.t.sol`
-- `test/MiniKlaimBadges.t.sol`
-- `test/MiniKlaimRewards.t.sol` (21 tests)
+| File                              | Tests |
+| --------------------------------- | ----- |
+| `test/MiniKlaimHexes.t.sol`       | 19    |
+| `test/MiniKlaimBadges.t.sol`      | 17    |
+| `test/MiniKlaimRewards.t.sol`     | 21    |
+| `test/MiniKlaimClaimRouter.t.sol` | 17    |
 
-Current suite passes 57/57 across all three.
+Current suite passes 74/74.
 
 ## Deploying
 
@@ -52,10 +56,21 @@ Deploy scripts:
 ```
 script/DeployHexes.s.sol
 script/DeployBadges.s.sol
-script/DeployRewards.s.sol   # deferred, ready
+script/DeployRewards.s.sol       # deferred, ready
+script/DeployClaimRouter.s.sol   # not yet run on any chain
 ```
 
-All three read `SERVER_SIGNER_PRIVATE_KEY` from env and deploy the implementation + ERC1967Proxy in a single broadcast. The deployer becomes `DEFAULT_ADMIN_ROLE` + the operational role on the new contract.
+The first three read `SERVER_SIGNER_PRIVATE_KEY` from env and deploy the implementation + ERC1967Proxy in a single broadcast. The deployer becomes `DEFAULT_ADMIN_ROLE` + the operational role on the new contract.
+
+`DeployClaimRouter.s.sol` deploys a plain contract (no proxy) and additionally wires the three role grants the router needs, since a router without them is inert. It takes its targets explicitly:
+
+```bash
+set -a; source ../.env.local; set +a
+HEXES_ADDRESS=0x9945dDEAa9C52c3C4e667B71B698c4e4551F242B \
+BADGES_ADDRESS=0x79c5d6365f447d1F707EA6d4bDE5D6A96f181cf7 \
+forge script script/DeployClaimRouter.s.sol \
+  --rpc-url celo --broadcast --verify
+```
 
 Quick reference for Celo mainnet:
 
@@ -69,6 +84,8 @@ forge script script/DeployHexes.s.sol:DeployHexes \
 ```
 
 ## Upgrading
+
+Applies to Hexes, Badges and Rewards. `MiniKlaimClaimRouter` has no upgrade path by design: replace it by deploying a new one, granting it the two roles, and revoking them from the old one.
 
 UUPS upgrade path is a single tx from the `DEFAULT_ADMIN_ROLE` holder:
 
