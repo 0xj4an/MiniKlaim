@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Address } from "viem";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
+import { isRunClaiming } from "@/lib/wallet/claimInFlight";
 import { useClaimRun } from "@/lib/wallet/useClaimRun";
 import { usePendingClaim } from "@/lib/wallet/usePendingClaim";
 
@@ -32,7 +33,12 @@ export function PendingClaimPrompt({
   const [state, setState] = useState<"idle" | "pending" | "error">("idle");
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
-  const next = pending.find((r) => !dismissed.has(r.id));
+  // Checked at render time, not when the list is fetched: a run whose claim
+  // is already in flight must not be offered again, and the run page
+  // re-renders the moment that claim settles (so a failed claim comes back).
+  const next = pending.find(
+    (r) => !dismissed.has(r.id) && !isRunClaiming(r.id),
+  );
   if (!next || !enabled || !address) return null;
 
   const distLabel =
@@ -105,9 +111,7 @@ export function PendingClaimPrompt({
               : t("pendingClaim.cta")}
           </button>
           <button
-            onClick={() =>
-              setDismissed((s) => new Set(s).add(next.id))
-            }
+            onClick={() => setDismissed((s) => new Set(s).add(next.id))}
             disabled={state === "pending"}
             className="w-full rounded-full px-4 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 disabled:opacity-60"
           >
