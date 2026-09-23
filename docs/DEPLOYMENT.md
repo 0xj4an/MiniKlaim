@@ -41,7 +41,7 @@ Set via Railway UI or `railway variables --service web --set "KEY=VALUE"`:
 | `NEXT_PUBLIC_CELO_BADGES_ADDRESS` | Badges proxy address on Celo | See [CONTRACTS.md](CONTRACTS.md) |
 | `NEXT_PUBLIC_SONEIUM_HEXES_ADDRESS` | Hexes proxy address on Soneium | See [CONTRACTS.md](CONTRACTS.md) |
 | `NEXT_PUBLIC_SONEIUM_BADGES_ADDRESS` | Badges proxy address on Soneium | See [CONTRACTS.md](CONTRACTS.md) |
-| `NEXT_PUBLIC_LINK_VERIFIER_ADDRESS` | Destination for the tx-based link-ownership proof. Same as deployer/relayer. | `0x8da26Ae1B32a7e4Cd158622D7d70Fe16D6F1dE83` |
+| `NEXT_PUBLIC_LINK_VERIFIER_ADDRESS` | Destination for the tx-based link-ownership proof. Same account as the deployer/relayer. | See [CONTRACTS.md](CONTRACTS.md#deployed-addresses) |
 | `NEXT_PUBLIC_CELO_REWARDS_ADDRESS` | (Optional) MiniKlaimRewards proxy. Leave empty until MiniPay Stage 2 activation. | (unset) |
 | `NEXT_PUBLIC_CELO_CLAIM_ROUTER_ADDRESS` | (Optional) MiniKlaimClaimRouter. When set, finishing a run costs one wallet approval instead of two. Unset falls back to the two-tx path. | (unset) |
 | `NEXT_PUBLIC_SONEIUM_CLAIM_ROUTER_ADDRESS` | Same, for Soneium. | (unset) |
@@ -161,9 +161,12 @@ Prerequisites, all worth checking before broadcasting:
 
 ```bash
 cd contracts
-export SERVER_SIGNER_PRIVATE_KEY=...   # from .env.local
-export HEXES_ADDRESS=0x9945dDEAa9C52c3C4e667B71B698c4e4551F242B
-export BADGES_ADDRESS=0x79c5d6365f447d1F707EA6d4bDE5D6A96f181cf7
+set -a; source ../.env.local; set +a   # SERVER_SIGNER_PRIVATE_KEY + addresses
+
+# The script takes its targets explicitly. Read them from the env rather than
+# pasting literals, so this command cannot drift from the deployed addresses.
+export HEXES_ADDRESS="$NEXT_PUBLIC_CELO_HEXES_ADDRESS"
+export BADGES_ADDRESS="$NEXT_PUBLIC_CELO_BADGES_ADDRESS"
 
 # Dry run first. Simulates against real mainnet state, so it fails here if
 # the signer lacks a role. Prints the gas estimate.
@@ -172,6 +175,8 @@ forge script script/DeployClaimRouter.s.sol --rpc-url celo
 # Then broadcast
 forge script script/DeployClaimRouter.s.sol --rpc-url celo --broadcast --verify
 ```
+
+If those two variables come back empty, `.env.local` is carrying the legacy `NEXT_PUBLIC_MINIKLAIM_*` names. Canonical values are in [CONTRACTS.md](CONTRACTS.md#deployed-addresses).
 
 Reference figures from the 2026-09-23 dry run on Celo mainnet: 1,543,437 gas at a 200 gwei base fee, roughly 0.31 CELO at spot and 0.62 CELO with Foundry's estimate buffer. Celo's base fee sits at 200 gwei as a floor, so waiting for a cheaper moment does not help.
 
@@ -199,8 +204,9 @@ done: 0 chunks succeeded (0 hexes minted), 7 chunks failed
 Check the balance directly:
 
 ```bash
-cast balance 0x8da26Ae1B32a7e4Cd158622D7d70Fe16D6F1dE83 \
-  --rpc-url https://forno.celo.org --ether
+RELAYER=0x8da26Ae1B32a7e4Cd158622D7d70Fe16D6F1dE83
+cast balance "$RELAYER" --rpc-url https://forno.celo.org --ether
+cast balance "$RELAYER" --rpc-url https://rpc.soneium.org --ether
 ```
 
 Celo needs real attention because the base fee is 200 gwei, so a 0.01 CELO balance buys only ~55k gas, not even one `captureBatch`. Keep at least 2 CELO to cover sponsored mints plus headroom for a contract deploy. Soneium's base fee is ~0.001 gwei, so a small balance there lasts effectively forever.
