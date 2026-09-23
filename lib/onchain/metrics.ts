@@ -3,6 +3,7 @@ import {
   type ChainKey,
   getChain,
   isChainConfigured,
+  isClaimRouterConfigured,
   SUPPORTED_CHAIN_KEYS,
 } from "@/lib/onchain/chains";
 
@@ -30,6 +31,11 @@ const BADGES_METRICS_ABI = [
   u256("uniqueHolders"),
 ] as const;
 
+const ROUTER_METRICS_ABI = [
+  u256("totalClaims"),
+  u256("uniqueClaimers"),
+] as const;
+
 export type HexesMetrics = {
   captures: number;
   claimRuns: number;
@@ -40,6 +46,14 @@ export type BadgesMetrics = {
   claimTxns: number;
   holders: number;
 };
+/**
+ * Combined single-approval claims settled through MiniKlaimClaimRouter. Null on
+ * chains where the router is not deployed.
+ */
+export type RouterMetrics = {
+  claims: number;
+  claimers: number;
+};
 
 export type ChainMetrics = {
   key: ChainKey;
@@ -48,8 +62,10 @@ export type ChainMetrics = {
   explorerBase: string;
   hexesAddress: string | null;
   badgesAddress: string | null;
+  claimRouterAddress: string | null;
   hexes: HexesMetrics | null;
   badges: BadgesMetrics | null;
+  router: RouterMetrics | null;
 };
 
 const LABELS: Record<ChainKey, string> = {
@@ -67,8 +83,10 @@ export async function readChainMetrics(key: ChainKey): Promise<ChainMetrics> {
     explorerBase: c.explorerBase,
     hexesAddress: null as string | null,
     badgesAddress: null as string | null,
+    claimRouterAddress: null as string | null,
     hexes: null as HexesMetrics | null,
     badges: null as BadgesMetrics | null,
+    router: null as RouterMetrics | null,
   };
   if (!isChainConfigured(key)) return base;
 
@@ -77,7 +95,10 @@ export async function readChainMetrics(key: ChainKey): Promise<ChainMetrics> {
   // satisfies it and is ignored at runtime (passing [] breaks the call).
   const read = (
     address: `0x${string}`,
-    abi: typeof HEXES_METRICS_ABI | typeof BADGES_METRICS_ABI,
+    abi:
+      | typeof HEXES_METRICS_ABI
+      | typeof BADGES_METRICS_ABI
+      | typeof ROUTER_METRICS_ABI,
     functionName: string,
   ) =>
     client.readContract({
@@ -87,33 +108,64 @@ export async function readChainMetrics(key: ChainKey): Promise<ChainMetrics> {
       authorizationList: undefined,
     }) as Promise<bigint>;
 
+  const hasRouter = isClaimRouterConfigured(key);
+
   try {
-    const [captures, claimRuns, players, minted, claimTxns, holders] =
-      await Promise.all([
-        read(c.hexesAddress, HEXES_METRICS_ABI, "totalCaptures"),
-        read(c.hexesAddress, HEXES_METRICS_ABI, "totalClaimRuns"),
-        read(c.hexesAddress, HEXES_METRICS_ABI, "uniquePlayers"),
-        read(c.badgesAddress, BADGES_METRICS_ABI, "totalBadgesMinted"),
-        read(c.badgesAddress, BADGES_METRICS_ABI, "totalClaimTxns"),
-        read(c.badgesAddress, BADGES_METRICS_ABI, "uniqueHolders"),
-      ]);
+    const [
+      captures,
+      claimRuns,
+      players,
+      minted,
+      claimTxns,
+      holders,
+      routerClaims,
+      routerClaimers,
+    ] = await Promise.all([
+      read(c.hexesAddress, HEXES_METRICS_ABI, "totalCaptures"),
+      read(c.hexesAddress, HEXES_METRICS_ABI, "totalClaimRuns"),
+      read(c.hexesAddress, HEXES_METRICS_ABI, "uniquePlayers"),
+      read(c.badgesAddress, BADGES_METRICS_ABI, "totalBadgesMinted"),
+      read(c.badgesAddress, BADGES_METRICS_ABI, "totalClaimTxns"),
+      read(c.badgesAddress, BADGES_METRICS_ABI, "uniqueHolders"),
+      hasRouter
+        ? read(c.claimRouterAddress, ROUTER_METRICS_ABI, "totalClaims")
+        : Promise.resolve(0n),
+      hasRouter
+        ? read(c.claimRouterAddress, ROUTER_METRICS_ABI, "uniqueClaimers")
+        : Promise.resolve(0n),
+    ]);
     return {
       ...base,
       hexesAddress: c.hexesAddress,
       badgesAddress: c.badgesAddress,
+      claimRouterAddress: hasRouter ? c.claimRouterAddress : null,
       hexes: {
         captures: Number(captures),
-        claimRuns: Number(claimRuns),
+        // Hexes only counts its own `claimRun` entry point. Combined claims go
+        // through the router's `captureBatch` call, which that counter never
+        // sees, so the router's tally is folded in here to keep "player-
+        // submitted run claims" truthful across both paths.
+        claimRuns: Number(claimRuns) + Number(routerClaims),
         players: Number(players),
       },
       badges: {
         minted: Number(minted),
+        // Left as-is: standalone `claimBadges` transactions. A combined claim is
+        // one transaction and is already counted under `claimRuns` above.
         claimTxns: Number(claimTxns),
         holders: Number(holders),
       },
+      router: hasRouter
+        ? { claims: Number(routerClaims), claimers: Number(routerClaimers) }
+        : null,
     };
   } catch {
-    return { ...base, hexesAddress: c.hexesAddress, badgesAddress: c.badgesAddress };
+    return {
+      ...base,
+      hexesAddress: c.hexesAddress,
+      badgesAddress: c.badgesAddress,
+      claimRouterAddress: hasRouter ? c.claimRouterAddress : null,
+    };
   }
 }
 
@@ -126,6 +178,7 @@ export type DashboardMetrics = {
     badgesMinted: number;
     badgeClaimTxns: number;
     badgeHolders: number;
+    routerClaims: number;
   };
 };
 
@@ -139,6 +192,7 @@ export async function readAllMetrics(): Promise<DashboardMetrics> {
       badgesMinted: acc.badgesMinted + (c.badges?.minted ?? 0),
       badgeClaimTxns: acc.badgeClaimTxns + (c.badges?.claimTxns ?? 0),
       badgeHolders: acc.badgeHolders + (c.badges?.holders ?? 0),
+      routerClaims: acc.routerClaims + (c.router?.claims ?? 0),
     }),
     {
       captures: 0,
@@ -147,6 +201,7 @@ export async function readAllMetrics(): Promise<DashboardMetrics> {
       badgesMinted: 0,
       badgeClaimTxns: 0,
       badgeHolders: 0,
+      routerClaims: 0,
     },
   );
   return { chains, totals };

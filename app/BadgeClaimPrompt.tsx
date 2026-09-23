@@ -7,6 +7,11 @@ import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { badgeCopy, badgeSvg } from "@/lib/onchain/badgeArt";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
+import {
+  dropBadgeClaims,
+  isBadgeClaimPending,
+  markBadgeClaimSubmitted,
+} from "@/lib/wallet/claimInFlight";
 import { useClaimBadges } from "@/lib/wallet/useClaimBadges";
 
 const log = createLogger("ui:badgeClaim");
@@ -73,9 +78,14 @@ export function BadgeClaimPrompt({
         if (!vRes.ok) return;
         const voucher = (await vRes.json()) as { badgeIds: string[] };
         const heldSet = new Set(held.heldIds);
+        // The chain confirms these, so they no longer need suppressing.
+        dropBadgeClaims(held.heldIds);
+        // `heldIds` is a chain read, so it lags a submitted claim tx by a
+        // confirmation. Without the second check the prompt reappears for
+        // badges the player just approved.
         const fresh = voucher.badgeIds
           .map(Number)
-          .filter((id) => !heldSet.has(id));
+          .filter((id) => !heldSet.has(id) && !isBadgeClaimPending(id));
         if (!cancelled && fresh.length > 0) {
           setClaimable(fresh);
           setDismissed(false);
@@ -109,6 +119,9 @@ export function BadgeClaimPrompt({
   const runClaim = async () => {
     setState("pending");
     track("badge_claim_started", { count: claimable.length });
+    // Suppress re-detection for these ids until the chain read catches up.
+    // Dropped again below if nothing actually went on-chain.
+    markBadgeClaimSubmitted(claimable);
     const outcome = await claim();
     if (outcome.status === "user-claimed" || outcome.status === "sponsored") {
       track("badge_claim_confirmed", {
@@ -121,9 +134,11 @@ export function BadgeClaimPrompt({
       setDismissed(true);
       setState("done");
     } else if (outcome.status === "none") {
+      dropBadgeClaims(claimable);
       setDismissed(true);
       setState("idle");
     } else {
+      dropBadgeClaims(claimable);
       track("badge_claim_failed", {
         count: claimable.length,
         reason: outcome.status,
