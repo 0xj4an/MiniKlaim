@@ -27,33 +27,42 @@ npm run dev
 
 ## Pull-request flow
 
-1. Fork the repo and create a feature branch off `dev` (never off `main`):
+1. Fork the repo and create a feature branch off `main`:
+
    ```bash
-   git checkout dev && git pull
+   git checkout main && git pull
    git checkout -b feat/short-description
    ```
 
 2. Make your changes. Keep commits focused (one concern per commit) and use [Conventional Commits](https://www.conventionalcommits.org/) syntax:
+
    ```
    <type>(<scope>): <subject>
    ```
+
    Types used in this repo: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`, `ci`, `build`.
 
-3. Before opening the PR, verify:
+3. Before opening the PR, run exactly what CI runs. Anything less and you can
+   pass locally but fail the check:
 
    ```bash
-   npm run lint         # ESLint clean (0 warnings preferred)
-   npm run build        # Next.js typecheck + build passes
-   cd contracts && forge test   # If you touched Solidity: 100% pass
+   npx eslint .                 # lint
+   npx tsc --noEmit             # typecheck
+   npm test                     # vitest unit suite
+   npm run build                # Next.js production build
+   cd contracts && forge test   # only if you touched Solidity
    ```
 
-4. Open the PR against `dev`. Fill in the [PR template](.github/pull_request_template.md). The `main` branch is release-only and merged from `dev` in batches.
+   CI is [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and runs these
+   on every pull request. If you change the commands there, change them here.
+
+4. Open the PR against `main` and fill in the [PR template](.github/pull_request_template.md). Merging a PR deploys: Railway builds `main` on every push and the app is live a few minutes later, so a merge is a release.
 
 ## Style + conventions
 
 - **English** for all code, comments, commit messages, and documentation.
 - **No emojis** in code, docs, or commit messages unless the feature explicitly requires them (e.g. UI where the user asked for one).
-- **No em-dashes** (`--`) in any text output. Use commas, parentheses, or plain hyphens with spaces.
+- **Plain ASCII punctuation only** in any text output: no em-dashes, en-dashes, curly quotes or unicode ellipses. Use commas, parentheses, or a plain hyphen with spaces around it.
 - **Comments explain WHY, not WHAT.** Well-named identifiers document behavior; comments carry non-obvious constraints.
 - **No `console.log` / `console.warn` / `console.error` in feature code.** Use `createLogger(namespace)` from [`lib/logger.ts`](lib/logger.ts).
 - **UI strings live in i18n.** Never hardcode user-facing English or Spanish inside components.
@@ -65,7 +74,9 @@ npm run dev
 
 The Solidity contracts have a Foundry test suite (`contracts/test/*.t.sol`); run with `cd contracts && forge test`. All PRs that touch contracts must keep the suite passing.
 
-The Next.js app has no unit-test suite today (only build-time typecheck). Manual smoke tests recommended for any UI or API change, especially in MiniPay + Farcaster + Startale hosts.
+The Next.js app has a Vitest suite (`*.test.ts`); run with `npm test`. Pure logic (H3 interpolation, voucher nonces, the in-flight claim registry, the relayer queue) is covered there. Run it before opening a PR.
+
+Coverage stops at anything needing a browser or a wallet, so manual smoke tests are still expected for UI and API changes, especially across MiniPay, Farcaster and Startale hosts.
 
 ## Licensing
 

@@ -21,7 +21,9 @@
 Checklist of how you verified the change. Include hosts tested (MiniPay / Farcaster / Startale / browser).
 -->
 
-- [ ] `npm run lint` passes with zero warnings
+- [ ] `npx eslint .` passes
+- [ ] `npx tsc --noEmit` passes
+- [ ] `npm test` passes
 - [ ] `npm run build` passes
 - [ ] (if applicable) `cd contracts && forge test` passes
 - [ ] Manual smoke test in the affected host(s):
