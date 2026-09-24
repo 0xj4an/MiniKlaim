@@ -1,0 +1,14 @@
+# Forces every issue through a template. Without this, GitHub keeps an
+# unlabelled "blank issue" escape hatch, which is where unreproducible reports
+# and security disclosures end up.
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/0xj4an/MiniKlaim/blob/main/SECURITY.md
+    about: Do not open a public issue. Read SECURITY.md for private disclosure.
+  - name: How the app is put together
+    url: https://github.com/0xj4an/MiniKlaim/blob/main/docs/README.md
+    about: Architecture, contracts, API and deployment docs. Read before proposing a feature.
+  - name: Local setup help
+    url: https://github.com/0xj4an/MiniKlaim/blob/main/docs/LOCAL-DEV.md
+    about: Postgres, H3, Foundry and env vars for running MiniKlaim locally.
