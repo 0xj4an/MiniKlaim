@@ -1,4 +1,5 @@
 import bundleAnalyzer from "@next/bundle-analyzer";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 
 const withBundleAnalyzer = bundleAnalyzer({
@@ -53,4 +54,23 @@ const nextConfig: NextConfig = {
   skipTrailingSlashRedirect: true,
 };
 
-export default withBundleAnalyzer(nextConfig);
+export default withSentryConfig(withBundleAnalyzer(nextConfig), {
+  org: "0xj4an",
+  project: "miniklaim",
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Same-origin tunnel. MiniPay's WebView drops calls to ingest.sentry.io.
+  tunnelRoute: "/monitoring",
+  silent: true,
+  telemetry: false,
+  widenClientFileUpload: false,
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: false,
+  },
+  webpack: {
+    automaticVercelMonitors: false,
+    treeshake: {
+      removeDebugLogging: true,
+      removeTracing: true,
+    },
+  },
+});
