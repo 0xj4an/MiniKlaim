@@ -30,7 +30,10 @@ export function RunControls({
   const { t } = useLocale();
   if (!isActive) {
     return (
-      <div className="absolute right-4 bottom-6 left-4 z-10 flex justify-center">
+      <div
+        className="absolute right-4 left-4 z-20 flex justify-center"
+        style={{ bottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
+      >
         <button
           onClick={onStart}
           disabled={!canStart || isBusy}
@@ -46,7 +49,10 @@ export function RunControls({
     );
   }
   return (
-    <div className="absolute right-4 bottom-6 left-4 z-10 flex flex-col items-center gap-3">
+    <div
+      className="absolute right-4 left-4 z-20 flex flex-col items-center gap-3"
+      style={{ bottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
+    >
       <ElapsedBanner
         startTime={runStartTime}
         hexCount={hexCount}
