@@ -22,8 +22,17 @@ import { useClaimRun } from "@/lib/wallet/useClaimRun";
 
 const log = createLogger("wallet:claimAll");
 
-/** Provider errors are long and stack-y; keep enough to identify the cause. */
+/**
+ * Provider errors lead with a viem wrapper and bury the wallet's own message
+ * under "Request Arguments". Prefer `details`, which is that message.
+ */
 function reasonOf(e: unknown): string {
+  if (e && typeof e === "object" && "details" in e) {
+    const details = (e as { details?: unknown }).details;
+    if (typeof details === "string" && details.length > 0) {
+      return details.slice(0, 200);
+    }
+  }
   return (e instanceof Error ? e.message : String(e)).slice(0, 200);
 }
 
@@ -44,8 +53,9 @@ type Voucher = {
  *
  * MiniPay's provider is plain EIP-1193 with no EIP-5792, so a wallet cannot
  * bundle calls; one approval means one transaction, which is what the router
- * provides. Chains without a deployed router fall back to the original two-tx
- * `claimRun` + `claimBadges` flow, so this is safe to ship before the deploy.
+ * provides. MiniPay's listing review asked for that single approval and
+ * rejected both multiple prompts and a fully sponsored (zero-popup) finish.
+ * Chains without a deployed router fall back to the original two-tx flow.
  */
 export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
   const { data: walletClient } = useWalletClient();

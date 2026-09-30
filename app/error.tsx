@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 
@@ -20,6 +21,7 @@ export default function GlobalError({
       message: error.message,
       digest: error.digest,
     });
+    Sentry.captureException(error);
   }, [error]);
 
   return (

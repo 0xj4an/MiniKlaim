@@ -58,9 +58,7 @@ export default function PrivacyPage() {
         <p>
           {t("privacy.deletion.before")}{" "}
           <a
-            href="https://x.com/0xj4an"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="mailto:support@miniklaim.fun"
             className="text-blue-600 underline"
           >
             {t("about.contact.handle")}
