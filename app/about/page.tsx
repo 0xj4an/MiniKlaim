@@ -62,9 +62,7 @@ export default function AboutPage() {
         <p className="text-sm leading-relaxed text-zinc-700">
           {t("about.contact.body")}{" "}
           <a
-            href="https://x.com/0xj4an"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="mailto:support@miniklaim.fun"
             className="text-blue-600 underline"
           >
             {t("about.contact.handle")}

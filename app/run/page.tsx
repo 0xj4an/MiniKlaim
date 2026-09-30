@@ -789,10 +789,13 @@ export default function RunPage() {
   const isActive = runId !== null;
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden">
+    <main
+      className="relative h-screen w-screen overflow-hidden"
+      style={{ height: "100dvh" }}
+    >
       <div
         ref={containerRef}
-        className="bg-zinc-100"
+        className="z-0 bg-zinc-100"
         style={{
           position: "absolute",
           top: 0,
@@ -824,7 +827,7 @@ export default function RunPage() {
           map.flyTo({ center: [pos.lng, pos.lat], zoom: FOLLOW_ZOOM });
         }}
         aria-label="Center on my position"
-        className="absolute right-4 bottom-32 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-zinc-800 shadow-md hover:bg-white"
+        className="absolute right-4 bottom-32 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-zinc-800 shadow-md hover:bg-white"
       >
         <svg
           width="20"
