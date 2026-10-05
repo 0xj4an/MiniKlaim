@@ -16,6 +16,8 @@ type HexFeatureProps = {
   isMine: boolean;
 };
 
+type HexRow = { h3: string; owner: string; ownerUsername: string | null };
+
 function hexesToPointCollection(
   rows: HexRow[],
   myAddresses: ReadonlySet<string>,
@@ -37,40 +39,46 @@ function hexesToPointCollection(
   };
 }
 
-const log = createLogger("page:community:map");
+function setGeoSource(
+  map: maplibregl.Map,
+  id: string,
+  data: GeoJSON.FeatureCollection,
+) {
+  const existing = map.getSource(id) as maplibregl.GeoJSONSource | undefined;
+  if (existing) {
+    existing.setData(data);
+    return;
+  }
+  map.addSource(id, { type: "geojson", data });
+}
 
-type HexRow = { h3: string; owner: string; ownerUsername: string | null };
+const log = createLogger("page:community:map");
 
 export function WorldMap({ myAddress }: { myAddress: string | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const rowsRef = useRef<HexRow[]>([]);
+  const linkedRef = useRef<ReadonlySet<string>>(new Set());
+  const addressRef = useRef(myAddress);
+  const labelsRef = useRef({ captured: "", you: "", anon: "" });
+  const boundLayers = useRef(new Set<string>());
+  const popupRef = useRef<maplibregl.Popup | null>(null);
   const [count, setCount] = useState<number | null>(null);
   const { t } = useLocale();
-  // Every wallet linked to this player, lowercase. Drives the mine-vs-others
-  // split so runs from a linked wallet also show as green.
   const linked = useLinkedAddresses(myAddress, myAddress !== null);
 
-  const capturedByLabel = t("community.popup.capturedBy");
-  const youLabel = t("community.popup.you");
-  const anonymousLabel = t("common.anonymous");
+  linkedRef.current = linked;
+  addressRef.current = myAddress;
+  labelsRef.current = {
+    captured: t("community.popup.capturedBy"),
+    you: t("community.popup.you"),
+    anon: t("common.anonymous"),
+  };
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: DEFAULT_MAP_STYLE,
-      center: [0, 20],
-      zoom: 1,
-      attributionControl: { compact: true },
-      interactive: true,
-    });
-    mapRef.current = map;
-
-    let cancelled = false;
-
-    const popupRef = { current: null as maplibregl.Popup | null };
-    const handleClick = (e: maplibregl.MapLayerMouseEvent) => {
+  const bindLayer = (map: maplibregl.Map, layer: string) => {
+    if (boundLayers.current.has(layer)) return;
+    boundLayers.current.add(layer);
+    map.on("click", layer, (e) => {
       const feature = e.features?.[0];
       if (!feature) return;
       const props = feature.properties as {
@@ -78,12 +86,12 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
         ownerUsername: string | null;
         isMine: boolean;
       };
-      popupRef.current?.remove();
+      const labels = labelsRef.current;
       const el = document.createElement("div");
       el.style.fontSize = "13px";
       el.style.padding = "4px 6px";
       el.style.whiteSpace = "nowrap";
-      el.appendChild(document.createTextNode(`${capturedByLabel} `));
+      el.appendChild(document.createTextNode(`${labels.captured} `));
       if (props.ownerUsername) {
         const link = document.createElement("a");
         link.href = `/p/${props.ownerUsername}`;
@@ -92,11 +100,12 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
         link.style.textDecoration = "underline";
         el.appendChild(link);
       } else {
-        el.appendChild(document.createTextNode(anonymousLabel));
+        el.appendChild(document.createTextNode(labels.anon));
       }
       if (props.isMine) {
-        el.appendChild(document.createTextNode(` ${youLabel}`));
+        el.appendChild(document.createTextNode(` ${labels.you}`));
       }
+      popupRef.current?.remove();
       popupRef.current = new maplibregl.Popup({
         closeButton: true,
         closeOnClick: false,
@@ -104,185 +113,205 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
         .setLngLat(e.lngLat)
         .setDOMContent(el)
         .addTo(map);
-    };
+    });
+    map.on("mouseenter", layer, () => {
+      map.getCanvas().style.cursor = "pointer";
+    });
+    map.on("mouseleave", layer, () => {
+      map.getCanvas().style.cursor = "";
+    });
+  };
 
-    map.on("load", async () => {
+  const paintRef = useRef<(map: maplibregl.Map) => void>(() => {});
+  paintRef.current = (map) => {
+    const rows = rowsRef.current;
+    const mineSet = linkedRef.current;
+    const hasMe = addressRef.current !== null && mineSet.size > 0;
+    const mine = hasMe
+      ? rows.filter((h) => mineSet.has(h.owner.toLowerCase()))
+      : [];
+    const others = hasMe
+      ? rows.filter((h) => !mineSet.has(h.owner.toLowerCase()))
+      : rows;
+
+    setGeoSource(
+      map,
+      "others",
+      claimedHexesToFeatureCollection(others, mineSet),
+    );
+    if (!map.getLayer("others-fill")) {
+      map.addLayer({
+        id: "others-fill",
+        type: "fill",
+        source: "others",
+        minzoom: 9,
+        paint: { "fill-color": "#FF6B35", "fill-opacity": 0.45 },
+      });
+      map.addLayer({
+        id: "others-line",
+        type: "line",
+        source: "others",
+        minzoom: 9,
+        paint: {
+          "line-color": "#FF6B35",
+          "line-width": 1,
+          "line-opacity": 0.85,
+        },
+      });
+    }
+    setGeoSource(map, "others-points", hexesToPointCollection(others, mineSet));
+    if (!map.getLayer("others-points")) {
+      map.addLayer({
+        id: "others-points",
+        type: "circle",
+        source: "others-points",
+        maxzoom: 11,
+        paint: {
+          "circle-color": "#FF6B35",
+          "circle-opacity": 0.85,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 1,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            0,
+            3,
+            4,
+            5,
+            8,
+            7,
+            11,
+            4,
+          ],
+        },
+      });
+    }
+    bindLayer(map, "others-fill");
+    bindLayer(map, "others-points");
+
+    if (mine.length === 0) return;
+
+    setGeoSource(map, "mine", claimedHexesToFeatureCollection(mine, mineSet));
+    if (!map.getLayer("mine-fill")) {
+      map.addLayer({
+        id: "mine-fill",
+        type: "fill",
+        source: "mine",
+        minzoom: 9,
+        paint: { "fill-color": "#10B981", "fill-opacity": 0.6 },
+      });
+      map.addLayer({
+        id: "mine-line",
+        type: "line",
+        source: "mine",
+        minzoom: 9,
+        paint: {
+          "line-color": "#10B981",
+          "line-width": 1.5,
+          "line-opacity": 0.95,
+        },
+      });
+    }
+    setGeoSource(map, "mine-points", hexesToPointCollection(mine, mineSet));
+    if (!map.getLayer("mine-points")) {
+      map.addLayer({
+        id: "mine-points",
+        type: "circle",
+        source: "mine-points",
+        maxzoom: 11,
+        paint: {
+          "circle-color": "#10B981",
+          "circle-opacity": 0.95,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 1.5,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            0,
+            4,
+            4,
+            6,
+            8,
+            8,
+            11,
+            5,
+          ],
+        },
+      });
+    }
+    bindLayer(map, "mine-fill");
+    bindLayer(map, "mine-points");
+  };
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    let cancelled = false;
+
+    // Stay on the whole planet. Fitting the camera to claims would hide
+    // every empty continent. Zoom 0 is a 512px world; the panel is smaller,
+    // so a slightly negative zoom fits every continent. Tiles still come
+    // from zoom 0. The player zooms in to see a city.
+    const span = Math.min(
+      container.clientWidth || 320,
+      container.clientHeight || 320,
+    );
+    const zoom = span >= 64 ? Math.min(0, Math.log2(span / 512)) : 0;
+    const map = new maplibregl.Map({
+      container,
+      style: DEFAULT_MAP_STYLE,
+      center: [0, 0],
+      zoom,
+      minZoom: zoom,
+      attributionControl: { compact: true },
+      interactive: true,
+    });
+    mapRef.current = map;
+    map.on("load", () => {
+      if (cancelled) return;
       map.resize();
+      paintRef.current(map);
+    });
+    map.on("error", (e) =>
+      log.error("map error", { message: e.error?.message ?? String(e) }),
+    );
+
+    void (async () => {
       try {
         const res = await fetch("/api/hexes");
+        if (!res.ok) {
+          log.warn("world hexes failed", { status: res.status });
+          return;
+        }
         const data = (await res.json()) as { hexes: HexRow[] };
         if (cancelled) return;
+        rowsRef.current = data.hexes;
         setCount(data.hexes.length);
-
-        const hasMe = myAddress !== null && linked.size > 0;
-        const mine = hasMe
-          ? data.hexes.filter((h) => linked.has(h.owner.toLowerCase()))
-          : [];
-        const others = hasMe
-          ? data.hexes.filter((h) => !linked.has(h.owner.toLowerCase()))
-          : data.hexes;
-
-        map.addSource("others", {
-          type: "geojson",
-          data: claimedHexesToFeatureCollection(others, linked),
-        });
-        map.addLayer({
-          id: "others-fill",
-          type: "fill",
-          source: "others",
-          minzoom: 9,
-          paint: { "fill-color": "#FF6B35", "fill-opacity": 0.45 },
-        });
-        map.addLayer({
-          id: "others-line",
-          type: "line",
-          source: "others",
-          minzoom: 9,
-          paint: {
-            "line-color": "#FF6B35",
-            "line-width": 1,
-            "line-opacity": 0.85,
-          },
-        });
-
-        map.addSource("others-points", {
-          type: "geojson",
-          data: hexesToPointCollection(others, linked),
-        });
-        map.addLayer({
-          id: "others-points",
-          type: "circle",
-          source: "others-points",
-          maxzoom: 11,
-          paint: {
-            "circle-color": "#FF6B35",
-            "circle-opacity": 0.85,
-            "circle-stroke-color": "#ffffff",
-            "circle-stroke-width": 1,
-            "circle-radius": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0,
-              3,
-              4,
-              5,
-              8,
-              7,
-              11,
-              4,
-            ],
-          },
-        });
-
-        if (mine.length > 0) {
-          map.addSource("mine", {
-            type: "geojson",
-            data: claimedHexesToFeatureCollection(mine, linked),
-          });
-          map.addLayer({
-            id: "mine-fill",
-            type: "fill",
-            source: "mine",
-            minzoom: 9,
-            paint: { "fill-color": "#10B981", "fill-opacity": 0.6 },
-          });
-          map.addLayer({
-            id: "mine-line",
-            type: "line",
-            source: "mine",
-            minzoom: 9,
-            paint: {
-              "line-color": "#10B981",
-              "line-width": 1.5,
-              "line-opacity": 0.95,
-            },
-          });
-
-          map.addSource("mine-points", {
-            type: "geojson",
-            data: hexesToPointCollection(mine, linked),
-          });
-          map.addLayer({
-            id: "mine-points",
-            type: "circle",
-            source: "mine-points",
-            maxzoom: 11,
-            paint: {
-              "circle-color": "#10B981",
-              "circle-opacity": 0.95,
-              "circle-stroke-color": "#ffffff",
-              "circle-stroke-width": 1.5,
-              "circle-radius": [
-                "interpolate",
-                ["linear"],
-                ["zoom"],
-                0,
-                4,
-                4,
-                6,
-                8,
-                8,
-                11,
-                5,
-              ],
-            },
-          });
-
-          map.on("click", "mine-fill", handleClick);
-          map.on("click", "mine-points", handleClick);
-          for (const layer of ["mine-fill", "mine-points"]) {
-            map.on("mouseenter", layer, () => {
-              map.getCanvas().style.cursor = "pointer";
-            });
-            map.on("mouseleave", layer, () => {
-              map.getCanvas().style.cursor = "";
-            });
-          }
-        }
-
-        map.on("click", "others-fill", handleClick);
-        map.on("click", "others-points", handleClick);
-        for (const layer of ["others-fill", "others-points"]) {
-          map.on("mouseenter", layer, () => {
-            map.getCanvas().style.cursor = "pointer";
-          });
-          map.on("mouseleave", layer, () => {
-            map.getCanvas().style.cursor = "";
-          });
-        }
-
-        if (data.hexes.length > 0) {
-          const bounds = new maplibregl.LngLatBounds();
-          const emptySet: ReadonlySet<string> = new Set();
-          for (const hex of data.hexes) {
-            const fc = claimedHexesToFeatureCollection([hex], emptySet);
-            const coords = fc.features[0]?.geometry.coordinates[0] ?? [];
-            for (const [lng, lat] of coords) {
-              bounds.extend([lng, lat]);
-            }
-          }
-          if (!bounds.isEmpty()) {
-            map.fitBounds(bounds, { padding: 40, maxZoom: 12, animate: false });
-          }
-        }
+        if (map.isStyleLoaded()) paintRef.current(map);
       } catch (e) {
         log.error("world map load failed", {
           message: e instanceof Error ? e.message : String(e),
         });
       }
-    });
+    })();
 
-    map.on("error", (e) =>
-      log.error("map error", { message: e.error?.message ?? String(e) }),
-    );
-
+    const layers = boundLayers.current;
     return () => {
       cancelled = true;
-      map.remove();
+      layers.clear();
+      popupRef.current?.remove();
+      mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [myAddress, linked, capturedByLabel, youLabel, anonymousLabel]);
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.isStyleLoaded()) return;
+    paintRef.current(map);
+  }, [linked, myAddress]);
 
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">

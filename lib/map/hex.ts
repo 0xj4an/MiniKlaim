@@ -1,4 +1,4 @@
-import { cellToBoundary, gridDisk, latLngToCell } from "h3-js";
+import { cellToBoundary, cellToLatLng, gridDisk, latLngToCell } from "h3-js";
 import type { Feature, FeatureCollection, Polygon, Position } from "geojson";
 
 export type HexProperties = {
@@ -104,6 +104,56 @@ export function interpolateHexIds(
     out.push(cell);
   }
   return out;
+}
+
+export type MapFrame = { center: [number, number]; zoom: number };
+
+const TILE_PX = 512;
+
+function mercatorY(lat: number): number {
+  const clamped = Math.max(-85, Math.min(85, lat));
+  const sin = Math.sin((clamped * Math.PI) / 180);
+  return 0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI);
+}
+
+/**
+ * Camera that already frames these cells. Community and territory maps use
+ * it so the first tile request is the fitted view. Opening at zoom 1 and
+ * then jumping downloads the heavy low-zoom tiles for nothing.
+ */
+export function frameForCells(
+  cells: string[],
+  opts: {
+    widthPx: number;
+    heightPx: number;
+    maxZoom: number;
+    paddingPx?: number;
+  },
+): MapFrame | null {
+  if (cells.length === 0) return null;
+  let minLat = 90;
+  let maxLat = -90;
+  let minLng = 180;
+  let maxLng = -180;
+  for (const cell of cells) {
+    const [lat, lng] = cellToLatLng(cell);
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+    if (lng < minLng) minLng = lng;
+    if (lng > maxLng) maxLng = lng;
+  }
+  const pad = opts.paddingPx ?? 40;
+  const width = Math.max(1, opts.widthPx - pad * 2);
+  const height = Math.max(1, opts.heightPx - pad * 2);
+  const spanX = Math.max((maxLng - minLng) / 360, 1e-8);
+  const spanY = Math.max(Math.abs(mercatorY(maxLat) - mercatorY(minLat)), 1e-8);
+  const zoomX = Math.log2(width / (spanX * TILE_PX));
+  const zoomY = Math.log2(height / (spanY * TILE_PX));
+  const zoom = Math.min(opts.maxZoom, Math.max(0, Math.min(zoomX, zoomY)));
+  return {
+    center: [(minLng + maxLng) / 2, (minLat + maxLat) / 2],
+    zoom,
+  };
 }
 
 /**
