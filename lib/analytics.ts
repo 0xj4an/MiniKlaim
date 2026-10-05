@@ -146,6 +146,9 @@ export function initAnalytics(): PostHog | null {
     persistence: "localStorage+cookie",
     loaded: (ph) => {
       if (process.env.NODE_ENV !== "production") ph.debug(false);
+      // Direct land on /run: this callback runs after init, which is later
+      // than the pageview effect, so the pause has to happen here too.
+      if (window.location.pathname === "/run") ph.stopSessionRecording();
     },
   });
   initialized = true;
@@ -193,6 +196,17 @@ export function resetIdentity(): void {
 export function capturePageview(url: string): void {
   if (!initialized) return;
   posthog.capture("$pageview", { $current_url: url });
+}
+
+/**
+ * Replay stays on for the rest of the app. The run screen pauses it: the
+ * page is a live map, and a recording of that walk is uplink on cellular
+ * for no debugging value (the canvas itself is not captured).
+ */
+export function syncSessionRecording(pathname: string): void {
+  if (!initialized) return;
+  if (pathname === "/run") posthog.stopSessionRecording();
+  else posthog.startSessionRecording();
 }
 
 /**

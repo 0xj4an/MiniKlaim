@@ -12,9 +12,9 @@ export type ChainKey = "celo" | "celoSepolia" | "soneium";
 
 /**
  * A stablecoin the client can offer as `feeCurrency` on Celo (CIP-64). Order
- * in `ChainConfig.feeCurrencies` is preference: first entry the user has a
- * balance in wins. USDm's `adapter` equals the token address; USDC/USDT need
- * the dedicated Mento adapter.
+ * in `ChainConfig.feeCurrencies` is preference: USDT first, then the
+ * others. USDm's `adapter` equals the token address; USDC/USDT need the
+ * dedicated Mento adapter.
  */
 export type FeeCurrency = {
   symbol: TokenSymbol;
@@ -70,15 +70,15 @@ function addr(...candidates: (string | undefined)[]): Address {
 
 const LINK_VERIFIER = addr(process.env.NEXT_PUBLIC_LINK_VERIFIER_ADDRESS);
 
-// Celo CIP-64 fee-currency adapters, in preference order. USDm is native and
-// self-adapting; USDC/USDT need Mento's on-chain adapter (source: celopedia
-// minipay-guide "Allowed Fee Currencies (Mainnet)"). Order matters: client
-// picks the first one the user holds.
+// Celo CIP-64 fee-currency adapters. USDT is the primary fee token (what
+// MiniPay wallets actually hold). USDC, then USDm, are the fallback when
+// USDT is missing or too small to cover the network fee. USDC/USDT need
+// Mento's adapter; USDm is self-adapting.
 const CELO_FEE_CURRENCIES: FeeCurrency[] = [
   {
-    symbol: "USDm",
-    token: TOKENS.USDm.address,
-    adapter: TOKENS.USDm.feeAdapter,
+    symbol: "USDT",
+    token: TOKENS.USDT.address,
+    adapter: TOKENS.USDT.feeAdapter,
   },
   {
     symbol: "USDC",
@@ -86,9 +86,9 @@ const CELO_FEE_CURRENCIES: FeeCurrency[] = [
     adapter: TOKENS.USDC.feeAdapter,
   },
   {
-    symbol: "USDT",
-    token: TOKENS.USDT.address,
-    adapter: TOKENS.USDT.feeAdapter,
+    symbol: "USDm",
+    token: TOKENS.USDm.address,
+    adapter: TOKENS.USDm.feeAdapter,
   },
 ];
 
@@ -171,19 +171,27 @@ export function isClaimRouterConfigured(key: ChainKey): boolean {
 }
 
 /**
- * Pick the best fee-currency adapter for a client tx: the first entry in
- * `chain.feeCurrencies` for which the user's balance (from `useBalances`)
- * is positive. Returns undefined when no stablecoin is held or the chain
- * doesn't support fee abstraction, so the caller can omit `feeCurrency` and
- * let the wallet pay natively (or fall through to the sponsored relayer).
+ * Stablecoins the player actually holds, in preference order. USDT comes
+ * first. Callers that can retry a rejected fee walk this list; everyone
+ * else uses the first entry via `pickFeeAdapter`.
+ */
+export function heldFeeAdapters(
+  feeCurrencies: FeeCurrency[],
+  balances: Partial<Record<TokenSymbol, { value: bigint } | null>>,
+): FeeCurrency[] {
+  return feeCurrencies.filter((fc) => {
+    const bal = balances[fc.symbol];
+    return !!bal && bal.value > 0n;
+  });
+}
+
+/**
+ * First held fee-currency adapter. Undefined when no stablecoin is held or
+ * the chain has no fee abstraction, so the caller omits `feeCurrency`.
  */
 export function pickFeeAdapter(
   feeCurrencies: FeeCurrency[],
   balances: Partial<Record<TokenSymbol, { value: bigint } | null>>,
 ): Address | undefined {
-  for (const fc of feeCurrencies) {
-    const bal = balances[fc.symbol];
-    if (bal && bal.value > 0n) return fc.adapter;
-  }
-  return undefined;
+  return heldFeeAdapters(feeCurrencies, balances)[0]?.adapter;
 }
