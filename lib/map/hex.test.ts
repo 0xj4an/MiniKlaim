@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { latLngToCell } from "h3-js";
-import { interpolateHexIds } from "./hex";
+import { frameForCells, interpolateHexIds } from "./hex";
 
 // H3 res 12 = ~9.4 m edge, ~19 m diameter. All fixture points are around
 // Medellín so the meters-per-degree factor stays consistent with production
@@ -62,14 +62,7 @@ describe("interpolateHexIds", () => {
 
   test("stepMeters override changes sampling density", () => {
     const farLat = MDE_LAT + 0.0009; // ~100 m
-    const dense = interpolateHexIds(
-      MDE_LAT,
-      MDE_LNG,
-      farLat,
-      MDE_LNG,
-      RES,
-      1,
-    );
+    const dense = interpolateHexIds(MDE_LAT, MDE_LNG, farLat, MDE_LNG, RES, 1);
     const sparse = interpolateHexIds(
       MDE_LAT,
       MDE_LNG,
@@ -83,5 +76,31 @@ describe("interpolateHexIds", () => {
     // Both agree on the endpoint.
     expect(dense[dense.length - 1]).toBe(latLngToCell(farLat, MDE_LNG, RES));
     expect(sparse[sparse.length - 1]).toBe(latLngToCell(farLat, MDE_LNG, RES));
+  });
+});
+
+describe("frameForCells", () => {
+  const box = { widthPx: 320, heightPx: 320, paddingPx: 40 };
+
+  test("returns null when there are no cells", () => {
+    expect(frameForCells([], { ...box, maxZoom: 12 })).toBeNull();
+  });
+
+  test("caps a city cluster at maxZoom", () => {
+    const a = latLngToCell(MDE_LAT, MDE_LNG, RES);
+    const b = latLngToCell(MDE_LAT + 0.0004, MDE_LNG + 0.0004, RES);
+    const frame = frameForCells([a, b], { ...box, maxZoom: 12 });
+    expect(frame).not.toBeNull();
+    expect(frame!.zoom).toBe(12);
+    expect(frame!.center[0]).toBeCloseTo(MDE_LNG, 1);
+    expect(frame!.center[1]).toBeCloseTo(MDE_LAT, 1);
+  });
+
+  test("frames a two-continent span at world zoom", () => {
+    const bogota = latLngToCell(4.711, -74.0721, RES);
+    const bangalore = latLngToCell(12.9716, 77.5946, RES);
+    const frame = frameForCells([bogota, bangalore], { ...box, maxZoom: 12 });
+    expect(frame).not.toBeNull();
+    expect(frame!.zoom).toBeLessThan(3);
   });
 });
