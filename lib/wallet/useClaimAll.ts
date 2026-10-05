@@ -6,7 +6,7 @@ import { useWalletClient } from "wagmi";
 import { track } from "@/lib/analytics";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
-import { getChain, pickFeeAdapter } from "@/lib/onchain/chains";
+import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
 import {
   CLAIM_ROUTER_ABI,
   claimRouterAddress,
@@ -26,14 +26,24 @@ const log = createLogger("wallet:claimAll");
  * Provider errors lead with a viem wrapper and bury the wallet's own message
  * under "Request Arguments". Prefer `details`, which is that message.
  */
-function reasonOf(e: unknown): string {
+function errorText(e: unknown): string {
+  const parts: string[] = [];
   if (e && typeof e === "object" && "details" in e) {
     const details = (e as { details?: unknown }).details;
-    if (typeof details === "string" && details.length > 0) {
-      return details.slice(0, 200);
-    }
+    if (typeof details === "string") parts.push(details);
   }
-  return (e instanceof Error ? e.message : String(e)).slice(0, 200);
+  if (e instanceof Error) parts.push(e.message);
+  else if (parts.length === 0) parts.push(String(e));
+  return parts.join(" ");
+}
+
+function reasonOf(e: unknown): string {
+  return errorText(e).slice(0, 200);
+}
+
+/** Node rejected the fee token before the player could confirm. */
+function isInsufficientFee(e: unknown): boolean {
+  return errorText(e).toLowerCase().includes("insufficient fee-currency");
 }
 
 export type ClaimAllOutcome = "claimed" | "sponsored" | "nothing" | "failed";
@@ -157,67 +167,87 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
 
         const badgeIds = voucher.badgeIds.map(Number);
         const chain = getChain(chainKey);
-        const feeCurrency = pickFeeAdapter(chain.feeCurrencies, balances);
-        try {
-          const data = encodeFunctionData({
-            abi: CLAIM_ROUTER_ABI,
-            functionName: "claimAll",
-            args: [
-              voucher.h3Ids.map((h) => BigInt(h)),
-              voucher.badgeIds.map((b) => BigInt(b)),
-              BigInt(voucher.nonce),
-              voucher.signature,
-            ],
-          });
-          const txHash = await walletClient.sendTransaction({
-            to: contract,
-            data: withAttribution(data),
-            chain: chain.chain,
-            account: address,
-            kzg: undefined,
-            ...(feeCurrency ? { feeCurrency } : {}),
-          });
-          log.info("claimAll submitted by player", {
-            runId,
-            chainKey,
-            txHash,
-            hexCount: voucher.h3Ids.length,
-            badgeCount: badgeIds.length,
-          });
-          // These badges are now on-chain but unconfirmed, so the badge prompt
-          // must not offer them again while the chain read still lags.
-          track("run_claim_submitted", {
-            hex_count: voucher.h3Ids.length,
-            badge_count: badgeIds.length,
-            tx_hash: txHash,
-            fee_currency: !!feeCurrency,
-          });
-          markBadgeClaimSubmitted(badgeIds);
-          if (voucher.h3Ids.length > 0) {
-            await fetch(`/api/runs/${runId}/claimed`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ txHash }),
+        const held = heldFeeAdapters(chain.feeCurrencies, balances);
+        // USDT first. An empty list means omit feeCurrency and let the wallet
+        // choose. A short USDT balance retries the next held stablecoin
+        // before the relayer, still as one confirmation.
+        const attempts = held.length > 0 ? held : [undefined];
+        const data = encodeFunctionData({
+          abi: CLAIM_ROUTER_ABI,
+          functionName: "claimAll",
+          args: [
+            voucher.h3Ids.map((h) => BigInt(h)),
+            voucher.badgeIds.map((b) => BigInt(b)),
+            BigInt(voucher.nonce),
+            voucher.signature,
+          ],
+        });
+        let lastError: unknown;
+        for (let i = 0; i < attempts.length; i++) {
+          const fee = attempts[i];
+          try {
+            const txHash = await walletClient.sendTransaction({
+              to: contract,
+              data: withAttribution(data),
+              chain: chain.chain,
+              account: address,
+              kzg: undefined,
+              ...(fee ? { feeCurrency: fee.adapter } : {}),
             });
+            log.info("claimAll submitted by player", {
+              runId,
+              chainKey,
+              txHash,
+              fee: fee?.symbol ?? "native",
+              hexCount: voucher.h3Ids.length,
+              badgeCount: badgeIds.length,
+            });
+            // These badges are now on-chain but unconfirmed, so the badge prompt
+            // must not offer them again while the chain read still lags.
+            track("run_claim_submitted", {
+              hex_count: voucher.h3Ids.length,
+              badge_count: badgeIds.length,
+              tx_hash: txHash,
+              fee_currency: !!fee,
+            });
+            markBadgeClaimSubmitted(badgeIds);
+            if (voucher.h3Ids.length > 0) {
+              await fetch(`/api/runs/${runId}/claimed`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ txHash }),
+              });
+            }
+            return "claimed";
+          } catch (e) {
+            lastError = e;
+            const next = attempts[i + 1];
+            if (fee && next && isInsufficientFee(e)) {
+              log.warn("fee currency short, trying next", {
+                runId,
+                fee: fee.symbol,
+                next: next.symbol,
+              });
+              continue;
+            }
+            break;
           }
-          return "claimed";
-        } catch (e) {
-          log.warn("player claimAll failed; sponsoring", {
-            runId,
-            message: reasonOf(e),
-          });
-          track("run_claim_rejected", {
-            hex_count: voucher.h3Ids.length,
-            badge_count: badgeIds.length,
-            reason: reasonOf(e),
-          });
-          return sponsorFallback(
-            runId,
-            address,
-            badgeIds.length > 0,
-            "tx_rejected",
-          );
         }
+        log.warn("player claimAll failed; sponsoring", {
+          runId,
+          message: reasonOf(lastError),
+        });
+        track("run_claim_rejected", {
+          hex_count: voucher.h3Ids.length,
+          badge_count: badgeIds.length,
+          reason: reasonOf(lastError),
+        });
+        return sponsorFallback(
+          runId,
+          address,
+          badgeIds.length > 0,
+          "tx_rejected",
+        );
       } finally {
         clearRunClaiming(runId);
       }
