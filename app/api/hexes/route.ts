@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, users } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
+import { addressesForPlayer } from "@/lib/players";
 
 const log = createLogger("api:hexes");
 
@@ -15,6 +16,7 @@ const MAX_DISK = 60;
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const near = url.searchParams.get("near");
+  const owner = url.searchParams.get("owner");
   const kRaw = Number(url.searchParams.get("k") ?? "50");
   const k = Number.isFinite(kRaw)
     ? Math.min(MAX_DISK, Math.max(1, Math.floor(kRaw)))
@@ -29,11 +31,23 @@ export async function GET(request: Request) {
     .from(hexes)
     .leftJoin(users, eq(hexes.ownerAddress, users.address));
 
-  // No `near`: world and territory maps still need every claim. The run
-  // screen passes a res-12 cell so a walk does not download the whole table.
+  // Territory asks for one player, including every linked wallet. The world
+  // map omits `owner` and still receives every claim.
+  if (owner) {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(owner)) {
+      return NextResponse.json({ error: "invalid address" }, { status: 400 });
+    }
+    const linked = await addressesForPlayer(owner);
+    const rows = await base.where(inArray(hexes.ownerAddress, linked));
+    log.info("hexes fetched", { count: rows.length, scoped: "owner" });
+    return NextResponse.json({ hexes: rows });
+  }
+
+  // No `near`: the world map needs every claim. The run screen passes a
+  // res-12 cell so a walk does not download the whole table.
   if (!near) {
     const rows = await base;
-    log.info("hexes fetched", { count: rows.length, scoped: false });
+    log.info("hexes fetched", { count: rows.length, scoped: "all" });
     return NextResponse.json({ hexes: rows });
   }
 
@@ -42,6 +56,6 @@ export async function GET(request: Request) {
   }
 
   const rows = await base.where(inArray(hexes.h3Id, gridDisk(near, k)));
-  log.info("hexes fetched", { count: rows.length, scoped: true, k });
+  log.info("hexes fetched", { count: rows.length, scoped: "near", k });
   return NextResponse.json({ hexes: rows });
 }

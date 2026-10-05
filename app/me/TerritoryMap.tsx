@@ -7,8 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE } from "@/lib/map/config";
-import { claimedHexesToFeatureCollection } from "@/lib/map/hex";
-import { useLinkedAddresses } from "@/lib/wallet/useLinkedAddresses";
+import { claimedHexesToFeatureCollection, frameForCells } from "@/lib/map/hex";
 
 const log = createLogger("page:me:map");
 
@@ -19,158 +18,136 @@ export function TerritoryMap({ address }: { address: string | null }) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [count, setCount] = useState<number | null>(null);
   const { t } = useLocale();
-  // Includes the connected wallet plus every linked wallet on this player.
-  // Loads asynchronously; defaults to {connected} while pending, so pre-link
-  // users see no difference in timing.
-  const linked = useLinkedAddresses(address, address !== null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
     if (!address) return;
-
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: DEFAULT_MAP_STYLE,
-      center: [0, 20],
-      zoom: 1,
-      attributionControl: { compact: true },
-      interactive: true,
-    });
-    mapRef.current = map;
+    const container = containerRef.current;
+    if (!container) return;
 
     let cancelled = false;
 
-    map.on("load", async () => {
-      map.resize();
+    void (async () => {
       try {
-        const res = await fetch("/api/hexes");
-        const data = (await res.json()) as { hexes: HexRow[] };
-        const mine = data.hexes.filter((h) =>
-          linked.has(h.owner.toLowerCase()),
+        const res = await fetch(
+          `/api/hexes?owner=${encodeURIComponent(address)}`,
         );
-        if (cancelled) return;
-        setCount(mine.length);
-
-        // Hex polygons are at H3 res 12 (~50m edge), invisible below city
-        // zoom. Render them as filled hexes when zoomed in (>= 11), and as
-        // dots when zoomed out so the territory is always visible even at
-        // country/world scale.
-        map.addSource("mine", {
-          type: "geojson",
-          data: claimedHexesToFeatureCollection(mine, linked),
-        });
-        map.addLayer({
-          id: "mine-fill",
-          type: "fill",
-          source: "mine",
-          minzoom: 11,
-          paint: { "fill-color": "#10B981", "fill-opacity": 0.55 },
-        });
-        map.addLayer({
-          id: "mine-line",
-          type: "line",
-          source: "mine",
-          minzoom: 11,
-          paint: {
-            "line-color": "#10B981",
-            "line-width": 1.5,
-            "line-opacity": 0.95,
-          },
-        });
-
-        const pointFeatures = mine.map((h) => {
-          const [lat, lng] = cellToLatLng(h.h3);
-          return {
-            type: "Feature" as const,
-            geometry: {
-              type: "Point" as const,
-              coordinates: [lng, lat],
-            },
-            properties: {},
-          };
-        });
-        map.addSource("mine-points", {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: pointFeatures },
-        });
-        map.addLayer({
-          id: "mine-points",
-          type: "circle",
-          source: "mine-points",
-          maxzoom: 13,
-          paint: {
-            "circle-color": "#10B981",
-            "circle-opacity": 0.9,
-            "circle-stroke-color": "#ffffff",
-            "circle-stroke-width": 1,
-            "circle-radius": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0,
-              2.5,
-              4,
-              4,
-              8,
-              6,
-              12,
-              5,
-            ],
-          },
-        });
-
-        if (mine.length > 0) {
-          // Fit bounds to every owned hex so all territory is visible at
-          // first paint. Users with runs in multiple cities will see a
-          // country/world-scale view rendered as dots (via the points layer
-          // above); the fill layer kicks in when they zoom to city scale.
-          const centroids = mine.map((hex) => cellToLatLng(hex.h3));
-          const lats = centroids.map(([lat]) => lat);
-          const lngs = centroids.map(([, lng]) => lng);
-          const minLat = Math.min(...lats);
-          const maxLat = Math.max(...lats);
-          const minLng = Math.min(...lngs);
-          const maxLng = Math.max(...lngs);
-          // Approx span in degrees; 1 deg lat ~ 111 km. For a tight cluster
-          // (< ~500 m span) fitBounds computes a near-infinite zoom and gets
-          // clamped to maxZoom but maplibre also pulls back to ensure both
-          // edges have padding, leaving the user at city-zoom with the hexes
-          // invisible. Center + setZoom is more reliable for that case.
-          const spanLat = maxLat - minLat;
-          const spanLng = maxLng - minLng;
-          const tight = spanLat < 0.005 && spanLng < 0.005;
-          if (tight) {
-            map.jumpTo({
-              center: [(minLng + maxLng) / 2, (minLat + maxLat) / 2],
-              zoom: 16,
-            });
-          } else {
-            map.fitBounds(
-              [
-                [minLng, minLat],
-                [maxLng, maxLat],
-              ],
-              { padding: 30, maxZoom: 15, animate: false },
-            );
-          }
+        if (!res.ok) {
+          log.warn("territory hexes failed", { status: res.status });
+          return;
         }
+        const data = (await res.json()) as { hexes: HexRow[] };
+        if (cancelled) return;
+        const mine = data.hexes;
+        setCount(mine.length);
+        if (mine.length === 0) return;
+        if (!containerRef.current) {
+          await new Promise((resolve) => {
+            requestAnimationFrame(() => resolve(null));
+          });
+        }
+        if (cancelled || !containerRef.current) return;
+
+        const owners = new Set(mine.map((h) => h.owner.toLowerCase()));
+        const frame = frameForCells(
+          mine.map((h) => h.h3),
+          { widthPx: 320, heightPx: 240, maxZoom: 16, paddingPx: 30 },
+        );
+        if (!frame) return;
+
+        const map = new maplibregl.Map({
+          container: containerRef.current,
+          style: DEFAULT_MAP_STYLE,
+          center: frame.center,
+          zoom: frame.zoom,
+          attributionControl: { compact: true },
+          interactive: true,
+        });
+        mapRef.current = map;
+
+        map.on("load", () => {
+          if (cancelled) return;
+          map.resize();
+          map.addSource("mine", {
+            type: "geojson",
+            data: claimedHexesToFeatureCollection(mine, owners),
+          });
+          map.addLayer({
+            id: "mine-fill",
+            type: "fill",
+            source: "mine",
+            minzoom: 11,
+            paint: { "fill-color": "#10B981", "fill-opacity": 0.55 },
+          });
+          map.addLayer({
+            id: "mine-line",
+            type: "line",
+            source: "mine",
+            minzoom: 11,
+            paint: {
+              "line-color": "#10B981",
+              "line-width": 1.5,
+              "line-opacity": 0.95,
+            },
+          });
+
+          const pointFeatures = mine.map((h) => {
+            const [lat, lng] = cellToLatLng(h.h3);
+            return {
+              type: "Feature" as const,
+              geometry: {
+                type: "Point" as const,
+                coordinates: [lng, lat],
+              },
+              properties: {},
+            };
+          });
+          map.addSource("mine-points", {
+            type: "geojson",
+            data: { type: "FeatureCollection", features: pointFeatures },
+          });
+          map.addLayer({
+            id: "mine-points",
+            type: "circle",
+            source: "mine-points",
+            maxzoom: 13,
+            paint: {
+              "circle-color": "#10B981",
+              "circle-opacity": 0.9,
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 1,
+              "circle-radius": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                0,
+                2.5,
+                4,
+                4,
+                8,
+                6,
+                12,
+                5,
+              ],
+            },
+          });
+        });
+
+        map.on("error", (e) =>
+          log.error("map error", { message: e.error?.message ?? String(e) }),
+        );
       } catch (e) {
         log.error("territory load failed", {
           message: e instanceof Error ? e.message : String(e),
         });
       }
-    });
-
-    map.on("error", (e) =>
-      log.error("map error", { message: e.error?.message ?? String(e) }),
-    );
+    })();
 
     return () => {
       cancelled = true;
-      map.remove();
+      mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [address, linked]);
+  }, [address]);
 
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
