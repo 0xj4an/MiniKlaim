@@ -8,6 +8,7 @@ import {
   identify,
   initAnalytics,
   resetIdentity,
+  syncSessionRecording,
 } from "@/lib/analytics";
 import { isMiniPay } from "@/lib/minipay";
 
@@ -51,6 +52,7 @@ function PageviewTracker() {
     if (!pathname) return;
     const qs = searchParams?.toString();
     capturePageview(qs ? `${pathname}?${qs}` : pathname);
+    syncSessionRecording(pathname);
   }, [pathname, searchParams]);
   return null;
 }

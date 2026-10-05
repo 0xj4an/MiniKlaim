@@ -1,5 +1,6 @@
 "use client";
 
+import { latLngToCell } from "h3-js";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import Link from "next/link";
@@ -13,6 +14,8 @@ import {
   DEFAULT_ZOOM,
   FOLLOW_ZOOM,
   HEX_RESOLUTION,
+  RUN_HEX_DISK,
+  RUN_MIN_ZOOM,
 } from "@/lib/map/config";
 import { haversineMeters } from "@/lib/map/geo";
 import {
@@ -34,6 +37,27 @@ import { RunControls } from "./RunControls";
 import { RunSummaryModal } from "./RunSummaryModal";
 
 const log = createLogger("page:run");
+
+// A flyTo from the default city to the player downloads every zoom along the
+// path. OpenFreeMap tiles at zoom 2 are about 1.5MB each, so that flight is
+// the hundreds of MB. Jump when the camera is far; ease only for a local move.
+const FAR_CAMERA_METERS = 1500;
+
+function placeCamera(
+  map: maplibregl.Map,
+  lng: number,
+  lat: number,
+  zoom: number,
+) {
+  const current = map.getCenter();
+  const dist = haversineMeters(current.lat, current.lng, lat, lng);
+  if (dist > FAR_CAMERA_METERS) {
+    log.info("camera jump", { meters: Math.round(dist) });
+    map.jumpTo({ center: [lng, lat], zoom });
+    return;
+  }
+  map.easeTo({ center: [lng, lat], zoom, duration: 600 });
+}
 
 // If more than this many seconds pass between two GPS fixes while a run is
 // active, we treat the segment as untrustworthy (signal loss, backgrounded
@@ -113,6 +137,45 @@ export default function RunPage() {
     queueMicrotask(() => setMounted(true));
   }, []);
 
+  // Hold the map until we know where the player is. Constructing it on the
+  // Bogota default and then flying to a GPS fix in another country is what
+  // pulls the fat low-zoom tiles. Fresh MiniPay webviews have no cached fix.
+  const [mapBoot, setMapBoot] = useState<{
+    center: [number, number];
+    zoom: number;
+  } | null>(null);
+  const geoFailedRef = useRef(false);
+  useEffect(() => {
+    const cached = readCachedPosition();
+    if (cached) {
+      setMapBoot({ center: [cached.lng, cached.lat], zoom: FOLLOW_ZOOM });
+      return;
+    }
+    let cancelled = false;
+    const bootAt = (center: [number, number], zoom: number) => {
+      if (cancelled) return;
+      setMapBoot({ center, zoom });
+    };
+    const started = Date.now();
+    const id = window.setInterval(() => {
+      const pos = latestPosRef.current;
+      if (pos) {
+        window.clearInterval(id);
+        bootAt([pos.lng, pos.lat], FOLLOW_ZOOM);
+        return;
+      }
+      if (geoFailedRef.current || Date.now() - started >= 12000) {
+        window.clearInterval(id);
+        log.info("opening map without a gps fix");
+        bootAt(DEFAULT_CENTER, DEFAULT_ZOOM);
+      }
+    }, 200);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
   useEffect(() => {
     runIdRef.current = runId;
   }, [runId]);
@@ -171,31 +234,44 @@ export default function RunPage() {
     });
   }, [activeRun, isActiveLoading, runId]);
 
-  const refreshClaimed = useCallback(async () => {
-    const map = mapRef.current;
-    if (!map) return;
-    try {
-      const res = await fetch("/api/hexes");
-      const data = (await res.json()) as {
-        hexes: Array<{
-          h3: string;
-          owner: string;
-          ownerUsername: string | null;
-        }>;
-      };
-      const source = map.getSource("claimed-hexes") as
-        | maplibregl.GeoJSONSource
-        | undefined;
-      source?.setData(
-        claimedHexesToFeatureCollection(data.hexes, linkedRef.current),
-      );
-      log.debug("claimed hexes refreshed", { count: data.hexes.length });
-    } catch (e) {
-      log.error("failed to refresh claimed hexes", {
-        message: e instanceof Error ? e.message : String(e),
-      });
-    }
-  }, []);
+  const refreshClaimed = useCallback(
+    async (at?: { lat: number; lng: number }) => {
+      const map = mapRef.current;
+      if (!map) return;
+      const pos = at ??
+        latestPosRef.current ?? {
+          lat: map.getCenter().lat,
+          lng: map.getCenter().lng,
+        };
+      const near = latLngToCell(pos.lat, pos.lng, HEX_RESOLUTION);
+      try {
+        const res = await fetch(`/api/hexes?near=${near}&k=${RUN_HEX_DISK}`);
+        if (!res.ok) {
+          log.warn("claimed hexes refresh failed", { status: res.status });
+          return;
+        }
+        const data = (await res.json()) as {
+          hexes: Array<{
+            h3: string;
+            owner: string;
+            ownerUsername: string | null;
+          }>;
+        };
+        const source = map.getSource("claimed-hexes") as
+          | maplibregl.GeoJSONSource
+          | undefined;
+        source?.setData(
+          claimedHexesToFeatureCollection(data.hexes, linkedRef.current),
+        );
+        log.debug("claimed hexes refreshed", { count: data.hexes.length });
+      } catch (e) {
+        log.error("failed to refresh claimed hexes", {
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    },
+    [],
+  );
 
   /**
    * Batch-claim every hex crossed since the previous GPS fix. Splits the
@@ -394,7 +470,7 @@ export default function RunPage() {
         });
         const m = mapRef.current;
         if (m) {
-          m.flyTo({ center: [longitude, latitude], zoom: FOLLOW_ZOOM });
+          placeCamera(m, longitude, latitude, FOLLOW_ZOOM);
           // Paint the position dot immediately if the map source exists. If
           // the map hasn't finished its `load` event yet (source not created),
           // the map init effect below reads latestPosRef and paints on load.
@@ -410,6 +486,7 @@ export default function RunPage() {
               : err.code === err.TIMEOUT
                 ? "timeout"
                 : `code ${err.code}`;
+        geoFailedRef.current = true;
         log.warn("eager primer failed", {
           code: err.code,
           message: err.message,
@@ -424,20 +501,13 @@ export default function RunPage() {
   }, []);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || !mapBoot) return;
 
-    // Use last known position from localStorage as initial center if we have
-    // one. Avoids the Bogota -> user-pos flash for returning visitors. New
-    // visitors fall back to DEFAULT_CENTER until first GPS fix flies them in.
-    const cached = readCachedPosition();
-    const initialCenter: [number, number] = cached
-      ? [cached.lng, cached.lat]
-      : DEFAULT_CENTER;
-    const initialZoom = cached ? FOLLOW_ZOOM : DEFAULT_ZOOM;
+    const initialCenter = mapBoot.center;
+    const initialZoom = mapBoot.zoom;
     log.info("initializing map", {
       center: initialCenter,
       zoom: initialZoom,
-      cached: cached !== null,
     });
 
     const map = new maplibregl.Map({
@@ -445,6 +515,7 @@ export default function RunPage() {
       style: DEFAULT_MAP_STYLE,
       center: initialCenter,
       zoom: initialZoom,
+      minZoom: RUN_MIN_ZOOM,
       attributionControl: { compact: true },
     });
     mapRef.current = map;
@@ -529,7 +600,23 @@ export default function RunPage() {
         renderPositionDot(map, initialPos.lat, initialPos.lng);
       }
 
-      void refreshClaimed();
+      const claimedAnchor = {
+        lat: map.getCenter().lat,
+        lng: map.getCenter().lng,
+      };
+      void refreshClaimed(claimedAnchor);
+      map.on("moveend", () => {
+        const c = map.getCenter();
+        if (
+          haversineMeters(claimedAnchor.lat, claimedAnchor.lng, c.lat, c.lng) <
+          400
+        ) {
+          return;
+        }
+        claimedAnchor.lat = c.lat;
+        claimedAnchor.lng = c.lng;
+        void refreshClaimed(claimedAnchor);
+      });
 
       const popupRef = { current: null as maplibregl.Popup | null };
       const handleHexClick = (e: maplibregl.MapLayerMouseEvent) => {
@@ -601,10 +688,7 @@ export default function RunPage() {
 
           if (firstFix) {
             log.info("first fix", { lat: latitude, lng: longitude });
-            map.flyTo({
-              center: [longitude, latitude],
-              zoom: FOLLOW_ZOOM,
-            });
+            placeCamera(map, longitude, latitude, FOLLOW_ZOOM);
             firstFix = false;
           }
 
@@ -783,7 +867,14 @@ export default function RunPage() {
       map.remove();
       mapRef.current = null;
     };
-  }, [claimHexes, refreshClaimed, capturedByLabel, youLabel, anonymousLabel]);
+  }, [
+    mapBoot,
+    claimHexes,
+    refreshClaimed,
+    capturedByLabel,
+    youLabel,
+    anonymousLabel,
+  ]);
 
   const canStart = isConnected && !isWrongChain && address && !isActiveLoading;
   const isActive = runId !== null;
@@ -824,7 +915,7 @@ export default function RunPage() {
           const pos = latestPosRef.current;
           const map = mapRef.current;
           if (!pos || !map) return;
-          map.flyTo({ center: [pos.lng, pos.lat], zoom: FOLLOW_ZOOM });
+          placeCamera(map, pos.lng, pos.lat, FOLLOW_ZOOM);
         }}
         aria-label="Center on my position"
         className="absolute right-4 bottom-32 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-zinc-800 shadow-md hover:bg-white"
