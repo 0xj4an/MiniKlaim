@@ -124,125 +124,135 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
 
   const paintRef = useRef<(map: maplibregl.Map) => void>(() => {});
   paintRef.current = (map) => {
-    const rows = rowsRef.current;
-    const mineSet = linkedRef.current;
-    const hasMe = addressRef.current !== null && mineSet.size > 0;
-    const mine = hasMe
-      ? rows.filter((h) => mineSet.has(h.owner.toLowerCase()))
-      : [];
-    const others = hasMe
-      ? rows.filter((h) => !mineSet.has(h.owner.toLowerCase()))
-      : rows;
+    try {
+      const rows = rowsRef.current;
+      const mineSet = linkedRef.current;
+      const hasMe = addressRef.current !== null && mineSet.size > 0;
+      const mine = hasMe
+        ? rows.filter((h) => mineSet.has(h.owner.toLowerCase()))
+        : [];
+      const others = hasMe
+        ? rows.filter((h) => !mineSet.has(h.owner.toLowerCase()))
+        : rows;
 
-    setGeoSource(
-      map,
-      "others",
-      claimedHexesToFeatureCollection(others, mineSet),
-    );
-    if (!map.getLayer("others-fill")) {
-      map.addLayer({
-        id: "others-fill",
-        type: "fill",
-        source: "others",
-        minzoom: 9,
-        paint: { "fill-color": "#FF6B35", "fill-opacity": 0.45 },
-      });
-      map.addLayer({
-        id: "others-line",
-        type: "line",
-        source: "others",
-        minzoom: 9,
-        paint: {
-          "line-color": "#FF6B35",
-          "line-width": 1,
-          "line-opacity": 0.85,
-        },
-      });
-    }
-    setGeoSource(map, "others-points", hexesToPointCollection(others, mineSet));
-    if (!map.getLayer("others-points")) {
-      map.addLayer({
-        id: "others-points",
-        type: "circle",
-        source: "others-points",
-        maxzoom: 11,
-        paint: {
-          "circle-color": "#FF6B35",
-          "circle-opacity": 0.85,
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-width": 1,
-          "circle-radius": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            0,
-            3,
-            4,
-            5,
-            8,
-            7,
-            11,
-            4,
-          ],
-        },
-      });
-    }
-    bindLayer(map, "others-fill");
-    bindLayer(map, "others-points");
+      setGeoSource(
+        map,
+        "others",
+        claimedHexesToFeatureCollection(others, mineSet),
+      );
+      if (!map.getLayer("others-fill")) {
+        map.addLayer({
+          id: "others-fill",
+          type: "fill",
+          source: "others",
+          minzoom: 9,
+          paint: { "fill-color": "#FF6B35", "fill-opacity": 0.45 },
+        });
+        map.addLayer({
+          id: "others-line",
+          type: "line",
+          source: "others",
+          minzoom: 9,
+          paint: {
+            "line-color": "#FF6B35",
+            "line-width": 1,
+            "line-opacity": 0.85,
+          },
+        });
+      }
+      setGeoSource(
+        map,
+        "others-points",
+        hexesToPointCollection(others, mineSet),
+      );
+      if (!map.getLayer("others-points")) {
+        map.addLayer({
+          id: "others-points",
+          type: "circle",
+          source: "others-points",
+          maxzoom: 11,
+          paint: {
+            "circle-color": "#FF6B35",
+            "circle-opacity": 0.85,
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": 1,
+            "circle-radius": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0,
+              3,
+              4,
+              5,
+              8,
+              7,
+              11,
+              4,
+            ],
+          },
+        });
+      }
+      bindLayer(map, "others-fill");
+      bindLayer(map, "others-points");
 
-    if (mine.length === 0) return;
+      if (mine.length === 0) return;
 
-    setGeoSource(map, "mine", claimedHexesToFeatureCollection(mine, mineSet));
-    if (!map.getLayer("mine-fill")) {
-      map.addLayer({
-        id: "mine-fill",
-        type: "fill",
-        source: "mine",
-        minzoom: 9,
-        paint: { "fill-color": "#10B981", "fill-opacity": 0.6 },
-      });
-      map.addLayer({
-        id: "mine-line",
-        type: "line",
-        source: "mine",
-        minzoom: 9,
-        paint: {
-          "line-color": "#10B981",
-          "line-width": 1.5,
-          "line-opacity": 0.95,
-        },
+      setGeoSource(map, "mine", claimedHexesToFeatureCollection(mine, mineSet));
+      if (!map.getLayer("mine-fill")) {
+        map.addLayer({
+          id: "mine-fill",
+          type: "fill",
+          source: "mine",
+          minzoom: 9,
+          paint: { "fill-color": "#10B981", "fill-opacity": 0.6 },
+        });
+        map.addLayer({
+          id: "mine-line",
+          type: "line",
+          source: "mine",
+          minzoom: 9,
+          paint: {
+            "line-color": "#10B981",
+            "line-width": 1.5,
+            "line-opacity": 0.95,
+          },
+        });
+      }
+      setGeoSource(map, "mine-points", hexesToPointCollection(mine, mineSet));
+      if (!map.getLayer("mine-points")) {
+        map.addLayer({
+          id: "mine-points",
+          type: "circle",
+          source: "mine-points",
+          maxzoom: 11,
+          paint: {
+            "circle-color": "#10B981",
+            "circle-opacity": 0.95,
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": 1.5,
+            "circle-radius": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              0,
+              4,
+              4,
+              6,
+              8,
+              8,
+              11,
+              5,
+            ],
+          },
+        });
+      }
+      bindLayer(map, "mine-fill");
+      bindLayer(map, "mine-points");
+    } catch (e) {
+      log.debug("world paint skipped", {
+        message: e instanceof Error ? e.message : String(e),
       });
     }
-    setGeoSource(map, "mine-points", hexesToPointCollection(mine, mineSet));
-    if (!map.getLayer("mine-points")) {
-      map.addLayer({
-        id: "mine-points",
-        type: "circle",
-        source: "mine-points",
-        maxzoom: 11,
-        paint: {
-          "circle-color": "#10B981",
-          "circle-opacity": 0.95,
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-width": 1.5,
-          "circle-radius": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            0,
-            4,
-            4,
-            6,
-            8,
-            8,
-            11,
-            5,
-          ],
-        },
-      });
-    }
-    bindLayer(map, "mine-fill");
-    bindLayer(map, "mine-points");
   };
 
   useEffect(() => {
