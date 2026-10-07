@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { CHAINS, SUPPORTED_CHAIN_KEYS } from "@/lib/onchain/chains";
+import { isSignerConfigured } from "@/lib/onchain/signer";
 
 export const dynamic = "force-dynamic";
 
@@ -47,13 +48,17 @@ export async function GET() {
     }),
   );
 
+  const signerOk = isSignerConfigured();
+  const healthy = dbOk && signerOk;
+
   const body = {
-    status: dbOk ? "ok" : "degraded",
+    status: healthy ? "ok" : "degraded",
     timestamp: new Date().toISOString(),
     checked_in_ms: Date.now() - startedAt,
     db: { ok: dbOk, latency_ms: dbLatencyMs, error: dbError },
+    signer: { ok: signerOk },
     chains,
   };
 
-  return NextResponse.json(body, { status: dbOk ? 200 : 503 });
+  return NextResponse.json(body, { status: healthy ? 200 : 503 });
 }

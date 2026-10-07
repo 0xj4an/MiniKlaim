@@ -8,13 +8,14 @@ import {
 } from "@/lib/onchain/chains";
 import { createLogger } from "@/lib/logger";
 import { h3ToTokenId } from "@/lib/onchain/hexes";
+import { getSignerKey, isSignerConfigured } from "@/lib/onchain/signer";
 
 const log = createLogger("onchain:claimAllVoucher");
 
-const SIGNER_PK = (process.env.SERVER_SIGNER_PRIVATE_KEY ?? "") as Hex;
+const SIGNER_PK = getSignerKey();
 
 function signerConfigured(): boolean {
-  return SIGNER_PK.length === 66 && SIGNER_PK.startsWith("0x");
+  return isSignerConfigured();
 }
 
 // EIP-712 type matching MiniKlaimClaimRouter.CLAIM_ALL_TYPEHASH.

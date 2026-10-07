@@ -12,7 +12,7 @@ export function sentryInitOptions(): SentryInitOptions {
     dsn,
     enabled: Boolean(dsn),
     environment: process.env.NODE_ENV,
-    tracesSampleRate: 0,
+    tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
     sendDefaultPii: false,
   };
 }
