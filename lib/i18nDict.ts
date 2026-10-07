@@ -118,8 +118,6 @@ export const dictionaries = {
     "me.geo.header": "Blocks by location",
     "me.geo.showCities": "Show cities",
     "me.geo.hideCities": "Hide cities",
-    "me.hexes.header": "Recently claimed blocks",
-    "me.hexes.unknown": "Unknown",
     "me.money.header": "Your money",
     "me.wallet.header": "Wallet",
     "me.wallet.subtitle":
@@ -485,8 +483,6 @@ export const dictionaries = {
     "me.geo.header": "Cuadras por ubicación",
     "me.geo.showCities": "Ver ciudades",
     "me.geo.hideCities": "Ocultar ciudades",
-    "me.hexes.header": "Cuadras recién capturadas",
-    "me.hexes.unknown": "Desconocido",
     "me.money.header": "Tu plata",
     "me.wallet.header": "Tu wallet",
     "me.wallet.subtitle":
