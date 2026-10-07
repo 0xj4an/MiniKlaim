@@ -1,6 +1,7 @@
 "use client";
 
 import posthog, { type PostHog } from "posthog-js";
+import { isBrowserNoise } from "@/lib/errors/browserNoise";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("analytics");
@@ -147,6 +148,34 @@ export function initAnalytics(): PostHog | null {
     // $exception events in PostHog with stack traces (grouped by fingerprint).
     // Cheaper than wiring a full Sentry SDK, sufficient for a hobby MVP.
     capture_exceptions: true,
+    before_send: (event) => {
+      if (!event || event.event !== "$exception") return event;
+      const props = event.properties ?? {};
+      const parts: string[] = [];
+      const values = props.$exception_values;
+      if (Array.isArray(values)) {
+        for (const value of values) {
+          if (typeof value === "string") parts.push(value);
+        }
+      } else if (typeof values === "string") {
+        parts.push(values);
+      }
+      const list = props.$exception_list;
+      if (Array.isArray(list)) {
+        for (const item of list) {
+          if (
+            item &&
+            typeof item === "object" &&
+            "value" in item &&
+            typeof item.value === "string"
+          ) {
+            parts.push(item.value);
+          }
+        }
+      }
+      if (parts.some((part) => isBrowserNoise(part))) return null;
+      return event;
+    },
     // Session replay for MiniPay debugging. Masks by default: no text inside
     // form inputs, no textarea content, no <img> pixels. Wallet addresses in
     // rendered spans stay visible on purpose (they are already public).

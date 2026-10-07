@@ -18,6 +18,7 @@ import {
   RUN_MIN_ZOOM,
 } from "@/lib/map/config";
 import { haversineMeters } from "@/lib/map/geo";
+import { liveGeoSource } from "@/lib/map/liveSource";
 import {
   claimedHexesToFeatureCollection,
   hexesAround,
@@ -49,14 +50,20 @@ function placeCamera(
   lat: number,
   zoom: number,
 ) {
-  const current = map.getCenter();
-  const dist = haversineMeters(current.lat, current.lng, lat, lng);
-  if (dist > FAR_CAMERA_METERS) {
-    log.info("camera jump", { meters: Math.round(dist) });
-    map.jumpTo({ center: [lng, lat], zoom });
-    return;
+  try {
+    const current = map.getCenter();
+    const dist = haversineMeters(current.lat, current.lng, lat, lng);
+    if (dist > FAR_CAMERA_METERS) {
+      log.info("camera jump", { meters: Math.round(dist) });
+      map.jumpTo({ center: [lng, lat], zoom });
+      return;
+    }
+    map.easeTo({ center: [lng, lat], zoom, duration: 600 });
+  } catch (e) {
+    log.debug("camera update skipped", {
+      message: e instanceof Error ? e.message : String(e),
+    });
   }
-  map.easeTo({ center: [lng, lat], zoom, duration: 600 });
 }
 
 // If more than this many seconds pass between two GPS fixes while a run is
@@ -238,11 +245,15 @@ export default function RunPage() {
     async (at?: { lat: number; lng: number }) => {
       const map = mapRef.current;
       if (!map) return;
-      const pos = at ??
-        latestPosRef.current ?? {
-          lat: map.getCenter().lat,
-          lng: map.getCenter().lng,
-        };
+      let pos = at ?? latestPosRef.current;
+      if (!pos) {
+        try {
+          const center = map.getCenter();
+          pos = { lat: center.lat, lng: center.lng };
+        } catch {
+          return;
+        }
+      }
       const near = latLngToCell(pos.lat, pos.lng, HEX_RESOLUTION);
       try {
         const res = await fetch(`/api/hexes?near=${near}&k=${RUN_HEX_DISK}`);
@@ -258,9 +269,8 @@ export default function RunPage() {
             ownerUsername: string | null;
           }>;
         };
-        const source = map.getSource("claimed-hexes") as
-          | maplibregl.GeoJSONSource
-          | undefined;
+        if (mapRef.current !== map) return;
+        const source = liveGeoSource(map, "claimed-hexes");
         source?.setData(
           claimedHexesToFeatureCollection(data.hexes, linkedRef.current),
         );
@@ -309,7 +319,10 @@ export default function RunPage() {
             status: res.status,
             count: h3Ids.length,
           });
-          track("batch_claim_error", { status: res.status, count: h3Ids.length });
+          track("batch_claim_error", {
+            status: res.status,
+            count: h3Ids.length,
+          });
           return;
         }
         const data = (await res.json()) as {
@@ -379,6 +392,13 @@ export default function RunPage() {
         runIdRef.current = data.id;
         await claimHexes([here], 0);
       }
+    } catch (e) {
+      log.error("start run network error", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+      track("run_start_network_error", {
+        error: e instanceof Error ? e.message : String(e),
+      });
     } finally {
       setIsBusy(false);
     }
@@ -449,6 +469,13 @@ export default function RunPage() {
       lastPosTsRef.current = 0;
       pendingDistanceRef.current = 0;
       await refreshClaimed();
+    } catch (e) {
+      log.error("finish run network error", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+      track("run_finish_network_error", {
+        error: e instanceof Error ? e.message : String(e),
+      });
     } finally {
       setIsBusy(false);
     }
@@ -531,6 +558,7 @@ export default function RunPage() {
 
     let watchId: number | null = null;
     let firstFix = true;
+    let alive = true;
 
     map.on("load", () => {
       log.info("map loaded");
@@ -683,6 +711,7 @@ export default function RunPage() {
       // the long-lived watchPosition for ongoing tracking.
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
+          if (!alive) return;
           const { latitude, longitude, accuracy } = pos.coords;
           setGeoStatus("granted");
           log.debug("position", { lat: latitude, lng: longitude, accuracy });
@@ -819,19 +848,20 @@ export default function RunPage() {
               const claimList =
                 interpolated.length > 0 ? interpolated : [currentHex];
               void claimHexes(claimList, delta, accuracy);
-              // Auto-follow the runner: re-center the camera on each new hex
-              // during an active run so they don't lose themselves off-screen
-              // while moving. Cheap enough (once per ~50m), and players can
-              // still pan freely between hex transitions.
-              map.easeTo({
-                center: [longitude, latitude],
-                duration: 600,
-              });
+              if (!alive) return;
+              try {
+                map.easeTo({
+                  center: [longitude, latitude],
+                  duration: 600,
+                });
+              } catch (e) {
+                log.debug("camera follow skipped", {
+                  message: e instanceof Error ? e.message : String(e),
+                });
+              }
             }
           }
-          const source = map.getSource("hexes") as
-            | maplibregl.GeoJSONSource
-            | undefined;
+          const source = liveGeoSource(map, "hexes");
           source?.setData(hexes);
         },
         (err) => {
@@ -870,6 +900,7 @@ export default function RunPage() {
     const resizeTimer = window.setTimeout(() => map.resize(), 100);
 
     return () => {
+      alive = false;
       window.clearTimeout(resizeTimer);
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       log.debug("disposing map");
@@ -990,7 +1021,7 @@ function renderPositionDot(
   lat: number,
   lng: number,
 ): void {
-  const src = map.getSource("position") as maplibregl.GeoJSONSource | undefined;
+  const src = liveGeoSource(map, "position");
   if (!src) return;
   src.setData({
     type: "FeatureCollection",
