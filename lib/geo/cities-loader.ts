@@ -23,24 +23,13 @@ function loadCitiesFromPbf(): City[] {
   if (citiesCache) return citiesCache;
 
   try {
-    // Try multiple possible locations for cities.pbf
+    // SIMPLIFIED: Only try the most likely paths
+    // Don't block if file is missing - cities are optional enhancement
     const possiblePaths = [
-      // In public/data (production - checked into repo)
-      join(process.cwd(), "public", "data", "cities.pbf"),
-      // In node_modules (development)
+      // Development
       join(process.cwd(), "node_modules", "all-the-cities", "cities.pbf"),
-      // In .next/server (production build)
-      join(
-        process.cwd(),
-        ".next",
-        "server",
-        "vendor",
-        "all-the-cities",
-        "cities.pbf",
-      ),
-      // Railway/serverless (might be at root)
-      "/ROOT/node_modules/all-the-cities/cities.pbf",
-      "/ROOT/public/data/cities.pbf",
+      // Production (if we ever get it working)
+      join(process.cwd(), "public", "data", "cities.pbf"),
     ];
 
     let buffer: Buffer | null = null;
@@ -58,10 +47,8 @@ function loadCitiesFromPbf(): City[] {
     }
 
     if (!buffer) {
-      console.error(
-        "[cities-loader] Could not find cities.pbf in any location",
-      );
-      console.error("[cities-loader] Tried:", possiblePaths);
+      // Silently return empty - cities are optional
+      // Don't spam logs, just work without city resolution
       return [];
     }
 
