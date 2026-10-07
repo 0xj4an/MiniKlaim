@@ -96,12 +96,12 @@ export default function StatsPage() {
 
       {data && (
         <>
-          <section className="flex flex-col gap-4">
-            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-zinc-700">
-              <span className="text-xl">🏆</span>
+          <section className="flex flex-col gap-2">
+            <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+              <span className="text-base">🏆</span>
               {t("stats.section.lifetime")}
             </h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid w-full grid-cols-3 gap-2">
               <StatCard
                 label={t("stats.card.players")}
                 value={data.totalPlayers}
@@ -115,7 +115,7 @@ export default function StatsPage() {
                 value={data.runsLifetime}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid w-full grid-cols-2 gap-2">
               <StatCard
                 label={t("stats.card.kmTraveled")}
                 value={Math.round(data.totalDistanceMeters / 1000)}
@@ -128,24 +128,24 @@ export default function StatsPage() {
             </div>
           </section>
 
-          <section className="flex flex-col gap-4">
-            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-zinc-700">
-              <span className="text-xl">👥</span>
+          <section className="flex flex-col gap-2">
+            <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+              <span className="text-base">👥</span>
               {t("stats.section.active")}
             </h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid w-full grid-cols-3 gap-2">
               <StatCard label={t("stats.card.dau")} value={data.dau} />
               <StatCard label={t("stats.card.wau")} value={data.wau} />
               <StatCard label={t("stats.card.mau")} value={data.mau} />
             </div>
           </section>
 
-          <section className="flex flex-col gap-4">
-            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-zinc-700">
-              <span className="text-xl">📈</span>
+          <section className="flex flex-col gap-2">
+            <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+              <span className="text-base">📈</span>
               {t("stats.section.retention")}
             </h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid w-full grid-cols-3 gap-2">
               <StatCard
                 label={t("stats.card.d1")}
                 value={Math.round(data.retention.d1 * 100)}
@@ -164,12 +164,12 @@ export default function StatsPage() {
             </div>
           </section>
 
-          <section className="flex flex-col gap-4">
-            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-zinc-700">
-              <span className="text-xl">⛓️</span>
+          <section className="flex flex-col gap-2">
+            <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+              <span className="text-base">⛓️</span>
               {t("stats.section.onchain")}
             </h2>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid w-full grid-cols-2 gap-2">
               <StatCard
                 label={t("stats.card.hexesMinted")}
                 value={data.hexesOnchain}
@@ -180,7 +180,7 @@ export default function StatsPage() {
                 value={data.onchainHolders}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid w-full grid-cols-2 gap-2">
               <StatCard
                 label={t("stats.card.txs24h")}
                 value={data.onchainTxs24h}
@@ -193,27 +193,27 @@ export default function StatsPage() {
           </section>
 
           {data.topCountries.length > 0 && (
-            <section className="flex flex-col gap-4">
-              <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-zinc-700">
-                <span className="text-xl">🌍</span>
+            <section className="flex flex-col gap-2">
+              <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+                <span className="text-base">🌍</span>
                 {t("stats.section.countries")}
               </h2>
-              <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
                 {data.topCountries.slice(0, 5).map((country, idx) => (
                   <div
                     key={country.country}
-                    className="group flex items-center justify-between rounded-xl border border-zinc-100 bg-gradient-to-r from-zinc-50 to-white p-3 transition hover:border-zinc-200 hover:shadow-sm"
+                    className="flex items-center justify-between rounded-lg border border-zinc-100 bg-white p-2.5"
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-purple-100 text-xs font-bold text-blue-600">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-600">
                         {idx + 1}
                       </span>
-                      <span className="text-2xl">{getFlag(country.country)}</span>
-                      <span className="text-sm font-semibold text-zinc-900">
+                      <span className="text-lg">{getFlag(country.country)}</span>
+                      <span className="text-xs font-semibold text-zinc-900">
                         {getCountryName(country.country)}
                       </span>
                     </div>
-                    <span className="rounded-full bg-gradient-to-br from-blue-100 to-purple-100 px-3 py-1 text-sm font-bold text-blue-600">
+                    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-600">
                       {country.count.toLocaleString()}
                     </span>
                   </div>
@@ -222,30 +222,30 @@ export default function StatsPage() {
             </section>
           )}
 
-          <section className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-gradient-to-br from-white to-zinc-50 p-6 shadow-sm">
-            <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-zinc-700">
-              <span className="text-xl">📄</span>
+          <section className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
+            <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+              <span className="text-base">📄</span>
               {t("stats.section.contracts")}
             </h3>
-            <div className="flex flex-col gap-2 text-xs">
-              <div className="flex justify-between">
+            <div className="flex flex-col gap-2 text-[10px]">
+              <div className="flex justify-between gap-2">
                 <span className="text-zinc-500">{t("stats.card.hexesContract")}:</span>
                 <a
                   href={`https://celoscan.io/address/${data.hexesContract}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-mono text-blue-600 hover:underline"
+                  className="font-mono text-blue-600"
                 >
                   {data.hexesContract.slice(0, 6)}...{data.hexesContract.slice(-4)}
                 </a>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-zinc-500">{t("stats.card.badgesContract")}:</span>
                 <a
                   href={`https://celoscan.io/address/${data.badgesContract}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-mono text-blue-600 hover:underline"
+                  className="font-mono text-blue-600"
                 >
                   {data.badgesContract.slice(0, 6)}...{data.badgesContract.slice(-4)}
                 </a>
@@ -271,16 +271,15 @@ function StatCard({
   subtitle?: string;
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 text-center shadow-sm transition-all hover:scale-105 hover:shadow-md sm:p-5">
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-purple-50/50 opacity-0 transition-opacity group-hover:opacity-100"></div>
-      <div className="relative flex flex-col items-center gap-1.5">
-        <span className="bg-gradient-to-br from-blue-600 to-purple-600 bg-clip-text text-2xl font-black tabular-nums text-transparent sm:text-4xl">
+    <div className="rounded-lg border border-zinc-200 bg-white p-3 text-center shadow-sm">
+      <div className="flex flex-col items-center gap-1">
+        <span className="text-xl font-bold tabular-nums text-blue-600">
           {value.toLocaleString()}
-          {suffix && <span className="text-base sm:text-xl">{suffix}</span>}
+          {suffix && <span className="text-sm">{suffix}</span>}
         </span>
-        <span className="break-words text-[10px] font-semibold uppercase tracking-wide text-zinc-600 sm:text-xs">{label}</span>
+        <span className="break-words text-[10px] font-semibold uppercase tracking-wide text-zinc-600">{label}</span>
         {subtitle && (
-          <span className="break-words text-[9px] font-medium text-zinc-400 sm:text-[10px]">{subtitle}</span>
+          <span className="break-words text-[9px] font-medium text-zinc-400">{subtitle}</span>
         )}
       </div>
     </div>
