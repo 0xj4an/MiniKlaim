@@ -112,7 +112,7 @@ export function cityForHex(h3Id: string, countryIso3?: string): string | null {
 
     let closestCity: City | null = null;
     let minDistance = Infinity;
-    const MAX_DISTANCE_KM = 50;
+    const MAX_DISTANCE_KM = 100; // Increased from 50km to 100km
 
     for (const city of citiesToSearch) {
       const distance = haversineDistance(lat, lng, city.lat, city.lon);
@@ -126,11 +126,29 @@ export function cityForHex(h3Id: string, countryIso3?: string): string | null {
       }
     }
 
+    if (closestCity) {
+      log.debug("city resolved", { 
+        h3Id, 
+        city: closestCity.name, 
+        distance: minDistance.toFixed(2),
+        countryIso3 
+      });
+    } else {
+      log.debug("no city found", { 
+        h3Id, 
+        countryIso3, 
+        searchSize: citiesToSearch.length,
+        maxDistance: MAX_DISTANCE_KM 
+      });
+    }
+    
     return closestCity?.name ?? null;
   } catch (e) {
-    log.warn("city resolution failed", {
+    log.error("city resolution failed", {
       h3Id,
+      countryIso3,
       message: e instanceof Error ? e.message : String(e),
+      stack: e instanceof Error ? e.stack : undefined,
     });
     return null;
   }
