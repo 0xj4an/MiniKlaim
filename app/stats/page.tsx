@@ -332,16 +332,15 @@ function TopCountriesSection({
                   <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-600">
                     {country.count.toLocaleString()}
                   </span>
-                  {cities.length > 0 && (
-                    <button
-                      onClick={() => toggleCountry(country.country)}
-                      className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-zinc-600 hover:bg-zinc-300"
-                      aria-label={isExpanded ? t("stats.cities.hide") : t("stats.cities.show")}
-                      title={isExpanded ? t("stats.cities.hide") : t("stats.cities.show")}
-                    >
-                      <span className="text-xs font-bold">{isExpanded ? "−" : "+"}</span>
-                    </button>
-                  )}
+                  {/* Always show expand button - every country should be expandable */}
+                  <button
+                    onClick={() => toggleCountry(country.country)}
+                    className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-zinc-600 hover:bg-zinc-300"
+                    aria-label={isExpanded ? t("stats.cities.hide") : t("stats.cities.show")}
+                    title={isExpanded ? t("stats.cities.hide") : t("stats.cities.show")}
+                  >
+                    <span className="text-xs font-bold">{isExpanded ? "−" : "+"}</span>
+                  </button>
                 </div>
               </div>
               {isExpanded && cities.length > 0 && (
