@@ -3,6 +3,7 @@ import { gridDisk, isValidCell } from "h3-js";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, users } from "@/lib/db/schema";
+import { jsonBody, packJson, type PackedJson } from "@/lib/http/json-body";
 import { createLogger } from "@/lib/logger";
 import { addressesForPlayer } from "@/lib/players";
 
@@ -12,6 +13,34 @@ export const dynamic = "force-dynamic";
 
 // Caps the disk so a client cannot ask for a continental IN-list.
 const MAX_DISK = 60;
+
+// The world list is ~2 MB of JSON and gzip takes it to ~100 KB. Pages are
+// compressed by Next; this route handler is not, so the body is packed here.
+// One shared copy for a minute: community can lag a fresh claim by that long.
+const WORLD_TTL_MS = 60_000;
+const WORLD_CACHE = "public, max-age=60";
+const SCOPED_CACHE = "private, no-cache";
+
+let worldCache: { packed: PackedJson; at: number } | null = null;
+let worldInflight: Promise<PackedJson> | null = null;
+
+async function worldPacked(
+  load: () => Promise<PackedJson>,
+): Promise<PackedJson> {
+  const now = Date.now();
+  if (worldCache && now - worldCache.at < WORLD_TTL_MS) return worldCache.packed;
+  if (!worldInflight) {
+    worldInflight = load()
+      .then((packed) => {
+        worldCache = { packed, at: Date.now() };
+        return packed;
+      })
+      .finally(() => {
+        worldInflight = null;
+      });
+  }
+  return worldInflight;
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -40,15 +69,18 @@ export async function GET(request: Request) {
     const linked = await addressesForPlayer(owner);
     const rows = await base.where(inArray(hexes.ownerAddress, linked));
     log.info("hexes fetched", { count: rows.length, scoped: "owner" });
-    return NextResponse.json({ hexes: rows });
+    return jsonBody(request, packJson({ hexes: rows }), SCOPED_CACHE);
   }
 
   // No `near`: the world map needs every claim. The run screen passes a
   // res-12 cell so a walk does not download the whole table.
   if (!near) {
-    const rows = await base;
-    log.info("hexes fetched", { count: rows.length, scoped: "all" });
-    return NextResponse.json({ hexes: rows });
+    const packed = await worldPacked(async () => {
+      const rows = await base;
+      log.info("hexes fetched", { count: rows.length, scoped: "all" });
+      return packJson({ hexes: rows });
+    });
+    return jsonBody(request, packed, WORLD_CACHE);
   }
 
   if (!isValidCell(near)) {
@@ -57,5 +89,5 @@ export async function GET(request: Request) {
 
   const rows = await base.where(inArray(hexes.h3Id, gridDisk(near, k)));
   log.info("hexes fetched", { count: rows.length, scoped: "near", k });
-  return NextResponse.json({ hexes: rows });
+  return jsonBody(request, packJson({ hexes: rows }), SCOPED_CACHE);
 }
