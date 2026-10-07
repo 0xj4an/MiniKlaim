@@ -7,13 +7,14 @@ import {
 } from "@/lib/onchain/chains";
 import { isRewardsConfigured } from "@/lib/onchain/rewards";
 import { createLogger } from "@/lib/logger";
+import { getSignerKey, isSignerConfigured } from "@/lib/onchain/signer";
 
 const log = createLogger("onchain:rewardsVoucher");
 
-const SIGNER_PK = (process.env.SERVER_SIGNER_PRIVATE_KEY ?? "") as Hex;
+const SIGNER_PK = getSignerKey();
 
 function signerConfigured(): boolean {
-  return SIGNER_PK.length === 66 && SIGNER_PK.startsWith("0x");
+  return isSignerConfigured();
 }
 
 // EIP-712 type matching MiniKlaimRewards CLAIM_REWARDS_TYPEHASH.
