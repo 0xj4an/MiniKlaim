@@ -43,8 +43,14 @@ export function jsonBody(
   if (gzip) {
     headers.set("Content-Encoding", "gzip");
     headers.set("Content-Type", "application/json; charset=utf-8");
-    return new NextResponse(packed.gzip, { status: 200, headers });
+    return new NextResponse(copyBytes(packed.gzip), { status: 200, headers });
   }
   headers.set("Content-Type", "application/json; charset=utf-8");
-  return new NextResponse(packed.json, { status: 200, headers });
+  return new NextResponse(copyBytes(packed.json), { status: 200, headers });
+}
+
+function copyBytes(bytes: Uint8Array): ArrayBuffer {
+  const copy = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(copy).set(bytes);
+  return copy;
 }
