@@ -11,8 +11,6 @@ import { getSignerKey, isSignerConfigured } from "@/lib/onchain/signer";
 
 const log = createLogger("onchain:rewardsVoucher");
 
-const SIGNER_PK = getSignerKey();
-
 function signerConfigured(): boolean {
   return isSignerConfigured();
 }
@@ -83,7 +81,7 @@ export async function signRewardsVoucher(
   try {
     const sorted = sortIds(badgeIds);
     const nonce = rewardsClaimNonce(player, sorted);
-    const account = privateKeyToAccount(SIGNER_PK);
+    const account = privateKeyToAccount(getSignerKey());
     const signature = await account.signTypedData({
       domain: {
         name: "MiniKlaimRewards",
