@@ -4,7 +4,7 @@
  */
 import { readFileSync } from "fs";
 import { join } from "path";
-import Pbf from "pbf";
+import { PbfReader as Pbf } from "pbf";
 
 type City = {
   cityId: number;
