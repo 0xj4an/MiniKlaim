@@ -540,10 +540,10 @@ function RunsList({
             ? `${(run.distanceMeters / 1000).toFixed(2)}km`
             : `${run.distanceMeters}m`;
         
-        const location = [];
-        if (run.topCity) location.push(run.topCity);
-        if (run.topCountry) location.push(getCountryNameSimple(run.topCountry, locale));
-        const locationLabel = location.length > 0 ? location.join(", ") : null;
+        const hasLocation = run.topCity || run.topCountry;
+        const cityName = run.topCity || null;
+        const countryName = run.topCountry ? getCountryNameSimple(run.topCountry, locale) : null;
+        const flag = run.topCountry ? getCountryFlag(run.topCountry) : null;
 
         return (
           <div
@@ -561,10 +561,14 @@ function RunsList({
                 </span>
               </div>
             </div>
-            {locationLabel && (
+            {hasLocation && (
               <div className="flex items-center gap-1 text-[11px] text-zinc-500">
-                <span>📍</span>
-                <span>{locationLabel}</span>
+                {flag && <span className="text-sm">{flag}</span>}
+                <span>
+                  {cityName && countryName && `${cityName}, ${countryName}`}
+                  {cityName && !countryName && cityName}
+                  {!cityName && countryName && countryName}
+                </span>
               </div>
             )}
           </div>
