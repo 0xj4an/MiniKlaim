@@ -3,8 +3,14 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import countries from "i18n-iso-countries";
+import en from "i18n-iso-countries/langs/en.json";
+import es from "i18n-iso-countries/langs/es.json";
 import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
+
+countries.registerLocale(en);
+countries.registerLocale(es);
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { LinkWallet } from "@/app/LinkWallet";
 import { RewardsSection } from "@/app/me/RewardsSection";
@@ -20,7 +26,6 @@ import { useUserRuns } from "@/lib/wallet/useUserRuns";
 import { type UserStats, useUserStats } from "@/lib/wallet/useUserStats";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { type TokenSymbol } from "@/lib/tokens";
-import { useUserHexes, type UserHex } from "@/lib/wallet/useUserHexes";
 import { useGeoSummary } from "@/lib/wallet/useGeoSummary";
 
 const TerritoryMap = dynamic(
@@ -37,10 +42,6 @@ export default function MePage() {
   const recentRuns = useUserRuns(
     isConnected && !isWrongChain ? address : null,
     50,
-  );
-  const recentHexes = useUserHexes(
-    isConnected && !isWrongChain ? address : null,
-    20,
   );
   const geoSummary = useGeoSummary(
     isConnected && !isWrongChain ? address : null,
@@ -148,10 +149,6 @@ export default function MePage() {
 
           {geoSummary && (geoSummary.byCountry.length > 0 || geoSummary.byCity.length > 0) && (
             <GeoSummarySection summary={geoSummary} />
-          )}
-
-          {recentHexes && recentHexes.length > 0 && (
-            <RecentHexesList hexes={recentHexes} />
           )}
 
           <LinkWallet address={address ?? null} />
@@ -425,7 +422,7 @@ function Achievements({ stats }: { stats: UserStats }) {
 }
 
 function GeoSummarySection({ summary }: { summary: { byCountry: Array<{ country: string; count: number }>; byCity: Array<{ country: string; city: string; count: number }> } }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [expandedCountries, setExpandedCountries] = useState<Set<string>>(new Set());
 
   const citiesMap = new Map<string, Array<{ city: string; count: number }>>();
@@ -461,7 +458,7 @@ function GeoSummarySection({ summary }: { summary: { byCountry: Array<{ country:
                 <div className="flex items-center gap-2">
                   <span className="text-base">{getCountryFlag(country.country)}</span>
                   <span className="text-xs font-semibold text-zinc-900">
-                    {getCountryNameSimple(country.country)}
+                    {getCountryNameSimple(country.country, locale)}
                   </span>
                   {cities.length > 0 && (
                     <button
@@ -508,44 +505,6 @@ function GeoSummarySection({ summary }: { summary: { byCountry: Array<{ country:
   );
 }
 
-function RecentHexesList({ hexes }: { hexes: UserHex[] }) {
-  const { t } = useLocale();
-  return (
-    <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
-      <p className="mb-2 text-center text-xs text-zinc-500">
-        {t("me.hexes.header")}
-      </p>
-      {hexes.map((hex) => {
-        const date = new Date(hex.claimedAt);
-        const dateLabel = date.toLocaleString(undefined, {
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-        const location = [];
-        if (hex.city) location.push(hex.city);
-        if (hex.country) location.push(getCountryNameSimple(hex.country));
-        const locationLabel = location.length > 0 ? location.join(", ") : t("me.hexes.unknown");
-        return (
-          <div
-            key={hex.h3Id}
-            className="flex items-center justify-between gap-2 text-xs"
-          >
-            <span className="text-zinc-600">{dateLabel}</span>
-            <span className="text-zinc-500">{locationLabel}</span>
-            {hex.runHexes && (
-              <span className="font-mono text-zinc-400">
-                {hex.runHexes} {hex.runHexes === 1 ? t("me.runs.block") : t("me.runs.blocks")}
-              </span>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function RunsList({
   runs,
 }: {
@@ -555,9 +514,11 @@ function RunsList({
     endedAt: string | null;
     hexesClaimed: number;
     distanceMeters: number;
+    topCity: string | null;
+    topCountry: string | null;
   }>;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
       <p className="mb-2 text-center text-xs text-zinc-500">
@@ -578,18 +539,34 @@ function RunsList({
           run.distanceMeters >= 1000
             ? `${(run.distanceMeters / 1000).toFixed(2)}km`
             : `${run.distanceMeters}m`;
+        
+        const location = [];
+        if (run.topCity) location.push(run.topCity);
+        if (run.topCountry) location.push(getCountryNameSimple(run.topCountry, locale));
+        const locationLabel = location.length > 0 ? location.join(", ") : null;
+
         return (
           <div
             key={run.id}
-            className="flex items-center justify-between gap-2 text-xs"
+            className="flex flex-col gap-0.5 border-b border-zinc-200 pb-2 last:border-0 last:pb-0"
           >
-            <span className="text-zinc-600">{dateLabel}</span>
-            <span className="font-mono text-zinc-500">{duration}</span>
-            <span className="font-mono text-zinc-500">{distLabel}</span>
-            <span className="font-mono font-semibold text-zinc-900">
-              {run.hexesClaimed}{" "}
-              {run.hexesClaimed === 1 ? t("me.runs.block") : t("me.runs.blocks")}
-            </span>
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="text-zinc-600">{dateLabel}</span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-zinc-500">{duration}</span>
+                <span className="font-mono text-zinc-500">{distLabel}</span>
+                <span className="font-mono font-semibold text-zinc-900">
+                  {run.hexesClaimed}{" "}
+                  {run.hexesClaimed === 1 ? t("me.runs.block") : t("me.runs.blocks")}
+                </span>
+              </div>
+            </div>
+            {locationLabel && (
+              <div className="flex items-center gap-1 text-[11px] text-zinc-500">
+                <span>📍</span>
+                <span>{locationLabel}</span>
+              </div>
+            )}
           </div>
         );
       })}
@@ -658,93 +635,17 @@ function formatAmount(formatted: string): string {
 }
 
 function getCountryFlag(code: string): string {
-  const flags: Record<string, string> = {
-    USA: "🇺🇸",
-    MEX: "🇲🇽",
-    COL: "🇨🇴",
-    BRA: "🇧🇷",
-    ARG: "🇦🇷",
-    CHL: "🇨🇱",
-    PER: "🇵🇪",
-    VEN: "🇻🇪",
-    ECU: "🇪🇨",
-    GTM: "🇬🇹",
-    CUB: "🇨🇺",
-    BOL: "🇧🇴",
-    DOM: "🇩🇴",
-    HND: "🇭🇳",
-    PRY: "🇵🇾",
-    NIC: "🇳🇮",
-    SLV: "🇸🇻",
-    CRI: "🇨🇷",
-    PAN: "🇵🇦",
-    URY: "🇺🇾",
-    ESP: "🇪🇸",
-    FRA: "🇫🇷",
-    DEU: "🇩🇪",
-    GBR: "🇬🇧",
-    ITA: "🇮🇹",
-    PRT: "🇵🇹",
-    NLD: "🇳🇱",
-    BEL: "🇧🇪",
-    CHE: "🇨🇭",
-    AUT: "🇦🇹",
-    POL: "🇵🇱",
-    ROU: "🇷🇴",
-    CZE: "🇨🇿",
-    GRC: "🇬🇷",
-    HUN: "🇭🇺",
-    SWE: "🇸🇪",
-    NOR: "🇳🇴",
-    DNK: "🇩🇰",
-    FIN: "🇫🇮",
-    IRL: "🇮🇪",
-  };
-  return flags[code] ?? "🌍";
+  if (code.length === 3) {
+    const iso2 = countries.alpha3ToAlpha2(code);
+    if (iso2) {
+      const codePoints = [...iso2].map(char => 127397 + char.charCodeAt(0));
+      return String.fromCodePoint(...codePoints);
+    }
+  }
+  return "🌍";
 }
 
-function getCountryNameSimple(code: string): string {
-  const names: Record<string, string> = {
-    USA: "United States",
-    MEX: "Mexico",
-    COL: "Colombia",
-    BRA: "Brazil",
-    ARG: "Argentina",
-    CHL: "Chile",
-    PER: "Peru",
-    VEN: "Venezuela",
-    ECU: "Ecuador",
-    GTM: "Guatemala",
-    CUB: "Cuba",
-    BOL: "Bolivia",
-    DOM: "Dominican Rep.",
-    HND: "Honduras",
-    PRY: "Paraguay",
-    NIC: "Nicaragua",
-    SLV: "El Salvador",
-    CRI: "Costa Rica",
-    PAN: "Panama",
-    URY: "Uruguay",
-    ESP: "Spain",
-    FRA: "France",
-    DEU: "Germany",
-    GBR: "United Kingdom",
-    ITA: "Italy",
-    PRT: "Portugal",
-    NLD: "Netherlands",
-    BEL: "Belgium",
-    CHE: "Switzerland",
-    AUT: "Austria",
-    POL: "Poland",
-    ROU: "Romania",
-    CZE: "Czech Rep.",
-    GRC: "Greece",
-    HUN: "Hungary",
-    SWE: "Sweden",
-    NOR: "Norway",
-    DNK: "Denmark",
-    FIN: "Finland",
-    IRL: "Ireland",
-  };
-  return names[code] ?? code;
+function getCountryNameSimple(code: string, locale: "en" | "es" = "en"): string {
+  const name = countries.getName(code, locale, { select: "official" });
+  return name || code;
 }

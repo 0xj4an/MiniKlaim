@@ -2,10 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import countries from "i18n-iso-countries";
+import en from "i18n-iso-countries/langs/en.json";
+import es from "i18n-iso-countries/langs/es.json";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("page:stats");
+
+countries.registerLocale(en);
+countries.registerLocale(es);
 
 type Analytics = {
   totalPlayers: number;
@@ -275,7 +281,7 @@ function TopCountriesSection({
   countries: Array<{ country: string; count: number }>;
   citiesByCountry: Array<{ country: string; city: string; count: number }>;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [expandedCount, setExpandedCount] = useState(5);
   const [expandedCountries, setExpandedCountries] = useState<Set<string>>(new Set());
 
@@ -319,31 +325,24 @@ function TopCountriesSection({
                   </span>
                   <span className="text-lg">{getFlag(country.country)}</span>
                   <span className="text-xs font-semibold text-zinc-900">
-                    {getCountryName(country.country)}
+                    {getCountryName(country.country, locale)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-600">
+                    {country.count.toLocaleString()}
                   </span>
                   {cities.length > 0 && (
                     <button
                       onClick={() => toggleCountry(country.country)}
-                      className="ml-1 text-zinc-500 hover:text-zinc-700"
+                      className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-zinc-600 hover:bg-zinc-300"
                       aria-label={isExpanded ? t("stats.cities.hide") : t("stats.cities.show")}
+                      title={isExpanded ? t("stats.cities.hide") : t("stats.cities.show")}
                     >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                      >
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
+                      <span className="text-xs font-bold">{isExpanded ? "−" : "+"}</span>
                     </button>
                   )}
                 </div>
-                <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-600">
-                  {country.count.toLocaleString()}
-                </span>
               </div>
               {isExpanded && cities.length > 0 && (
                 <div className="ml-8 flex flex-col gap-1">
@@ -386,57 +385,19 @@ function TopCountriesSection({
   );
 }
 
-const COUNTRY_FLAGS: Record<string, string> = {
-  COL: "🇨🇴",
-  MEX: "🇲🇽",
-  SWE: "🇸🇪",
-  NGA: "🇳🇬",
-  TUR: "🇹🇷",
-  KEN: "🇰🇪",
-  ZAF: "🇿🇦",
-  BOL: "🇧🇴",
-  GHA: "🇬🇭",
-  IDN: "🇮🇩",
-  USA: "🇺🇸",
-  CAN: "🇨🇦",
-  BRA: "🇧🇷",
-  ARG: "🇦🇷",
-  CHL: "🇨🇱",
-  PER: "🇵🇪",
-  VEN: "🇻🇪",
-  ECU: "🇪🇨",
-  URY: "🇺🇾",
-  PRY: "🇵🇾",
-};
-
-const COUNTRY_NAMES: Record<string, string> = {
-  COL: "Colombia",
-  MEX: "México",
-  SWE: "Sweden",
-  NGA: "Nigeria",
-  TUR: "Turkey",
-  KEN: "Kenya",
-  ZAF: "South Africa",
-  BOL: "Bolivia",
-  GHA: "Ghana",
-  IDN: "Indonesia",
-  USA: "United States",
-  CAN: "Canada",
-  BRA: "Brazil",
-  ARG: "Argentina",
-  CHL: "Chile",
-  PER: "Peru",
-  VEN: "Venezuela",
-  ECU: "Ecuador",
-  URY: "Uruguay",
-  PRY: "Paraguay",
-};
-
 function getFlag(code: string): string {
-  return COUNTRY_FLAGS[code] ?? "🌍";
+  if (code.length === 3) {
+    const iso2 = countries.alpha3ToAlpha2(code);
+    if (iso2) {
+      const codePoints = [...iso2].map(char => 127397 + char.charCodeAt(0));
+      return String.fromCodePoint(...codePoints);
+    }
+  }
+  return "🌍";
 }
 
-function getCountryName(code: string): string {
-  return COUNTRY_NAMES[code] ?? code;
+function getCountryName(code: string, locale: "en" | "es" = "en"): string {
+  const name = countries.getName(code, locale, { select: "official" });
+  return name || code;
 }
 
