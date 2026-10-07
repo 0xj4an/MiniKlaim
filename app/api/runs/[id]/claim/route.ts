@@ -2,6 +2,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
+import { cityForHex } from "@/lib/geo/city";
 import { countryForHex } from "@/lib/geo/country";
 import { createLogger } from "@/lib/logger";
 import { validateClaim } from "@/lib/runs/validation";
@@ -126,6 +127,7 @@ export async function POST(
     }
 
     const country = countryForHex(h3);
+    const city = cityForHex(h3);
     await db
       .insert(hexes)
       .values({
@@ -133,6 +135,7 @@ export async function POST(
         ownerAddress: run.userAddress,
         runId: id,
         country,
+        city,
       })
       .onConflictDoUpdate({
         target: hexes.h3Id,
@@ -141,6 +144,7 @@ export async function POST(
           runId: id,
           claimedAt: sql`now()`,
           country,
+          city,
           // Re-capture: clear prior mint state so the finish flow re-mints
           // the hex to the new owner.
           mintedAt: null,

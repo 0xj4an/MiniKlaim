@@ -105,6 +105,9 @@ export const hexes = pgTable(
     // ISO 3166-1 alpha-3 country of the hex centroid, resolved at capture.
     // Drives the country badges; null when resolution failed or is pending.
     country: text("country"),
+    // City name of the hex centroid, resolved at capture. Null when resolution
+    // failed, is pending, or the coordinates fall outside a city boundary.
+    city: text("city"),
   },
   (t) => [
     // "hexes owned by X player" queries (badge eligibility, TerritoryMap).

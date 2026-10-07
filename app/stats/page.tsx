@@ -32,6 +32,11 @@ type Analytics = {
     country: string;
     count: number;
   }>;
+  citiesByCountry: Array<{
+    country: string;
+    city: string;
+    count: number;
+  }>;
   hexesContract: string;
   badgesContract: string;
 };
@@ -193,33 +198,10 @@ export default function StatsPage() {
           </section>
 
           {data.topCountries.length > 0 && (
-            <section className="flex flex-col gap-2">
-              <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
-                <span className="text-base">🌍</span>
-                {t("stats.section.countries")}
-              </h2>
-              <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
-                {data.topCountries.slice(0, 5).map((country, idx) => (
-                  <div
-                    key={country.country}
-                    className="flex items-center justify-between rounded-lg border border-zinc-100 bg-white p-2.5"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-600">
-                        {idx + 1}
-                      </span>
-                      <span className="text-lg">{getFlag(country.country)}</span>
-                      <span className="text-xs font-semibold text-zinc-900">
-                        {getCountryName(country.country)}
-                      </span>
-                    </div>
-                    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-600">
-                      {country.count.toLocaleString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
+            <TopCountriesSection
+              countries={data.topCountries}
+              citiesByCountry={data.citiesByCountry}
+            />
           )}
 
           <section className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
@@ -283,6 +265,124 @@ function StatCard({
         )}
       </div>
     </div>
+  );
+}
+
+function TopCountriesSection({
+  countries,
+  citiesByCountry,
+}: {
+  countries: Array<{ country: string; count: number }>;
+  citiesByCountry: Array<{ country: string; city: string; count: number }>;
+}) {
+  const { t } = useLocale();
+  const [expandedCount, setExpandedCount] = useState(5);
+  const [expandedCountries, setExpandedCountries] = useState<Set<string>>(new Set());
+
+  const citiesMap = new Map<string, Array<{ city: string; count: number }>>();
+  for (const item of citiesByCountry) {
+    if (!citiesMap.has(item.country)) {
+      citiesMap.set(item.country, []);
+    }
+    citiesMap.get(item.country)!.push({ city: item.city, count: item.count });
+  }
+
+  const visibleCountries = countries.slice(0, expandedCount);
+  const hasMore = expandedCount < countries.length;
+
+  const toggleCountry = (countryCode: string) => {
+    const newSet = new Set(expandedCountries);
+    if (newSet.has(countryCode)) {
+      newSet.delete(countryCode);
+    } else {
+      newSet.add(countryCode);
+    }
+    setExpandedCountries(newSet);
+  };
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+        <span className="text-base">🌍</span>
+        {t("stats.section.countries")}
+      </h2>
+      <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
+        {visibleCountries.map((country, idx) => {
+          const cities = citiesMap.get(country.country) ?? [];
+          const isExpanded = expandedCountries.has(country.country);
+          return (
+            <div key={country.country} className="flex flex-col gap-2">
+              <div className="flex items-center justify-between rounded-lg border border-zinc-100 bg-white p-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-600">
+                    {idx + 1}
+                  </span>
+                  <span className="text-lg">{getFlag(country.country)}</span>
+                  <span className="text-xs font-semibold text-zinc-900">
+                    {getCountryName(country.country)}
+                  </span>
+                  {cities.length > 0 && (
+                    <button
+                      onClick={() => toggleCountry(country.country)}
+                      className="ml-1 text-zinc-500 hover:text-zinc-700"
+                      aria-label={isExpanded ? t("stats.cities.hide") : t("stats.cities.show")}
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-600">
+                  {country.count.toLocaleString()}
+                </span>
+              </div>
+              {isExpanded && cities.length > 0 && (
+                <div className="ml-8 flex flex-col gap-1">
+                  {cities.map((city) => (
+                    <div
+                      key={city.city}
+                      className="flex items-center justify-between rounded-md bg-zinc-50 px-2 py-1.5"
+                    >
+                      <span className="text-xs text-zinc-700">{city.city}</span>
+                      <span className="text-xs font-semibold text-zinc-600">
+                        {city.count.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {hasMore && (
+          <button
+            onClick={() => setExpandedCount((prev) => Math.min(prev + 5, countries.length))}
+            className="mt-1 flex items-center justify-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+          >
+            {t("stats.countries.showMore")}
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </section>
   );
 }
 

@@ -162,14 +162,21 @@ export async function GET() {
       FROM cohorts c
       LEFT JOIN d30 ON d30.cohort_day = c.cohort_day
     `),
-    // Top 10 countries by hex count (for geography chart).
+    // Top countries by hex count (for geography chart).
     db.execute(sql`
       SELECT country, COUNT(*)::int AS count
       FROM hexes
       WHERE country IS NOT NULL
       GROUP BY country
       ORDER BY count DESC
-      LIMIT 10
+    `),
+    // Cities within top countries.
+    db.execute(sql`
+      SELECT country, city, COUNT(*)::int AS count
+      FROM hexes
+      WHERE country IS NOT NULL AND city IS NOT NULL
+      GROUP BY country, city
+      ORDER BY country, count DESC
     `),
   ]);
 
@@ -192,6 +199,7 @@ export async function GET() {
     retentionD7,
     retentionD30,
     topCountriesRows,
+    topCitiesRows,
   ] = queries;
 
   const scalar = (q: unknown) =>
@@ -225,9 +233,14 @@ export async function GET() {
     onchainTxs7d: scalar(onchainTxs7d),
     hexesContract: hexesContractAddress(),
     badgesContract: badgesContractAddress(),
-    // Country distribution (top 10 for the geography chart).
+    // Country distribution with nested cities.
     topCountries: topCountriesRows as unknown as Array<{
       country: string;
+      count: number;
+    }>,
+    citiesByCountry: topCitiesRows as unknown as Array<{
+      country: string;
+      city: string;
       count: number;
     }>,
     chain: "celo",
