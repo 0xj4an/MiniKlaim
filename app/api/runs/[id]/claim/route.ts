@@ -127,7 +127,7 @@ export async function POST(
     }
 
     const country = countryForHex(h3);
-    const city = cityForHex(h3);
+    const city = country ? cityForHex(h3, country) : null;
     await db
       .insert(hexes)
       .values({
