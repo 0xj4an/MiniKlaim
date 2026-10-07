@@ -20,8 +20,6 @@ import { getSignerKey } from "@/lib/onchain/signer";
 
 const log = createLogger("onchain:hexes");
 
-const SIGNER_PK = getSignerKey();
-
 const HEXES_ABI = [
   {
     type: "function",
@@ -60,7 +58,12 @@ const HEXES_ABI = [
 ] as const;
 
 function signerConfigured(): boolean {
-  return SIGNER_PK.length === 66 && SIGNER_PK.startsWith("0x");
+  try {
+    const pk = getSignerKey();
+    return pk.length === 66 && pk.startsWith("0x");
+  } catch {
+    return false;
+  }
 }
 
 function isReady(chainKey: ChainKey): boolean {
@@ -75,7 +78,7 @@ export function hexesPublicClient(chainKey: ChainKey = DEFAULT_CHAIN_KEY) {
 }
 
 function signerAccount() {
-  return privateKeyToAccount(SIGNER_PK);
+  return privateKeyToAccount(getSignerKey());
 }
 
 function signerWallet(chainKey: ChainKey) {

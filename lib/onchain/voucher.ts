@@ -12,8 +12,6 @@ import { getSignerKey, isSignerConfigured } from "@/lib/onchain/signer";
 
 const log = createLogger("onchain:voucher");
 
-const SIGNER_PK = getSignerKey();
-
 function signerConfigured(): boolean {
   return isSignerConfigured();
 }
@@ -72,7 +70,7 @@ export async function signClaimVoucher(
   try {
     const tokenIds = h3Ids.map(h3ToTokenId);
     const nonce = runIdToNonce(runId);
-    const account = privateKeyToAccount(SIGNER_PK);
+    const account = privateKeyToAccount(getSignerKey());
     const signature = await account.signTypedData({
       domain: {
         name: "MiniKlaimHexes",

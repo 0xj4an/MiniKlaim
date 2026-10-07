@@ -12,8 +12,6 @@ import { getSignerKey, isSignerConfigured } from "@/lib/onchain/signer";
 
 const log = createLogger("onchain:claimAllVoucher");
 
-const SIGNER_PK = getSignerKey();
-
 function signerConfigured(): boolean {
   return isSignerConfigured();
 }
@@ -90,7 +88,7 @@ export async function signClaimAllVoucher(
     const tokenIds = h3Ids.map(h3ToTokenId);
     const sortedBadges = sortIds(badgeIds);
     const nonce = claimAllNonce(runId, sortedBadges);
-    const account = privateKeyToAccount(SIGNER_PK);
+    const account = privateKeyToAccount(getSignerKey());
     const signature = await account.signTypedData({
       domain: {
         name: "MiniKlaimClaimRouter",
