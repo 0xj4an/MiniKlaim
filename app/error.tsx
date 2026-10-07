@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect } from "react";
 import { track } from "@/lib/analytics";
 
@@ -24,7 +25,7 @@ export default function ErrorBoundary({
         <h2 className="text-xl font-bold text-zinc-900">Something went wrong</h2>
         <p className="text-sm text-zinc-600">
           The app encountered an unexpected error. This has been logged and
-          we'll look into it.
+          we&apos;ll look into it.
         </p>
         {error.digest && (
           <p className="font-mono text-xs text-zinc-400">
@@ -37,12 +38,12 @@ export default function ErrorBoundary({
         >
           Try again
         </button>
-        <a
+        <Link
           href="/"
           className="text-sm text-blue-600 hover:underline"
         >
           Return home
-        </a>
+        </Link>
       </div>
     </div>
   );
