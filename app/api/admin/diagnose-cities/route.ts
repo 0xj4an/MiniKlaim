@@ -27,6 +27,36 @@ export async function GET(request: Request) {
     const results = [];
     let citiesLoaded = false;
     let loadError = null;
+    
+    // Check filesystem paths
+    const { existsSync, readdirSync } = await import("fs");
+    const { join } = await import("path");
+    
+    const pathsToCheck = [
+      process.cwd(),
+      "/ROOT",
+      join(process.cwd(), "node_modules"),
+      join(process.cwd(), "node_modules", "all-the-cities"),
+      "/ROOT/node_modules",
+      "/ROOT/node_modules/all-the-cities",
+      process.cwd() + "/.next",
+      process.cwd() + "/.next/server",
+    ];
+    
+    const pathInfo: Record<string, any> = {};
+    for (const path of pathsToCheck) {
+      try {
+        const exists = existsSync(path);
+        if (exists) {
+          const files = readdirSync(path).slice(0, 10);
+          pathInfo[path] = { exists: true, files };
+        } else {
+          pathInfo[path] = { exists: false };
+        }
+      } catch (e) {
+        pathInfo[path] = { error: e instanceof Error ? e.message : String(e) };
+      }
+    }
 
     try {
       const allTheCities = await import("all-the-cities");
