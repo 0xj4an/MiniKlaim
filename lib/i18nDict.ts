@@ -174,10 +174,6 @@ export const dictionaries = {
     "run.gps.waitingHelp":
       "Still waiting? Make sure MiniPay has location permission in your phone settings.",
     "run.gps.lastError": "Last error",
-    "run.gps.minipayIosTitle": "MiniPay iOS can't share GPS",
-    "run.gps.minipayIosBody":
-      "MiniPay's iOS app doesn't yet pass location to mini apps. Open MiniKlaim in MetaMask (or any wallet's built-in browser) to play.",
-    "run.gps.openInMetamask": "Open in MetaMask",
     "run.gps.denied":
       "Location denied. Enable it in browser settings to track runs.",
     "run.gps.unavailable": "Location unavailable on this device.",
@@ -518,10 +514,6 @@ export const dictionaries = {
     "run.gps.waitingHelp":
       "¿Sigue esperando? Verifica que MiniPay tenga permiso de ubicación en los ajustes del teléfono.",
     "run.gps.lastError": "Último error",
-    "run.gps.minipayIosTitle": "MiniPay iOS no comparte GPS",
-    "run.gps.minipayIosBody":
-      "La app iOS de MiniPay no pasa la ubicación a las mini apps todavia. Abri MiniKlaim en MetaMask (o el navegador de cualquier wallet) para jugar.",
-    "run.gps.openInMetamask": "Abrir en MetaMask",
     "run.gps.denied":
       "Ubicación denegada. Actívala en los ajustes del navegador para jugar.",
     "run.gps.unavailable": "Ubicación no disponible en este dispositivo.",
