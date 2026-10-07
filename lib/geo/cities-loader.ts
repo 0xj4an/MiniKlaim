@@ -25,6 +25,8 @@ function loadCitiesFromPbf(): City[] {
   try {
     // Try multiple possible locations for cities.pbf
     const possiblePaths = [
+      // In public/data (production - checked into repo)
+      join(process.cwd(), "public", "data", "cities.pbf"),
       // In node_modules (development)
       join(process.cwd(), "node_modules", "all-the-cities", "cities.pbf"),
       // In .next/server (production build)
@@ -38,6 +40,7 @@ function loadCitiesFromPbf(): City[] {
       ),
       // Railway/serverless (might be at root)
       "/ROOT/node_modules/all-the-cities/cities.pbf",
+      "/ROOT/public/data/cities.pbf",
     ];
 
     let buffer: Buffer | null = null;
