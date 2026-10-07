@@ -16,6 +16,9 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { hexes } from "../lib/db/schema";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("script:migrate-hexes");
 
 /**
  * One-time migration: re-mint every hex in the DB (the canonical ownership list)
@@ -71,7 +74,7 @@ async function main() {
   const rows = await db
     .select({ h3Id: hexes.h3Id, owner: hexes.ownerAddress })
     .from(hexes);
-  console.log(`Migrating ${rows.length} hexes to ${contract} ...`);
+  log.info("starting migration", { hexes: rows.length, contract });
 
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
@@ -98,16 +101,14 @@ async function main() {
         ),
       );
 
-    console.log(
-      `  batch ${i / BATCH_SIZE + 1}: ${batch.length} hexes -> ${txHash}`,
-    );
+    log.info("batch migrated", { batchNum: i / BATCH_SIZE + 1, hexes: batch.length, txHash });
   }
 
-  console.log("Migration complete.");
+  log.info("migration complete");
   await client.end();
 }
 
 main().catch((e) => {
-  console.error(e);
+  log.error("migration failed", { error: e });
   process.exit(1);
 });

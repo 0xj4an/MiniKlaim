@@ -6,6 +6,9 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { hexes, runs } from "../lib/db/schema";
 import { captureBatch, hexesPublicClient } from "../lib/onchain/hexes";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("script:retry-unminted");
 
 /**
  * Retry the sponsored `captureBatch` for runs that finished but never got
@@ -42,7 +45,7 @@ const HEXES_PER_BATCH = 100;
 async function main() {
   const url = process.env.DATABASE_URL;
   if (!url) {
-    console.error("DATABASE_URL not set");
+    log.error("DATABASE_URL not set");
     process.exit(1);
   }
   const client = postgres(url, { max: 1 });
@@ -79,14 +82,14 @@ async function main() {
   }>;
 
   if (jobs.length === 0) {
-    console.log(`no runs with unminted hexes older than ${MIN_AGE_MIN}min`);
+    log.info("no unminted runs found", { minAgeMin: MIN_AGE_MIN });
     await client.end();
     return;
   }
 
-  console.log(`found ${jobs.length} runs with unminted hexes:`);
+  log.info("found runs with unminted hexes", { count: jobs.length });
   for (const job of jobs) {
-    console.log(`  run ${job.run_id} (${job.hex_count} unminted, player ${job.user_address})`);
+    log.info("run pending", { runId: job.run_id, hexCount: job.hex_count, player: job.user_address });
   }
 
   // captureBatch returns after broadcast, not after mining. Chunking without
@@ -125,9 +128,7 @@ async function main() {
           hash: result.txHash,
         });
         if (receipt.status !== "success") {
-          console.log(
-            `  fail run ${job.run_id} chunk ${i / HEXES_PER_BATCH + 1}: tx ${result.txHash} reverted`,
-          );
+          log.warn("tx reverted", { runId: job.run_id, chunk: i / HEXES_PER_BATCH + 1, txHash: result.txHash });
           batchesFail += 1;
           break;
         }
@@ -139,15 +140,11 @@ async function main() {
           .update(hexes)
           .set({ mintedAt: sql`now()`, mintTxHash: result.txHash })
           .where(inArray(hexes.h3Id, chunk));
-        console.log(
-          `  ok run ${job.run_id} chunk ${i / HEXES_PER_BATCH + 1} minted ${chunk.length} hexes (tx ${result.txHash})`,
-        );
+        log.info("chunk minted", { runId: job.run_id, chunk: i / HEXES_PER_BATCH + 1, hexes: chunk.length, txHash: result.txHash });
         hexesMinted += chunk.length;
         batchesOk += 1;
       } else {
-        console.log(
-          `  fail run ${job.run_id} chunk ${i / HEXES_PER_BATCH + 1}: ${result.reason} ${result.error?.slice(0, 100) ?? ""}`,
-        );
+        log.warn("batch failed", { runId: job.run_id, chunk: i / HEXES_PER_BATCH + 1, reason: result.reason, error: result.error?.slice(0, 100) });
         batchesFail += 1;
         // Stop chunking this run: likely undercapitalized relayer or RPC
         // outage. Next cron fire retries what's still un-minted.
@@ -156,9 +153,7 @@ async function main() {
     }
   }
 
-  console.log(
-    `\ndone: ${batchesOk} chunks succeeded (${hexesMinted} hexes minted), ${batchesFail} chunks failed`,
-  );
+  log.info("retry complete", { batchesOk, hexesMinted, batchesFail });
   await client.end();
 }
 

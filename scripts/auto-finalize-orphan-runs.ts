@@ -5,6 +5,9 @@ import { and, isNull, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { runs } from "../lib/db/schema";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("script:finalize-orphans");
 
 /**
  * Auto-finalize orphan runs: any run without `endedAt` and started > 6 hours
@@ -23,7 +26,7 @@ const ORPHAN_AGE_HOURS = 6;
 async function main() {
   const url = process.env.DATABASE_URL;
   if (!url) {
-    console.error("DATABASE_URL not set");
+    log.error("DATABASE_URL not set");
     process.exit(1);
   }
   const client = postgres(url, { max: 1 });
@@ -38,12 +41,12 @@ async function main() {
     .returning({ id: runs.id, startedAt: runs.startedAt });
 
   if (closed.length === 0) {
-    console.log(`no orphan runs older than ${ORPHAN_AGE_HOURS}h`);
+    log.info("no orphan runs found", { minAgeHours: ORPHAN_AGE_HOURS });
   } else {
-    console.log(`closed ${closed.length} orphan run(s):`);
+    log.info("closed orphan runs", { count: closed.length });
     for (const r of closed) {
       const ageHrs = (Date.now() - r.startedAt.getTime()) / 3600000;
-      console.log(`  ${r.id} (${ageHrs.toFixed(1)}h old)`);
+      log.info("orphan closed", { runId: r.id, ageHours: ageHrs.toFixed(1) });
     }
   }
 
