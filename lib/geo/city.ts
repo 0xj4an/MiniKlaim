@@ -1,38 +1,14 @@
 import { cellToLatLng } from "h3-js";
 import countries from "i18n-iso-countries";
 import { createLogger } from "@/lib/logger";
-import allTheCities from "all-the-cities";
+import { loadCitiesFromPbf, type City } from "./cities-loader";
 
 const log = createLogger("geo:city");
-
-type City = {
-  cityId: number;
-  name: string;
-  country: string;
-  lat: number;
-  lon: number;
-  population: number;
-};
 
 let citiesByCountry: Map<string, City[]> | null = null;
 
 function loadCities(): City[] {
-  try {
-    if (!Array.isArray(allTheCities) || allTheCities.length === 0) {
-      log.error("cities database is empty or invalid", {
-        type: typeof allTheCities,
-        isArray: Array.isArray(allTheCities),
-      });
-      return [];
-    }
-    return allTheCities as City[];
-  } catch (e) {
-    log.error("failed to load cities database", {
-      message: e instanceof Error ? e.message : String(e),
-      stack: e instanceof Error ? e.stack : undefined,
-    });
-    return [];
-  }
+  return loadCitiesFromPbf();
 }
 
 function getCitiesByCountry(): Map<string, City[]> {

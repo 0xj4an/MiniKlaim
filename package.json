@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && npm run postbuild",
+    "postbuild": "node scripts/copy-cities-data.js",
     "build:analyze": "ANALYZE=true next build",
     "start": "next start",
     "lint": "eslint .",
@@ -40,6 +41,7 @@
     "i18n-iso-countries": "^7.14.0",
     "maplibre-gl": "^5.24.0",
     "next": "^16.2.6",
+    "pbf": "^5.1.2",
     "postgres": "^3.4.9",
     "posthog-js": "^1.414.0",
     "react": "^19.2.6",
