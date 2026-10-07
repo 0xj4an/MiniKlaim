@@ -56,15 +56,13 @@ function iso3ToIso2(iso3: string): string | null {
 }
 
 /**
- * City name for an H3 cell's centroid, or null when it cannot be resolved
- * (e.g. open ocean, remote areas, or resolution failure).
+ * City name for an H3 cell's centroid, or null when it cannot be resolved.
  * 
- * Uses offline database of 138k+ cities worldwide. Returns the nearest city
- * within 50km radius. Prefers larger cities when multiple are equidistant.
+ * OPTIONAL ENHANCEMENT: Returns null if cities database unavailable.
+ * Does not block on missing cities.pbf file - just returns null silently.
  * 
- * Accepts optional country ISO3 (alpha-3) code for faster lookup - converts
- * to ISO2 internally and filters to ~1k cities per country instead of
- * searching all 138k.
+ * When available: searches 138k+ cities, returns nearest within 100km.
+ * Accepts optional country ISO3 code for faster lookup.
  */
 export function cityForHex(h3Id: string, countryIso3?: string): string | null {
   try {
