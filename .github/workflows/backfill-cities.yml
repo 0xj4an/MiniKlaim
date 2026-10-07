@@ -1,0 +1,37 @@
+name: Backfill Cities
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: 'Batch size for processing'
+        required: false
+        default: '1000'
+      delay_ms:
+        description: 'Delay between batches (ms)'
+        required: false
+        default: '100'
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run city backfill
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run db:backfill-cities
+      
+      - name: Summary
+        run: echo "✅ City backfill completed successfully"
