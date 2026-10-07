@@ -43,7 +43,7 @@ export async function GET(request: Request) {
       process.cwd() + "/.next/server",
     ];
     
-    const pathInfo: Record<string, any> = {};
+    const pathInfo: Record<string, { exists?: boolean; files?: string[]; error?: string }> = {};
     for (const path of pathsToCheck) {
       try {
         const exists = existsSync(path);
@@ -102,9 +102,11 @@ export async function GET(request: Request) {
       citiesLoaded,
       loadError,
       results,
+      pathInfo,
       env: {
         nodeVersion: process.version,
         platform: process.platform,
+        cwd: process.cwd(),
       },
     });
   } catch (error) {
