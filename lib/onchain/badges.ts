@@ -16,10 +16,11 @@ import {
   isChainConfigured,
 } from "@/lib/onchain/chains";
 import { createLogger } from "@/lib/logger";
+import { getSignerKey } from "@/lib/onchain/signer";
 
 const log = createLogger("onchain:badges");
 
-const SIGNER_PK = (process.env.SERVER_SIGNER_PRIVATE_KEY ?? "") as Hex;
+const SIGNER_PK = getSignerKey();
 
 const BADGES_ABI = [
   {
