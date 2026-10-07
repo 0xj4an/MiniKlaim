@@ -59,32 +59,49 @@ export default function StatsPage() {
   }, []);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-8 pb-24">
-      <header className="flex items-center justify-between">
-        <Link
-          href="/"
-          className="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
-        >
-          ← {t("common.home")}
-        </Link>
-        <h1 className="text-xl font-bold">{t("stats.title")}</h1>
-        <span className="w-16" />
-      </header>
+    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <div className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-8 pb-24 sm:px-6">
+        <header className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <Link
+              href="/"
+              className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm ring-1 ring-zinc-900/5 transition hover:bg-zinc-50"
+            >
+              ← {t("common.home")}
+            </Link>
+            <div className="flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-1.5 text-xs font-semibold text-white shadow-md">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
+              </span>
+              LIVE
+            </div>
+          </div>
+          
+          <div className="flex flex-col items-center gap-2 pt-4">
+            <h1 className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-4xl font-black text-transparent">
+              {t("stats.title")}
+            </h1>
+            <p className="text-center text-sm text-zinc-600">
+              {t("stats.subtitle")}
+            </p>
+          </div>
+        </header>
 
-      <p className="text-center text-xs text-zinc-500">
-        {t("stats.subtitle")}
-      </p>
-
-      {!data && (
-        <p className="text-center text-sm text-zinc-500">
-          {t("common.loading")}
-        </p>
-      )}
+        {!data && (
+          <div className="flex flex-col items-center gap-4 py-12">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-200 border-t-blue-600"></div>
+            <p className="text-sm font-medium text-zinc-500">
+              {t("common.loading")}
+            </p>
+          </div>
+        )}
 
       {data && (
         <>
-          <section className="flex flex-col gap-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <section className="flex flex-col gap-4">
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-zinc-700">
+              <span className="text-xl">🏆</span>
               {t("stats.section.lifetime")}
             </h2>
             <div className="grid grid-cols-3 gap-3">
@@ -114,8 +131,9 @@ export default function StatsPage() {
             </div>
           </section>
 
-          <section className="flex flex-col gap-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <section className="flex flex-col gap-4">
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-zinc-700">
+              <span className="text-xl">👥</span>
               {t("stats.section.active")}
             </h2>
             <div className="grid grid-cols-3 gap-3">
@@ -125,8 +143,9 @@ export default function StatsPage() {
             </div>
           </section>
 
-          <section className="flex flex-col gap-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <section className="flex flex-col gap-4">
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-zinc-700">
+              <span className="text-xl">📈</span>
               {t("stats.section.retention")}
             </h2>
             <div className="grid grid-cols-3 gap-3">
@@ -148,8 +167,9 @@ export default function StatsPage() {
             </div>
           </section>
 
-          <section className="flex flex-col gap-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <section className="flex flex-col gap-4">
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-zinc-700">
+              <span className="text-xl">⛓️</span>
               {t("stats.section.onchain")}
             </h2>
             <div className="grid grid-cols-2 gap-3">
@@ -176,26 +196,27 @@ export default function StatsPage() {
           </section>
 
           {data.topCountries.length > 0 && (
-            <section className="flex flex-col gap-2">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <section className="flex flex-col gap-4">
+              <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-zinc-700">
+                <span className="text-xl">🌍</span>
                 {t("stats.section.countries")}
               </h2>
-              <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+              <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
                 {data.topCountries.slice(0, 5).map((country, idx) => (
                   <div
                     key={country.country}
-                    className="flex items-center justify-between"
+                    className="group flex items-center justify-between rounded-xl border border-zinc-100 bg-gradient-to-r from-zinc-50 to-white p-3 transition hover:border-zinc-200 hover:shadow-sm"
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-zinc-400">
-                        {idx + 1}.
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-purple-100 text-xs font-bold text-blue-600">
+                        {idx + 1}
                       </span>
-                      <span className="text-base">{getFlag(country.country)}</span>
-                      <span className="text-sm font-medium text-zinc-900">
+                      <span className="text-2xl">{getFlag(country.country)}</span>
+                      <span className="text-sm font-semibold text-zinc-900">
                         {getCountryName(country.country)}
                       </span>
                     </div>
-                    <span className="text-sm font-semibold text-zinc-900">
+                    <span className="rounded-full bg-gradient-to-br from-blue-100 to-purple-100 px-3 py-1 text-sm font-bold text-blue-600">
                       {country.count.toLocaleString()}
                     </span>
                   </div>
@@ -204,8 +225,9 @@ export default function StatsPage() {
             </section>
           )}
 
-          <section className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <section className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-gradient-to-br from-white to-zinc-50 p-6 shadow-sm">
+            <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-zinc-700">
+              <span className="text-xl">📄</span>
               {t("stats.section.contracts")}
             </h3>
             <div className="flex flex-col gap-2 text-xs">
@@ -235,6 +257,7 @@ export default function StatsPage() {
           </section>
         </>
       )}
+      </div>
     </main>
   );
 }
@@ -251,15 +274,18 @@ function StatCard({
   subtitle?: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-4 text-center">
-      <span className="text-3xl font-bold text-zinc-900">
-        {value.toLocaleString()}
-        {suffix && <span className="text-base">{suffix}</span>}
-      </span>
-      <span className="text-xs text-zinc-500">{label}</span>
-      {subtitle && (
-        <span className="text-[10px] text-zinc-400">{subtitle}</span>
-      )}
+    <div className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 text-center shadow-sm transition-all hover:scale-105 hover:shadow-md">
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-purple-50/50 opacity-0 transition-opacity group-hover:opacity-100"></div>
+      <div className="relative flex flex-col items-center gap-2">
+        <span className="bg-gradient-to-br from-blue-600 to-purple-600 bg-clip-text text-4xl font-black tabular-nums text-transparent">
+          {value.toLocaleString()}
+          {suffix && <span className="text-xl">{suffix}</span>}
+        </span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-zinc-600">{label}</span>
+        {subtitle && (
+          <span className="text-[10px] font-medium text-zinc-400">{subtitle}</span>
+        )}
+      </div>
     </div>
   );
 }
