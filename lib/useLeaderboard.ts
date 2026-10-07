@@ -9,6 +9,9 @@ export type LeaderboardEntry = {
   address: string;
   username: string | null;
   hexCount: number;
+  runCount: number;
+  countries: string[];
+  badges: string[];
 };
 
 export function useLeaderboard(limit = 10): LeaderboardEntry[] | null {
