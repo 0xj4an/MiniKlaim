@@ -25,6 +25,7 @@ async function main() {
   
   console.log(`Total cities loaded: ${cities.length}`);
   
+  // Convert ALL cities, no filtering - user needs complete coverage
   const converted: City[] = cities
     .map((c) => ({
       name: c.name,
@@ -33,11 +34,9 @@ async function main() {
       lon: c.loc.coordinates[0],
       population: c.population || 0,
     }))
-    .filter((c: City) => c.population > 10000)
-    .sort((a: City, b: City) => b.population - a.population)
-    .slice(0, 5000);
+    .filter((c: City) => c.name && c.country); // Only remove invalid entries
   
-  console.log(`Filtered to top ${converted.length} cities`);
+  console.log(`Converted ALL ${converted.length} cities`);
   
   const json = JSON.stringify(converted);
   writeFileSync("public/data/cities.json", json);
