@@ -248,6 +248,7 @@ export default function RunPage() {
         const res = await fetch(`/api/hexes?near=${near}&k=${RUN_HEX_DISK}`);
         if (!res.ok) {
           log.warn("claimed hexes refresh failed", { status: res.status });
+          track("hexes_refresh_error", { status: res.status });
           return;
         }
         const data = (await res.json()) as {
@@ -267,6 +268,9 @@ export default function RunPage() {
       } catch (e) {
         log.error("failed to refresh claimed hexes", {
           message: e instanceof Error ? e.message : String(e),
+        });
+        track("hexes_refresh_network_error", {
+          error: e instanceof Error ? e.message : String(e),
         });
       }
     },
@@ -305,6 +309,7 @@ export default function RunPage() {
             status: res.status,
             count: h3Ids.length,
           });
+          track("batch_claim_error", { status: res.status, count: h3Ids.length });
           return;
         }
         const data = (await res.json()) as {
@@ -334,6 +339,10 @@ export default function RunPage() {
         log.error("batch claim error", {
           count: h3Ids.length,
           message: e instanceof Error ? e.message : String(e),
+        });
+        track("batch_claim_network_error", {
+          count: h3Ids.length,
+          error: e instanceof Error ? e.message : String(e),
         });
       }
     },

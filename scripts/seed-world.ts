@@ -5,6 +5,9 @@ import { gridDisk, latLngToCell } from "h3-js";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { hexes, runs, users } from "../lib/db/schema";
+import { createLogger } from "../lib/logger";
+
+const log = createLogger("script:seed-world");
 
 const HEX_RESOLUTION = 12;
 
@@ -144,15 +147,13 @@ async function main() {
         .onConflictDoNothing();
     }
 
-    console.log(
-      `seeded ${city.username}: ${cells.length} blocks at ${city.lat},${city.lng}`,
-    );
+    log.info("city seeded", { username: city.username, blocks: cells.length, lat: city.lat, lng: city.lng });
   }
 
   await client.end();
 }
 
 main().catch((err) => {
-  console.error(err);
+  log.error("seed failed", { error: err });
   process.exit(1);
 });
