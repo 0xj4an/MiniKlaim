@@ -43,6 +43,13 @@
       "when": 1785556650118,
       "tag": "0005_clean_proudstar",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791404463724,
+      "tag": "0006_yellow_colonel_america",
+      "breakpoints": true
     }
   ]
 }
