@@ -1,4 +1,4 @@
-import { desc, eq, isNotNull } from "drizzle-orm";
+import { desc, eq, isNotNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { runs, users } from "@/lib/db/schema";
@@ -22,6 +22,14 @@ export async function GET(request: Request) {
       endedAt: runs.endedAt,
       hexesClaimed: runs.hexesClaimed,
       distanceMeters: runs.distanceMeters,
+      country: sql<string | null>`(
+        SELECT country
+        FROM hexes h
+        WHERE h.run_id = ${runs.id} AND h.country IS NOT NULL
+        GROUP BY country
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+      )`.as("country"),
     })
     .from(runs)
     .leftJoin(users, eq(runs.userAddress, users.address))

@@ -242,7 +242,7 @@ function ActivityFeed({
         return (
           <div
             key={e.id}
-            className={`flex items-center justify-between gap-2 ${isMe ? "font-medium text-zinc-900" : "text-zinc-700"}`}
+            className={`flex items-center gap-2 ${isMe ? "font-medium text-zinc-900" : "text-zinc-700"}`}
           >
             <span className="flex-1 truncate">
               {e.username ? (
@@ -256,7 +256,10 @@ function ActivityFeed({
                 fallback
               )}
             </span>
-            <span className="font-mono text-zinc-500">
+            {e.country && (
+              <span className="text-base">{getCountryFlag(e.country)}</span>
+            )}
+            <span className="text-xs font-mono text-zinc-500">
               {e.hexesClaimed}{" "}
               {e.hexesClaimed === 1
                 ? t("community.block")

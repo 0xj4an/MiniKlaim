@@ -13,6 +13,7 @@ export type ActivityEntry = {
   endedAt: string;
   hexesClaimed: number;
   distanceMeters: number;
+  country: string | null;
 };
 
 export function useActivity(limit = 10): ActivityEntry[] | null {
