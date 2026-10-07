@@ -59,39 +59,36 @@ export default function StatsPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <div className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-8 pb-24 sm:px-6">
-        <header className="flex flex-col gap-4">
+    <main className="min-h-screen bg-zinc-50">
+      <div className="mx-auto flex max-w-4xl flex-col gap-4 px-3 py-4 pb-24 sm:px-6">
+        <header className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <Link
               href="/"
-              className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm ring-1 ring-zinc-900/5 transition hover:bg-zinc-50"
+              className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm"
             >
               ← {t("common.home")}
             </Link>
-            <div className="flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-1.5 text-xs font-semibold text-white shadow-md">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span>
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
-              </span>
+            <div className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white">
+              <span className="h-1.5 w-1.5 rounded-full bg-white"></span>
               LIVE
             </div>
           </div>
           
-          <div className="flex flex-col items-center gap-2 pt-4">
-            <h1 className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-4xl font-black text-transparent">
+          <div className="flex flex-col items-center gap-1 pt-2">
+            <h1 className="text-2xl font-bold text-zinc-900">
               {t("stats.title")}
             </h1>
-            <p className="text-center text-sm text-zinc-600">
+            <p className="text-center text-xs text-zinc-600">
               {t("stats.subtitle")}
             </p>
           </div>
         </header>
 
         {!data && (
-          <div className="flex flex-col items-center gap-4 py-12">
-            <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-200 border-t-blue-600"></div>
-            <p className="text-sm font-medium text-zinc-500">
+          <div className="flex flex-col items-center gap-3 py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-200 border-t-blue-600"></div>
+            <p className="text-xs font-medium text-zinc-500">
               {t("common.loading")}
             </p>
           </div>
@@ -274,16 +271,16 @@ function StatCard({
   subtitle?: string;
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 text-center shadow-sm transition-all hover:scale-105 hover:shadow-md">
+    <div className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 text-center shadow-sm transition-all hover:scale-105 hover:shadow-md sm:p-5">
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-purple-50/50 opacity-0 transition-opacity group-hover:opacity-100"></div>
-      <div className="relative flex flex-col items-center gap-2">
-        <span className="bg-gradient-to-br from-blue-600 to-purple-600 bg-clip-text text-4xl font-black tabular-nums text-transparent">
+      <div className="relative flex flex-col items-center gap-1.5">
+        <span className="bg-gradient-to-br from-blue-600 to-purple-600 bg-clip-text text-2xl font-black tabular-nums text-transparent sm:text-4xl">
           {value.toLocaleString()}
-          {suffix && <span className="text-xl">{suffix}</span>}
+          {suffix && <span className="text-base sm:text-xl">{suffix}</span>}
         </span>
-        <span className="text-xs font-semibold uppercase tracking-wide text-zinc-600">{label}</span>
+        <span className="break-words text-[10px] font-semibold uppercase tracking-wide text-zinc-600 sm:text-xs">{label}</span>
         {subtitle && (
-          <span className="text-[10px] font-medium text-zinc-400">{subtitle}</span>
+          <span className="break-words text-[9px] font-medium text-zinc-400 sm:text-[10px]">{subtitle}</span>
         )}
       </div>
     </div>
