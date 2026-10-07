@@ -29,13 +29,14 @@ export async function GET(request: Request) {
     let loadError = null;
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const cities = require("all-the-cities");
+      const allTheCities = await import("all-the-cities");
+      const cities = allTheCities.default;
       citiesLoaded = Array.isArray(cities) && cities.length > 0;
       results.push({
         test: "Load cities database",
         success: citiesLoaded,
         citiesCount: cities.length,
+        sampleCity: cities[0]?.name,
       });
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
@@ -43,6 +44,7 @@ export async function GET(request: Request) {
         test: "Load cities database",
         success: false,
         error: loadError,
+        stack: e instanceof Error ? e.stack : undefined,
       });
     }
 

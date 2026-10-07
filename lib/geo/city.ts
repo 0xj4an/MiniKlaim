@@ -1,6 +1,7 @@
 import { cellToLatLng } from "h3-js";
 import countries from "i18n-iso-countries";
 import { createLogger } from "@/lib/logger";
+import allTheCities from "all-the-cities";
 
 const log = createLogger("geo:city");
 
@@ -13,18 +14,22 @@ type City = {
   population: number;
 };
 
-let citiesCache: City[] | null = null;
 let citiesByCountry: Map<string, City[]> | null = null;
 
 function loadCities(): City[] {
-  if (citiesCache) return citiesCache;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    citiesCache = require("all-the-cities") as City[];
-    return citiesCache;
+    if (!Array.isArray(allTheCities) || allTheCities.length === 0) {
+      log.error("cities database is empty or invalid", {
+        type: typeof allTheCities,
+        isArray: Array.isArray(allTheCities),
+      });
+      return [];
+    }
+    return allTheCities as City[];
   } catch (e) {
     log.error("failed to load cities database", {
       message: e instanceof Error ? e.message : String(e),
+      stack: e instanceof Error ? e.stack : undefined,
     });
     return [];
   }
