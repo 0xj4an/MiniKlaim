@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build && npm run postbuild",
-    "postbuild": "node scripts/copy-cities-data.js",
+    "prebuild": "npx tsx scripts/extract-top-cities.ts",
+    "build": "next build",
     "build:analyze": "ANALYZE=true next build",
     "start": "next start",
     "lint": "eslint .",
