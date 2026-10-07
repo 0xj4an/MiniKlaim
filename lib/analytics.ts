@@ -69,6 +69,18 @@ type EventMap = {
   badge_claim_confirmed: { count: number; tx_hash: string };
   badge_claim_failed: { count: number; reason: string };
 
+  // Network & error tracking.
+  app_crash: { error: string; digest: string; stack: string };
+  hexes_refresh_error: { status: number };
+  hexes_refresh_network_error: { error: string };
+  batch_claim_error: { status: number; count: number };
+  batch_claim_network_error: { count: number; error: string };
+  run_start_error: { status: number };
+  run_start_network_error: { error: string };
+  run_finish_error: { status: number };
+  run_finish_network_error: { error: string };
+  blocks_captured: { count: number };
+
   // Rewards.
   reward_claim_started: { amount_usdm: string; badge_count: number };
   reward_claim_confirmed: { amount_usdm: string; tx_hash: string };

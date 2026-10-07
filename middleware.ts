@@ -27,7 +27,6 @@ export function middleware(request: NextRequest) {
   }
 
   const ip =
-    request.ip ??
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     request.headers.get("x-real-ip") ??
     "unknown";
