@@ -38,16 +38,23 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
 
   const sponsorFallback = useCallback(
     async (addr: string): Promise<BadgeClaimOutcome> => {
-      const res = await fetch(
-        `/api/users/${addr.toLowerCase()}/badges/sponsor-mint?chain=${chainKey}`,
-        { method: "POST" },
-      );
-      if (!res.ok) {
-        log.error("badge sponsor fallback failed", { status: res.status });
+      try {
+        const res = await fetch(
+          `/api/users/${addr.toLowerCase()}/badges/sponsor-mint?chain=${chainKey}`,
+          { method: "POST" },
+        );
+        if (!res.ok) {
+          log.error("badge sponsor fallback failed", { status: res.status });
+          return { status: "error" };
+        }
+        log.info("sponsored badge mint done", { addr });
+        return { status: "sponsored" };
+      } catch (e) {
+        log.error("badge sponsor fallback network error", {
+          message: e instanceof Error ? e.message : String(e),
+        });
         return { status: "error" };
       }
-      log.info("sponsored badge mint done", { addr });
-      return { status: "sponsored" };
     },
     [chainKey],
   );
