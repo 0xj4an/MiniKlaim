@@ -2,8 +2,8 @@
 /**
  * Check today's stats: transactions, users, hexes claimed, gas spent
  */
-import { db } from "@/db";
-import { runs, hexes } from "@/db/schema";
+import { db } from "@/lib/db";
+import { runs, hexes } from "@/lib/db/schema";
 import { sql, count, countDistinct } from "drizzle-orm";
 
 async function main() {
@@ -13,7 +13,7 @@ async function main() {
   const [totalRuns] = await db.select({ count: count() }).from(runs);
   const [totalHexes] = await db.select({ count: count() }).from(hexes);
   const [uniqueUsers] = await db
-    .select({ count: countDistinct(runs.address) })
+    .select({ count: countDistinct(runs.userAddress) })
     .from(runs);
 
   console.log("📊 Stats Totales:");
@@ -33,9 +33,13 @@ async function main() {
     WHERE DATE(r.created_at) = ${today}
   `);
 
-  console.log(`\n📈 Stats HOY (${today}):`);
-  if (todayStats.rows && todayStats.rows[0]) {
-    const stats = todayStats.rows[0] as any;
+  console.log(`\nStats HOY (${today}):`);
+  const stats = todayStats[0] as {
+    active_users?: string | number | null;
+    runs_today?: string | number | null;
+    hexes_today?: string | number | null;
+  } | undefined;
+  if (stats) {
     console.log(`  Usuarios Activos: ${stats.active_users || 0}`);
     console.log(`  Runs Creados: ${stats.runs_today || 0}`);
     console.log(`  Hexes Claimed: ${stats.hexes_today || 0}`);
@@ -54,9 +58,12 @@ async function main() {
     LIMIT 10
   `);
 
-  console.log("\n🌍 Top 10 Países HOY:");
-  if (topCountries.rows && topCountries.rows.length > 0) {
-    topCountries.rows.forEach((row: any, i: number) => {
+  console.log("\nTop 10 paises HOY:");
+  if (topCountries.length > 0) {
+    topCountries.forEach((row: {
+      country?: string | null;
+      hex_count?: string | number | null;
+    }, i: number) => {
       console.log(`  ${i + 1}. ${row.country}: ${row.hex_count} hexes`);
     });
   } else {
@@ -77,13 +84,17 @@ async function main() {
     LIMIT 10
   `);
 
-  console.log("\n🏃 Últimos 10 Runs HOY:");
-  if (recentRuns.rows && recentRuns.rows.length > 0) {
-    recentRuns.rows.forEach((row: any) => {
+  console.log("\nUltimos 10 runs HOY:");
+  if (recentRuns.length > 0) {
+    recentRuns.forEach((row: {
+      address: string;
+      created_at: string | number | Date;
+      state?: string | null;
+      hex_count?: string | number | null;
+    }) => {
       const time = new Date(row.created_at).toLocaleTimeString();
-      const addr = `${row.address.slice(0, 6)}...${row.address.slice(-4)}`;
       console.log(
-        `  ${time} | ${addr} | ${row.state} | ${row.hex_count || 0} hexes`,
+        `  ${time} | ${row.address} | ${row.state} | ${row.hex_count || 0} hexes`,
       );
     });
   } else {
