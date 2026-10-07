@@ -31,6 +31,7 @@ export async function GET(
   );
 
   // Each run's hexes share the same captureBatch tx hash; pick any one.
+  // Also get the most common city and country for this run.
   const rows = await db.execute(sql`
     SELECT
       r.id,
@@ -43,7 +44,23 @@ export async function GET(
         FROM hexes h
         WHERE h.run_id = r.id AND h.mint_tx_hash IS NOT NULL
         LIMIT 1
-      ) AS "mintTxHash"
+      ) AS "mintTxHash",
+      (
+        SELECT city
+        FROM hexes h
+        WHERE h.run_id = r.id AND h.city IS NOT NULL
+        GROUP BY city
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+      ) AS "topCity",
+      (
+        SELECT country
+        FROM hexes h
+        WHERE h.run_id = r.id AND h.country IS NOT NULL
+        GROUP BY country
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+      ) AS "topCountry"
     FROM runs r
     WHERE r.user_address IN (${addressList})
     ORDER BY r.started_at DESC
