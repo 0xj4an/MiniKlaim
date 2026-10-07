@@ -343,19 +343,25 @@ function TopCountriesSection({
                   </button>
                 </div>
               </div>
-              {isExpanded && cities.length > 0 && (
+              {isExpanded && (
                 <div className="ml-8 flex flex-col gap-1">
-                  {cities.map((city) => (
-                    <div
-                      key={city.city}
-                      className="flex items-center justify-between rounded-md bg-zinc-50 px-2 py-1.5"
-                    >
-                      <span className="text-xs text-zinc-700">{city.city}</span>
-                      <span className="text-xs font-semibold text-zinc-600">
-                        {city.count.toLocaleString()}
-                      </span>
+                  {cities.length === 0 ? (
+                    <div className="rounded-md bg-zinc-50 px-2 py-1.5 text-xs italic text-zinc-500">
+                      {t("stats.cities.processing")}
                     </div>
-                  ))}
+                  ) : (
+                    cities.map((city) => (
+                      <div
+                        key={city.city}
+                        className="flex items-center justify-between rounded-md bg-zinc-50 px-2 py-1.5"
+                      >
+                        <span className="text-xs text-zinc-700">{city.city}</span>
+                        <span className="text-xs font-semibold text-zinc-600">
+                          {city.count.toLocaleString()}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
