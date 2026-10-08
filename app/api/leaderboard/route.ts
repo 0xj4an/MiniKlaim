@@ -36,11 +36,9 @@ export async function GET(request: Request) {
     group_hex_counts AS (
       SELECT
         gm.group_key,
-        COUNT(h.h3_id) AS hex_count,
-        COUNT(DISTINCT r.id) AS run_count
+        COUNT(h.h3_id) AS hex_count
       FROM group_map gm
       LEFT JOIN hexes h ON h.owner_address = gm.address
-      LEFT JOIN runs r ON r.user_address = gm.address
       GROUP BY gm.group_key
     ),
     group_display AS (
@@ -59,19 +57,18 @@ export async function GET(request: Request) {
     SELECT
       gd.address AS "address",
       gd.username AS "username",
-      ghc.hex_count::int AS "hexCount",
-      ghc.run_count::int AS "runCount"
+      ghc.hex_count::int AS "hexCount"
     FROM group_hex_counts ghc
     INNER JOIN group_display gd ON gd.group_key = ghc.group_key
     ORDER BY ghc.hex_count DESC, gd.address ASC
     LIMIT ${limit}
   `);
 
-  const leaderboard = rows.map((row: { address: string; username: string | null; hexCount: number; runCount: number }) => ({
+  const leaderboard = rows.map((row: { address: string; username: string | null; hexCount: number }) => ({
     address: row.address,
     username: row.username,
     hexCount: row.hexCount,
-    runCount: row.runCount,
+    runCount: 0,
     countries: [],
     badges: [],
   }));
