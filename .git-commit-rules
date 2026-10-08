@@ -1,0 +1,28 @@
+# Git Commit Rules for MiniKlaim
+
+## STRICT RULE: NO CO-AUTHOR TRAILERS
+
+All commits MUST be authored solely by 0xj4an.
+
+❌ NEVER include:
+- Co-authored-by: Cursor <...>
+- Co-authored-by: 0xj4an (Personal Account) <...>
+- Any other Co-authored-by trailer
+
+✅ The git hook `.git/hooks/prepare-commit-msg` automatically removes these.
+
+## Author Configuration
+
+```bash
+git config user.name "0xj4an"
+git config user.email "personal@0xj4an.xyz"
+```
+
+## Verification
+
+Before pushing:
+```bash
+git log -1 --format="%B" HEAD
+```
+
+Should show ONLY the commit message, no trailers.
