@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
 import { formatSpeed } from "@/lib/map/geo";
@@ -12,8 +12,8 @@ export type RunSummary = {
 };
 
 /**
- * Post-finish modal. The wallet sheet opens only after they tap Claim,
- * so the first thing they read is the claim, not a payment prompt.
+ * Post-finish modal. The wallet sheet opens on its own. Share stays
+ * behind a successful claim. A decline leaves Reclamar so they can retry.
  */
 export function RunSummaryModal({
   summary,
@@ -41,9 +41,12 @@ export function RunSummaryModal({
   const speedLabel = formatSpeed(summary.durationMs, summary.distanceMeters);
   const canClaim = summary.hexesClaimed > 0 && !!onClaim;
 
-  const claim = async () => {
+  const claim = async (via: "auto_finish" | "button") => {
     if (!onClaim || phase === "pending") return;
-    track("run_summary_claim_tapped", { blocks: summary.hexesClaimed });
+    track("run_summary_claim_tapped", {
+      blocks: summary.hexesClaimed,
+      via,
+    });
     setPhase("pending");
     try {
       const ok = await onClaim();
@@ -52,6 +55,15 @@ export function RunSummaryModal({
       setPhase("error");
     }
   };
+
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!canClaim || asked.current) return;
+    asked.current = true;
+    void claim("auto_finish");
+    // One sheet per finish. A decline retries from the button.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canClaim]);
 
   return (
     <div
@@ -125,7 +137,7 @@ export function RunSummaryModal({
           </div>
         ) : canClaim ? (
           <button
-            onClick={claim}
+            onClick={() => claim("button")}
             disabled={phase === "pending"}
             className="mt-2 min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-800 disabled:opacity-70"
           >
