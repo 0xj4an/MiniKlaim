@@ -64,48 +64,67 @@ export async function GET(request: Request) {
     LIMIT ${limit}
   `);
 
-  // Get additional data for each player
-  const leaderboard: Array<{
-    address: string;
-    username: string | null;
-    hexCount: number;
-    runCount: number;
-    countries: string[];
-    badges: string[];
-  }> = [];
+  if (rows.length === 0) {
+    return NextResponse.json({ leaderboard: [] });
+  }
 
-  for (const row of rows as Array<{ address: string; username: string | null; hexCount: number }>) {
-    const addr = row.address.toLowerCase();
-    
-    // Get run count for this player
-    const runCountResult = await db.execute(sql`
-      SELECT COUNT(*)::int AS count
-      FROM runs
-      WHERE LOWER(user_address) = ${addr}
-    `);
-    const runCount = (runCountResult[0] as { count: number })?.count ?? 0;
+  const addresses = (rows as Array<{ address: string }>).map(r => r.address);
+  
+  // Get run counts - one query for all players
+  const runCountsRaw = await db.execute(sql`
+    SELECT user_address AS address, COUNT(*)::int AS count
+    FROM runs
+    WHERE user_address = ANY(${addresses})
+    GROUP BY user_address
+  `);
+  
+  const runCounts = new Map<string, number>();
+  for (const row of runCountsRaw as Array<{ address: string; count: number }>) {
+    runCounts.set(row.address.toLowerCase(), row.count);
+  }
 
-    // Get top 5 countries for this player
-    const countriesResult = await db.execute(sql`
-      SELECT country, COUNT(*)::int AS count
+  // Get countries - one query for all players
+  const countriesRaw = await db.execute(sql`
+    WITH ranked AS (
+      SELECT 
+        owner_address,
+        country,
+        COUNT(*) as count,
+        ROW_NUMBER() OVER (PARTITION BY owner_address ORDER BY COUNT(*) DESC) as rn
       FROM hexes
-      WHERE LOWER(owner_address) = ${addr}
+      WHERE owner_address = ANY(${addresses})
         AND country IS NOT NULL
-      GROUP BY country
-      ORDER BY count DESC
-      LIMIT 5
-    `);
-    const countries = (countriesResult as Array<{ country: string }>).map(c => c.country);
+      GROUP BY owner_address, country
+    )
+    SELECT owner_address AS address, country
+    FROM ranked
+    WHERE rn <= 5
+    ORDER BY owner_address, rn
+  `);
+  
+  const countriesMap = new Map<string, string[]>();
+  for (const row of countriesRaw as Array<{ address: string; country: string }>) {
+    const addr = row.address.toLowerCase();
+    const list = countriesMap.get(addr) ?? [];
+    list.push(row.country);
+    countriesMap.set(addr, list);
+  }
 
-    leaderboard.push({
+  const leaderboard = (rows as Array<{ 
+    address: string; 
+    username: string | null; 
+    hexCount: number;
+  }>).map(row => {
+    const addr = row.address.toLowerCase();
+    return {
       address: row.address,
       username: row.username,
       hexCount: row.hexCount,
-      runCount,
-      countries,
+      runCount: runCounts.get(addr) ?? 0,
+      countries: countriesMap.get(addr) ?? [],
       badges: [],
-    });
-  }
+    };
+  });
 
   return NextResponse.json({ leaderboard });
 }
