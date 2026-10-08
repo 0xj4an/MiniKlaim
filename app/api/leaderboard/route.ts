@@ -4,18 +4,6 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-type LeaderSqlRow = {
-  address: string;
-  username: string | null;
-  hexCount: number;
-  runCount: number;
-};
-
-type CountrySqlRow = {
-  address: string;
-  country: string;
-};
-
 /**
  * Rank by per-player aggregated hex count. Each user is grouped by their
  * `player_id` (via `player_wallets`) when linked, else by their own address
@@ -31,8 +19,7 @@ export async function GET(request: Request) {
     100,
   );
 
-  // Get leaderboard entries
-  const rowsRaw = await db.execute(sql`
+  const rows = await db.execute(sql`
     WITH group_map AS (
       SELECT
         u.address,
@@ -80,35 +67,31 @@ export async function GET(request: Request) {
     LIMIT ${limit}
   `);
 
-  const rows = rowsRaw as LeaderSqlRow[];
-  const rows = rowsRaw as LeaderSqlRow[];
-  const addresses = rows.map((r) => r.address.toLowerCase());
+  const addresses = rows.map((r: { address: string }) => r.address.toLowerCase());
   
-  const countriesDataRaw = addresses.length === 0
-    ? []
-    : await db.execute(sql`
-      SELECT
-        owner_address AS address,
-        country
-      FROM hexes
-      WHERE LOWER(owner_address) = ANY(${addresses})
-        AND country IS NOT NULL
-      GROUP BY owner_address, country
-      ORDER BY owner_address
-    `);
-  
-  const countriesData = countriesDataRaw as CountrySqlRow[];
+  const countriesData = addresses.length > 0 ? await db.execute(sql`
+    SELECT
+      owner_address AS address,
+      country,
+      COUNT(*)::int AS count
+    FROM hexes
+    WHERE LOWER(owner_address) = ANY(${addresses})
+      AND country IS NOT NULL
+    GROUP BY owner_address, country
+    ORDER BY owner_address, count DESC
+  `) : [];
 
   const countriesByAddr = new Map<string, string[]>();
-  for (const row of countriesData) {
+  for (const row of countriesData as Array<{ address: string; country: string }>) {
     const addr = row.address.toLowerCase();
     const list = countriesByAddr.get(addr) ?? [];
-    if (list.length >= 5) continue;
-    list.push(row.country);
-    countriesByAddr.set(addr, list);
+    if (list.length < 5) {
+      list.push(row.country);
+      countriesByAddr.set(addr, list);
+    }
   }
 
-  const leaderboard = rows.map((row) => {
+  const leaderboard = rows.map((row: { address: string; username: string | null; hexCount: number; runCount: number }) => {
     const addr = row.address.toLowerCase();
     return {
       address: row.address,
@@ -116,7 +99,6 @@ export async function GET(request: Request) {
       hexCount: row.hexCount,
       runCount: row.runCount,
       countries: countriesByAddr.get(addr) ?? [],
-      // Held badges are on-chain only. There is no badges table.
       badges: [],
     };
   });
