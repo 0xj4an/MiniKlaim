@@ -450,8 +450,10 @@ export default function RunPage() {
       });
       // Settle on-chain in ONE wallet approval: the player submits a single
       // claimAll tx covering this run's hexes and any badge it unlocked (so they
-      // stay the on-chain sender and count as a unique wallet), falling back to
-      // the sponsored relayer if they cannot pay gas or decline.
+      // stay the on-chain sender). The player pays the network fee. No fee
+      // token, or a failed attempt that is not a decline, is minted by the
+      // relayer. A decline is not sponsored in that moment. The retry cron
+      // still mints runs left unminted.
       // Fire-and-forget; the summary shows now.
       //
       // Badge detection still runs afterwards as a safety net: the combined

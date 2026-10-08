@@ -5,10 +5,11 @@ import { encodeFunctionData, type Address, type Hex } from "viem";
 import { useWalletClient } from "wagmi";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
-import { getChain, pickFeeAdapter } from "@/lib/onchain/chains";
+import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
 import { HEXES_CLAIM_ABI, hexesAddress } from "@/lib/onchain/hexesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { clearRunClaiming, markRunClaiming } from "@/lib/wallet/claimInFlight";
+import { isUserRejection, playerHasNoFeeBalance } from "@/lib/wallet/playerFee";
 import { useBalances } from "@/lib/wallet/useBalances";
 
 const log = createLogger("wallet:claimRun");
@@ -27,8 +28,9 @@ type Voucher = {
  * Drives the post-finish on-chain hex mint on the active chain (Celo via
  * MiniPay/Farcaster, Soneium via Startale). Player submits their own `claimRun`
  * tx (gated by a backend EIP-712 voucher for that chain) so they are the
- * on-chain msg.sender; falls back to the sponsored relayer on failure. Gas is
- * paid in USDm via fee abstraction only on chains that support it (Celo).
+ * on-chain msg.sender. The relayer mints when they cannot pay or the attempt
+ * fails for any reason other than a declined signature. The retry cron
+ * still mints runs left unminted.
  */
 export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
   const { data: walletClient } = useWalletClient();
@@ -64,7 +66,7 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
       const chain = getChain(chainKey);
       const contract = hexesAddress(chainKey);
       if (!walletClient || !address || !contract) {
-        log.info("no wallet/contract; using sponsor fallback", { runId });
+        log.info("no wallet/contract; relayer mints", { runId });
         return sponsorFallback(runId);
       }
 
@@ -83,16 +85,21 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
         if (!res.ok) throw new Error(`voucher status ${res.status}`);
         voucher = (await res.json()) as Voucher;
       } catch (e) {
-        log.warn("voucher fetch failed; sponsoring", {
+        log.warn("voucher fetch failed; relayer mints", {
           runId,
           message: e instanceof Error ? e.message : String(e),
         });
         return sponsorFallback(runId);
       }
 
-      // Fee abstraction only where supported (Celo CIP-64). Pick the first
-      // stablecoin the player holds; falls back to native/sponsored otherwise.
-      const feeCurrency = pickFeeAdapter(chain.feeCurrencies, balances);
+      // Fee abstraction only where supported (Celo CIP-64). No held stable
+      // means the relayer pays. A decline does not.
+      const held = heldFeeAdapters(chain.feeCurrencies, balances);
+      if (playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)) {
+        log.info("no fee balance; relayer mints", { runId });
+        return sponsorFallback(runId);
+      }
+      const feeCurrency = held[0]?.adapter;
       try {
         const data = encodeFunctionData({
           abi: HEXES_CLAIM_ABI,
@@ -119,7 +126,14 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
         });
         return "user-claimed";
       } catch (e) {
-        log.warn("player claim failed; sponsoring", {
+        if (isUserRejection(e)) {
+          log.warn("player claim declined", {
+            runId,
+            message: e instanceof Error ? e.message : String(e),
+          });
+          return "failed";
+        }
+        log.warn("player claim failed; relayer mints", {
           runId,
           message: e instanceof Error ? e.message : String(e),
         });
@@ -138,6 +152,8 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
       balances.USDm,
       balances.USDC,
       balances.USDT,
+      balances.isLoading,
+      balances.isError,
       sponsorFallback,
     ],
   );
