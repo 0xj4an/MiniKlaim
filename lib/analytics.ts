@@ -40,9 +40,9 @@ type EventMap = {
   run_capture_milestone: { hex_count: number };
 
   // Combined single-approval run settlement (MiniKlaimClaimRouter).
-  // Every branch of `useClaimAll` fires exactly one terminal event, so a run
-  // that produced no wallet prompt can be told apart from one the player
-  // declined, and a client-side provider refusal is visible without a console.
+  // A decline is `run_claim_rejected` and is not sponsored in that moment.
+  // `run_claim_sponsored` is no balance, a voucher failure, or another tx
+  // error. The retry cron still mints runs left unminted.
   run_claim_started: { path: "router" | "two_tx" };
   // The voucher endpoint answered non-OK. `status` separates "nothing to
   // settle" (409) from "router not configured" (503) from a server fault.

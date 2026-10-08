@@ -13,8 +13,8 @@ const CITY_RESOLUTION = 5;
 /**
  * Compute the full set of badge IDs a player currently qualifies for, derived
  * from their lifetime stats. The contract skips badges already held, so callers
- * can pass this whole list. Shared by the voucher endpoint (player-claim) and
- * the sponsor-mint fallback.
+ * can pass this whole list. Shared by the player voucher and the no-balance
+ * sponsor mint.
  */
 export async function computeEligibleBadgeIds(
   player: Address,

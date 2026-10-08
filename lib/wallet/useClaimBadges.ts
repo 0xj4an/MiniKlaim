@@ -5,9 +5,10 @@ import { encodeFunctionData, type Address, type Hex } from "viem";
 import { useWalletClient } from "wagmi";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
-import { getChain, pickFeeAdapter } from "@/lib/onchain/chains";
+import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
 import { BADGES_CLAIM_ABI, badgesAddress } from "@/lib/onchain/badgesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
+import { isUserRejection, playerHasNoFeeBalance } from "@/lib/wallet/playerFee";
 import { useBalances } from "@/lib/wallet/useBalances";
 
 const log = createLogger("wallet:claimBadges");
@@ -27,9 +28,9 @@ type Voucher = {
 };
 
 /**
- * Player-submitted badge mint on the active chain. Player submits their own
- * `claimBadges` tx (gated by a per-chain EIP-712 voucher); relayer sponsor is
- * the fallback. USDm fee abstraction only where supported (Celo).
+ * Player-submitted badge mint on the active chain. The player pays the
+ * network fee. The relayer mints when they cannot pay or the attempt fails
+ * for any reason other than a declined signature.
  */
 export function useClaimBadges(address: Address | null, enabled: boolean) {
   const { data: walletClient } = useWalletClient();
@@ -64,7 +65,7 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
     const contract = badgesAddress(chainKey);
     if (!address) return { status: "none" };
     if (!walletClient || !contract) {
-      log.info("no wallet/contract; using sponsor fallback");
+      log.info("no wallet/contract; relayer mints badges");
       return sponsorFallback(address);
     }
 
@@ -81,13 +82,18 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
       if (!res.ok) throw new Error(`voucher status ${res.status}`);
       voucher = (await res.json()) as Voucher;
     } catch (e) {
-      log.warn("badge voucher fetch failed; sponsoring", {
+      log.warn("badge voucher fetch failed; relayer mints", {
         message: e instanceof Error ? e.message : String(e),
       });
       return sponsorFallback(address);
     }
 
-    const feeCurrency = pickFeeAdapter(chain.feeCurrencies, balances);
+    const held = heldFeeAdapters(chain.feeCurrencies, balances);
+    if (playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)) {
+      log.info("no fee balance; relayer mints badges");
+      return sponsorFallback(address);
+    }
+    const feeCurrency = held[0]?.adapter;
     try {
       const data = encodeFunctionData({
         abi: BADGES_CLAIM_ABI,
@@ -109,7 +115,13 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
       log.info("claimBadges submitted by player", { chainKey, txHash });
       return { status: "user-claimed", txHash };
     } catch (e) {
-      log.warn("player badge claim failed; sponsoring", {
+      if (isUserRejection(e)) {
+        log.warn("player badge claim declined", {
+          message: e instanceof Error ? e.message : String(e),
+        });
+        return { status: "error" };
+      }
+      log.warn("player badge claim failed; relayer mints", {
         message: e instanceof Error ? e.message : String(e),
       });
       return sponsorFallback(address);
@@ -125,6 +137,8 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
     balances.USDm,
     balances.USDC,
     balances.USDT,
+    balances.isLoading,
+    balances.isError,
     sponsorFallback,
   ]);
 

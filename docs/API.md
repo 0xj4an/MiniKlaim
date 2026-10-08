@@ -23,7 +23,7 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 | `POST /api/runs/[id]/voucher` | Issue an EIP-712 voucher for the player to submit `claimRun` on-chain. Returns `{ tokenIds, nonce, signature, contract, chainId }`. Returns 409 if the run has no captured hexes. |
 | `POST /api/runs/[id]/claim-all/voucher` | Issue the single EIP-712 voucher that settles a whole run through `MiniKlaimClaimRouter.claimAll`: this run's hexes plus every earned-but-unheld badge, in one tx and therefore one wallet approval. Returns `{ h3Ids, badgeIds, nonce, signature, contract, chainId }`. Returns 409 when there is nothing to settle, and 503 when no router is deployed for the chain (the client then falls back to the two-tx `claimRun` + `claimBadges` path). |
 | `POST /api/runs/[id]/claimed` | Backend hook confirming a mint tx has landed. Body: `{ txHash }`. |
-| `POST /api/runs/[id]/sponsor-mint` | Sponsored fallback: backend relayer runs `captureBatch` on-chain when the player cannot pay gas. |
+| `POST /api/runs/[id]/sponsor-mint` | Relayer `captureBatch` when the player has no fee balance. Not used when they decline the signature. |
 
 ### Users
 
@@ -37,7 +37,7 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 | `GET /api/users/[address]/runs/pending-claim` | Runs whose hexes have not yet been minted; drives the `/me` pending-claim prompt. |
 | `GET /api/users/[address]/badges` | Which badges the player currently qualifies for. |
 | `POST /api/users/[address]/badges/voucher` | Issue an EIP-712 voucher for `claimBadges`. |
-| `POST /api/users/[address]/badges/sponsor-mint` | Sponsored `mintBatch` fallback for badges. |
+| `POST /api/users/[address]/badges/sponsor-mint` | Relayer badge mint when the player has no fee balance. |
 | `POST /api/users/[address]/rewards/voucher` | (Dormant) EIP-712 voucher for USDm rewards. Returns 503 unless `NEXT_PUBLIC_CELO_REWARDS_ADDRESS` is set. |
 | `GET /api/users/[address]/linked` | All wallets linked to this player's identity. |
 
