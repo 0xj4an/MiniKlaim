@@ -1,17 +1,18 @@
 "use client";
 
+import countries from "i18n-iso-countries";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useState } from "react";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
 import { type ActivityEntry, useActivity } from "@/lib/useActivity";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { type LeaderboardEntry, useLeaderboard } from "@/lib/useLeaderboard";
 import { useWallet } from "@/lib/wallet/useWallet";
 
-const WorldMap = dynamic(
-  () => import("./WorldMap").then((m) => m.WorldMap),
-  { ssr: false },
-);
+const WorldMap = dynamic(() => import("./WorldMap").then((m) => m.WorldMap), {
+  ssr: false,
+});
 
 export default function CommunityPage() {
   const { address, isConnected } = useWallet();
@@ -82,9 +83,7 @@ function Leaderboard({
   myAddress: string | null;
 }) {
   const { t } = useLocale();
-  const [expandedPlayer, setExpandedPlayer] = React.useState<string | null>(
-    null,
-  );
+  const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
 
   if (!entries || entries.length === 0) return null;
   const me = myAddress?.toLowerCase() ?? null;
@@ -109,9 +108,7 @@ function Leaderboard({
 
               {/* Player name - clickable */}
               <button
-                onClick={() =>
-                  setExpandedPlayer(isExpanded ? null : e.address)
-                }
+                onClick={() => setExpandedPlayer(isExpanded ? null : e.address)}
                 className="flex flex-1 items-center gap-1.5 text-left hover:text-blue-600"
               >
                 {e.username ? `@${e.username}` : fallback}
@@ -136,7 +133,7 @@ function Leaderboard({
               )}
 
               {/* Hexes count */}
-              <span className="text-xs font-mono font-semibold">
+              <span className="font-mono text-xs font-semibold">
                 {e.hexCount}
               </span>
             </div>
@@ -246,10 +243,7 @@ function ActivityFeed({
           >
             <span className="flex-1 truncate">
               {e.username ? (
-                <Link
-                  href={`/p/${e.username}`}
-                  className="hover:underline"
-                >
+                <Link href={`/p/${e.username}`} className="hover:underline">
                   @{e.username}
                 </Link>
               ) : (
@@ -259,7 +253,7 @@ function ActivityFeed({
             {e.country && (
               <span className="text-base">{getCountryFlag(e.country)}</span>
             )}
-            <span className="text-xs font-mono text-zinc-500">
+            <span className="font-mono text-xs text-zinc-500">
               {e.hexesClaimed}{" "}
               {e.hexesClaimed === 1
                 ? t("community.block")
