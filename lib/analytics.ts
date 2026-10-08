@@ -116,7 +116,10 @@ type EventMap = {
 
   // Misc.
   locale_toggled: { from: "en" | "es"; to: "en" | "es" };
-  share_button_pressed: { surface: "run_summary" | "profile" };
+  share_button_pressed: {
+    surface: "run_summary" | "profile";
+    channel?: "x" | "facebook" | "instagram";
+  };
 };
 
 type EventName = keyof EventMap;

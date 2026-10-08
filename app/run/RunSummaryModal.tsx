@@ -41,6 +41,7 @@ export function RunSummaryModal({
     "idle",
   );
   const [badgeIds, setBadgeIds] = useState<number[] | null>(null);
+  const [shareNote, setShareNote] = useState<string | null>(null);
   const totalSec = Math.max(0, Math.floor(summary.durationMs / 1000));
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
@@ -154,8 +155,15 @@ export function RunSummaryModal({
           {t("run.summary.header")}
         </p>
         {summary.hexesClaimed > 0 && (
-          <div className="mt-3 text-center">
-            <div className="font-mono text-5xl leading-none font-bold text-zinc-900">
+          <div className="relative mt-3 text-center">
+            {phase === "done" && (
+              <ClaimBurst count={summary.hexesClaimed} />
+            )}
+            <div
+              className={`font-mono text-5xl leading-none font-bold text-zinc-900 ${
+                phase === "done" ? "claim-count" : ""
+              }`}
+            >
               {summary.hexesClaimed}
             </div>
             <div className="mt-1 text-xs font-semibold tracking-wide text-zinc-500 uppercase">
@@ -165,10 +173,17 @@ export function RunSummaryModal({
         )}
         {hasBadges && (
           <ul className="mt-4 border-t border-zinc-100">
-            {badgeIds?.map((id) => (
+            {badgeIds?.map((id, index) => (
               <li
                 key={id}
-                className="flex items-center gap-3 border-b border-zinc-100 py-2.5"
+                className={`flex items-center gap-3 border-b border-zinc-100 py-2.5 ${
+                  phase === "done" ? "claim-badge" : ""
+                }`}
+                style={
+                  phase === "done"
+                    ? { animationDelay: `${index * 70}ms` }
+                    : undefined
+                }
               >
                 <span
                   aria-hidden
@@ -198,16 +213,66 @@ export function RunSummaryModal({
           {timeLabel} - {distLabel} - {speedLabel}
         </p>
         {phase === "done" ? (
-          <div className="mt-4 flex gap-3">
-            <button
-              onClick={() => shareRun(summary, timeLabel, distLabel, username, t)}
-              className="min-h-11 flex-1 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700"
-            >
-              {t("run.summary.share")}
-            </button>
+          <div className="mt-4 flex flex-col gap-2">
+            {shareNote && (
+              <p className="text-center text-xs text-zinc-500">{shareNote}</p>
+            )}
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  void shareClaim(
+                    "x",
+                    summary,
+                    timeLabel,
+                    distLabel,
+                    username,
+                    t,
+                    setShareNote,
+                  )
+                }
+                className="min-h-11 rounded-full border border-zinc-300 bg-white px-2 py-2 text-sm font-semibold text-zinc-800"
+              >
+                X
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void shareClaim(
+                    "facebook",
+                    summary,
+                    timeLabel,
+                    distLabel,
+                    username,
+                    t,
+                    setShareNote,
+                  )
+                }
+                className="min-h-11 rounded-full border border-zinc-300 bg-white px-2 py-2 text-sm font-semibold text-zinc-800"
+              >
+                Facebook
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void shareClaim(
+                    "instagram",
+                    summary,
+                    timeLabel,
+                    distLabel,
+                    username,
+                    t,
+                    setShareNote,
+                  )
+                }
+                className="min-h-11 rounded-full border border-zinc-300 bg-white px-2 py-2 text-sm font-semibold text-zinc-800"
+              >
+                Instagram
+              </button>
+            </div>
             <button
               onClick={onClose}
-              className="min-h-11 flex-1 rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white"
+              className="min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white"
             >
               {t("run.summary.done")}
             </button>
@@ -235,14 +300,46 @@ export function RunSummaryModal({
   );
 }
 
-async function shareRun(
+const BURST = [
+  { x: -56, y: -46 },
+  { x: 52, y: -50 },
+  { x: -28, y: -58 },
+  { x: 24, y: -62 },
+  { x: -8, y: -70 },
+  { x: 40, y: -36 },
+  { x: -44, y: -28 },
+];
+
+function ClaimBurst({ count }: { count: number }) {
+  return (
+    <>
+      <span className="claim-plus pointer-events-none absolute top-0 left-1/2 font-mono text-2xl font-bold text-orange-600">
+        +{count}
+      </span>
+      {BURST.map((spot, i) => (
+        <span
+          key={i}
+          aria-hidden
+          className="claim-hex pointer-events-none absolute top-4 left-1/2 h-3 w-3 bg-orange-600"
+          style={{
+            clipPath:
+              "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+            ["--dx" as string]: `${spot.x}px`,
+            ["--dy" as string]: `${spot.y}px`,
+            animationDelay: `${i * 40}ms`,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+function claimCaption(
   summary: RunSummary,
   timeLabel: string,
   distLabel: string,
-  username: string | null,
   t: (key: TranslationKey) => string,
-): Promise<void> {
-  track("share_button_pressed", { surface: "run_summary" });
+): { text: string; url: string } {
   const captured =
     summary.hexesClaimed === 1
       ? t("run.share.text.one")
@@ -252,18 +349,38 @@ async function shareRun(
     typeof window !== "undefined"
       ? window.location.origin
       : "https://www.miniklaim.fun";
-  const url = username ? `${origin}/p/${username}` : origin;
+  return { text, url: origin };
+}
 
-  if (typeof navigator !== "undefined" && "share" in navigator) {
+async function shareClaim(
+  channel: "x" | "facebook" | "instagram",
+  summary: RunSummary,
+  timeLabel: string,
+  distLabel: string,
+  username: string | null,
+  t: (key: TranslationKey) => string,
+  setNote: (note: string | null) => void,
+): Promise<void> {
+  track("share_button_pressed", { surface: "run_summary", channel });
+  const { text, url: origin } = claimCaption(summary, timeLabel, distLabel, t);
+  const url = username ? `${origin}/p/${username}` : origin;
+  const caption = `${text} ${url}`;
+
+  if (channel === "instagram") {
     try {
-      await navigator.share({ text, url });
-      return;
+      await navigator.clipboard.writeText(caption);
+      setNote(t("me.share.copied"));
+      window.setTimeout(() => setNote(null), 2000);
     } catch {
-      // user cancelled or share failed; fall through to twitter intent
+      setNote(null);
     }
+    window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
+    return;
   }
-  if (typeof window !== "undefined") {
-    const intent = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
-    window.open(intent, "_blank", "noopener,noreferrer");
-  }
+
+  const intent =
+    channel === "x"
+      ? `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`
+      : `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
+  window.open(intent, "_blank", "noopener,noreferrer");
 }

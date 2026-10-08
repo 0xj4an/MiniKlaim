@@ -4,7 +4,8 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "MiniKlaim",
     short_name: "MiniKlaim",
-    description: "Capture city blocks by running through them.",
+    description:
+      "Capture city blocks by moving through them. Walk, bike, or drive.",
     start_url: "/",
     display: "standalone",
     background_color: "#FF6B35",

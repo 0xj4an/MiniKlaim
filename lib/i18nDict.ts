@@ -205,7 +205,7 @@ export const dictionaries = {
     "run.popup.you": "(you)",
     "run.share.text.one": "Just captured 1 block",
     "run.share.text.many": "Just captured {n} blocks",
-    "run.share.text.suffix": "on MiniKlaim.",
+    "run.share.text.suffix": "on @Miniklaim.",
     "run.share.text.run": "route.",
     "pendingClaim.title": "Finish claiming your last route",
     "pendingClaim.body":
@@ -224,7 +224,7 @@ export const dictionaries = {
     "about.howTo.step3.cta": "Start moving",
     "about.howTo.step3.after": ".",
     "about.howTo.step4":
-      "Walk or run outside. Every block you cross becomes yours on the map.",
+      "Walk, bike, or drive outside. Every block you cross becomes yours on the map.",
     "about.howTo.step5.before": "Tap",
     "about.howTo.step5.cta": "Finish",
     "about.howTo.step5.after":
@@ -576,7 +576,7 @@ export const dictionaries = {
     "run.popup.you": "(tu)",
     "run.share.text.one": "Acabo de capturar 1 cuadra",
     "run.share.text.many": "Acabo de capturar {n} cuadras",
-    "run.share.text.suffix": "en MiniKlaim.",
+    "run.share.text.suffix": "en @Miniklaim.",
     "run.share.text.run": "de recorrido.",
     "pendingClaim.title": "Termina de reclamar tu último recorrido",
     "pendingClaim.body":
@@ -595,7 +595,7 @@ export const dictionaries = {
     "about.howTo.step3.cta": "Empezar",
     "about.howTo.step3.after": ".",
     "about.howTo.step4":
-      "Camina o corre afuera. Cada cuadra que cruzas se vuelve tuya en el mapa.",
+      "Camina, ve en bici o en carro. Cada cuadra que cruzas se vuelve tuya en el mapa.",
     "about.howTo.step5.before": "Toca",
     "about.howTo.step5.cta": "Terminar",
     "about.howTo.step5.after":
