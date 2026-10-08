@@ -69,12 +69,15 @@ export async function GET(request: Request) {
   }
 
   const addresses = (rows as Array<{ address: string }>).map(r => r.address);
+  const addressesLower = addresses.map(a => a.toLowerCase());
   
   // Get run counts - one query for all players
   const runCountsRaw = await db.execute(sql`
-    SELECT user_address AS address, COUNT(*)::int AS count
+    SELECT 
+      user_address AS address, 
+      COUNT(*)::int AS count
     FROM runs
-    WHERE user_address = ANY(${addresses})
+    WHERE LOWER(user_address) IN (${sql.join(addressesLower.map(a => sql`${a}`), sql`, `)})
     GROUP BY user_address
   `);
   
@@ -92,7 +95,7 @@ export async function GET(request: Request) {
         COUNT(*) as count,
         ROW_NUMBER() OVER (PARTITION BY owner_address ORDER BY COUNT(*) DESC) as rn
       FROM hexes
-      WHERE owner_address = ANY(${addresses})
+      WHERE LOWER(owner_address) IN (${sql.join(addressesLower.map(a => sql`${a}`), sql`, `)})
         AND country IS NOT NULL
       GROUP BY owner_address, country
     )
