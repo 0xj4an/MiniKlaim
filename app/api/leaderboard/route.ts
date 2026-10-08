@@ -66,27 +66,28 @@ export async function GET(request: Request) {
 
   const addresses = rows.map((r: { address: string }) => r.address.toLowerCase());
   
-  //  Get run counts and countries for these players
-  const [runCountsData, countriesData] = await Promise.all([
-    addresses.length > 0
-      ? db.execute(sql`
-          SELECT user_address AS address, COUNT(*)::int AS count
-          FROM runs
-          WHERE LOWER(user_address) = ANY(${addresses})
-          GROUP BY user_address
-        `)
-      : [],
-    addresses.length > 0
-      ? db.execute(sql`
-          SELECT owner_address AS address, country, COUNT(*)::int AS count
-          FROM hexes
-          WHERE LOWER(owner_address) = ANY(${addresses})
-            AND country IS NOT NULL
-          GROUP BY owner_address, country
-          ORDER BY owner_address, count DESC
-        `)
-      : [],
-  ]);
+  // Get run counts and countries for these players
+  let runCountsData: unknown[] = [];
+  let countriesData: unknown[] = [];
+  
+  if (addresses.length > 0) {
+    [runCountsData, countriesData] = await Promise.all([
+      db.execute(sql`
+        SELECT user_address AS address, COUNT(*)::int AS count
+        FROM runs
+        WHERE LOWER(user_address) = ANY(${addresses})
+        GROUP BY user_address
+      `),
+      db.execute(sql`
+        SELECT owner_address AS address, country, COUNT(*)::int AS count
+        FROM hexes
+        WHERE LOWER(owner_address) = ANY(${addresses})
+          AND country IS NOT NULL
+        GROUP BY owner_address, country
+        ORDER BY owner_address, count DESC
+      `),
+    ]);
+  }
 
   const runCountsByAddr = new Map<string, number>();
   for (const row of runCountsData as Array<{ address: string; count: number }>) {
