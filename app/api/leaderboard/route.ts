@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   );
 
   // Get leaderboard entries
-  const rows = await db.execute<LeaderSqlRow>(sql`
+  const rowsRaw = await db.execute(sql`
     WITH group_map AS (
       SELECT
         u.address,
@@ -80,21 +80,24 @@ export async function GET(request: Request) {
     LIMIT ${limit}
   `);
 
+  const rows = rowsRaw as LeaderSqlRow[];
+  const rows = rowsRaw as LeaderSqlRow[];
   const addresses = rows.map((r) => r.address.toLowerCase());
-  const countriesData: CountrySqlRow[] =
-    addresses.length === 0
-      ? []
-      : await db.execute<CountrySqlRow>(sql`
+  
+  const countriesDataRaw = addresses.length === 0
+    ? []
+    : await db.execute(sql`
       SELECT
         owner_address AS address,
-        country,
-        COUNT(*)::int AS count
+        country
       FROM hexes
       WHERE LOWER(owner_address) = ANY(${addresses})
         AND country IS NOT NULL
       GROUP BY owner_address, country
-      ORDER BY owner_address, count DESC
+      ORDER BY owner_address
     `);
+  
+  const countriesData = countriesDataRaw as CountrySqlRow[];
 
   const countriesByAddr = new Map<string, string[]>();
   for (const row of countriesData) {
