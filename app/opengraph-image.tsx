@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "MiniKlaim: Run it. Klaim it.";
+export const alt = "MiniKlaim. Walk, bike, or drive. Klaim the blocks.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -31,18 +31,32 @@ export default function OpengraphImage() {
       >
         MiniKlaim
       </div>
-      <div style={{ fontSize: 56, fontWeight: 500, opacity: 0.92 }}>
-        Run it. Klaim it.
+      <div style={{ display: "flex", gap: 18, marginTop: 8 }}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            style={{
+              width: 42,
+              height: 48,
+              background: "white",
+              clipPath:
+                "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+            }}
+          />
+        ))}
+      </div>
+      <div style={{ fontSize: 48, fontWeight: 600, marginTop: 36 }}>
+        Walk, bike, or drive.
       </div>
       <div
         style={{
-          marginTop: 64,
+          marginTop: 16,
           fontSize: 28,
           opacity: 0.85,
           fontWeight: 400,
         }}
       >
-        Territory-capture game on Celo
+        The blocks you cross are yours.
       </div>
     </div>,
     { ...size },

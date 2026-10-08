@@ -23,15 +23,15 @@ export async function GET() {
       splashImageUrl: "https://www.miniklaim.fun/splash.png",
       splashBackgroundColor: "#FF6B35",
       webhookUrl: "https://www.miniklaim.fun/api/webhook",
-      subtitle: "Run it. Klaim it.",
+      subtitle: "Walk, bike, or drive. Klaim it.",
       description:
         "Move through real-world hexes — walk, run, bike, drive — and capture them as on-chain NFTs on Celo. MiniPay native, bilingual in English and Spanish.",
       primaryCategory: "games",
       screenshotUrls: ["https://www.miniklaim.fun/opengraph-image"],
       heroImageUrl: "https://www.miniklaim.fun/opengraph-image",
       tags: ["territory", "map", "movement", "celo"],
-      tagline: "Run your city. Capture turf.",
-      ogTitle: "MiniKlaim: Run your city",
+      tagline: "Move through your city. Capture the blocks.",
+      ogTitle: "MiniKlaim",
       ogDescription:
         "Cross hex blocks in the real world — any way you move — to capture them as NFTs on Celo.",
       ogImageUrl: "https://www.miniklaim.fun/opengraph-image",
