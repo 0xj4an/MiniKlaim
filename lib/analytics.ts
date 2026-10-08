@@ -64,8 +64,9 @@ type EventMap = {
   };
   run_claim_sponsored: { had_badges: boolean; trigger: string };
   run_claim_failed: { trigger: string };
-  // Tapped Reclamar on the finish card, before the wallet sheet.
-  run_summary_claim_tapped: { blocks: number };
+  // Signature requested from the finish card. `auto_finish` is the sheet
+  // that opens by itself. `button` is a retry after they declined.
+  run_summary_claim_tapped: { blocks: number; via: "auto_finish" | "button" };
 
   // Badges.
   badge_unlocked: { badge_id: number; badge_name: string };
