@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   );
 
   // Get leaderboard entries
-  const rows = (await db.execute(sql`
+  const rows = await db.execute<LeaderSqlRow>(sql`
     WITH group_map AS (
       SELECT
         u.address,
@@ -78,13 +78,13 @@ export async function GET(request: Request) {
     INNER JOIN group_display gd ON gd.group_key = ghc.group_key
     ORDER BY ghc.hex_count DESC, gd.address ASC
     LIMIT ${limit}
-  `)) as LeaderSqlRow[];
+  `);
 
   const addresses = rows.map((r) => r.address.toLowerCase());
   const countriesData: CountrySqlRow[] =
     addresses.length === 0
       ? []
-      : ((await db.execute(sql`
+      : await db.execute<CountrySqlRow>(sql`
       SELECT
         owner_address AS address,
         country,
@@ -94,7 +94,7 @@ export async function GET(request: Request) {
         AND country IS NOT NULL
       GROUP BY owner_address, country
       ORDER BY owner_address, count DESC
-    `)) as CountrySqlRow[]);
+    `);
 
   const countriesByAddr = new Map<string, string[]>();
   for (const row of countriesData) {
