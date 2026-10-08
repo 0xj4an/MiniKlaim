@@ -9,6 +9,7 @@ import { type ActivityEntry, useActivity } from "@/lib/useActivity";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { type LeaderboardEntry, useLeaderboard } from "@/lib/useLeaderboard";
 import { useWallet } from "@/lib/wallet/useWallet";
+import { LegalFooter } from "@/app/LegalFooter";
 
 const WorldMap = dynamic(() => import("./WorldMap").then((m) => m.WorldMap), {
   ssr: false,
@@ -62,6 +63,7 @@ export default function CommunityPage() {
         entries={activity}
         myAddress={isConnected ? address : null}
       />
+      <LegalFooter />
     </main>
   );
 }

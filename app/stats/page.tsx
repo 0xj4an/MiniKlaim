@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import countries from "i18n-iso-countries";
 import en from "i18n-iso-countries/langs/en.json";
 import es from "i18n-iso-countries/langs/es.json";
+import { LegalFooter } from "@/app/LegalFooter";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 
@@ -242,6 +243,7 @@ export default function StatsPage() {
           </section>
         </>
       )}
+        <LegalFooter />
       </div>
     </main>
   );
