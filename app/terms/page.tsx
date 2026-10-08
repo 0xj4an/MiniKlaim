@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { BackButton } from "@/app/BackButton";
 import { useLocale } from "@/lib/i18n";
 
 export default function TermsPage() {
@@ -8,12 +8,7 @@ export default function TermsPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-12 pb-24">
       <header className="flex items-center justify-between">
-        <Link
-          href="/about"
-          className="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
-        >
-          ← {t("common.back")}
-        </Link>
+        <BackButton />
         <h1 className="text-2xl font-bold">{t("terms.title")}</h1>
         <span className="w-16" />
       </header>
