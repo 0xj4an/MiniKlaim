@@ -450,10 +450,8 @@ export default function RunPage() {
         hexesClaimed: data.hexesClaimed,
         distanceMeters: data.distanceMeters,
       });
-      // The summary asks them to claim. One wallet approval happens when they
-      // tap it, not before. No fee token, or a failed attempt that is not a
-      // decline, is minted by the relayer. A decline is not sponsored in that
-      // moment. The retry cron still mints runs left unminted.
+      // The card lists the blocks and any badges, then the wallet opens
+      // on its own. A decline is not sponsored in that moment.
       setRunId(null);
       setHexCount(0);
       setDistanceMeters(0);
@@ -984,6 +982,7 @@ export default function RunPage() {
         <RunSummaryModal
           summary={lastFinishedRun}
           username={user?.username ?? null}
+          address={address ?? null}
           onClose={() => setLastFinishedRun(null)}
           onClaim={async () => {
             const outcome = await claim(lastFinishedRun.id);
