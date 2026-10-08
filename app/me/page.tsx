@@ -521,12 +521,15 @@ function RunsList({
   }>;
 }) {
   const { t, locale } = useLocale();
+  const [visibleCount, setVisibleCount] = useState(5);
+  const visible = runs.slice(0, visibleCount);
+  const hasMore = visibleCount < runs.length;
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
       <p className="mb-2 text-center text-xs text-zinc-500">
         {t("me.runs.header")}
       </p>
-      {runs.map((run) => {
+      {visible.map((run) => {
         const start = new Date(run.startedAt);
         const dateLabel = start.toLocaleString(undefined, {
           month: "short",
@@ -550,7 +553,7 @@ function RunsList({
         return (
           <div
             key={run.id}
-            className="flex flex-col gap-0.5 border-b border-zinc-200 pb-2 last:border-0 last:pb-0"
+            className={`flex flex-col gap-0.5 border-b border-zinc-200 pb-2 ${hasMore ? "" : "last:border-0 last:pb-0"}`}
           >
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="text-zinc-600">{dateLabel}</span>
@@ -576,6 +579,27 @@ function RunsList({
           </div>
         );
       })}
+      {hasMore && (
+        <button
+          type="button"
+          data-runs-more="5"
+          onClick={() => setVisibleCount((count) => Math.min(count + 5, runs.length))}
+          className="mt-2 flex min-h-11 w-full items-center justify-center gap-1 rounded-lg border border-zinc-200 bg-white text-xs font-medium text-zinc-700"
+        >
+          {t("stats.countries.showMore")}
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
