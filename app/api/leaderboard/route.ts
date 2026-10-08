@@ -68,7 +68,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ leaderboard: [] });
   }
 
-  const addresses = (rows as Array<{ address: string }>).map(r => r.address);
+  const addresses = (rows as unknown as Array<{ address: string }>).map(r => r.address);
   const addressesLower = addresses.map(a => a.toLowerCase());
   
   // Get run counts - one query for all players
@@ -113,7 +113,7 @@ export async function GET(request: Request) {
     countriesMap.set(addr, list);
   }
 
-  const leaderboard = (rows as Array<{ 
+  const leaderboard = (rows as unknown as Array<{ 
     address: string; 
     username: string | null; 
     hexCount: number;
