@@ -67,41 +67,14 @@ export async function GET(request: Request) {
     LIMIT ${limit}
   `);
 
-  const addresses = rows.map((r: { address: string }) => r.address.toLowerCase());
-  
-  const countriesData = addresses.length > 0 ? await db.execute(sql`
-    SELECT
-      owner_address AS address,
-      country,
-      COUNT(*)::int AS count
-    FROM hexes
-    WHERE LOWER(owner_address) = ANY(${addresses})
-      AND country IS NOT NULL
-    GROUP BY owner_address, country
-    ORDER BY owner_address, count DESC
-  `) : [];
-
-  const countriesByAddr = new Map<string, string[]>();
-  for (const row of countriesData as Array<{ address: string; country: string }>) {
-    const addr = row.address.toLowerCase();
-    const list = countriesByAddr.get(addr) ?? [];
-    if (list.length < 5) {
-      list.push(row.country);
-      countriesByAddr.set(addr, list);
-    }
-  }
-
-  const leaderboard = rows.map((row: { address: string; username: string | null; hexCount: number; runCount: number }) => {
-    const addr = row.address.toLowerCase();
-    return {
-      address: row.address,
-      username: row.username,
-      hexCount: row.hexCount,
-      runCount: row.runCount,
-      countries: countriesByAddr.get(addr) ?? [],
-      badges: [],
-    };
-  });
+  const leaderboard = rows.map((row: { address: string; username: string | null; hexCount: number; runCount: number }) => ({
+    address: row.address,
+    username: row.username,
+    hexCount: row.hexCount,
+    runCount: row.runCount,
+    countries: [],
+    badges: [],
+  }));
 
   return NextResponse.json({ leaderboard });
 }
