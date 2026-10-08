@@ -4,6 +4,18 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+type LeaderSqlRow = {
+  address: string;
+  username: string | null;
+  hexCount: number;
+  runCount: number;
+};
+
+type CountrySqlRow = {
+  address: string;
+  country: string;
+};
+
 /**
  * Rank by per-player aggregated hex count. Each user is grouped by their
  * `player_id` (via `player_wallets`) when linked, else by their own address
@@ -20,7 +32,7 @@ export async function GET(request: Request) {
   );
 
   // Get leaderboard entries
-  const rows = await db.execute(sql`
+  const rows = (await db.execute(sql`
     WITH group_map AS (
       SELECT
         u.address,
@@ -41,7 +53,7 @@ export async function GET(request: Request) {
         COUNT(DISTINCT r.id) AS run_count
       FROM group_map gm
       LEFT JOIN hexes h ON h.owner_address = gm.address
-      LEFT JOIN runs r ON r.address = gm.address
+      LEFT JOIN runs r ON r.user_address = gm.address
       GROUP BY gm.group_key
     ),
     group_display AS (
@@ -66,14 +78,14 @@ export async function GET(request: Request) {
     INNER JOIN group_display gd ON gd.group_key = ghc.group_key
     ORDER BY ghc.hex_count DESC, gd.address ASC
     LIMIT ${limit}
-  `);
+  `)) as LeaderSqlRow[];
 
-  // Get countries and badges for these players
   const addresses = rows.map((r) => r.address.toLowerCase());
-  
-  const [countriesData, badgesData] = await Promise.all([
-    db.execute(sql`
-      SELECT 
+  const countriesData: CountrySqlRow[] =
+    addresses.length === 0
+      ? []
+      : ((await db.execute(sql`
+      SELECT
         owner_address AS address,
         country,
         COUNT(*)::int AS count
@@ -82,38 +94,17 @@ export async function GET(request: Request) {
         AND country IS NOT NULL
       GROUP BY owner_address, country
       ORDER BY owner_address, count DESC
-    `),
-    db.execute(sql`
-      SELECT 
-        owner_address AS address,
-        badge
-      FROM badges
-      WHERE LOWER(owner_address) = ANY(${addresses})
-        AND chain_key = 'celo'
-      GROUP BY owner_address, badge
-    `),
-  ]);
+    `)) as CountrySqlRow[]);
 
-  // Group by address
   const countriesByAddr = new Map<string, string[]>();
-  const badgesByAddr = new Map<string, string[]>();
-
   for (const row of countriesData) {
     const addr = row.address.toLowerCase();
-    if (!countriesByAddr.has(addr)) countriesByAddr.set(addr, []);
-    if (countriesByAddr.get(addr)!.length < 5) {
-      // Top 5 countries
-      countriesByAddr.get(addr)!.push(row.country);
-    }
+    const list = countriesByAddr.get(addr) ?? [];
+    if (list.length >= 5) continue;
+    list.push(row.country);
+    countriesByAddr.set(addr, list);
   }
 
-  for (const row of badgesData) {
-    const addr = row.address.toLowerCase();
-    if (!badgesByAddr.has(addr)) badgesByAddr.set(addr, []);
-    badgesByAddr.get(addr)!.push(row.badge);
-  }
-
-  // Combine
   const leaderboard = rows.map((row) => {
     const addr = row.address.toLowerCase();
     return {
@@ -121,8 +112,9 @@ export async function GET(request: Request) {
       username: row.username,
       hexCount: row.hexCount,
       runCount: row.runCount,
-      countries: countriesByAddr.get(addr) || [],
-      badges: badgesByAddr.get(addr) || [],
+      countries: countriesByAddr.get(addr) ?? [],
+      // Held badges are on-chain only. There is no badges table.
+      badges: [],
     };
   });
 
