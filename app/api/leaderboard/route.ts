@@ -64,14 +64,59 @@ export async function GET(request: Request) {
     LIMIT ${limit}
   `);
 
-  const leaderboard = rows.map((row: { address: string; username: string | null; hexCount: number }) => ({
-    address: row.address,
-    username: row.username,
-    hexCount: row.hexCount,
-    runCount: 0,
-    countries: [],
-    badges: [],
-  }));
+  const addresses = rows.map((r: { address: string }) => r.address.toLowerCase());
+  
+  //  Get run counts and countries for these players
+  const [runCountsData, countriesData] = await Promise.all([
+    addresses.length > 0
+      ? db.execute(sql`
+          SELECT user_address AS address, COUNT(*)::int AS count
+          FROM runs
+          WHERE LOWER(user_address) = ANY(${addresses})
+          GROUP BY user_address
+        `)
+      : [],
+    addresses.length > 0
+      ? db.execute(sql`
+          SELECT owner_address AS address, country, COUNT(*)::int AS count
+          FROM hexes
+          WHERE LOWER(owner_address) = ANY(${addresses})
+            AND country IS NOT NULL
+          GROUP BY owner_address, country
+          ORDER BY owner_address, count DESC
+        `)
+      : [],
+  ]);
+
+  const runCountsByAddr = new Map<string, number>();
+  for (const row of runCountsData as Array<{ address: string; count: number }>) {
+    runCountsByAddr.set(row.address.toLowerCase(), row.count);
+  }
+
+  const countriesByAddr = new Map<string, string[]>();
+  for (const row of countriesData as Array<{
+    address: string;
+    country: string;
+  }>) {
+    const addr = row.address.toLowerCase();
+    const list = countriesByAddr.get(addr) ?? [];
+    if (list.length < 5) {
+      list.push(row.country);
+      countriesByAddr.set(addr, list);
+    }
+  }
+
+  const leaderboard = rows.map((row: { address: string; username: string | null; hexCount: number }) => {
+    const addr = row.address.toLowerCase();
+    return {
+      address: row.address,
+      username: row.username,
+      hexCount: row.hexCount,
+      runCount: runCountsByAddr.get(addr) ?? 0,
+      countries: countriesByAddr.get(addr) ?? [],
+      badges: [],
+    };
+  });
 
   return NextResponse.json({ leaderboard });
 }
