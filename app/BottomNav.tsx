@@ -12,10 +12,10 @@ type Tab = {
 };
 
 const TABS: Tab[] = [
+  { href: "/stats", key: "nav.stats", Icon: ChartIcon },
   { href: "/me", key: "nav.you", Icon: PersonIcon },
   { href: "/community", key: "nav.community", Icon: UsersIcon },
   { href: "/about", key: "nav.help", Icon: HelpIcon },
-  { href: "/stats", key: "nav.stats", Icon: ChartIcon },
 ];
 
 /**
@@ -44,6 +44,7 @@ export function BottomNav() {
       className="fixed right-0 bottom-0 left-0 z-30 border-t border-zinc-200 bg-white/95 backdrop-blur"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0)" }}
       aria-label="Primary"
+      data-tab-order="stats-you-community-help"
     >
       <div className="mx-auto flex max-w-2xl items-stretch">
         {TABS.map((tab) => {
