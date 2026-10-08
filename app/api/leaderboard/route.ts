@@ -1,6 +1,5 @@
 import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { cellToParent } from "h3-js";
 import { db } from "@/lib/db";
 import { evaluateBadges, type BadgeStats } from "@/lib/onchain/badgeCatalog";
 
