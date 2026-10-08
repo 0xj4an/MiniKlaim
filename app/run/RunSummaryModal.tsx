@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { track } from "@/lib/analytics";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
 import { formatSpeed } from "@/lib/map/geo";
@@ -11,20 +12,24 @@ export type RunSummary = {
 };
 
 /**
- * Post-finish modal that summarizes the run (time, blocks, distance,
- * speed) with Share + Done actions. Rendered as a full-screen overlay
- * above the map so it doesn't disturb the underlying MapLibre canvas.
+ * Post-finish modal. The wallet sheet opens only after they tap Claim,
+ * so the first thing they read is the claim, not a payment prompt.
  */
 export function RunSummaryModal({
   summary,
   username,
   onClose,
+  onClaim,
 }: {
   summary: RunSummary;
   username: string | null;
   onClose: () => void;
+  onClaim?: () => Promise<boolean>;
 }) {
   const { t } = useLocale();
+  const [phase, setPhase] = useState<"idle" | "pending" | "done" | "error">(
+    "idle",
+  );
   const totalSec = Math.max(0, Math.floor(summary.durationMs / 1000));
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
@@ -34,13 +39,27 @@ export function RunSummaryModal({
       ? `${(summary.distanceMeters / 1000).toFixed(2)} km`
       : `${summary.distanceMeters} m`;
   const speedLabel = formatSpeed(summary.durationMs, summary.distanceMeters);
+  const canClaim = summary.hexesClaimed > 0 && !!onClaim;
+
+  const claim = async () => {
+    if (!onClaim || phase === "pending") return;
+    track("run_summary_claim_tapped", { blocks: summary.hexesClaimed });
+    setPhase("pending");
+    try {
+      const ok = await onClaim();
+      setPhase(ok ? "done" : "error");
+    } catch {
+      setPhase("error");
+    }
+  };
+
   return (
     <div
       className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
+      onClick={phase === "done" || !canClaim ? onClose : undefined}
     >
       <div
-        className="mx-6 flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl bg-white p-6 shadow-2xl"
+        className="mx-4 flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl bg-white p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <p className="text-sm font-semibold tracking-wide text-zinc-500 uppercase">
@@ -80,20 +99,48 @@ export function RunSummaryModal({
             </div>
           </div>
         </div>
-        <div className="mt-2 flex gap-3">
+        {canClaim && (
+          <p className="text-center text-sm text-zinc-700">
+            {phase === "done"
+              ? t("run.summary.claimed")
+              : phase === "error"
+                ? t("pendingClaim.error")
+                : t("run.summary.claim")}
+          </p>
+        )}
+        {phase === "done" ? (
+          <div className="mt-2 flex w-full gap-3">
+            <button
+              onClick={() => shareRun(summary, timeLabel, distLabel, username, t)}
+              className="min-h-11 flex-1 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+            >
+              {t("run.summary.share")}
+            </button>
+            <button
+              onClick={onClose}
+              className="min-h-11 flex-1 rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-800"
+            >
+              {t("run.summary.done")}
+            </button>
+          </div>
+        ) : canClaim ? (
           <button
-            onClick={() => shareRun(summary, timeLabel, distLabel, username, t)}
-            className="rounded-full border border-zinc-300 bg-white px-6 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+            onClick={claim}
+            disabled={phase === "pending"}
+            className="mt-2 min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-800 disabled:opacity-70"
           >
-            {t("run.summary.share")}
+            {phase === "pending"
+              ? t("run.summary.claiming")
+              : t("pendingClaim.cta")}
           </button>
+        ) : (
           <button
             onClick={onClose}
-            className="rounded-full bg-orange-700 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-800"
+            className="mt-2 min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-800"
           >
             {t("run.summary.done")}
           </button>
-        </div>
+        )}
       </div>
     </div>
   );

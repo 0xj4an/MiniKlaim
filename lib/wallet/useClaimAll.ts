@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useCallback } from "react";
 import { encodeFunctionData, type Hex } from "viem";
 import { useWalletClient } from "wagmi";
@@ -14,6 +15,7 @@ import {
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import {
   clearRunClaiming,
+  dropBadgeClaims,
   markBadgeClaimSubmitted,
   markRunClaiming,
 } from "@/lib/wallet/claimInFlight";
@@ -63,7 +65,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
       addr: string,
       hadBadges: boolean,
       trigger: string,
-    ): Promise<ClaimAllOutcome> => {
+    ): Promise<ClaimAllOutcome | "badges_failed"> => {
       try {
         const res = await fetch(
           `/api/runs/${runId}/sponsor-mint?chain=${chainKey}`,
@@ -72,6 +74,11 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
         if (!res.ok) {
           log.error("sponsor fallback failed", { runId, status: res.status });
           track("run_claim_failed", { trigger: `sponsor_http_${res.status}` });
+          Sentry.captureMessage("run sponsor mint failed", {
+            level: "warning",
+            tags: { claim: "sponsor" },
+            extra: { runId, status: res.status },
+          });
           return "failed";
         }
         if (hadBadges) {
@@ -84,6 +91,13 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
               runId,
               status: bRes.status,
             });
+            Sentry.captureMessage("badge sponsor mint failed", {
+              level: "warning",
+              tags: { claim: "badge-sponsor" },
+              extra: { runId, status: bRes.status },
+            });
+            track("run_claim_sponsored", { had_badges: true, trigger });
+            return "badges_failed";
           }
         }
         log.info("sponsored combined claim done", { runId });
@@ -95,6 +109,10 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           message: reasonOf(e),
         });
         track("run_claim_failed", { trigger: `sponsor_threw:${reasonOf(e)}` });
+        Sentry.captureException(e, {
+          tags: { claim: "sponsor" },
+          extra: { runId },
+        });
         return "failed";
       }
     },
@@ -143,20 +161,36 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
             status: voucherStatus,
             reason: reasonOf(e),
           });
-          return sponsorFallback(runId, address, true, "voucher_failed");
+          return sponsorFallback(runId, address, true, "voucher_failed").then(
+            (outcome) => (outcome === "badges_failed" ? "sponsored" : outcome),
+          );
         }
 
         const badgeIds = voucher.badgeIds.map(Number);
         const chain = getChain(chainKey);
         const held = heldFeeAdapters(chain.feeCurrencies, balances);
-        if (playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)) {
-          log.info("no fee balance; relayer mints", { runId });
-          return sponsorFallback(
+        const sponsorWithBadges = async (
+          trigger: "no_balance" | "tx_error",
+        ): Promise<ClaimAllOutcome> => {
+          if (badgeIds.length > 0) markBadgeClaimSubmitted(badgeIds);
+          const outcome = await sponsorFallback(
             runId,
             address,
             badgeIds.length > 0,
-            "no_balance",
+            trigger,
           );
+          if (
+            (outcome === "failed" || outcome === "badges_failed") &&
+            badgeIds.length > 0
+          ) {
+            dropBadgeClaims(badgeIds);
+          }
+          return outcome === "badges_failed" ? "sponsored" : outcome;
+        };
+
+        if (playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)) {
+          log.info("no fee balance; relayer mints", { runId });
+          return sponsorWithBadges("no_balance");
         }
         // USDT first. A short balance retries the next held stablecoin before
         // the relayer, still as one confirmation.
@@ -238,10 +272,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           runId,
           message: reasonOf(lastError),
         });
-        return sponsorFallback(
-          runId,
-          address,
-          badgeIds.length > 0,
+        return sponsorWithBadges(
           isUnpayableFee(lastError) ? "no_balance" : "tx_error",
         );
       } finally {

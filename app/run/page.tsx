@@ -131,6 +131,7 @@ export default function RunPage() {
   const [runStartTime, setRunStartTime] = useState<number | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [lastFinishedRun, setLastFinishedRun] = useState<{
+    id: string;
     durationMs: number;
     hexesClaimed: number;
     distanceMeters: number;
@@ -444,25 +445,15 @@ export default function RunPage() {
             : 0,
       });
       setLastFinishedRun({
+        id,
         durationMs,
         hexesClaimed: data.hexesClaimed,
         distanceMeters: data.distanceMeters,
       });
-      // Settle on-chain in ONE wallet approval: the player submits a single
-      // claimAll tx covering this run's hexes and any badge it unlocked (so they
-      // stay the on-chain sender). The player pays the network fee. No fee
-      // token, or a failed attempt that is not a decline, is minted by the
-      // relayer. A decline is not sponsored in that moment. The retry cron
-      // still mints runs left unminted.
-      // Fire-and-forget; the summary shows now.
-      //
-      // Badge detection still runs afterwards as a safety net: the combined
-      // claim already registered the badges it submitted, so the prompt stays
-      // quiet unless something was genuinely left unclaimed.
-      void claim(id).then((outcome) => {
-        log.info("run claim outcome", { id, outcome });
-        setBadgeRefresh((k) => k + 1);
-      });
+      // The summary asks them to claim. One wallet approval happens when they
+      // tap it, not before. No fee token, or a failed attempt that is not a
+      // decline, is minted by the relayer. A decline is not sponsored in that
+      // moment. The retry cron still mints runs left unminted.
       setRunId(null);
       setHexCount(0);
       setDistanceMeters(0);
@@ -481,7 +472,7 @@ export default function RunPage() {
     } finally {
       setIsBusy(false);
     }
-  }, [refreshClaimed, claim]);
+  }, [refreshClaimed]);
 
   // Kick the geolocation request as early as possible after mount. Putting it
   // inside the map.on("load", ...) callback further down loses the iOS user-
@@ -994,6 +985,15 @@ export default function RunPage() {
           summary={lastFinishedRun}
           username={user?.username ?? null}
           onClose={() => setLastFinishedRun(null)}
+          onClaim={async () => {
+            const outcome = await claim(lastFinishedRun.id);
+            log.info("run claim outcome", {
+              id: lastFinishedRun.id,
+              outcome,
+            });
+            if (outcome !== "failed") setBadgeRefresh((k) => k + 1);
+            return outcome !== "failed";
+          }}
         />
       )}
       {mounted && isConnected && !isWrongChain && user && !user.username && (
@@ -1001,13 +1001,13 @@ export default function RunPage() {
       )}
       <BadgeClaimPrompt
         address={address ?? null}
-        enabled={isConnected && !isWrongChain}
+        enabled={isConnected && !isWrongChain && !lastFinishedRun}
         refreshKey={badgeRefresh}
         detectOnMount={false}
       />
       <PendingClaimPrompt
         address={address ?? null}
-        enabled={isConnected && !isWrongChain}
+        enabled={isConnected && !isWrongChain && !lastFinishedRun}
       />
     </main>
   );

@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { encodeFunctionData, type Address, type Hex } from "viem";
 import { useWalletClient } from "wagmi";
+import * as Sentry from "@sentry/nextjs";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
 import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
@@ -46,6 +47,11 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
         );
         if (!res.ok) {
           log.error("sponsor fallback failed", { runId, status: res.status });
+          Sentry.captureMessage("run sponsor mint failed", {
+            level: "warning",
+            tags: { claim: "sponsor" },
+            extra: { runId, status: res.status },
+          });
           return "failed";
         }
         log.info("sponsored mint done", { runId });
@@ -54,6 +60,10 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
         log.error("sponsor fallback threw", {
           runId,
           message: e instanceof Error ? e.message : String(e),
+        });
+        Sentry.captureException(e, {
+          tags: { claim: "sponsor" },
+          extra: { runId },
         });
         return "failed";
       }

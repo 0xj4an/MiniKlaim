@@ -64,11 +64,14 @@ type EventMap = {
   };
   run_claim_sponsored: { had_badges: boolean; trigger: string };
   run_claim_failed: { trigger: string };
+  // Tapped Reclamar on the finish card, before the wallet sheet.
+  run_summary_claim_tapped: { blocks: number };
 
   // Badges.
   badge_unlocked: { badge_id: number; badge_name: string };
   badge_claim_started: { count: number };
   badge_claim_confirmed: { count: number; tx_hash: string };
+  badge_claim_rejected: { count: number; reason: string };
   badge_claim_failed: { count: number; reason: string };
 
   // Network & error tracking.
