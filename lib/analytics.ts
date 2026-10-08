@@ -1,6 +1,7 @@
 "use client";
 
 import posthog, { type PostHog } from "posthog-js";
+import { clientWalletHost } from "@/lib/client/walletHost";
 import { isBrowserNoise } from "@/lib/errors/browserNoise";
 import { createLogger } from "@/lib/logger";
 
@@ -193,8 +194,19 @@ export function initAnalytics(): PostHog | null {
     },
   });
   initialized = true;
+  syncClientContext();
   log.info("posthog initialized", { host: "/ingest" });
   return posthog;
+}
+
+// Super properties ride on $exception too. Refresh on navigation: the host
+// provider can appear after the first init.
+export function syncClientContext(): void {
+  if (!initialized || typeof window === "undefined") return;
+  posthog.register({
+    wallet_host: clientWalletHost(),
+    pathname: window.location.pathname,
+  });
 }
 
 /**

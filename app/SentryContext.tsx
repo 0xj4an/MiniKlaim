@@ -1,8 +1,9 @@
 "use client";
 
 import * as Sentry from "@sentry/nextjs";
-import { useAccount, useChainId } from "wagmi";
 import { useEffect } from "react";
+import { useAccount, useChainId } from "wagmi";
+import { clientWalletHost } from "@/lib/client/walletHost";
 
 export function SentryContext() {
   const { address } = useAccount();
@@ -22,6 +23,10 @@ export function SentryContext() {
     Sentry.setContext("chain", { chainId });
     Sentry.setTag("chain_id", chainId);
   }, [chainId]);
+
+  useEffect(() => {
+    Sentry.setTag("wallet_host", clientWalletHost());
+  }, []);
 
   return null;
 }
