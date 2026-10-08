@@ -82,7 +82,7 @@ export async function GET(request: Request) {
   `);
   
   const runCounts = new Map<string, number>();
-  for (const row of runCountsRaw as Array<{ address: string; count: number }>) {
+  for (const row of runCountsRaw as unknown as Array<{ address: string; count: number }>) {
     runCounts.set(row.address.toLowerCase(), row.count);
   }
 
