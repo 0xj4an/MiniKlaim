@@ -64,14 +64,48 @@ export async function GET(request: Request) {
     LIMIT ${limit}
   `);
 
-  const leaderboard = rows.map((row: { address: string; username: string | null; hexCount: number }) => ({
-    address: row.address,
-    username: row.username,
-    hexCount: row.hexCount,
-    runCount: 0,
-    countries: [],
-    badges: [],
-  }));
+  // Get additional data for each player
+  const leaderboard: Array<{
+    address: string;
+    username: string | null;
+    hexCount: number;
+    runCount: number;
+    countries: string[];
+    badges: string[];
+  }> = [];
+
+  for (const row of rows as Array<{ address: string; username: string | null; hexCount: number }>) {
+    const addr = row.address.toLowerCase();
+    
+    // Get run count for this player
+    const runCountResult = await db.execute(sql`
+      SELECT COUNT(*)::int AS count
+      FROM runs
+      WHERE LOWER(user_address) = ${addr}
+    `);
+    const runCount = (runCountResult[0] as { count: number })?.count ?? 0;
+
+    // Get top 5 countries for this player
+    const countriesResult = await db.execute(sql`
+      SELECT country, COUNT(*)::int AS count
+      FROM hexes
+      WHERE LOWER(owner_address) = ${addr}
+        AND country IS NOT NULL
+      GROUP BY country
+      ORDER BY count DESC
+      LIMIT 5
+    `);
+    const countries = (countriesResult as Array<{ country: string }>).map(c => c.country);
+
+    leaderboard.push({
+      address: row.address,
+      username: row.username,
+      hexCount: row.hexCount,
+      runCount,
+      countries,
+      badges: [],
+    });
+  }
 
   return NextResponse.json({ leaderboard });
 }
