@@ -27,6 +27,7 @@ import { type UserStats, useUserStats } from "@/lib/wallet/useUserStats";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { type TokenSymbol } from "@/lib/tokens";
 import { useGeoSummary } from "@/lib/wallet/useGeoSummary";
+import { LegalFooter } from "@/app/LegalFooter";
 
 const TerritoryMap = dynamic(
   () => import("./TerritoryMap").then((m) => m.TerritoryMap),
@@ -165,6 +166,7 @@ export default function MePage() {
           )}
         </>
       )}
+      <LegalFooter />
     </main>
   );
 }
