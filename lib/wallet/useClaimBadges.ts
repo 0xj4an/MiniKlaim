@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useCallback } from "react";
 import { encodeFunctionData, type Address, type Hex } from "viem";
 import { useWalletClient } from "wagmi";
@@ -17,6 +18,7 @@ export type BadgeClaimOutcome =
   | { status: "user-claimed"; txHash: Hex }
   | { status: "sponsored" }
   | { status: "none" }
+  | { status: "rejected" }
   | { status: "error" };
 
 type Voucher = {
@@ -46,6 +48,11 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
         );
         if (!res.ok) {
           log.error("badge sponsor fallback failed", { status: res.status });
+          Sentry.captureMessage("badge sponsor mint failed", {
+            level: "warning",
+            tags: { claim: "badge-sponsor" },
+            extra: { status: res.status },
+          });
           return { status: "error" };
         }
         log.info("sponsored badge mint done", { addr });
@@ -54,6 +61,7 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
         log.error("badge sponsor fallback network error", {
           message: e instanceof Error ? e.message : String(e),
         });
+        Sentry.captureException(e, { tags: { claim: "badge-sponsor" } });
         return { status: "error" };
       }
     },
@@ -119,7 +127,7 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
         log.warn("player badge claim declined", {
           message: e instanceof Error ? e.message : String(e),
         });
-        return { status: "error" };
+        return { status: "rejected" };
       }
       log.warn("player badge claim failed; relayer mints", {
         message: e instanceof Error ? e.message : String(e),
