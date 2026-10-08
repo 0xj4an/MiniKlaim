@@ -126,90 +126,88 @@ export function RunSummaryModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canClaim]);
 
+  const claimLine =
+    phase === "done"
+      ? hasBadges
+        ? t("run.summary.claimedBoth")
+        : t("run.summary.claimed")
+      : phase === "error"
+        ? t("pendingClaim.error")
+        : hasBadges
+          ? t("run.summary.claimBoth")
+          : t("run.summary.claim");
+
   return (
     <div
-      className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="absolute inset-0 z-20 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
       onClick={
         phase === "done" || (previewReady && !canClaim) ? onClose : undefined
       }
     >
       <div
-        className="mx-4 flex max-h-[85vh] w-full max-w-sm flex-col items-center gap-4 overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+        data-claim-sheet="finish"
+        className="flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-t-3xl bg-white px-5 pt-5 shadow-2xl sm:rounded-3xl"
+        style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-sm font-semibold tracking-wide text-zinc-500 uppercase">
+        <p className="text-center text-xs font-semibold tracking-wide text-zinc-500 uppercase">
           {t("run.summary.header")}
         </p>
-        <div className="grid w-full grid-cols-2 gap-3 text-center">
-          <div>
-            <div className="font-mono text-2xl font-bold text-zinc-900">
-              {timeLabel}
-            </div>
-            <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
-              {t("run.summary.time")}
-            </div>
-          </div>
-          <div>
-            <div className="font-mono text-2xl font-bold text-zinc-900">
+        {summary.hexesClaimed > 0 && (
+          <div className="mt-3 text-center">
+            <div className="font-mono text-5xl leading-none font-bold text-zinc-900">
               {summary.hexesClaimed}
             </div>
-            <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
+            <div className="mt-1 text-xs font-semibold tracking-wide text-zinc-500 uppercase">
               {t("run.summary.blocks")}
             </div>
           </div>
-          <div>
-            <div className="font-mono text-2xl font-bold text-zinc-900">
-              {distLabel}
-            </div>
-            <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
-              {t("run.summary.dist")}
-            </div>
-          </div>
-          <div>
-            <div className="font-mono text-2xl font-bold text-zinc-900">
-              {speedLabel.replace(" km/h", "")}
-            </div>
-            <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
-              {t("run.summary.speed")}
-            </div>
-          </div>
-        </div>
-        {(summary.hexesClaimed > 0 || hasBadges) && (
-          <p className="text-center text-sm text-zinc-700">
-            {phase === "done"
-              ? hasBadges
-                ? t("run.summary.claimedBoth")
-                : t("run.summary.claimed")
-              : phase === "error"
-                ? t("pendingClaim.error")
-                : hasBadges
-                  ? t("run.summary.claimBoth")
-                  : t("run.summary.claim")}
-          </p>
         )}
         {hasBadges && (
-          <div className="flex flex-wrap justify-center gap-2">
+          <ul className="mt-4 border-t border-zinc-100">
             {badgeIds?.map((id) => (
-              <span
+              <li
                 key={id}
-                className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700"
+                className="flex items-center gap-3 border-b border-zinc-100 py-2.5"
               >
-                {badgeCopy(id, locale).name}
-              </span>
+                <span
+                  aria-hidden
+                  className="h-3 w-3 shrink-0 bg-orange-600"
+                  style={{
+                    clipPath:
+                      "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                  }}
+                />
+                <span className="text-sm font-semibold text-zinc-900">
+                  {badgeCopy(id, locale).name}
+                </span>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
+        {(summary.hexesClaimed > 0 || hasBadges) && (
+          <p
+            className={`mt-4 text-center text-sm ${
+              phase === "error" ? "text-red-600" : "text-zinc-800"
+            }`}
+          >
+            {claimLine}
+          </p>
+        )}
+        <p className="mt-2 text-center text-xs text-zinc-500">
+          {timeLabel} - {distLabel} - {speedLabel}
+        </p>
         {phase === "done" ? (
-          <div className="mt-2 flex w-full gap-3">
+          <div className="mt-4 flex gap-3">
             <button
               onClick={() => shareRun(summary, timeLabel, distLabel, username, t)}
-              className="min-h-11 flex-1 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+              className="min-h-11 flex-1 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700"
             >
               {t("run.summary.share")}
             </button>
             <button
               onClick={onClose}
-              className="min-h-11 flex-1 rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-800"
+              className="min-h-11 flex-1 rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white"
             >
               {t("run.summary.done")}
             </button>
@@ -218,7 +216,7 @@ export function RunSummaryModal({
           <button
             onClick={() => claim("button")}
             disabled={phase === "pending"}
-            className="mt-2 min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-800 disabled:opacity-70"
+            className="mt-4 min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
           >
             {phase === "pending"
               ? t("run.summary.claiming")
@@ -227,7 +225,7 @@ export function RunSummaryModal({
         ) : previewReady ? (
           <button
             onClick={onClose}
-            className="mt-2 min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-800"
+            className="mt-4 min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white"
           >
             {t("run.summary.done")}
           </button>
