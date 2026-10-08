@@ -70,7 +70,7 @@ export function HomeClient() {
             <span className="font-semibold text-zinc-600">
               {globalStats.totalHexes}
             </span>{" "}
-            {t("home.stats.blocks")} ·{" "}
+            {t("home.stats.blocks")} -{" "}
             <span className="font-semibold text-zinc-600">
               {globalStats.totalPlayers}
             </span>{" "}
@@ -107,6 +107,22 @@ export function HomeClient() {
         />
       )}
     </>
+  );
+}
+
+function MovementModes() {
+  const { t } = useLocale();
+  return (
+    <p
+      className="flex items-center justify-center gap-3 text-2xl leading-none"
+      aria-label={t("home.modes.label")}
+    >
+      <span aria-hidden>🏃</span>
+      <span aria-hidden>🚲</span>
+      <span aria-hidden>🏍️</span>
+      <span aria-hidden>🚗</span>
+      <span aria-hidden>✈️</span>
+    </p>
   );
 }
 
@@ -224,11 +240,11 @@ function PrimaryCTA({
       <div className="flex flex-col items-center gap-2">
         <button
           onClick={connect}
-          className="flex items-center gap-2 rounded-full bg-zinc-900 px-8 py-4 text-lg font-semibold text-white hover:bg-zinc-800"
+          className="rounded-full bg-zinc-900 px-8 py-4 text-lg font-semibold text-white hover:bg-zinc-800"
         >
-          <span aria-hidden>🏃</span>
           {t("home.cta.signIn")}
         </button>
+        <MovementModes />
       </div>
     );
   }
@@ -277,15 +293,15 @@ function PrimaryCTA({
       </p>
       <Link
         href="/run"
-        className={`flex items-center gap-2 rounded-full px-8 py-4 text-lg font-semibold text-white shadow-md ${
+        className={`rounded-full px-8 py-4 text-lg font-semibold text-white shadow-md ${
           hasActiveRun
             ? "bg-red-600 hover:bg-red-700"
             : "bg-orange-700 hover:bg-orange-800"
         }`}
       >
-        <span aria-hidden>🏃</span>
         {hasActiveRun ? t("home.cta.continue") : t("home.cta.start")}
       </Link>
+      <MovementModes />
     </div>
   );
 }
