@@ -7,6 +7,7 @@ import en from "i18n-iso-countries/langs/en.json";
 import es from "i18n-iso-countries/langs/es.json";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
+import { Footer } from "@/app/Footer";
 
 const log = createLogger("page:stats");
 
@@ -243,6 +244,7 @@ export default function StatsPage() {
         </>
       )}
       </div>
+      <Footer />
     </main>
   );
 }

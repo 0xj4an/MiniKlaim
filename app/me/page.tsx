@@ -15,6 +15,7 @@ import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { LinkWallet } from "@/app/LinkWallet";
 import { RewardsSection } from "@/app/me/RewardsSection";
 import { badgeSvg } from "@/lib/onchain/badgeArt";
+import { Footer } from "@/app/Footer";
 import {
   BADGE_GROUPS,
   evaluateBadges,
@@ -165,6 +166,7 @@ export default function MePage() {
           )}
         </>
       )}
+      <Footer />
     </main>
   );
 }
@@ -519,12 +521,15 @@ function RunsList({
   }>;
 }) {
   const { t, locale } = useLocale();
+  const [visibleCount, setVisibleCount] = useState(5);
+  const visible = runs.slice(0, visibleCount);
+  const hasMore = visibleCount < runs.length;
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
       <p className="mb-2 text-center text-xs text-zinc-500">
         {t("me.runs.header")}
       </p>
-      {runs.map((run) => {
+      {visible.map((run) => {
         const start = new Date(run.startedAt);
         const dateLabel = start.toLocaleString(undefined, {
           month: "short",
@@ -574,6 +579,14 @@ function RunsList({
           </div>
         );
       })}
+      {hasMore && (
+        <button
+          onClick={() => setVisibleCount((prev) => prev + 5)}
+          className="mt-2 rounded-md border border-zinc-300 bg-white py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+        >
+          {t("me.runs.showMore")}
+        </button>
+      )}
     </div>
   );
 }

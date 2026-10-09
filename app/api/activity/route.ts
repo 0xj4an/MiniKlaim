@@ -30,6 +30,14 @@ export async function GET(request: Request) {
         ORDER BY COUNT(*) DESC
         LIMIT 1
       )`.as("country"),
+      city: sql<string | null>`(
+        SELECT city
+        FROM hexes h
+        WHERE h.run_id = ${runs.id} AND h.city IS NOT NULL
+        GROUP BY city
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+      )`.as("city"),
     })
     .from(runs)
     .leftJoin(users, eq(runs.userAddress, users.address))

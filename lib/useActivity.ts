@@ -14,6 +14,7 @@ export type ActivityEntry = {
   hexesClaimed: number;
   distanceMeters: number;
   country: string | null;
+  city: string | null;
 };
 
 export function useActivity(limit = 10): ActivityEntry[] | null {
