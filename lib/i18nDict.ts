@@ -178,7 +178,7 @@ export const dictionaries = {
       "Still waiting? Make sure MiniPay has location permission in your phone settings.",
     "run.gps.lastError": "Last error",
     "run.gps.denied":
-      "Location denied. Enable it in browser settings to track runs.",
+      "Location is off. Close the app, open it again, and allow location. You can't play without it.",
     "run.gps.unavailable": "Location unavailable on this device.",
     "run.start.signIn": "Sign in first",
     "run.start.starting": "Starting...",
@@ -544,7 +544,7 @@ export const dictionaries = {
       "¿Sigue esperando? Verifica que MiniPay tenga permiso de ubicación en los ajustes del teléfono.",
     "run.gps.lastError": "Último error",
     "run.gps.denied":
-      "Ubicación denegada. Actívala en los ajustes del navegador para jugar.",
+      "Ubicacion apagada. Cierra la app, vuelvela a abrir y permite el GPS. Sin eso no puedes jugar.",
     "run.gps.unavailable": "Ubicación no disponible en este dispositivo.",
     "run.start.signIn": "Entra primero",
     "run.start.starting": "Empezando...",

@@ -60,7 +60,7 @@ export function GeoStatusBanner({
       break;
     case "denied":
       message = t("run.gps.denied");
-      tone = "border border-amber-300 bg-amber-50 text-amber-900";
+      tone = "border border-amber-300 bg-amber-50 font-medium text-amber-950";
       break;
     case "unavailable":
       message = t("run.gps.unavailable");
@@ -69,7 +69,10 @@ export function GeoStatusBanner({
   }
   return (
     <div
-      className={`pointer-events-none absolute top-16 right-4 left-4 z-10 rounded-md p-3 text-center text-xs shadow-md backdrop-blur ${tone}`}
+      data-gps-banner={status}
+      className={`pointer-events-none absolute top-16 right-4 left-4 z-10 rounded-md text-center shadow-md backdrop-blur ${
+        status === "denied" ? "p-4 text-sm leading-snug" : "p-3 text-xs"
+      } ${tone}`}
     >
       <div>{message}</div>
       {showHelp && (status === "requesting" || status === "idle") && (

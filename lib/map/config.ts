@@ -1,4 +1,6 @@
-export const DEFAULT_CENTER: [number, number] = [-74.0721, 4.711]; // Bogota, [lng, lat]
+// World origin. A missing GPS fix must not open on a real city, or the
+// player thinks the game only exists there.
+export const DEFAULT_CENTER: [number, number] = [0, 0];
 export const DEFAULT_ZOOM = 14;
 export const FOLLOW_ZOOM = 17; // zoom level when centered on user position
 
