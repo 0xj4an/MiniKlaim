@@ -448,19 +448,8 @@ export default function RunPage() {
         hexesClaimed: data.hexesClaimed,
         distanceMeters: data.distanceMeters,
       });
-      // Settle on-chain in ONE wallet approval: the player submits a single
-      // claimAll tx covering this run's hexes and any badge it unlocked (so they
-      // stay the on-chain sender and count as a unique wallet), falling back to
-      // the sponsored relayer if they cannot pay gas or decline.
-      // Fire-and-forget; the summary shows now.
-      //
-      // Badge detection still runs afterwards as a safety net: the combined
-      // claim already registered the badges it submitted, so the prompt stays
-      // quiet unless something was genuinely left unclaimed.
-      void claim(id).then((outcome) => {
-        log.info("run claim outcome", { id, outcome });
-        setBadgeRefresh((k) => k + 1);
-      });
+      // The card lists the blocks and any badges, then the wallet opens
+      // on its own. A decline is not sponsored in that moment.
       setRunId(null);
       setHexCount(0);
       setDistanceMeters(0);
@@ -1007,7 +996,17 @@ export default function RunPage() {
         <RunSummaryModal
           summary={lastFinishedRun}
           username={user?.username ?? null}
+          address={address ?? null}
           onClose={() => setLastFinishedRun(null)}
+          onClaim={async () => {
+            const outcome = await claim(lastFinishedRun.id);
+            log.info("run claim outcome", {
+              id: lastFinishedRun.id,
+              outcome,
+            });
+            if (outcome !== "failed") setBadgeRefresh((k) => k + 1);
+            return outcome !== "failed";
+          }}
         />
       )}
       {mounted && isConnected && !isWrongChain && user && !user.username && (
