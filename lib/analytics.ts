@@ -63,6 +63,7 @@ type EventMap = {
   };
   run_claim_sponsored: { had_badges: boolean; trigger: string };
   run_claim_failed: { trigger: string };
+  run_summary_claim_tapped: { blocks: number; via: "auto_finish" | "button" };
 
   // Badges.
   badge_unlocked: { badge_id: number; badge_name: string };
@@ -111,7 +112,10 @@ type EventMap = {
 
   // Misc.
   locale_toggled: { from: "en" | "es"; to: "en" | "es" };
-  share_button_pressed: { surface: "run_summary" | "profile" };
+  share_button_pressed: {
+    surface: "run_summary" | "profile";
+    channel?: string;
+  };
 };
 
 type EventName = keyof EventMap;
