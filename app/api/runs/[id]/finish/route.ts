@@ -37,10 +37,9 @@ export async function PATCH(
   });
 
   // On-chain minting is client-driven after finish so the player is the on-chain
-  // msg.sender (unique-wallet attribution). Hexes: POST /voucher -> claimRun ->
-  // /claimed, sponsored /sponsor-mint fallback. Badges: claimed from /me via the
-  // badge voucher (POST /api/users/[address]/badges/voucher), sponsored fallback
-  // at /api/users/[address]/badges/sponsor-mint.
+  // msg.sender when they confirm. The relayer mints when they cannot pay or
+  // the attempt fails for a reason other than a declined signature. The
+  // retry cron still mints runs left unminted.
 
   return NextResponse.json(updated);
 }

@@ -87,9 +87,9 @@ Two cron services keep the app self-healing:
 
 **Command**: `npm run runs:retry-unminted`
 **Schedule**: `0 */4 * * *` (every 4 hours, on the hour)
-**Purpose**: retries `captureBatch` for runs whose hexes never made it on-chain (client `claimRun` failed, backend `sponsor-mint` timed out, or user closed the app before minting). Idempotent because the contract's `capture` mint-or-transfers per hex.
+**Purpose**: retries `captureBatch` for runs whose hexes never made it on-chain (client claim failed, sponsor-mint timed out, or the app closed before minting). Idempotent because the contract's `capture` mint-or-transfers per hex. A declined signature is not sponsored immediately; if the run is still unminted 15 minutes later, this job mints it. Capped at 20 runs per pass.
 
-This job spends the relayer's gas. If the relayer is dry it logs `done: 0 chunks succeeded (0 hexes minted), N chunks failed` and player territory silently stops reaching the chain. See [Funding the relayer](#funding-the-relayer).
+This job spends the relayer's CELO. If the relayer is dry it logs the failed chunks and those hexes wait for the next pass. See [Funding the relayer](#funding-the-relayer).
 
 **Env vars**:
 - `DATABASE_URL` (reference `${{postgres.DATABASE_URL}}`)
@@ -202,29 +202,18 @@ To disable the router later, revoke its two roles. That alone makes `claimAll` r
 
 ### Funding the relayer
 
-`0x8da26Ae1B32a7e4Cd158622D7d70Fe16D6F1dE83` pays gas for every sponsored mint on every chain. It is the single most common cause of "my hexes did not appear": the app looks healthy, the run closes, and nothing lands on-chain.
+`0x8da26Ae1B32a7e4Cd158622D7d70Fe16D6F1dE83` signs vouchers and pays CELO when a player cannot pay the network fee, when a claim fails for a reason other than a declined signature, and when `cron-retry-unminted` mints runs still unminted after 15 minutes. A declined signature does not call the relayer in that moment.
 
-Failure signature in `railway logs --service cron-retry-unminted`:
+The failure when the wallet is empty:
 
 ```text
 [onchain:hexes] captureBatch failed {
   error: 'The total cost (gas * gas fee + value) of executing this transaction
           exceeds the balance of the account.'
 }
-done: 0 chunks succeeded (0 hexes minted), 7 chunks failed
 ```
 
-Check the balance directly:
-
-```bash
-RELAYER=0x8da26Ae1B32a7e4Cd158622D7d70Fe16D6F1dE83
-cast balance "$RELAYER" --rpc-url https://forno.celo.org --ether
-cast balance "$RELAYER" --rpc-url https://rpc.soneium.org --ether
-```
-
-Celo needs real attention because the base fee is 200 gwei, so a 0.01 CELO balance buys only ~55k gas, not even one `captureBatch`. Keep at least 2 CELO to cover sponsored mints plus headroom for a contract deploy. Soneium's base fee is ~0.001 gwei, so a small balance there lasts effectively forever.
-
-There is no balance alarm today. Worth adding one.
+Keep a CELO balance for those mints and for contract admin transactions. A dry wallet stops the cron and the no-balance fallback. Player claims that they confirm do not spend it.
 
 ### Upgrading an existing contract
 

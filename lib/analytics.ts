@@ -1,6 +1,7 @@
 "use client";
 
 import posthog, { type PostHog } from "posthog-js";
+import { clientWalletHost } from "@/lib/client/walletHost";
 import { isBrowserNoise } from "@/lib/errors/browserNoise";
 import { createLogger } from "@/lib/logger";
 
@@ -39,9 +40,9 @@ type EventMap = {
   run_capture_milestone: { hex_count: number };
 
   // Combined single-approval run settlement (MiniKlaimClaimRouter).
-  // Every branch of `useClaimAll` fires exactly one terminal event, so a run
-  // that produced no wallet prompt can be told apart from one the player
-  // declined, and a client-side provider refusal is visible without a console.
+  // A decline is `run_claim_rejected` and is not sponsored in that moment.
+  // `run_claim_sponsored` is no balance, a voucher failure, or another tx
+  // error. The retry cron still mints runs left unminted.
   run_claim_started: { path: "router" | "two_tx" };
   // The voucher endpoint answered non-OK. `status` separates "nothing to
   // settle" (409) from "router not configured" (503) from a server fault.
@@ -63,12 +64,15 @@ type EventMap = {
   };
   run_claim_sponsored: { had_badges: boolean; trigger: string };
   run_claim_failed: { trigger: string };
+  // Signature requested from the finish card. `auto_finish` is the sheet
+  // that opens by itself. `button` is a retry after they declined.
   run_summary_claim_tapped: { blocks: number; via: "auto_finish" | "button" };
 
   // Badges.
   badge_unlocked: { badge_id: number; badge_name: string };
   badge_claim_started: { count: number };
   badge_claim_confirmed: { count: number; tx_hash: string };
+  badge_claim_rejected: { count: number; reason: string };
   badge_claim_failed: { count: number; reason: string };
 
   // Network & error tracking.
@@ -114,7 +118,7 @@ type EventMap = {
   locale_toggled: { from: "en" | "es"; to: "en" | "es" };
   share_button_pressed: {
     surface: "run_summary" | "profile";
-    channel?: string;
+    channel?: "x" | "facebook" | "instagram";
   };
 };
 
@@ -197,8 +201,19 @@ export function initAnalytics(): PostHog | null {
     },
   });
   initialized = true;
+  syncClientContext();
   log.info("posthog initialized", { host: "/ingest" });
   return posthog;
+}
+
+// Super properties ride on $exception too. Refresh on navigation: the host
+// provider can appear after the first init.
+export function syncClientContext(): void {
+  if (!initialized || typeof window === "undefined") return;
+  posthog.register({
+    wallet_host: clientWalletHost(),
+    pathname: window.location.pathname,
+  });
 }
 
 /**

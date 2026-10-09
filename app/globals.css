@@ -1,1 +1,37 @@
 @import "tailwindcss";
+
+@keyframes claim-count {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+@keyframes claim-plus {
+  0% { opacity: 0; transform: translate(-50%, 8px) scale(0.6); }
+  20% { opacity: 1; transform: translate(-50%, 0) scale(1.08); }
+  100% { opacity: 0; transform: translate(-50%, -52px) scale(1); }
+}
+
+@keyframes claim-hex {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(0.3); }
+  18% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(0.55);
+  }
+}
+
+@keyframes claim-badge {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: none; }
+}
+
+.claim-count { animation: claim-count 0.55s ease-out; }
+.claim-plus { animation: claim-plus 1.35s ease-out forwards; }
+.claim-hex { animation: claim-hex 1s ease-out forwards; }
+.claim-badge { animation: claim-badge 0.4s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .claim-count, .claim-badge { animation: none; }
+  .claim-plus, .claim-hex { display: none; }
+}

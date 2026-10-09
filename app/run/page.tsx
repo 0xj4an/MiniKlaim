@@ -14,9 +14,20 @@ import {
   DEFAULT_ZOOM,
   FOLLOW_ZOOM,
   HEX_RESOLUTION,
-  RUN_HEX_DISK,
   RUN_MIN_ZOOM,
 } from "@/lib/map/config";
+import {
+  diskCoversView,
+  diskKForRadius,
+  diskRadiusMeters,
+  hexesInBounds,
+  mergeHexes,
+  placeHexes,
+  viewportNeedsWorld,
+  type ClaimedHexRow,
+  type LngLatBounds,
+  type PlacedHex,
+} from "@/lib/map/claimedView";
 import { haversineMeters } from "@/lib/map/geo";
 import { liveGeoSource } from "@/lib/map/liveSource";
 import {
@@ -242,40 +253,65 @@ export default function RunPage() {
     });
   }, [activeRun, isActiveLoading, runId]);
 
-  const refreshClaimed = useCallback(
-    async (at?: { lat: number; lng: number }) => {
-      const map = mapRef.current;
-      if (!map) return;
-      let pos = at ?? latestPosRef.current;
-      if (!pos) {
-        try {
-          const center = map.getCenter();
-          pos = { lat: center.lat, lng: center.lng };
-        } catch {
-          return;
-        }
+  const worldRef = useRef<{ rows: PlacedHex[]; at: number } | null>(null);
+  const diskCoverRef = useRef<{
+    lat: number;
+    lng: number;
+    radiusM: number;
+  } | null>(null);
+  const paintGen = useRef(0);
+  const worldInflight = useRef<Promise<ClaimedHexRow[] | null> | null>(null);
+
+  const refreshClaimed = useCallback(async (reason: "move" | "fresh" = "fresh") => {
+    const map = mapRef.current;
+    if (!map) return;
+    const gen = ++paintGen.current;
+    let centerLat: number;
+    let centerLng: number;
+    let radius: number;
+    let bounds: LngLatBounds;
+    try {
+      const center = map.getCenter();
+      const box = map.getBounds();
+      centerLat = center.lat;
+      centerLng = center.lng;
+      radius = 0;
+      const corners: Array<[number, number]> = [
+        [box.getNorth(), box.getEast()],
+        [box.getNorth(), box.getWest()],
+        [box.getSouth(), box.getEast()],
+        [box.getSouth(), box.getWest()],
+      ];
+      for (const [lat, lng] of corners) {
+        const dist = haversineMeters(centerLat, centerLng, lat, lng);
+        if (dist > radius) radius = dist;
       }
-      const near = latLngToCell(pos.lat, pos.lng, HEX_RESOLUTION);
+      bounds = {
+        west: box.getWest(),
+        south: box.getSouth(),
+        east: box.getEast(),
+        north: box.getNorth(),
+      };
+    } catch {
+      return;
+    }
+
+    const stale = () => paintGen.current !== gen || mapRef.current !== map;
+    const paint = (rows: ClaimedHexRow[]) => {
+      const source = liveGeoSource(map, "claimed-hexes");
+      source?.setData(claimedHexesToFeatureCollection(rows, linkedRef.current));
+      log.debug("claimed-view", { count: rows.length, reason, wide });
+    };
+    const fetchRows = async (url: string): Promise<ClaimedHexRow[] | null> => {
       try {
-        const res = await fetch(`/api/hexes?near=${near}&k=${RUN_HEX_DISK}`);
+        const res = await fetch(url);
         if (!res.ok) {
           log.warn("claimed hexes refresh failed", { status: res.status });
           track("hexes_refresh_error", { status: res.status });
-          return;
+          return null;
         }
-        const data = (await res.json()) as {
-          hexes: Array<{
-            h3: string;
-            owner: string;
-            ownerUsername: string | null;
-          }>;
-        };
-        if (mapRef.current !== map) return;
-        const source = liveGeoSource(map, "claimed-hexes");
-        source?.setData(
-          claimedHexesToFeatureCollection(data.hexes, linkedRef.current),
-        );
-        log.debug("claimed hexes refreshed", { count: data.hexes.length });
+        const data = (await res.json()) as { hexes: ClaimedHexRow[] };
+        return data.hexes;
       } catch (e) {
         log.error("failed to refresh claimed hexes", {
           message: e instanceof Error ? e.message : String(e),
@@ -283,10 +319,76 @@ export default function RunPage() {
         track("hexes_refresh_network_error", {
           error: e instanceof Error ? e.message : String(e),
         });
+        return null;
       }
-    },
-    [],
-  );
+    };
+
+    const wide = viewportNeedsWorld(radius);
+    if (!wide) {
+      const cover = diskCoverRef.current;
+      if (
+        reason !== "fresh" &&
+        cover &&
+        diskCoversView(
+          cover.lat,
+          cover.lng,
+          cover.radiusM,
+          centerLat,
+          centerLng,
+          radius,
+        )
+      ) {
+        return;
+      }
+      const k = diskKForRadius(radius);
+      const near = latLngToCell(centerLat, centerLng, HEX_RESOLUTION);
+      const rows = await fetchRows(`/api/hexes?near=${near}&k=${k}`);
+      if (stale() || !rows) return;
+      paint(rows);
+      diskCoverRef.current = {
+        lat: centerLat,
+        lng: centerLng,
+        radiusM: diskRadiusMeters(k),
+      };
+      return;
+    }
+
+    diskCoverRef.current = null;
+    const worldStale =
+      !worldRef.current || Date.now() - worldRef.current.at > 60_000;
+    if (worldStale) {
+      if (!worldInflight.current) {
+        const pending = fetchRows("/api/hexes");
+        worldInflight.current = pending;
+        void pending.finally(() => {
+          if (worldInflight.current === pending) worldInflight.current = null;
+        });
+      }
+      const all = await worldInflight.current;
+      if (stale()) return;
+      if (all) worldRef.current = { rows: placeHexes(all), at: Date.now() };
+    }
+    if (reason === "fresh" || worldStale) {
+      const addr = addressRef.current;
+      if (addr) {
+        const mine = await fetchRows(
+          `/api/hexes?owner=${encodeURIComponent(addr)}`,
+        );
+        if (stale()) return;
+        if (mine && worldRef.current) {
+          worldRef.current = {
+            rows: mergeHexes(worldRef.current.rows, placeHexes(mine)),
+            at: worldRef.current.at,
+          };
+        } else if (mine && !worldRef.current) {
+          paint(hexesInBounds(placeHexes(mine), bounds));
+          return;
+        }
+      }
+    }
+    if (!worldRef.current) return;
+    paint(hexesInBounds(worldRef.current.rows, bounds));
+  }, []);
 
   /**
    * Batch-claim every hex crossed since the previous GPS fix. Splits the
@@ -365,7 +467,7 @@ export default function RunPage() {
 
   const startRun = useCallback(async () => {
     const addr = addressRef.current;
-    if (!addr || !latestPosRef.current) return;
+    if (!addr) return;
     setIsBusy(true);
     try {
       const res = await fetch("/api/runs", {
@@ -470,7 +572,7 @@ export default function RunPage() {
     } finally {
       setIsBusy(false);
     }
-  }, [refreshClaimed, claim]);
+  }, [refreshClaimed]);
 
   // Kick the geolocation request as early as possible after mount. Putting it
   // inside the map.on("load", ...) callback further down loses the iOS user-
@@ -483,63 +585,48 @@ export default function RunPage() {
       queueMicrotask(() => setGeoStatus("unavailable"));
       return;
     }
-    const ask = () => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const { latitude, longitude } = pos.coords;
-          log.info("eager primer fix", { acc: pos.coords.accuracy });
-          latestPosRef.current = { lat: latitude, lng: longitude };
-          writeCachedPosition(latitude, longitude);
-          geoFailedRef.current = false;
-          queueMicrotask(() => {
-            setGeoStatus("granted");
-            setGeoLastError(null);
-          });
-          const m = mapRef.current;
-          if (m) {
-            placeCamera(m, longitude, latitude, FOLLOW_ZOOM);
-            // Paint the position dot immediately if the map source exists. If
-            // the map hasn't finished its `load` event yet (source not created),
-            // the map init effect below reads latestPosRef and paints on load.
-            renderPositionDot(m, latitude, longitude);
-          }
-        },
-        (err) => {
-          const label =
-            err.code === err.PERMISSION_DENIED
-              ? "denied"
-              : err.code === err.POSITION_UNAVAILABLE
-                ? "unavailable"
-                : err.code === err.TIMEOUT
-                  ? "timeout"
-                  : `code ${err.code}`;
-          geoFailedRef.current = true;
-          log.warn("eager primer failed", {
-            code: err.code,
-            message: err.message,
-          });
-          queueMicrotask(() => {
-            setGeoLastError(`${label}: ${err.message}`);
-            if (err.code === err.PERMISSION_DENIED) setGeoStatus("denied");
-          });
-        },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
-      );
-    };
     queueMicrotask(() => setGeoStatus("requesting"));
     log.info("eager geolocation primer");
-    ask();
-    // A deny sticks for this webview. Closing the app and opening it again
-    // is a fresh load, which asks once more. Coming back to a still-open
-    // page asks again too, as long as we never got a fix.
-    const onVisible = () => {
-      if (document.visibilityState !== "visible") return;
-      if (latestPosRef.current) return;
-      log.info("retry geolocation after reopen");
-      ask();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        log.info("eager primer fix", { acc: pos.coords.accuracy });
+        latestPosRef.current = { lat: latitude, lng: longitude };
+        writeCachedPosition(latitude, longitude);
+        queueMicrotask(() => {
+          setGeoStatus("granted");
+          setGeoLastError(null);
+        });
+        const m = mapRef.current;
+        if (m) {
+          placeCamera(m, longitude, latitude, FOLLOW_ZOOM);
+          // Paint the position dot immediately if the map source exists. If
+          // the map hasn't finished its `load` event yet (source not created),
+          // the map init effect below reads latestPosRef and paints on load.
+          renderPositionDot(m, latitude, longitude);
+        }
+      },
+      (err) => {
+        const label =
+          err.code === err.PERMISSION_DENIED
+            ? "denied"
+            : err.code === err.POSITION_UNAVAILABLE
+              ? "unavailable"
+              : err.code === err.TIMEOUT
+                ? "timeout"
+                : `code ${err.code}`;
+        geoFailedRef.current = true;
+        log.warn("eager primer failed", {
+          code: err.code,
+          message: err.message,
+        });
+        queueMicrotask(() => {
+          setGeoLastError(`${label}: ${err.message}`);
+          if (err.code === err.PERMISSION_DENIED) setGeoStatus("denied");
+        });
+      },
+      { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 },
+    );
   }, []);
 
   useEffect(() => {
@@ -643,22 +730,9 @@ export default function RunPage() {
         renderPositionDot(map, initialPos.lat, initialPos.lng);
       }
 
-      const claimedAnchor = {
-        lat: map.getCenter().lat,
-        lng: map.getCenter().lng,
-      };
-      void refreshClaimed(claimedAnchor);
+      void refreshClaimed();
       map.on("moveend", () => {
-        const c = map.getCenter();
-        if (
-          haversineMeters(claimedAnchor.lat, claimedAnchor.lng, c.lat, c.lng) <
-          400
-        ) {
-          return;
-        }
-        claimedAnchor.lat = c.lat;
-        claimedAnchor.lng = c.lng;
-        void refreshClaimed(claimedAnchor);
+        void refreshClaimed("move");
       });
 
       const popupRef = { current: null as maplibregl.Popup | null };
@@ -1016,13 +1090,13 @@ export default function RunPage() {
       )}
       <BadgeClaimPrompt
         address={address ?? null}
-        enabled={isConnected && !isWrongChain}
+        enabled={isConnected && !isWrongChain && !lastFinishedRun}
         refreshKey={badgeRefresh}
         detectOnMount={false}
       />
       <PendingClaimPrompt
         address={address ?? null}
-        enabled={isConnected && !isWrongChain}
+        enabled={isConnected && !isWrongChain && !lastFinishedRun}
       />
     </main>
   );

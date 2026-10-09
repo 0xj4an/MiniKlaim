@@ -12,11 +12,10 @@ const log = createLogger("api:runs:sponsor-mint");
 export const dynamic = "force-dynamic";
 
 /**
- * Sponsored fallback: the backend relayer mints this run's hexes on behalf of
- * the player. Used when the player cannot pay gas (no balance / unsupported
- * wallet) or declines the wallet prompt. The player does NOT become the on-chain
- * sender here, so this run does not add to the contract's unique-wallet count;
- * it just ensures the player still receives their NFTs.
+ * Relayer-mint this run when the player has no fee balance. The client calls
+ * this only in that case. A declined signature does not hit this route.
+ * The player is not the on-chain sender, so the run does not add a unique
+ * wallet. The hexes still land.
  */
 export async function POST(
   request: Request,

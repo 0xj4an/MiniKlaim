@@ -21,6 +21,10 @@ const log = createLogger("script:retry-unminted");
  * ids don't double up (see MiniKlaimHexes.capture). The `/claimed` endpoint
  * later marks `hexes.mintedAt` when the on-chain tx is confirmed.
  *
+ * A declined wallet prompt is not sponsored in that moment. If the run is
+ * still unminted after MIN_AGE_MIN, this job mints it anyway so territory
+ * still lands.
+ *
  * Safe to run every 15-30 min via Railway cron. Rate-limited by the
  * `endedAt < now() - 15 min` filter so we don't race the client's own claim.
  *

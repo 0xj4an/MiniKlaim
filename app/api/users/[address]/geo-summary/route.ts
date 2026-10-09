@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { fillMissingCities } from "@/lib/geo/fillCities";
 import { addressesForPlayer } from "@/lib/players";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,8 @@ export async function GET(
     linked.map((a) => sql`${a}`),
     sql`, `,
   );
+
+  await fillMissingCities({ addresses: linked });
 
   const [countryRows, cityRows] = await Promise.all([
     db.execute(sql`

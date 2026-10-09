@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
+import { computeEligibleBadgeIds } from "@/lib/onchain/badgeEligibility";
 import { parseChainKey } from "@/lib/onchain/chains";
 import {
   badgesContractAddress,
@@ -19,7 +20,8 @@ export async function GET(
     return NextResponse.json({ error: "invalid address" }, { status: 400 });
   }
 
-  const chainKey = parseChainKey(new URL(request.url).searchParams.get("chain"));
+  const url = new URL(request.url);
+  const chainKey = parseChainKey(url.searchParams.get("chain"));
   const contract = badgesContractAddress(chainKey);
   if (!contract) {
     return NextResponse.json({ contract: null, heldIds: [] });
@@ -37,5 +39,20 @@ export async function GET(
     (a, b) => a - b,
   );
 
-  return NextResponse.json({ contract, heldIds });
+  // Same set claimAll puts in the voucher: earned, not yet held by this
+  // address. Only the finish card asks for it. The profile read stays a
+  // chain read.
+  let claimableIds: number[] | undefined;
+  if (url.searchParams.get("claimable") === "1") {
+    const [eligible, playerHeld] = await Promise.all([
+      computeEligibleBadgeIds(lower as Address),
+      onchainBadgeIdsHeld(lower as Address, chainKey),
+    ]);
+    const heldSet = new Set(playerHeld);
+    claimableIds = eligible
+      .map((id) => Number(id))
+      .filter((id) => !heldSet.has(id));
+  }
+
+  return NextResponse.json({ contract, heldIds, claimableIds });
 }

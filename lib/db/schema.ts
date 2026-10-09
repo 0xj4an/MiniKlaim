@@ -114,8 +114,7 @@ export const hexes = pgTable(
     // Frequent + high cardinality; without this the badge worker scans the
     // whole table per player.
     index("hexes_owner_address_idx").on(t.ownerAddress),
-    // "hexes in this run" queries (voucher endpoint, sponsor-mint fallback,
-    // GPS spoof validation rate limit).
+    // "hexes in this run" queries (voucher endpoint, no-balance sponsor mint).
     index("hexes_run_id_idx").on(t.runId),
     // Un-minted queue queries (WHERE minted_at IS NULL, retry worker,
     // /stats On-chain counters).

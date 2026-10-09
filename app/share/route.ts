@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 const DEFAULT_TEXT =
-  "Run your city, capture territory on-chain. Try MiniKlaim";
+  "Move through your city and capture the blocks. Try MiniKlaim";
 const DEFAULT_EMBED = "https://www.miniklaim.fun";
 
 // Public share entrypoint. Farcaster's Mini App `castShareUrl` requires the

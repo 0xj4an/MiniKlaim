@@ -115,7 +115,7 @@ export default async function OgImage({
           fontWeight: 400,
         }}
       >
-        Run it. Klaim it.
+        Walk, bike, or drive. Klaim it.
       </div>
     </div>,
     { ...size },

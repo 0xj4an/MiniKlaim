@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { fillMissingCities } from "@/lib/geo/fillCities";
 import { addressesForPlayer } from "@/lib/players";
 
 export const dynamic = "force-dynamic";
@@ -66,6 +67,18 @@ export async function GET(
     ORDER BY r.started_at DESC
     LIMIT ${limit}
   `);
+
+  const list = rows as unknown as Array<{
+    id: string;
+    topCity: string | null;
+  }>;
+  const missingIds = list.filter((run) => !run.topCity).map((run) => run.id);
+  if (missingIds.length > 0) {
+    const filled = await fillMissingCities({ runIds: missingIds });
+    for (const run of list) {
+      if (!run.topCity) run.topCity = filled.get(run.id) ?? null;
+    }
+  }
 
   return NextResponse.json({ runs: rows });
 }

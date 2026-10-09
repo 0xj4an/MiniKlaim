@@ -15,10 +15,6 @@ const log = createLogger("ui:pendingClaim");
  * on-chain, typically because signal died between Finish and the mint tx.
  * The server is the source of truth via `hexes.mint_tx_hash`, and the
  * voucher endpoint is idempotent per run, so retries here are safe.
- *
- * Shows one run at a time (most recent first). After a successful mint the
- * hook refetches and the next pending run pops. "Later" dismisses only for
- * this session so a refresh brings it back.
  */
 export function PendingClaimPrompt({
   address,
@@ -100,22 +96,15 @@ export function PendingClaimPrompt({
             {t("pendingClaim.error")}
           </p>
         )}
-        <div className="mt-5 flex flex-col gap-2">
+        <div className="mt-5">
           <button
             onClick={runClaim}
             disabled={state === "pending"}
-            className="w-full rounded-full bg-orange-600 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
+            className="min-h-11 w-full rounded-full bg-orange-600 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
           >
             {state === "pending"
               ? t("pendingClaim.pending")
               : t("pendingClaim.cta")}
-          </button>
-          <button
-            onClick={() => setDismissed((s) => new Set(s).add(next.id))}
-            disabled={state === "pending"}
-            className="w-full rounded-full px-4 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 disabled:opacity-60"
-          >
-            {t("pendingClaim.later")}
           </button>
         </div>
       </div>

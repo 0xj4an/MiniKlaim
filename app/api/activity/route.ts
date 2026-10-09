@@ -2,6 +2,7 @@ import { desc, eq, isNotNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { runs, users } from "@/lib/db/schema";
+import { fillMissingCities } from "@/lib/geo/fillCities";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,14 @@ export async function GET(request: Request) {
     .where(isNotNull(runs.endedAt))
     .orderBy(desc(runs.endedAt))
     .limit(limit);
+
+  const missing = rows.filter((row) => !row.city).map((row) => row.id);
+  if (missing.length > 0) {
+    const filled = await fillMissingCities({ runIds: missing });
+    for (const row of rows) {
+      if (!row.city) row.city = filled.get(row.id) ?? null;
+    }
+  }
 
   return NextResponse.json({ activity: rows });
 }

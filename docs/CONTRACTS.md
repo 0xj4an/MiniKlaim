@@ -13,7 +13,7 @@ Territory NFT. Each captured H3 hex (resolution 12, ~13m across) is a token whos
 Non-transferable by players. The contract itself moves ownership when a hex is recaptured by another player.
 
 Two capture paths:
-- `capture(address, uint256)` and `captureBatch(address, uint256[])`: backend relayer (`CAPTURER_ROLE`) mints or transfers. Used as the sponsored fallback when the player cannot pay gas.
+- `capture(address, uint256)` and `captureBatch(address, uint256[])`: backend relayer (`CAPTURER_ROLE`) mints or transfers when the player has no fee balance. A declined player signature does not use this path.
 - `claimRun(uint256[], uint256 nonce, bytes sig)`: called by the player from their own wallet, gated by an EIP-712 voucher signed by `CAPTURER_ROLE`. Player becomes the on-chain `msg.sender`.
 
 Roles:

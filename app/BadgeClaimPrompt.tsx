@@ -137,6 +137,13 @@ export function BadgeClaimPrompt({
       dropBadgeClaims(claimable);
       setDismissed(true);
       setState("idle");
+    } else if (outcome.status === "rejected") {
+      dropBadgeClaims(claimable);
+      track("badge_claim_rejected", {
+        count: claimable.length,
+        reason: "user_rejected",
+      });
+      setState("error");
     } else {
       dropBadgeClaims(claimable);
       track("badge_claim_failed", {
@@ -180,22 +187,15 @@ export function BadgeClaimPrompt({
                 {t("me.badges.claim.error")}
               </p>
             )}
-            <div className="mt-5 flex flex-col gap-2">
+            <div className="mt-5">
               <button
                 onClick={runClaim}
                 disabled={state === "pending"}
-                className="w-full rounded-full bg-orange-600 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
+                className="min-h-11 w-full rounded-full bg-orange-600 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
               >
                 {state === "pending"
                   ? t("me.badges.claim.pending")
                   : t("me.badges.claim.cta")}
-              </button>
-              <button
-                onClick={() => setDismissed(true)}
-                disabled={state === "pending"}
-                className="w-full rounded-full px-4 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 disabled:opacity-60"
-              >
-                {t("me.badges.claim.later")}
               </button>
             </div>
           </div>
