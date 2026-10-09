@@ -8,6 +8,7 @@ import {
   identify,
   initAnalytics,
   resetIdentity,
+  syncClientContext,
   syncSessionRecording,
 } from "@/lib/analytics";
 import { isMiniPay } from "@/lib/minipay";
@@ -24,6 +25,7 @@ import { isMiniPay } from "@/lib/minipay";
 export function PostHogProvider() {
   useEffect(() => {
     initAnalytics();
+    syncClientContext();
   }, []);
 
   const { address, isConnected } = useAccount();
@@ -52,6 +54,7 @@ function PageviewTracker() {
     if (!pathname) return;
     const qs = searchParams?.toString();
     capturePageview(qs ? `${pathname}?${qs}` : pathname);
+    syncClientContext();
     syncSessionRecording(pathname);
   }, [pathname, searchParams]);
   return null;

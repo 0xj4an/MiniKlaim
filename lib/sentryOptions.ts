@@ -1,5 +1,8 @@
 import type { ErrorEvent } from "@sentry/nextjs";
+import { clientWalletHost } from "@/lib/client/walletHost";
 import { isBrowserNoise } from "@/lib/errors/browserNoise";
+
+const WALLET_BRIDGE = "The object does not support the operation or argument.";
 
 type SentryInitOptions = {
   dsn: string | undefined;
@@ -30,6 +33,18 @@ export function sentryInitOptions(): SentryInitOptions {
         ...(event.exception?.values ?? []).map((v) => v.value ?? ""),
       ];
       if (parts.some((part) => isBrowserNoise(part))) return null;
+      if (typeof window !== "undefined") {
+        event.tags = {
+          ...event.tags,
+          wallet_host: clientWalletHost(),
+          pathname: window.location.pathname,
+        };
+        // Same iOS postMessage rejection was splitting into C/D/E/F because
+        // WebKit sometimes keeps the wagmi frame and sometimes strips it.
+        if (parts.some((part) => part.includes(WALLET_BRIDGE))) {
+          event.fingerprint = ["wallet-bridge-postmessage"];
+        }
+      }
       return event;
     },
   };

@@ -22,16 +22,18 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.miniklaim.fun",
   ),
   title: "MiniKlaim",
-  description: "Run it. Klaim it. A territory-capture game on Celo.",
+  description:
+    "Move through the city. Klaim the blocks. A territory-capture game on Celo.",
   openGraph: {
     title: "MiniKlaim",
-    description: "Run it. Klaim it. A territory-capture game on Celo.",
+    description:
+      "Walk, bike, or drive. The blocks you cross are yours on Celo.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "MiniKlaim",
-    description: "Run it. Klaim it.",
+    description: "Walk, bike, or drive. Klaim the blocks.",
   },
   other: {
     "talentapp:project_verification":

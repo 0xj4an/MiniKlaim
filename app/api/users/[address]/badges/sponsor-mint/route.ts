@@ -10,9 +10,9 @@ const log = createLogger("api:badges:sponsor-mint");
 export const dynamic = "force-dynamic";
 
 /**
- * Relayer-mint the player's eligible badges (sponsored fallback) when they
- * cannot submit `claimBadges` themselves (no gas / declined / wallet error).
- * The contract skips already-held badges, so this is safe to call repeatedly.
+ * Relayer-mint eligible badges when the player has no fee balance. The
+ * contract skips badges they already hold. A declined signature does not
+ * call this route.
  */
 export async function POST(
   request: Request,

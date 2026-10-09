@@ -83,8 +83,8 @@ Finishing a run has to put two things on-chain: the hexes captured, and any badg
 
 1. `PATCH /api/runs/[id]/finish` closes the run server-side and returns the summary. The UI shows it immediately.
 2. `POST /api/runs/[id]/claim-all/voucher` returns one EIP-712 voucher covering the run's hexes plus every earned-but-unheld badge.
-3. The client submits a single `claimAll` tx to `MiniKlaimClaimRouter`. One wallet approval.
-4. On failure or refusal, the sponsored relayer covers both halves instead.
+3. The client submits a single `claimAll` tx to `MiniKlaimClaimRouter`. One wallet approval. The player pays the network fee in USDT, USDC, or USDm.
+4. If the player holds none of those, or the attempt fails for a reason other than a declined signature, the relayer mints. A decline is not sponsored in that moment. `cron-retry-unminted` still mints runs left unminted after 15 minutes.
 
 Chains without a deployed router fall back to two separate player transactions (`claimRun`, then `claimBadges`), which is the original flow.
 

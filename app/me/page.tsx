@@ -15,7 +15,6 @@ import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { LinkWallet } from "@/app/LinkWallet";
 import { RewardsSection } from "@/app/me/RewardsSection";
 import { badgeSvg } from "@/lib/onchain/badgeArt";
-import { Footer } from "@/app/Footer";
 import {
   BADGE_GROUPS,
   evaluateBadges,
@@ -28,6 +27,7 @@ import { type UserStats, useUserStats } from "@/lib/wallet/useUserStats";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { type TokenSymbol } from "@/lib/tokens";
 import { useGeoSummary } from "@/lib/wallet/useGeoSummary";
+import { LegalFooter } from "@/app/LegalFooter";
 
 const TerritoryMap = dynamic(
   () => import("./TerritoryMap").then((m) => m.TerritoryMap),
@@ -166,7 +166,7 @@ export default function MePage() {
           )}
         </>
       )}
-      <Footer />
+      <LegalFooter />
     </main>
   );
 }
@@ -553,7 +553,7 @@ function RunsList({
         return (
           <div
             key={run.id}
-            className="flex flex-col gap-0.5 border-b border-zinc-200 pb-2 last:border-0 last:pb-0"
+            className={`flex flex-col gap-0.5 border-b border-zinc-200 pb-2 ${hasMore ? "" : "last:border-0 last:pb-0"}`}
           >
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="text-zinc-600">{dateLabel}</span>
@@ -581,10 +581,23 @@ function RunsList({
       })}
       {hasMore && (
         <button
-          onClick={() => setVisibleCount((prev) => prev + 5)}
-          className="mt-2 rounded-md border border-zinc-300 bg-white py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+          type="button"
+          data-runs-more="5"
+          onClick={() => setVisibleCount((count) => Math.min(count + 5, runs.length))}
+          className="mt-2 flex min-h-11 w-full items-center justify-center gap-1 rounded-lg border border-zinc-200 bg-white text-xs font-medium text-zinc-700"
         >
-          {t("me.runs.showMore")}
+          {t("stats.countries.showMore")}
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
         </button>
       )}
     </div>

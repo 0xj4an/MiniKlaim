@@ -9,10 +9,6 @@ export const FOLLOW_ZOOM = 17; // zoom level when centered on user position
 // hundreds of MB on a phone. 13 is still a few kilometers of city.
 export const RUN_MIN_ZOOM = 13;
 
-// Rings of res-12 cells fetched around the player. Center spacing is ~16m,
-// so 50 rings is about 800m: the walk, plus a short pan, not the planet.
-export const RUN_HEX_DISK = 50;
-
 /**
  * H3 resolution for the claimable hex grid. Resolution 12 gives ~50m edge
  * length, the right scale for "claim this block by running through it".
