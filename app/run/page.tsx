@@ -131,6 +131,7 @@ export default function RunPage() {
   const [runStartTime, setRunStartTime] = useState<number | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [lastFinishedRun, setLastFinishedRun] = useState<{
+    id: string;
     durationMs: number;
     hexesClaimed: number;
     distanceMeters: number;
@@ -444,6 +445,7 @@ export default function RunPage() {
             : 0,
       });
       setLastFinishedRun({
+        id,
         durationMs,
         hexesClaimed: data.hexesClaimed,
         distanceMeters: data.distanceMeters,

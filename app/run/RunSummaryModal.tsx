@@ -15,7 +15,6 @@ export type RunSummary = {
   durationMs: number;
   hexesClaimed: number;
   distanceMeters: number;
-  id?: string;
 };
 
 /**
@@ -43,6 +42,15 @@ export function RunSummaryModal({
   );
   const [badgeIds, setBadgeIds] = useState<number[] | null>(null);
   const [shareNote, setShareNote] = useState<string | null>(null);
+  const totalSec = Math.max(0, Math.floor(summary.durationMs / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  const timeLabel = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  const distLabel =
+    summary.distanceMeters >= 1000
+      ? `${(summary.distanceMeters / 1000).toFixed(2)} km`
+      : `${summary.distanceMeters} m`;
+  const speedLabel = formatSpeed(summary.durationMs, summary.distanceMeters);
   const hasBadges = (badgeIds?.length ?? 0) > 0;
   const previewReady = badgeIds !== null;
   const canClaim =
@@ -95,11 +103,6 @@ export function RunSummaryModal({
     }
   }, [badgeIds]);
 
-  useEffect(() => {
-    if (phase !== "idle" || !canClaim) return;
-    void claim("auto_finish");
-  }, [phase, canClaim]);
-
   const claim = async (via: "auto_finish" | "button") => {
     if (!onClaim || phase === "pending") return;
     track("run_summary_claim_tapped", {
@@ -109,171 +112,275 @@ export function RunSummaryModal({
     setPhase("pending");
     try {
       const ok = await onClaim();
-      if (ok) {
-        setPhase("done");
-        const parts: string[] = [];
-        if (summary.hexesClaimed > 0) {
-          parts.push(
-            summary.hexesClaimed === 1
-              ? t("run.share.text.one")
-              : t("run.share.text.many").replace(
-                  "{n}",
-                  String(summary.hexesClaimed),
-                ),
-          );
-        }
-        if (hasBadges && badgeIds && badgeIds.length > 0) {
-          const badge = badgeCopy(badgeIds[0], locale === "es" ? "es" : "en");
-          parts.push(`🏆 ${badge.name}`);
-        }
-        setShareNote(parts.join(" "));
-      } else {
-        setPhase("error");
-      }
-    } catch (e) {
-      log.error("claim error", {
-        message: e instanceof Error ? e.message : String(e),
-      });
+      setPhase(ok ? "done" : "error");
+    } catch {
       setPhase("error");
     }
   };
 
-  const totalSec = Math.max(0, Math.floor(summary.durationMs / 1000));
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  const timeLabel = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  const distLabel =
-    summary.distanceMeters >= 1000
-      ? `${(summary.distanceMeters / 1000).toFixed(2)} km`
-      : `${summary.distanceMeters} m`;
-  const speedLabel = formatSpeed(summary.durationMs, summary.distanceMeters);
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!canClaim || asked.current) return;
+    asked.current = true;
+    void claim("auto_finish");
+    // One sheet per finish. A decline retries from the button.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canClaim]);
+
+  const claimLine =
+    phase === "done"
+      ? hasBadges
+        ? t("run.summary.claimedBoth")
+        : t("run.summary.claimed")
+      : phase === "error"
+        ? t("pendingClaim.error")
+        : hasBadges
+          ? t("run.summary.claimBoth")
+          : t("run.summary.claim");
 
   return (
     <div
-      className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={phase === "done" ? onClose : undefined}
+      className="absolute inset-0 z-20 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
+      onClick={
+        phase === "done" || (previewReady && !canClaim) ? onClose : undefined
+      }
     >
       <div
-        className="mx-6 flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl bg-white p-6 shadow-2xl"
+        data-claim-sheet="finish"
+        className="flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-t-3xl bg-white px-5 pt-5 shadow-2xl sm:rounded-3xl"
+        style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-sm font-semibold tracking-wide text-zinc-500 uppercase">
+        <p className="text-center text-xs font-semibold tracking-wide text-zinc-500 uppercase">
           {t("run.summary.header")}
         </p>
-
-        {/* Claimed blocks and badges */}
-        <div className="flex w-full flex-col gap-2">
-          {summary.hexesClaimed > 0 && (
-            <div className="flex items-center justify-between rounded-lg bg-blue-50 p-4">
-              <span className="text-sm font-medium text-blue-900">
-                {t("run.summary.blocks")}
-              </span>
-              <span className="text-2xl font-bold text-blue-600">
-                {summary.hexesClaimed}
-              </span>
-            </div>
-          )}
-          {hasBadges && badgeIds && badgeIds.length > 0 && (
-            <div className="flex flex-col gap-2">
-              {badgeIds.map((id, index) => {
-                const badge = badgeCopy(id, locale === "es" ? "es" : "en");
-                return (
-                  <div
-                    key={id}
-                    className="flex items-center gap-3 rounded-lg bg-gradient-to-r from-yellow-50 to-orange-50 p-3"
-                    style={
-                      index < 3
-                        ? { animationDelay: `${index * 70}ms` }
-                        : undefined
-                    }
-                  >
-                    <span className="text-3xl">{badge.emoji}</span>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-zinc-900">
-                        {badge.name}
-                      </span>
-                      <span className="text-xs text-zinc-600">
-                        {badge.description}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Stats */}
-        <div className="grid w-full grid-cols-3 gap-2 text-center">
-          <div className="flex flex-col gap-1 rounded-lg bg-zinc-50 p-2">
-            <span className="text-lg font-bold text-zinc-900">{timeLabel}</span>
-            <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-              {t("run.summary.time")}
-            </span>
-          </div>
-          <div className="flex flex-col gap-1 rounded-lg bg-zinc-50 p-2">
-            <span className="text-lg font-bold text-zinc-900">{distLabel}</span>
-            <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-              {t("run.summary.distance")}
-            </span>
-          </div>
-          <div className="flex flex-col gap-1 rounded-lg bg-zinc-50 p-2">
-            <span className="text-lg font-bold text-zinc-900">{speedLabel}</span>
-            <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-              {t("run.summary.speed")}
-            </span>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex w-full flex-col gap-2">
-          {phase === "idle" && canClaim && (
-            <button
-              onClick={() => claim("button")}
-              className="w-full rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 py-3 text-sm font-semibold text-white shadow-md hover:from-blue-600 hover:to-blue-700"
+        {summary.hexesClaimed > 0 && (
+          <div className="relative mt-3 text-center">
+            {phase === "done" && (
+              <ClaimBurst count={summary.hexesClaimed} />
+            )}
+            <div
+              className={`font-mono text-5xl leading-none font-bold text-zinc-900 ${
+                phase === "done" ? "claim-count" : ""
+              }`}
             >
-              {t("run.summary.claim")}
-            </button>
-          )}
-          {phase === "pending" && (
-            <div className="flex items-center justify-center gap-2 rounded-lg bg-zinc-100 py-3">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent" />
-              <span className="text-sm font-medium text-zinc-600">
-                {t("run.summary.claiming")}
-              </span>
+              {summary.hexesClaimed}
             </div>
-          )}
-          {phase === "error" && (
+            <div className="mt-1 text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+              {t("run.summary.blocks")}
+            </div>
+          </div>
+        )}
+        {hasBadges && (
+          <ul className="mt-4 border-t border-zinc-100">
+            {badgeIds?.map((id, index) => (
+              <li
+                key={id}
+                className={`flex items-center gap-3 border-b border-zinc-100 py-2.5 ${
+                  phase === "done" ? "claim-badge" : ""
+                }`}
+                style={
+                  phase === "done"
+                    ? { animationDelay: `${index * 70}ms` }
+                    : undefined
+                }
+              >
+                <span
+                  aria-hidden
+                  className="h-3 w-3 shrink-0 bg-orange-600"
+                  style={{
+                    clipPath:
+                      "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                  }}
+                />
+                <span className="text-sm font-semibold text-zinc-900">
+                  {badgeCopy(id, locale).name}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {(summary.hexesClaimed > 0 || hasBadges) && (
+          <p
+            className={`mt-4 text-center text-sm ${
+              phase === "error" ? "text-red-600" : "text-zinc-800"
+            }`}
+          >
+            {claimLine}
+          </p>
+        )}
+        <p className="mt-2 text-center text-xs text-zinc-500">
+          {timeLabel} - {distLabel} - {speedLabel}
+        </p>
+        {phase === "done" ? (
+          <div className="mt-4 flex flex-col gap-2">
+            {shareNote && (
+              <p className="text-center text-xs text-zinc-500">{shareNote}</p>
+            )}
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  void shareClaim(
+                    "x",
+                    summary,
+                    timeLabel,
+                    distLabel,
+                    username,
+                    t,
+                    setShareNote,
+                  )
+                }
+                className="min-h-11 rounded-full border border-zinc-300 bg-white px-2 py-2 text-sm font-semibold text-zinc-800"
+              >
+                X
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void shareClaim(
+                    "facebook",
+                    summary,
+                    timeLabel,
+                    distLabel,
+                    username,
+                    t,
+                    setShareNote,
+                  )
+                }
+                className="min-h-11 rounded-full border border-zinc-300 bg-white px-2 py-2 text-sm font-semibold text-zinc-800"
+              >
+                Facebook
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void shareClaim(
+                    "instagram",
+                    summary,
+                    timeLabel,
+                    distLabel,
+                    username,
+                    t,
+                    setShareNote,
+                  )
+                }
+                className="min-h-11 rounded-full border border-zinc-300 bg-white px-2 py-2 text-sm font-semibold text-zinc-800"
+              >
+                Instagram
+              </button>
+            </div>
             <button
-              onClick={() => claim("button")}
-              className="w-full rounded-lg bg-red-500 py-3 text-sm font-semibold text-white hover:bg-red-600"
+              onClick={onClose}
+              className="min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white"
             >
-              {t("run.summary.retry")}
+              {t("run.summary.done")}
             </button>
-          )}
-          {phase === "done" && shareNote && (
-            <button
-              onClick={() => {
-                const url = username
-                  ? `https://miniklaim.com/p/${username}`
-                  : "https://miniklaim.com";
-                const text = encodeURIComponent(`${shareNote}\n${url}`);
-                window.open(`https://twitter.com/intent/tweet?text=${text}`, "_blank");
-                track("run_share_tapped", { blocks: summary.hexesClaimed });
-              }}
-              className="w-full rounded-lg bg-gradient-to-r from-green-500 to-green-600 py-3 text-sm font-semibold text-white shadow-md hover:from-green-600 hover:to-green-700"
-            >
-              {t("run.summary.share")}
-            </button>
-          )}
+          </div>
+        ) : canClaim ? (
+          <button
+            onClick={() => claim("button")}
+            disabled={phase === "pending"}
+            className="mt-4 min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
+          >
+            {phase === "pending"
+              ? t("run.summary.claiming")
+              : t("pendingClaim.cta")}
+          </button>
+        ) : previewReady ? (
           <button
             onClick={onClose}
-            className="w-full rounded-lg border border-zinc-200 bg-white py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            className="mt-4 min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white"
           >
-            {t("common.done")}
+            {t("run.summary.done")}
           </button>
-        </div>
+        ) : null}
       </div>
     </div>
   );
+}
+
+const BURST = [
+  { x: -56, y: -46 },
+  { x: 52, y: -50 },
+  { x: -28, y: -58 },
+  { x: 24, y: -62 },
+  { x: -8, y: -70 },
+  { x: 40, y: -36 },
+  { x: -44, y: -28 },
+];
+
+function ClaimBurst({ count }: { count: number }) {
+  return (
+    <>
+      <span className="claim-plus pointer-events-none absolute top-0 left-1/2 font-mono text-2xl font-bold text-orange-600">
+        +{count}
+      </span>
+      {BURST.map((spot, i) => (
+        <span
+          key={i}
+          aria-hidden
+          className="claim-hex pointer-events-none absolute top-4 left-1/2 h-3 w-3 bg-orange-600"
+          style={{
+            clipPath:
+              "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+            ["--dx" as string]: `${spot.x}px`,
+            ["--dy" as string]: `${spot.y}px`,
+            animationDelay: `${i * 40}ms`,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+function claimCaption(
+  summary: RunSummary,
+  timeLabel: string,
+  distLabel: string,
+  t: (key: TranslationKey) => string,
+): { text: string; url: string } {
+  const captured =
+    summary.hexesClaimed === 1
+      ? t("run.share.text.one")
+      : t("run.share.text.many").replace("{n}", String(summary.hexesClaimed));
+  const text = `${captured} ${t("run.share.text.suffix")} ${timeLabel} - ${distLabel} ${t("run.share.text.run")}`;
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "https://www.miniklaim.fun";
+  return { text, url: origin };
+}
+
+async function shareClaim(
+  channel: "x" | "facebook" | "instagram",
+  summary: RunSummary,
+  timeLabel: string,
+  distLabel: string,
+  username: string | null,
+  t: (key: TranslationKey) => string,
+  setNote: (note: string | null) => void,
+): Promise<void> {
+  track("share_button_pressed", { surface: "run_summary", channel });
+  const { text, url: origin } = claimCaption(summary, timeLabel, distLabel, t);
+  const url = username ? `${origin}/p/${username}` : origin;
+  const caption = `${text} ${url}`;
+
+  if (channel === "instagram") {
+    try {
+      await navigator.clipboard.writeText(caption);
+      setNote(t("me.share.copied"));
+      window.setTimeout(() => setNote(null), 2000);
+    } catch {
+      setNote(null);
+    }
+    window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  const intent =
+    channel === "x"
+      ? `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`
+      : `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
+  window.open(intent, "_blank", "noopener,noreferrer");
 }
