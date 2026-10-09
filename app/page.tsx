@@ -8,6 +8,24 @@ export default async function HomePage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 px-6 py-12 pb-24">
       <div className="flex w-full max-w-md flex-col items-center gap-6 text-center">
+        {/* Rewards Campaign Banner */}
+        <div className="w-full rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 p-[2px] shadow-lg">
+          <div className="rounded-[10px] bg-white px-4 py-3">
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-2xl">🎁</span>
+              <div className="flex flex-col items-start">
+                <span className="text-xs font-semibold uppercase tracking-wide text-orange-600">
+                  Coming Soon
+                </span>
+                <span className="text-sm font-bold text-zinc-900">
+                  Rewards Campaign
+                </span>
+              </div>
+              <span className="text-2xl">✨</span>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-col items-center gap-4">
           <LogoWordmark height={48} />
           <h1 className="text-3xl leading-tight font-bold text-zinc-900">
