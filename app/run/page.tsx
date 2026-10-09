@@ -144,9 +144,9 @@ export default function RunPage() {
     queueMicrotask(() => setMounted(true));
   }, []);
 
-  // Hold the map until we know where the player is. Constructing it on the
-  // Bogota default and then flying to a GPS fix in another country is what
-  // pulls the fat low-zoom tiles. Fresh MiniPay webviews have no cached fix.
+  // Hold the map until we know where the player is. Opening on a city and
+  // then jumping across the planet pulls the fat low-zoom tiles. Fresh
+  // MiniPay webviews have no cached fix, so the fallback is the world origin.
   const [mapBoot, setMapBoot] = useState<{
     center: [number, number];
     zoom: number;
@@ -364,7 +364,7 @@ export default function RunPage() {
 
   const startRun = useCallback(async () => {
     const addr = addressRef.current;
-    if (!addr) return;
+    if (!addr || !latestPosRef.current) return;
     setIsBusy(true);
     try {
       const res = await fetch("/api/runs", {
@@ -492,48 +492,63 @@ export default function RunPage() {
       queueMicrotask(() => setGeoStatus("unavailable"));
       return;
     }
+    const ask = () => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          log.info("eager primer fix", { acc: pos.coords.accuracy });
+          latestPosRef.current = { lat: latitude, lng: longitude };
+          writeCachedPosition(latitude, longitude);
+          geoFailedRef.current = false;
+          queueMicrotask(() => {
+            setGeoStatus("granted");
+            setGeoLastError(null);
+          });
+          const m = mapRef.current;
+          if (m) {
+            placeCamera(m, longitude, latitude, FOLLOW_ZOOM);
+            // Paint the position dot immediately if the map source exists. If
+            // the map hasn't finished its `load` event yet (source not created),
+            // the map init effect below reads latestPosRef and paints on load.
+            renderPositionDot(m, latitude, longitude);
+          }
+        },
+        (err) => {
+          const label =
+            err.code === err.PERMISSION_DENIED
+              ? "denied"
+              : err.code === err.POSITION_UNAVAILABLE
+                ? "unavailable"
+                : err.code === err.TIMEOUT
+                  ? "timeout"
+                  : `code ${err.code}`;
+          geoFailedRef.current = true;
+          log.warn("eager primer failed", {
+            code: err.code,
+            message: err.message,
+          });
+          queueMicrotask(() => {
+            setGeoLastError(`${label}: ${err.message}`);
+            if (err.code === err.PERMISSION_DENIED) setGeoStatus("denied");
+          });
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
+      );
+    };
     queueMicrotask(() => setGeoStatus("requesting"));
     log.info("eager geolocation primer");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        log.info("eager primer fix", { acc: pos.coords.accuracy });
-        latestPosRef.current = { lat: latitude, lng: longitude };
-        writeCachedPosition(latitude, longitude);
-        queueMicrotask(() => {
-          setGeoStatus("granted");
-          setGeoLastError(null);
-        });
-        const m = mapRef.current;
-        if (m) {
-          placeCamera(m, longitude, latitude, FOLLOW_ZOOM);
-          // Paint the position dot immediately if the map source exists. If
-          // the map hasn't finished its `load` event yet (source not created),
-          // the map init effect below reads latestPosRef and paints on load.
-          renderPositionDot(m, latitude, longitude);
-        }
-      },
-      (err) => {
-        const label =
-          err.code === err.PERMISSION_DENIED
-            ? "denied"
-            : err.code === err.POSITION_UNAVAILABLE
-              ? "unavailable"
-              : err.code === err.TIMEOUT
-                ? "timeout"
-                : `code ${err.code}`;
-        geoFailedRef.current = true;
-        log.warn("eager primer failed", {
-          code: err.code,
-          message: err.message,
-        });
-        queueMicrotask(() => {
-          setGeoLastError(`${label}: ${err.message}`);
-          if (err.code === err.PERMISSION_DENIED) setGeoStatus("denied");
-        });
-      },
-      { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 },
-    );
+    ask();
+    // A deny sticks for this webview. Closing the app and opening it again
+    // is a fresh load, which asks once more. Coming back to a still-open
+    // page asks again too, as long as we never got a fix.
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (latestPosRef.current) return;
+      log.info("retry geolocation after reopen");
+      ask();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
   useEffect(() => {
@@ -979,6 +994,7 @@ export default function RunPage() {
       </button>
       <RunControls
         canStart={!!canStart}
+        locationReady={geoStatus === "granted"}
         isActive={isActive}
         isBusy={isBusy}
         hexCount={hexCount}
