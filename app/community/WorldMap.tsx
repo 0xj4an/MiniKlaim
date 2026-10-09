@@ -301,18 +301,9 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
       }
     });
     
-    // Force repaint on zoom end to ensure layers are visible
     map.on("zoomend", () => {
       if (cancelled || rowsRef.current.length === 0) return;
-      // Trigger a re-render of the data
-      const sources = ["others", "others-points", "mine", "mine-points"];
-      sources.forEach(id => {
-        const source = map.getSource(id) as maplibregl.GeoJSONSource | undefined;
-        if (source) {
-          const data = source._data;
-          if (data) source.setData(data);
-        }
-      });
+      paintRef.current(map);
     });
     
     map.on("error", (e) =>
