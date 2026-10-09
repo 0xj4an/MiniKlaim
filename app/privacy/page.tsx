@@ -1,19 +1,20 @@
 "use client";
 
-import Link from "next/link";
 import { useLocale } from "@/lib/i18n";
+import { useRouter } from "next/navigation";
 
 export default function PrivacyPage() {
   const { t } = useLocale();
+  const router = useRouter();
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-12 pb-24">
       <header className="flex items-center justify-between">
-        <Link
-          href="/about"
+        <button
+          onClick={() => router.back()}
           className="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
         >
           ← {t("common.back")}
-        </Link>
+        </button>
         <h1 className="text-2xl font-bold">{t("privacy.title")}</h1>
         <span className="w-16" />
       </header>
@@ -26,52 +27,55 @@ export default function PrivacyPage() {
         </h2>
         <p>{t("privacy.stored.intro")}</p>
         <ul className="ml-6 list-disc">
-          <li>{t("privacy.stored.l1")}</li>
-          <li>{t("privacy.stored.l2")}</li>
-          <li>{t("privacy.stored.l3")}</li>
-          <li>{t("privacy.stored.l4")}</li>
+          <li>{t("privacy.stored.1")}</li>
+          <li>{t("privacy.stored.2")}</li>
+          <li>{t("privacy.stored.3")}</li>
+          <li>{t("privacy.stored.4")}</li>
         </ul>
       </section>
 
       <section className="flex flex-col gap-2 text-sm leading-relaxed text-zinc-700">
         <h2 className="text-lg font-semibold text-zinc-900">
-          {t("privacy.notStored.h")}
+          {t("privacy.noSell.h")}
         </h2>
-        <ul className="ml-6 list-disc">
-          <li>{t("privacy.notStored.l1")}</li>
-          <li>{t("privacy.notStored.l2")}</li>
-          <li>{t("privacy.notStored.l3")}</li>
-        </ul>
+        <p>{t("privacy.noSell.body")}</p>
       </section>
 
       <section className="flex flex-col gap-2 text-sm leading-relaxed text-zinc-700">
         <h2 className="text-lg font-semibold text-zinc-900">
-          {t("privacy.public.h")}
+          {t("privacy.blockchain.h")}
         </h2>
-        <p>{t("privacy.public.body")}</p>
+        <p>{t("privacy.blockchain.body")}</p>
       </section>
 
       <section className="flex flex-col gap-2 text-sm leading-relaxed text-zinc-700">
         <h2 className="text-lg font-semibold text-zinc-900">
-          {t("privacy.deletion.h")}
+          {t("privacy.analytics.h")}
+        </h2>
+        <p>{t("privacy.analytics.body")}</p>
+      </section>
+
+      <section className="flex flex-col gap-2 text-sm leading-relaxed text-zinc-700">
+        <h2 className="text-lg font-semibold text-zinc-900">
+          {t("privacy.control.h")}
+        </h2>
+        <p>{t("privacy.control.body")}</p>
+      </section>
+
+      <section className="flex flex-col gap-2 text-sm leading-relaxed text-zinc-700">
+        <h2 className="text-lg font-semibold text-zinc-900">
+          {t("privacy.contact.h")}
         </h2>
         <p>
-          {t("privacy.deletion.before")}{" "}
+          {t("privacy.contact.body1")}{" "}
           <a
-            href="mailto:support@miniklaim.fun"
-            className="text-blue-600 underline"
+            href="mailto:personal@0xj4an.xyz"
+            className="font-medium text-blue-600 hover:underline"
           >
-            {t("about.contact.handle")}
-          </a>{" "}
-          {t("privacy.deletion.after")}
+            personal@0xj4an.xyz
+          </a>
+          . {t("privacy.contact.body2")}
         </p>
-      </section>
-
-      <section className="flex flex-col gap-2 text-sm leading-relaxed text-zinc-700">
-        <h2 className="text-lg font-semibold text-zinc-900">
-          {t("privacy.cookies.h")}
-        </h2>
-        <p>{t("privacy.cookies.body")}</p>
       </section>
     </main>
   );

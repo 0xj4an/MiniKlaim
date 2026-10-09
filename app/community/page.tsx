@@ -9,6 +9,7 @@ import { type ActivityEntry, useActivity } from "@/lib/useActivity";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { type LeaderboardEntry, useLeaderboard } from "@/lib/useLeaderboard";
 import { useWallet } from "@/lib/wallet/useWallet";
+import { Footer } from "@/app/Footer";
 
 const WorldMap = dynamic(() => import("./WorldMap").then((m) => m.WorldMap), {
   ssr: false,
@@ -62,6 +63,7 @@ export default function CommunityPage() {
         entries={activity}
         myAddress={isConnected ? address : null}
       />
+      <Footer />
     </main>
   );
 }
@@ -251,7 +253,10 @@ function ActivityFeed({
               )}
             </span>
             {e.country && (
-              <span className="text-base">{getCountryFlag(e.country)}</span>
+              <span className="flex items-center gap-1 text-xs text-zinc-600">
+                <span className="text-base">{getCountryFlag(e.country)}</span>
+                {e.city && <span>{e.city}</span>}
+              </span>
             )}
             <span className="font-mono text-xs text-zinc-500">
               {e.hexesClaimed}{" "}

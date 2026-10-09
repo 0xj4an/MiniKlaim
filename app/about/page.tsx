@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLocale } from "@/lib/i18n";
+import { Footer } from "@/app/Footer";
 
 export default function AboutPage() {
   const { t } = useLocale();
