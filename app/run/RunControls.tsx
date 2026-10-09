@@ -10,6 +10,7 @@ import { ElapsedBanner } from "./ElapsedBanner";
  */
 export function RunControls({
   canStart,
+  locationReady,
   isActive,
   isBusy,
   hexCount,
@@ -19,6 +20,7 @@ export function RunControls({
   onFinish,
 }: {
   canStart: boolean;
+  locationReady: boolean;
   isActive: boolean;
   isBusy: boolean;
   hexCount: number;
@@ -36,7 +38,7 @@ export function RunControls({
       >
         <button
           onClick={onStart}
-          disabled={!canStart || isBusy}
+          disabled={!canStart || !locationReady || isBusy}
           className="rounded-full bg-orange-700 px-6 py-3 text-base font-semibold text-white shadow-lg hover:bg-orange-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
         >
           {!canStart
