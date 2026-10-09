@@ -145,14 +145,14 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
           id: "others-fill",
           type: "fill",
           source: "others",
-          minzoom: 9,
+          minzoom: 8, // Lower threshold for better visibility
           paint: { "fill-color": "#FF6B35", "fill-opacity": 0.45 },
         });
         map.addLayer({
           id: "others-line",
           type: "line",
           source: "others",
-          minzoom: 9,
+          minzoom: 8,
           paint: {
             "line-color": "#FF6B35",
             "line-width": 1,
@@ -295,8 +295,26 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
     map.on("load", () => {
       if (cancelled) return;
       map.resize();
-      paintRef.current(map);
+      // Only paint if we already have data
+      if (rowsRef.current.length > 0) {
+        paintRef.current(map);
+      }
     });
+    
+    // Force repaint on zoom end to ensure layers are visible
+    map.on("zoomend", () => {
+      if (cancelled || rowsRef.current.length === 0) return;
+      // Trigger a re-render of the data
+      const sources = ["others", "others-points", "mine", "mine-points"];
+      sources.forEach(id => {
+        const source = map.getSource(id) as maplibregl.GeoJSONSource | undefined;
+        if (source) {
+          const data = source._data;
+          if (data) source.setData(data);
+        }
+      });
+    });
+    
     map.on("error", (e) =>
       log.error("map error", { message: e.error?.message ?? String(e) }),
     );
@@ -312,7 +330,16 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
         if (cancelled) return;
         rowsRef.current = data.hexes;
         setCount(data.hexes.length);
-        if (map.isStyleLoaded()) paintRef.current(map);
+        
+        // Paint immediately if map is ready, otherwise wait for load event
+        if (map.isStyleLoaded()) {
+          paintRef.current(map);
+        } else {
+          const onLoad = () => {
+            if (!cancelled) paintRef.current(map);
+          };
+          map.once("load", onLoad);
+        }
       } catch (e) {
         log.error("world map load failed", {
           message: e instanceof Error ? e.message : String(e),
