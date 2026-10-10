@@ -44,9 +44,20 @@ export async function POST(
 
   const result = await captureBatch(run.userAddress as Address, ids, chainKey);
   if (result.ok !== true) {
-    log.warn("sponsor mint failed", { runId: id, reason: result.reason });
+    const reason = result.reason || "";
+    
+    // If already claimed/used, mark to prevent infinite retry
+    if (reason.includes("already") || reason.includes("nonce") || reason.includes("used")) {
+      log.warn("sponsor mint already claimed, marking as processed", { runId: id, reason });
+      await db
+        .update(hexes)
+        .set({ mintTxHash: "0x00_ALREADY_CLAIMED" })
+        .where(eq(hexes.runId, id));
+    }
+    
+    log.warn("sponsor mint failed", { runId: id, reason });
     return NextResponse.json(
-      { error: "mint failed", reason: result.reason },
+      { error: "mint failed", reason },
       { status: 503 },
     );
   }
