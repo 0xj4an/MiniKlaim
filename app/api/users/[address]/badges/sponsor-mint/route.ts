@@ -4,15 +4,15 @@ import { createLogger } from "@/lib/logger";
 import { parseChainKey } from "@/lib/onchain/chains";
 import { computeEligibleBadgeIds } from "@/lib/onchain/badgeEligibility";
 import { mintBadgesBatch } from "@/lib/onchain/badges";
+import { badgeIdsHeldByPlayer } from "@/lib/onchain/playerHeldBadges";
 
 const log = createLogger("api:badges:sponsor-mint");
 
 export const dynamic = "force-dynamic";
 
 /**
- * Relayer-mint eligible badges when the player has no fee balance. The
- * contract skips badges they already hold. A declined signature does not
- * call this route.
+ * Relayer-mint eligible badges the player does not already hold on any
+ * linked wallet. A declined signature does not call this route.
  */
 export async function POST(
   request: Request,
@@ -25,7 +25,9 @@ export async function POST(
   }
 
   const chainKey = parseChainKey(new URL(request.url).searchParams.get("chain"));
-  const candidates = await computeEligibleBadgeIds(lower as Address);
+  const eligible = await computeEligibleBadgeIds(lower as Address);
+  const held = new Set(await badgeIdsHeldByPlayer(lower, chainKey));
+  const candidates = eligible.filter((id) => !held.has(Number(id)));
   if (candidates.length === 0) {
     return NextResponse.json({ minted: [] });
   }
