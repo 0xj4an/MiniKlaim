@@ -49,8 +49,6 @@ export const dictionaries = {
     "onboarding.step3.title": "🏆 Capture more territory",
     "onboarding.step3.body":
       "The more blocks you own, the higher you rank. Streaks count too.",
-    "onboarding.next": "Next",
-    "onboarding.start": "Got it",
     "common.loading": "Loading...",
     "common.home": "Home",
     "common.anonymous": "Anonymous",
