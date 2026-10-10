@@ -147,10 +147,20 @@ export function RunSummaryModal({
     >
       <div
         data-claim-sheet="finish"
-        className="flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-t-3xl bg-white px-5 pt-5 shadow-2xl sm:rounded-3xl"
+        className="relative flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-t-3xl bg-white px-5 pt-5 shadow-2xl sm:rounded-3xl"
         style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
         onClick={(e) => e.stopPropagation()}
       >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"
+          aria-label="Close"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
         <p className="text-center text-xs font-semibold tracking-wide text-zinc-500 uppercase">
           {t("run.summary.header")}
         </p>
