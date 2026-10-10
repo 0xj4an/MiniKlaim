@@ -341,10 +341,11 @@ export default function RunPage() {
       try {
         const res = await fetch(url);
         if (!res.ok) {
-          if (res.status === 429) hexRefreshPauseUntil.current = Date.now() + 20_000;
+          const backoff = res.status === 429 || res.status === 504;
+          if (backoff) hexRefreshPauseUntil.current = Date.now() + 20_000;
           log.warn("claimed hexes refresh failed", {
             status: res.status,
-            pace: "claim-refresh-4s",
+            pace: backoff ? "claim-refresh-504-20s" : "claim-refresh-4s",
           });
           track("hexes_refresh_error", { status: res.status });
           return null;
