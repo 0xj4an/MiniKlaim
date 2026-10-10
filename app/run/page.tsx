@@ -30,11 +30,18 @@ import {
 } from "@/lib/map/claimedView";
 import { haversineMeters } from "@/lib/map/geo";
 import { liveGeoSource } from "@/lib/map/liveSource";
+import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
 import {
-  claimedHexesToFeatureCollection,
-  hexesAround,
-  interpolateHexIds,
-} from "@/lib/map/hex";
+  GPS_GAP_STALE_SECONDS,
+  addHexes,
+  applyHttp,
+  flushDelay,
+  hexesForSegment,
+  parseQueue,
+  queueStorageKey,
+  takeBatch,
+  type QueuedHex,
+} from "@/lib/runs/claimOutbox";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
@@ -78,13 +85,23 @@ function placeCamera(
   }
 }
 
-// If more than this many seconds pass between two GPS fixes while a run is
-// active, we treat the segment as untrustworthy (signal loss, backgrounded
-// app, phone locked, tunnel, elevator) and DO NOT interpolate hexes between
-// oldPos and newPos. Only the current hex gets claimed. A continuous run
-// with normal signal gets fixes every 1-3s on mobile; anything past ~10s is
-// almost always a gap where the runner wasn't walking in a straight line.
-const GPS_GAP_STALE_SECONDS = 10;
+function readClaimQueue(runId: string): QueuedHex[] {
+  try {
+    return parseQueue(localStorage.getItem(queueStorageKey(runId)));
+  } catch {
+    return [];
+  }
+}
+
+function writeClaimQueue(runId: string, items: QueuedHex[]) {
+  try {
+    const key = queueStorageKey(runId);
+    if (items.length === 0) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(items));
+  } catch {
+    // The in-memory queue still retries for this page view.
+  }
+}
 
 export default function RunPage() {
   const { address, isConnected, isWrongChain } = useWallet();
@@ -134,6 +151,16 @@ export default function RunPage() {
   // on the next claim, then reset to 0. Trailing residue at Finish is lost
   // (bounded by hex edge ~50m, acceptable for MVP).
   const pendingDistanceRef = useRef(0);
+  // Hexes crossed but not yet accepted by the server. A failed upload stays
+  // here and goes out with the next flush, instead of leaving a hole.
+  const claimQueueRef = useRef<QueuedHex[]>([]);
+  const claimFailuresRef = useRef(0);
+  const claimRetryMsRef = useRef(0);
+  const claimDrainingRef = useRef(false);
+  const claimFlushTimer = useRef<number | null>(null);
+  const claimFlushing = useRef(false);
+  const lastClaimFlushAt = useRef(0);
+  const flushClaimQueueRef = useRef<() => Promise<void>>(async () => {});
 
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("idle");
   const [geoLastError, setGeoLastError] = useState<string | null>(null);
@@ -228,6 +255,7 @@ export default function RunPage() {
       log.info("visibility returned, dropping stale GPS anchor");
       lastPosRef.current = null;
       lastPosTsRef.current = 0;
+      void flushClaimQueueRef.current();
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
@@ -392,10 +420,125 @@ export default function RunPage() {
   }, []);
 
   /**
-   * Batch-claim every hex crossed since the previous GPS fix. Splits the
-   * segment's total declared distance across the hexes so per-hex distances
-   * stay small and pass the server's DISTANCE_MAX_PER_CAPTURE guard even at
-   * high speeds. One HTTP round trip per GPS ping regardless of hex count.
+   * Upload every hex still waiting. One POST carries the whole queue so a
+   * fast run stays under the 30 writes/minute cap. A 429 or a dropped
+   * connection leaves the hexes queued.
+   */
+  const flushClaimQueue = useCallback(async () => {
+    if (claimFlushing.current) return;
+    const id = runIdRef.current;
+    if (!id || claimQueueRef.current.length === 0) return;
+    claimFlushing.current = true;
+    const { batch } = takeBatch(claimQueueRef.current);
+    const payload = {
+      hexes: batch.map((item) => ({
+        h3: item.h3,
+        ...(item.distanceMeters > 0 ? { distanceMeters: item.distanceMeters } : {}),
+        ...(typeof item.accuracy === "number" ? { accuracy: item.accuracy } : {}),
+      })),
+    };
+    let outcome: Parameters<typeof applyHttp>[2];
+    try {
+      const res = await fetch(`/api/runs/${id}/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.status === 409) outcome = { kind: "ended" };
+      else if (res.status === 429) {
+        const body = (await res.json().catch(() => ({}))) as { retryAfter?: number };
+        const wait = Number(body.retryAfter);
+        outcome = {
+          kind: "rate",
+          retryAfterMs: (Number.isFinite(wait) && wait > 0 ? wait : 2) * 1000,
+        };
+        log.warn("batch claim rate limited", {
+          count: batch.length,
+          retryMs: outcome.retryAfterMs,
+        });
+        track("batch_claim_error", { status: 429, count: batch.length });
+      } else if (!res.ok) {
+        outcome = { kind: "retry" };
+        log.warn("batch claim failed", { status: res.status, count: batch.length });
+        track("batch_claim_error", { status: res.status, count: batch.length });
+      } else {
+        const data = (await res.json()) as {
+          results: Array<{
+            h3: string;
+            alreadyOwned?: boolean;
+            rejected?: { reason: string; detail?: string };
+          }>;
+        };
+        outcome = { kind: "ok", results: data.results ?? [] };
+      }
+    } catch (e) {
+      outcome = { kind: "retry" };
+      log.error("batch claim error", {
+        count: batch.length,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      track("batch_claim_network_error", {
+        count: batch.length,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+    const applied = applyHttp(
+      claimQueueRef.current,
+      batch.map((item) => item.h3),
+      outcome,
+      claimFailuresRef.current,
+    );
+    claimQueueRef.current = applied.items;
+    claimFailuresRef.current = applied.failures;
+    claimRetryMsRef.current = applied.retryMs ?? 0;
+    writeClaimQueue(id, applied.items);
+    claimFlushing.current = false;
+    if (outcome.kind === "ok" && applied.newly > 0) {
+      setHexCount((c) => c + applied.newly);
+      await refreshClaimed();
+      log.info("batch hexes claimed", { submitted: batch.length, newly: applied.newly });
+    }
+    if (
+      !claimDrainingRef.current &&
+      applied.retryMs !== null &&
+      applied.items.length > 0 &&
+      runIdRef.current &&
+      claimFlushTimer.current === null
+    ) {
+      claimFlushTimer.current = window.setTimeout(() => {
+        claimFlushTimer.current = null;
+        lastClaimFlushAt.current = Date.now();
+        void flushClaimQueueRef.current();
+      }, applied.retryMs);
+    }
+  }, [refreshClaimed]);
+
+  useEffect(() => {
+    flushClaimQueueRef.current = flushClaimQueue;
+  }, [flushClaimQueue]);
+
+  // A reload mid-run keeps unsent hexes in localStorage. MiniPay "clear
+  // data" wipes that too; the retry during the run is what closes the holes.
+  useEffect(() => {
+    if (!runId) return;
+    claimQueueRef.current = addHexes(claimQueueRef.current, readClaimQueue(runId));
+    if (claimQueueRef.current.length > 0) void flushClaimQueueRef.current();
+  }, [runId]);
+
+  useEffect(() => {
+    const onOnline = () => {
+      if (!runIdRef.current || claimQueueRef.current.length === 0) return;
+      void flushClaimQueueRef.current();
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, []);
+
+  /**
+   * Remember hexes crossed since the previous fix and upload them in one
+   * batch. The distance is split across the hexes so each stays under the
+   * server cap. Returns once the queue has been handed to a flush, not once
+   * every later retry has landed.
    */
   const claimHexes = useCallback(
     async (h3Ids: string[], totalDistance: number, accuracy?: number) => {
@@ -403,68 +546,60 @@ export default function RunPage() {
       if (!id || h3Ids.length === 0) return;
       const perHexDistance =
         totalDistance > 0 ? Math.round(totalDistance / h3Ids.length) : 0;
-      const payload = {
-        hexes: h3Ids.map((h3) => ({
+      const accuracyOk =
+        typeof accuracy === "number" && Number.isFinite(accuracy)
+          ? accuracy
+          : undefined;
+      claimQueueRef.current = addHexes(
+        claimQueueRef.current,
+        h3Ids.map((h3) => ({
           h3,
-          ...(perHexDistance > 0 ? { distanceMeters: perHexDistance } : {}),
-          ...(typeof accuracy === "number" && Number.isFinite(accuracy)
-            ? { accuracy }
-            : {}),
+          distanceMeters: perHexDistance,
+          ...(accuracyOk !== undefined ? { accuracy: accuracyOk } : {}),
         })),
-      };
-      try {
-        const res = await fetch(`/api/runs/${id}/claim`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
-          log.warn("batch claim failed", {
-            status: res.status,
-            count: h3Ids.length,
-          });
-          track("batch_claim_error", {
-            status: res.status,
-            count: h3Ids.length,
-          });
-          return;
-        }
-        const data = (await res.json()) as {
-          ok: boolean;
-          results: Array<{
-            h3: string;
-            alreadyOwned?: boolean;
-            rejected?: { reason: string; detail?: string };
-          }>;
-        };
-        const newly = data.results.filter(
-          (r) => !r.rejected && r.alreadyOwned === false,
-        ).length;
-        if (newly > 0) {
-          setHexCount((c) => c + newly);
-          await refreshClaimed();
-          log.info("batch hexes claimed", {
-            submitted: h3Ids.length,
-            newly,
-          });
-        }
-        const rejected = data.results.filter((r) => r.rejected).length;
-        if (rejected > 0) {
-          log.warn("batch hexes rejected", { rejected });
-        }
-      } catch (e) {
-        log.error("batch claim error", {
-          count: h3Ids.length,
-          message: e instanceof Error ? e.message : String(e),
-        });
-        track("batch_claim_network_error", {
-          count: h3Ids.length,
-          error: e instanceof Error ? e.message : String(e),
-        });
+      );
+      writeClaimQueue(id, claimQueueRef.current);
+      if (claimFlushing.current || claimFlushTimer.current !== null) return;
+      const delay = flushDelay(lastClaimFlushAt.current, Date.now());
+      if (delay === 0) {
+        lastClaimFlushAt.current = Date.now();
+        await flushClaimQueue();
+        return;
       }
+      claimFlushTimer.current = window.setTimeout(() => {
+        claimFlushTimer.current = null;
+        lastClaimFlushAt.current = Date.now();
+        void flushClaimQueueRef.current();
+      }, delay);
     },
-    [refreshClaimed],
+    [flushClaimQueue],
   );
+
+  const drainClaimQueue = useCallback(async () => {
+    if (claimFlushTimer.current !== null) {
+      window.clearTimeout(claimFlushTimer.current);
+      claimFlushTimer.current = null;
+    }
+    claimDrainingRef.current = true;
+    const deadline = Date.now() + 20000;
+    try {
+      while (Date.now() < deadline) {
+        if (!claimFlushing.current) await flushClaimQueue();
+        if (claimQueueRef.current.length === 0 && !claimFlushing.current) return;
+        const wait = Math.max(400, claimRetryMsRef.current);
+        const left = deadline - Date.now();
+        if (left <= 0) break;
+        await new Promise((resolve) => window.setTimeout(resolve, Math.min(wait, left)));
+      }
+    } finally {
+      claimDrainingRef.current = false;
+    }
+    if (claimQueueRef.current.length > 0) {
+      log.warn("claim queue still pending at finish", {
+        count: claimQueueRef.current.length,
+      });
+    }
+  }, [flushClaimQueue]);
 
   const startRun = useCallback(async () => {
     const addr = addressRef.current;
@@ -519,6 +654,7 @@ export default function RunPage() {
     if (!id) return;
     setIsBusy(true);
     try {
+      await drainClaimQueue();
       const res = await fetch(`/api/runs/${id}/finish`, { method: "PATCH" });
       if (!res.ok) {
         log.error("finish run failed", { status: res.status });
@@ -573,7 +709,7 @@ export default function RunPage() {
     } finally {
       setIsBusy(false);
     }
-  }, [refreshClaimed]);
+  }, [drainClaimQueue, refreshClaimed]);
 
   // Kick the geolocation request as early as possible after mount. Putting it
   // inside the map.on("load", ...) callback further down loses the iOS user-
@@ -905,29 +1041,15 @@ export default function RunPage() {
             if (runIdRef.current) {
               const delta = pendingDistanceRef.current;
               pendingDistanceRef.current = 0;
-              // Interpolate the straight line since the previous GPS fix so
-              // every hex physically crossed between pings gets captured, not
-              // just the current one. Any mode of movement is fine (walk,
-              // run, bike, car, plane). The server enforces only accuracy
-              // and a distance-per-capture sanity cap.
-              //
-              // BUT: skip interpolation if the gap since the last fix is too
-              // long. During a real gap (signal loss, backgrounded app,
-              // phone locked) the runner could be anywhere; a straight line
-              // from oldPos to newPos hallucinates hexes they never crossed.
-              // Fall back to endpoint-only capture in that case.
-              const interpolated =
-                previousPos && !staleGap
-                  ? interpolateHexIds(
-                      previousPos.lat,
-                      previousPos.lng,
-                      latitude,
-                      longitude,
-                      HEX_RESOLUTION,
-                    )
-                  : [currentHex];
-              const claimList =
-                interpolated.length > 0 ? interpolated : [currentHex];
+              // Fresh fixes keep the cells between pings. A stale gap stores
+              // only the hex under this fix. The missing time is not filled
+              // with a straight line.
+              const claimList = hexesForSegment(
+                previousPos && !staleGap ? previousPos : null,
+                { lat: latitude, lng: longitude },
+                staleGap ? GPS_GAP_STALE_SECONDS + 1 : gapSeconds,
+                HEX_RESOLUTION,
+              );
               void claimHexes(claimList, delta, accuracy);
               if (!alive) return;
               try {
