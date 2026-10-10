@@ -383,7 +383,7 @@ export const dictionaries = {
     "onboarding.finish.body": "Tap Finish when done. Your blocks and badges will be claimed to your wallet automatically.",
     "onboarding.skip": "Skip",
     "onboarding.next": "Next",
-    "onboarding.done": "Got it!",
+    "onboarding.gotit": "Got it!",
   },
   es: {
     "home.tagline": "Captura la ciudad. Las cuadras que cruzas son tuyas.",
@@ -757,6 +757,17 @@ export const dictionaries = {
     "dashboard.mini.holders": "Poseedores",
     "dashboard.contract.hexes": "Hexes",
     "dashboard.contract.badges": "Insignias",
+    "onboarding.gps.title": "Activa el GPS",
+    "onboarding.gps.body": "Otorga permiso de ubicación para comenzar a capturar territorio. Rastreamos tu posición para reclamar cuadras.",
+    "onboarding.start.title": "Empieza a Correr",
+    "onboarding.start.body": "Toca el botón Start cuando estés listo. Camina o corre por tu ciudad para capturar hexágonos.",
+    "onboarding.capture.title": "Captura Territorio",
+    "onboarding.capture.body": "Mientras te mueves, los hexágonos se vuelven azules. ¡Cada hex que cruzas es tuyo on-chain!",
+    "onboarding.finish.title": "Termina y Reclama",
+    "onboarding.finish.body": "Toca Finish cuando termines. Tus cuadras y badges se reclamarán automáticamente a tu wallet.",
+    "onboarding.skip": "Saltar",
+    "onboarding.next": "Siguiente",
+    "onboarding.gotit": "¡Entendido!",
   },
 } as const;
 
