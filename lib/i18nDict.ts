@@ -49,6 +49,8 @@ export const dictionaries = {
     "onboarding.step3.title": "🏆 Capture more territory",
     "onboarding.step3.body":
       "The more blocks you own, the higher you rank. Streaks count too.",
+    "onboarding.next.old": "Next",
+    "onboarding.start.old": "Got it",
     "common.loading": "Loading...",
     "common.home": "Home",
     "common.anonymous": "Anonymous",
@@ -429,6 +431,8 @@ export const dictionaries = {
     "onboarding.step3.title": "🏆 Captura más territorio",
     "onboarding.step3.body":
       "Mientras más cuadras tengas, más subes. Las rachas también cuentan.",
+    "onboarding.next.old": "Siguiente",
+    "onboarding.start.old": "Listo",
     "common.loading": "Cargando...",
     "common.anonymous": "Anónimo",
     "common.home": "Inicio",

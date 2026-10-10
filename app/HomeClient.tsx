@@ -186,7 +186,7 @@ function OnboardingModal({ onClose }: { onClose: () => void }) {
           onClick={() => closeWith("cta")}
           className="mt-2 rounded-full bg-orange-700 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-800"
         >
-          {t("onboarding.start")}
+          {t("onboarding.start.old")}
         </button>
       </div>
     </div>
