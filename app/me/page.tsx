@@ -8,6 +8,7 @@ import en from "i18n-iso-countries/langs/en.json";
 import es from "i18n-iso-countries/langs/es.json";
 import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
+import { moveMode, moveModeLabelKey } from "@/lib/runs/moveMode";
 
 countries.registerLocale(en);
 countries.registerLocale(es);
@@ -516,6 +517,7 @@ function RunsList({
     endedAt: string | null;
     hexesClaimed: number;
     distanceMeters: number;
+    moveMode?: "foot" | "bike" | "car" | "plane" | null;
     topCity: string | null;
     topCountry: string | null;
   }>;
@@ -537,9 +539,14 @@ function RunsList({
           hour: "2-digit",
           minute: "2-digit",
         });
+        const durationSec = run.endedAt
+          ? (new Date(run.endedAt).getTime() - start.getTime()) / 1000
+          : 0;
         const duration = run.endedAt
-          ? formatDuration(new Date(run.endedAt).getTime() - start.getTime())
+          ? formatDuration(durationSec * 1000)
           : t("me.runs.running");
+        const mode = run.moveMode ?? moveMode(run.distanceMeters, durationSec);
+        const modeLabel = mode ? t(moveModeLabelKey(mode)) : null;
         const distLabel =
           run.distanceMeters >= 1000
             ? `${(run.distanceMeters / 1000).toFixed(2)}km`
@@ -557,9 +564,12 @@ function RunsList({
           >
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="text-zinc-600">{dateLabel}</span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5">
                 <span className="font-mono text-zinc-500">{duration}</span>
                 <span className="font-mono text-zinc-500">{distLabel}</span>
+                {modeLabel && (
+                  <span className="text-zinc-500">{modeLabel}</span>
+                )}
                 <span className="font-mono font-semibold text-zinc-900">
                   {run.hexesClaimed}{" "}
                   {run.hexesClaimed === 1 ? t("me.runs.block") : t("me.runs.blocks")}

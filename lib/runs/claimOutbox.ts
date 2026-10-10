@@ -34,6 +34,17 @@ export type ClaimOutcome =
   | { kind: "ended" }
   | { kind: "retry" };
 
+/** Drop hexes this player already owns. The caller keeps their distance. */
+export function withoutOwned(ids: string[], owned: ReadonlySet<string>): string[] {
+  if (owned.size === 0) return ids;
+  const out: string[] = [];
+  for (const id of ids) {
+    if (!id || owned.has(id)) continue;
+    out.push(id);
+  }
+  return out;
+}
+
 export function addHexes(items: QueuedHex[], incoming: QueuedHex[]): QueuedHex[] {
   if (incoming.length === 0) return items;
   const seen = new Set(items.map((item) => item.h3));

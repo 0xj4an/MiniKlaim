@@ -16,9 +16,18 @@ export const ACCURACY_MAX_METERS = 30;
 
 /** Segment sanity cap (meters). A single hex claim declaring more than this
  *  as its distance-since-last is almost certainly a GPS glitch or client bug.
- *  A commercial plane at 900 km/h moves 750m per 3-sec GPS ping — this cap
+ *  A commercial plane at 900 km/h moves 750m per 3-sec GPS ping. This cap
  *  is way above that. Anything higher and we assume bad data. */
 export const DISTANCE_MAX_PER_CAPTURE = 10000;
+
+/** Distance walked over hexes the player already owns. It is sent once,
+ *  when the run ends, instead of being attached to a reclaim. */
+export const DISTANCE_MAX_LEFTOVER = DISTANCE_MAX_PER_CAPTURE * 20;
+
+export function leftoverDistance(raw: unknown): number {
+  if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) return 0;
+  return Math.min(DISTANCE_MAX_LEFTOVER, Math.round(raw));
+}
 
 export type ClaimValidationResult =
   | { ok: true }
