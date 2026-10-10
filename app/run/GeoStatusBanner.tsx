@@ -9,6 +9,7 @@ export type GeoStatus =
   | "requesting"
   | "granted"
   | "denied"
+  | "timeout"
   | "unavailable";
 
 /**
@@ -34,7 +35,12 @@ export function GeoStatusBanner({
 
   const ask =
     status === "idle" || status === "requesting" || status === "denied";
-  const message = ask ? t("run.gps.denied") : t("run.gps.unavailable");
+  const message =
+    status === "timeout"
+      ? t("run.gps.timeout")
+      : ask
+        ? t("run.gps.denied")
+        : t("run.gps.unavailable");
   const tone = ask
     ? "border border-amber-300 bg-amber-50 p-4 text-sm font-medium leading-snug text-amber-950"
     : "border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900";
