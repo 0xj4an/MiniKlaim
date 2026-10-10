@@ -4,8 +4,8 @@ import type { Address } from "viem";
 import { db } from "@/lib/db";
 import { hexes, runs } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
-import { onchainBadgeIdsHeld } from "@/lib/onchain/badges";
 import { computeEligibleBadgeIds } from "@/lib/onchain/badgeEligibility";
+import { badgeIdsHeldByPlayer } from "@/lib/onchain/playerHeldBadges";
 import { parseChainKey } from "@/lib/onchain/chains";
 import { signClaimAllVoucher } from "@/lib/onchain/claimAllVoucher";
 
@@ -51,11 +51,11 @@ export async function POST(
     .where(eq(hexes.runId, id));
   const h3Ids = hexRows.map((r) => r.h3Id);
 
-  // Only badges this wallet does not already hold. `mintBatch` would skip the
-  // rest anyway, but leaving them out keeps the tx cheap and the voucher's
-  // (run, badge set) nonce meaningful.
+  // Subtract badges held on any linked wallet, not only this address.
+  // mintBatch only skips the address in the tx, so a badge already on the
+  // player's other wallet would be offered again here.
   const eligible = await computeEligibleBadgeIds(player);
-  const held = new Set(await onchainBadgeIdsHeld(player, chainKey));
+  const held = new Set(await badgeIdsHeldByPlayer(player, chainKey));
   const badgeIds = eligible.filter((b) => !held.has(Number(b)));
 
   if (h3Ids.length === 0 && badgeIds.length === 0) {
