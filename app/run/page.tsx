@@ -163,6 +163,7 @@ export default function RunPage() {
   const claimFlushTimer = useRef<number | null>(null);
   const claimFlushing = useRef(false);
   const lastClaimFlushAt = useRef(0);
+  const hexRefreshPauseUntil = useRef(0);
   const flushClaimQueueRef = useRef<() => Promise<void>>(async () => {});
 
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("idle");
@@ -339,7 +340,11 @@ export default function RunPage() {
       try {
         const res = await fetch(url);
         if (!res.ok) {
-          log.warn("claimed hexes refresh failed", { status: res.status });
+          if (res.status === 429) hexRefreshPauseUntil.current = Date.now() + 20_000;
+          log.warn("claimed hexes refresh failed", {
+            status: res.status,
+            pace: "claim-refresh-4s",
+          });
           track("hexes_refresh_error", { status: res.status });
           return null;
         }
@@ -886,6 +891,8 @@ export default function RunPage() {
 
       void refreshClaimed();
       map.on("moveend", () => {
+        if (Date.now() < hexRefreshPauseUntil.current) return;
+        hexRefreshPauseUntil.current = Date.now() + 4_000;
         void refreshClaimed("move");
       });
 
