@@ -5,6 +5,8 @@ import { hexes, runs, users } from "@/lib/db/schema";
 import { cityForHex } from "@/lib/geo/city";
 import { countryForHex } from "@/lib/geo/country";
 import { createLogger } from "@/lib/logger";
+import { hexClaimAction } from "@/lib/runs/claimDecision";
+import { addressesForPlayer } from "@/lib/players";
 import { validateClaim } from "@/lib/runs/validation";
 
 const log = createLogger("api:runs:claim");
@@ -13,8 +15,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Claim one or more hexes for a run. Accepts two body shapes:
- *   - Legacy: { h3, distanceMeters?, accuracy? } — one hex per request.
- *   - Batch:  { hexes: [{ h3, distanceMeters?, accuracy? }, ...] } — one round
+ *   - Legacy: { h3, distanceMeters?, accuracy? }, one hex per request.
+ *   - Batch:  { hexes: [{ h3, distanceMeters?, accuracy? }, ...] }, one round
  *     trip per GPS ping, no matter how many hexes the player crossed in that
  *     interval (matters at car / bike / plane speed where a single ping may
  *     span 5-40 hexes).
@@ -77,6 +79,9 @@ export async function POST(
           .where(inArray(hexes.h3Id, h3Ids))
       : [];
   const existingByH3 = new Map(existingRows.map((r) => [r.h3Id, r]));
+  const playerAddresses = new Set(
+    (await addressesForPlayer(run.userAddress)).map((address) => address.toLowerCase()),
+  );
 
   const results: Array<{
     h3: string;
@@ -115,12 +120,12 @@ export async function POST(
     }
 
     const existing = existingByH3.get(h3);
-    const alreadyOwnedThisRun =
-      existing &&
-      existing.ownerAddress === run.userAddress &&
-      existing.runId === id;
+    const action = hexClaimAction(existing, playerAddresses);
 
-    if (alreadyOwnedThisRun) {
+    // Already this player's hex, on this run or an older one, on this
+    // wallet or a linked one. Keep the row. Do not clear the mint and do
+    // not count it again. Distance still counts.
+    if (action === "own") {
       distanceDelta += distanceMeters;
       results.push({ h3, alreadyOwned: true });
       continue;
@@ -162,9 +167,7 @@ export async function POST(
 
     newlyCaptured += 1;
     distanceDelta += distanceMeters;
-    if (existing && existing.ownerAddress !== run.userAddress) {
-      conquestDelta += 1;
-    }
+    if (action === "take") conquestDelta += 1;
     results.push({ h3, alreadyOwned: false });
   }
 

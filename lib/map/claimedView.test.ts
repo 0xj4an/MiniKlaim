@@ -7,6 +7,7 @@ import {
   hexesInBounds,
   mergeHexes,
   placeHexes,
+  rememberOwners,
   viewportNeedsWorld,
 } from "./claimedView";
 
@@ -57,5 +58,20 @@ describe("claimed view", () => {
     expect(diskCoversView(MDE_LAT, MDE_LNG, 900, MDE_LAT, MDE_LNG, 2000)).toBe(
       false,
     );
+  });
+
+  test("a painted hex of someone else is no longer treated as ours", () => {
+    const owned = new Set(["mine", "stolen"]);
+    const me = new Set(["0xme"]);
+    rememberOwners(
+      owned,
+      [
+        { h3: "mine", owner: "0xME", ownerUsername: null },
+        { h3: "stolen", owner: "0xother", ownerUsername: null },
+        { h3: "theirs", owner: "0xother", ownerUsername: null },
+      ],
+      me,
+    );
+    expect(Array.from(owned).sort()).toEqual(["mine"]);
   });
 });
