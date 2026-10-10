@@ -10,6 +10,7 @@ import {
   hexesForSegment,
   parseQueue,
   takeBatch,
+  withoutOwned,
   type ClaimOutcome,
   type QueuedHex,
 } from "./claimOutbox";
@@ -235,5 +236,12 @@ describe("upload simulation", () => {
     expect(result.left).toEqual([]);
     expect(seen).toEqual(ids);
     expect(result.posts).toBe(2);
+  });
+});
+
+describe("withoutOwned", () => {
+  test("keeps a hex the player does not own and drops their own", () => {
+    expect(withoutOwned(["a", "b", "c"], new Set(["b"]))).toEqual(["a", "c"]);
+    expect(withoutOwned(["a", "b"], new Set())).toEqual(["a", "b"]);
   });
 });
