@@ -691,8 +691,8 @@ export default function RunPage() {
         type: "fill",
         source: "hexes",
         paint: {
-          "fill-color": "#FF6B35",
-          "fill-opacity": ["case", ["get", "isCurrent"], 0.35, 0.05],
+          "fill-color": "#3B82F6", // Azul brillante más visible
+          "fill-opacity": ["case", ["get", "isCurrent"], 0.5, 0.25], // Opacity aumentada 5x
         },
       });
       map.addLayer({
