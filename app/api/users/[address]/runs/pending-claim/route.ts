@@ -34,7 +34,9 @@ export async function GET(
       AND r.hexes_claimed > 0
       AND EXISTS (
         SELECT 1 FROM hexes h
-        WHERE h.run_id = r.id AND h.mint_tx_hash IS NULL
+        WHERE h.run_id = r.id 
+          AND h.mint_tx_hash IS NULL
+          AND h.mint_tx_hash NOT LIKE '0x00_%'
       )
     ORDER BY r.ended_at DESC
     LIMIT 20

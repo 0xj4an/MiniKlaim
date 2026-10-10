@@ -700,9 +700,9 @@ export default function RunPage() {
         type: "line",
         source: "hexes",
         paint: {
-          "line-color": "#FF6B35",
-          "line-width": ["case", ["get", "isCurrent"], 2, 1],
-          "line-opacity": ["case", ["get", "isCurrent"], 0.9, 0.5],
+          "line-color": "#3B82F6", // Azul brillante para bordes también
+          "line-width": ["case", ["get", "isCurrent"], 2.5, 1.5],
+          "line-opacity": ["case", ["get", "isCurrent"], 1.0, 0.7],
         },
       });
 
