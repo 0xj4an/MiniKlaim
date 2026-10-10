@@ -27,14 +27,25 @@ export function PendingClaimPrompt({
   const { pending, refresh } = usePendingClaim(address, enabled);
   const { claim } = useClaimRun(address, enabled);
   const [state, setState] = useState<"idle" | "pending" | "error">("idle");
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    // Load dismissed runs from localStorage
+    if (typeof window === "undefined") return new Set();
+    try {
+      const stored = localStorage.getItem("dismissed_pending_claims");
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
 
   // Checked at render time, not when the list is fetched: a run whose claim
   // is already in flight must not be offered again, and the run page
   // re-renders the moment that claim settles (so a failed claim comes back).
-  const next = pending.find(
-    (r) => !dismissed.has(r.id) && !isRunClaiming(r.id),
-  );
+  const next = pending.find((r) => {
+    if (dismissed.has(r.id)) return false;
+    if (isRunClaiming(r.id)) return false;
+    return true;
+  });
   if (!next || !enabled || !address) return null;
 
   const distLabel =
@@ -52,7 +63,11 @@ export function PendingClaimPrompt({
         return;
       }
       if (outcome === "no-hexes") {
-        setDismissed((s) => new Set(s).add(next.id));
+        setDismissed((s) => {
+          const updated = new Set(s).add(next.id);
+          localStorage.setItem("dismissed_pending_claims", JSON.stringify([...updated]));
+          return updated;
+        });
       }
       refresh();
       setState("idle");
@@ -96,11 +111,24 @@ export function PendingClaimPrompt({
             {t("pendingClaim.error")}
           </p>
         )}
-        <div className="mt-5">
+        <div className="mt-5 flex gap-2">
+          <button
+            onClick={() => {
+              setDismissed((s) => {
+                const updated = new Set(s).add(next.id);
+                localStorage.setItem("dismissed_pending_claims", JSON.stringify([...updated]));
+                return updated;
+              });
+              log.info("user dismissed pending claim", { runId: next.id });
+            }}
+            className="flex-1 rounded-full bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-200"
+          >
+            {t("pendingClaim.later")}
+          </button>
           <button
             onClick={runClaim}
             disabled={state === "pending"}
-            className="min-h-11 w-full rounded-full bg-orange-600 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
+            className="flex-1 rounded-full bg-orange-600 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
           >
             {state === "pending"
               ? t("pendingClaim.pending")
