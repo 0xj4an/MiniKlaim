@@ -36,6 +36,10 @@ export function RunControls({
         className="absolute right-4 left-4 z-20 flex justify-center"
         style={{ bottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
       >
+        <div className="flex w-full max-w-sm flex-col items-center gap-2">
+        <p className="rounded-full bg-black/75 px-3 py-1.5 text-center text-xs leading-snug text-white">
+          {t("run.start.hint")}
+        </p>
         <button
           onClick={onStart}
           disabled={!canStart || !locationReady || isBusy}
@@ -48,6 +52,7 @@ export function RunControls({
               ? t("run.start.starting")
               : t("run.start.button")}
         </button>
+        </div>
       </div>
     );
   }
