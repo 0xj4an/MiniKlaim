@@ -676,9 +676,9 @@ export default function RunPage() {
         type: "line",
         source: "claimed-hexes",
         paint: {
-          "line-color": ["case", ["get", "isMine"], "#10B981", "#2563EB"],
-          "line-width": 1.5,
-          "line-opacity": 0.9,
+          "line-color": ["case", ["get", "isMine"], "#10B981", "#F97316"], // Verde vs Naranja
+          "line-width": 2, // Más grueso
+          "line-opacity": ["case", ["get", "isMine"], 0.8, 0.7], // Más visible
         },
       });
 

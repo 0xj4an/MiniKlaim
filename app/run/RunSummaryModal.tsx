@@ -409,9 +409,17 @@ async function shareClaim(
     return;
   }
 
-  const intent =
-    channel === "x"
-      ? `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`
-      : `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
-  window.open(intent, "_blank", "noopener,noreferrer");
+  if (channel === "x") {
+    const nativeUrl = `twitter://post?message=${encodeURIComponent(caption)}`;
+    const webUrl = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+    
+    window.location.href = nativeUrl;
+    
+    window.setTimeout(() => {
+      window.open(webUrl, "_blank", "noopener,noreferrer");
+    }, 1500);
+  } else {
+    const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
+    window.open(fbUrl, "_blank", "noopener,noreferrer");
+  }
 }
