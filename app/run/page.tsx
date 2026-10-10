@@ -44,6 +44,7 @@ import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { GeoStatusBanner, type GeoStatus } from "./GeoStatusBanner";
 import { NeedNameOverlay } from "./NeedNameOverlay";
+import { OnboardingTooltip } from "./OnboardingTooltip";
 import { readCachedPosition, writeCachedPosition } from "./positionCache";
 import { RunControls } from "./RunControls";
 import { RunSummaryModal } from "./RunSummaryModal";
@@ -1087,6 +1088,9 @@ export default function RunPage() {
       )}
       {mounted && isConnected && !isWrongChain && user && !user.username && (
         <NeedNameOverlay />
+      )}
+      {mounted && isConnected && !isWrongChain && user && !runId && (
+        <OnboardingTooltip />
       )}
       <BadgeClaimPrompt
         address={address ?? null}
