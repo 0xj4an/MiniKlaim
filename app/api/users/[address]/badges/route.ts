@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
 import { computeEligibleBadgeIds } from "@/lib/onchain/badgeEligibility";
+import { badgesContractAddress } from "@/lib/onchain/badges";
 import { parseChainKey } from "@/lib/onchain/chains";
-import {
-  badgesContractAddress,
-  onchainBadgeIdsHeld,
-} from "@/lib/onchain/badges";
-import { addressesForPlayer } from "@/lib/players";
+import { badgeIdsHeldByPlayer } from "@/lib/onchain/playerHeldBadges";
 
 export const dynamic = "force-dynamic";
 
@@ -27,28 +24,15 @@ export async function GET(
     return NextResponse.json({ contract: null, heldIds: [] });
   }
 
-  // Union the on-chain held badges across every linked wallet (same chain).
-  // Addresses that never held anything on this chain harmlessly return an
-  // empty set. Per-chain aggregation avoids double-mint issues when the
-  // same badge is claimable on multiple chains.
-  const linked = await addressesForPlayer(lower);
-  const perAddress = await Promise.all(
-    linked.map((a) => onchainBadgeIdsHeld(a as Address, chainKey)),
-  );
-  const heldIds = Array.from(new Set(perAddress.flat())).sort(
-    (a, b) => a - b,
-  );
+  // Union across linked wallets. The finish card used to subtract only the
+  // connected address, so badges already held on another wallet came back
+  // as claimable after MiniPay cleared its cache.
+  const heldIds = await badgeIdsHeldByPlayer(lower, chainKey);
 
-  // Same set claimAll puts in the voucher: earned, not yet held by this
-  // address. Only the finish card asks for it. The profile read stays a
-  // chain read.
   let claimableIds: number[] | undefined;
   if (url.searchParams.get("claimable") === "1") {
-    const [eligible, playerHeld] = await Promise.all([
-      computeEligibleBadgeIds(lower as Address),
-      onchainBadgeIdsHeld(lower as Address, chainKey),
-    ]);
-    const heldSet = new Set(playerHeld);
+    const eligible = await computeEligibleBadgeIds(lower as Address);
+    const heldSet = new Set(heldIds);
     claimableIds = eligible
       .map((id) => Number(id))
       .filter((id) => !heldSet.has(id));
