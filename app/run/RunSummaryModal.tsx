@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { track } from "@/lib/analytics";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
@@ -8,6 +9,8 @@ import { formatSpeed } from "@/lib/map/geo";
 import { badgeCopy } from "@/lib/onchain/badgeArt";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { isBadgeClaimPending } from "@/lib/wallet/claimInFlight";
+
+const Confetti = dynamic(() => import("react-confetti"), { ssr: false });
 
 const log = createLogger("ui:runSummary");
 
@@ -42,6 +45,7 @@ export function RunSummaryModal({
   );
   const [badgeIds, setBadgeIds] = useState<number[] | null>(null);
   const [shareNote, setShareNote] = useState<string | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
   const totalSec = Math.max(0, Math.floor(summary.durationMs / 1000));
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
@@ -112,7 +116,13 @@ export function RunSummaryModal({
     setPhase("pending");
     try {
       const ok = await onClaim();
-      setPhase(ok ? "done" : "error");
+      if (ok) {
+        setPhase("done");
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 5000);
+      } else {
+        setPhase("error");
+      }
     } catch {
       setPhase("error");
     }
@@ -139,12 +149,22 @@ export function RunSummaryModal({
           : t("run.summary.claim");
 
   return (
-    <div
-      className="absolute inset-0 z-20 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
-      onClick={
-        phase === "done" || (previewReady && !canClaim) ? onClose : undefined
-      }
-    >
+    <>
+      {showConfetti && (
+        <Confetti
+          width={typeof window !== "undefined" ? window.innerWidth : 300}
+          height={typeof window !== "undefined" ? window.innerHeight : 600}
+          recycle={false}
+          numberOfPieces={200}
+          gravity={0.3}
+        />
+      )}
+      <div
+        className="absolute inset-0 z-20 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
+        onClick={
+          phase === "done" || (previewReady && !canClaim) ? onClose : undefined
+        }
+      >
       <div
         data-claim-sheet="finish"
         className="relative flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-t-3xl bg-white px-5 pt-5 shadow-2xl sm:rounded-3xl"
@@ -307,6 +327,7 @@ export function RunSummaryModal({
         ) : null}
       </div>
     </div>
+    </>
   );
 }
 

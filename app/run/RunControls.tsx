@@ -40,6 +40,7 @@ export function RunControls({
           onClick={onStart}
           disabled={!canStart || !locationReady || isBusy}
           className="rounded-full bg-orange-700 px-6 py-3 text-base font-semibold text-white shadow-lg hover:bg-orange-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
+          aria-label={!canStart ? t("run.start.signIn") : t("run.start.button")}
         >
           {!canStart
             ? t("run.start.signIn")
@@ -64,6 +65,7 @@ export function RunControls({
         onClick={onFinish}
         disabled={isBusy}
         className="rounded-full bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-lg hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
+        aria-label={t("run.finish.button")}
       >
         {isBusy ? t("run.finish.finishing") : t("run.finish.button")}
       </button>

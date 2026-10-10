@@ -72,7 +72,7 @@ export default function StatsPage() {
 
   return (
     <main className="min-h-screen bg-zinc-50">
-      <div className="mx-auto flex max-w-4xl flex-col gap-4 px-3 py-4 pb-24 sm:px-6">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-3 py-4 pb-24 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <Link
