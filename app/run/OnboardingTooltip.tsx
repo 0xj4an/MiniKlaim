@@ -92,7 +92,7 @@ export function OnboardingTooltip() {
             onClick={handleNext}
             className="flex-1 rounded-lg bg-orange-700 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-800"
           >
-            {currentStep === "finish" ? t("onboarding.done") : t("onboarding.next")}
+            {currentStep === "finish" ? t("onboarding.gotit") : t("onboarding.next")}
           </button>
         </div>
       </div>
