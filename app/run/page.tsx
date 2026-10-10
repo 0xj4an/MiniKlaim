@@ -24,6 +24,7 @@ import {
   mergeHexes,
   placeHexes,
   viewportNeedsWorld,
+  rememberOwners,
   type ClaimedHexRow,
   type LngLatBounds,
   type PlacedHex,
@@ -37,6 +38,7 @@ import {
   applyHttp,
   flushDelay,
   hexesForSegment,
+  withoutOwned,
   parseQueue,
   queueStorageKey,
   takeBatch,
@@ -113,6 +115,7 @@ export default function RunPage() {
   const { claim } = useClaimAll(address, isConnected && !isWrongChain);
   const linked = useLinkedAddresses(address, isConnected && !isWrongChain);
   const linkedRef = useRef<ReadonlySet<string>>(new Set());
+  const mineH3Ref = useRef<Set<string>>(new Set());
   useEffect(() => {
     linkedRef.current = linked;
   }, [linked]);
@@ -327,6 +330,7 @@ export default function RunPage() {
 
     const stale = () => paintGen.current !== gen || mapRef.current !== map;
     const paint = (rows: ClaimedHexRow[]) => {
+      rememberOwners(mineH3Ref.current, rows, linkedRef.current);
       const source = liveGeoSource(map, "claimed-hexes");
       source?.setData(claimedHexesToFeatureCollection(rows, linkedRef.current));
       log.debug("claimed-view", { count: rows.length, reason, wide });
@@ -470,6 +474,9 @@ export default function RunPage() {
           }>;
         };
         outcome = { kind: "ok", results: data.results ?? [] };
+        for (const row of outcome.results) {
+          if (row.h3 && !row.rejected) mineH3Ref.current.add(row.h3);
+        }
       }
     } catch (e) {
       outcome = { kind: "retry" };
@@ -544,15 +551,20 @@ export default function RunPage() {
     async (h3Ids: string[], totalDistance: number, accuracy?: number) => {
       const id = runIdRef.current;
       if (!id || h3Ids.length === 0) return;
+      const fresh = withoutOwned(h3Ids, mineH3Ref.current);
+      if (fresh.length === 0) {
+        if (totalDistance > 0) pendingDistanceRef.current += totalDistance;
+        return;
+      }
       const perHexDistance =
-        totalDistance > 0 ? Math.round(totalDistance / h3Ids.length) : 0;
+        totalDistance > 0 ? Math.round(totalDistance / fresh.length) : 0;
       const accuracyOk =
         typeof accuracy === "number" && Number.isFinite(accuracy)
           ? accuracy
           : undefined;
       claimQueueRef.current = addHexes(
         claimQueueRef.current,
-        h3Ids.map((h3) => ({
+        fresh.map((h3) => ({
           h3,
           distanceMeters: perHexDistance,
           ...(accuracyOk !== undefined ? { accuracy: accuracyOk } : {}),
@@ -655,7 +667,12 @@ export default function RunPage() {
     setIsBusy(true);
     try {
       await drainClaimQueue();
-      const res = await fetch(`/api/runs/${id}/finish`, { method: "PATCH" });
+      const extra = Math.round(pendingDistanceRef.current);
+      const res = await fetch(`/api/runs/${id}/finish`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ distanceMeters: extra > 0 ? extra : 0 }),
+      });
       if (!res.ok) {
         log.error("finish run failed", { status: res.status });
         return;

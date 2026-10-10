@@ -48,6 +48,20 @@ export function diskCoversView(
   return moved + viewRadiusM <= loadedRadiusM;
 }
 
+/** Remember which painted hexes belong to this player, and forget a hex
+ *  whose owner is now someone else. */
+export function rememberOwners(
+  owned: Set<string>,
+  rows: ClaimedHexRow[],
+  playerAddresses: ReadonlySet<string>,
+): void {
+  for (const row of rows) {
+    if (!row.h3 || !row.owner) continue;
+    if (playerAddresses.has(row.owner.toLowerCase())) owned.add(row.h3);
+    else owned.delete(row.h3);
+  }
+}
+
 export function placeHexes(rows: ClaimedHexRow[]): PlacedHex[] {
   return rows.map((row) => {
     const [lat, lng] = cellToLatLng(row.h3);

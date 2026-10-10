@@ -75,6 +75,8 @@ export const runs = pgTable(
     endedAt: timestamp("ended_at", { withTimezone: true }),
     hexesClaimed: integer("hexes_claimed").notNull().default(0),
     distanceMeters: integer("distance_meters").notNull().default(0),
+    // foot, bike, car, or plane. Null when the run is too short to tell.
+    moveMode: text("move_mode"),
   },
   (t) => [
     // Per-user run history queries (/me runs list, streak calc).
