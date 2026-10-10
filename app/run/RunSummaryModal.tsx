@@ -419,7 +419,13 @@ async function shareClaim(
       window.open(webUrl, "_blank", "noopener,noreferrer");
     }, 1500);
   } else {
-    const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
-    window.open(fbUrl, "_blank", "noopener,noreferrer");
+    const nativeUrl = `fb://facewebmodal/f?href=${encodeURIComponent(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`)}`;
+    const webUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
+    
+    window.location.href = nativeUrl;
+    
+    window.setTimeout(() => {
+      window.open(webUrl, "_blank", "noopener,noreferrer");
+    }, 1500);
   }
 }
