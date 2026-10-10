@@ -667,8 +667,8 @@ export default function RunPage() {
         type: "fill",
         source: "claimed-hexes",
         paint: {
-          "fill-color": ["case", ["get", "isMine"], "#10B981", "#2563EB"],
-          "fill-opacity": 0.4,
+          "fill-color": ["case", ["get", "isMine"], "#10B981", "#F97316"], // Verde vs Naranja
+          "fill-opacity": ["case", ["get", "isMine"], 0.35, 0.30], // Más visible
         },
       });
       map.addLayer({
