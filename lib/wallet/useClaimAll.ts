@@ -72,12 +72,23 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           { method: "POST" },
         );
         if (!res.ok) {
-          log.error("sponsor fallback failed", { runId, status: res.status });
-          track("run_claim_failed", { trigger: `sponsor_http_${res.status}` });
+          let detail = "";
+          try {
+            const body = (await res.json()) as { reason?: unknown };
+            if (typeof body.reason === "string") detail = body.reason.slice(0, 120);
+          } catch {
+            detail = "";
+          }
+          log.error("sponsor fallback failed", { runId, status: res.status, detail });
+          track("run_claim_failed", {
+            trigger: detail
+              ? `sponsor_http_${res.status}:${detail}`
+              : `sponsor_http_${res.status}`,
+          });
           Sentry.captureMessage("run sponsor mint failed", {
             level: "warning",
             tags: { claim: "sponsor" },
-            extra: { runId, status: res.status },
+            extra: { runId, status: res.status, reason: detail },
           });
           return "failed";
         }

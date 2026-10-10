@@ -6,6 +6,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
+import { moveMode } from "@/lib/runs/moveMode";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import {
@@ -630,6 +631,7 @@ export default function RunPage() {
       });
       if (!res.ok) {
         log.error("start run failed", { status: res.status });
+        track("run_start_error", { status: res.status });
         return;
       }
       const data = (await res.json()) as { id: string; startedAt: string };
@@ -680,6 +682,7 @@ export default function RunPage() {
       });
       if (!res.ok) {
         log.error("finish run failed", { status: res.status });
+        track("run_finish_error", { status: res.status });
         return;
       }
       const data = (await res.json()) as {
@@ -704,6 +707,7 @@ export default function RunPage() {
           durationSec > 0
             ? Math.round((data.distanceMeters / durationSec) * 3.6 * 10) / 10
             : 0,
+        move_mode: moveMode(data.distanceMeters, durationSec) ?? "none",
       });
       setLastFinishedRun({
         id,
@@ -782,6 +786,7 @@ export default function RunPage() {
         queueMicrotask(() => {
           setGeoLastError(`${label}: ${err.message}`);
           if (err.code === err.PERMISSION_DENIED) setGeoStatus("denied");
+          else if (err.code === err.TIMEOUT) setGeoStatus("timeout");
         });
       },
       { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 },
@@ -1108,6 +1113,7 @@ export default function RunPage() {
             log.warn("geolocation denied");
             return;
           }
+          if (err.code === err.TIMEOUT && firstFix) setGeoStatus("timeout");
           // POSITION_UNAVAILABLE (2) and TIMEOUT (3) are typically transient
           // on macOS / mobile. The watch keeps running and recovers on its
           // own. Don't downgrade the UI to a permanent "unavailable" state.

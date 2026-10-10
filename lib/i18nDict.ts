@@ -121,7 +121,7 @@ export const dictionaries = {
     "me.money.header": "Your money",
     "me.wallet.header": "Wallet",
     "me.wallet.subtitle":
-      "Shown for reference. MiniKlaim doesn't take payments. Rewards coming soon.",
+      "Shown for reference. MiniKlaim doesn't charge. Your wallet may ask you to confirm a network fee. Rewards coming soon.",
     "me.signOut": "Sign out",
     "me.username.pick": "✨ Pick a name. This is how people will see you.",
     "me.username.change": "Change your name",
@@ -179,10 +179,14 @@ export const dictionaries = {
     "run.gps.lastError": "Last error",
     "run.gps.denied":
       "You need to turn on GPS. Close the app, open it again, and allow it. You can't play without it.",
+    "run.gps.timeout":
+      "GPS didn't arrive. Close the app, open it again, and allow location. You can't play without it.",
     "run.gps.unavailable": "Location unavailable on this device.",
     "run.start.signIn": "Sign in first",
     "run.start.starting": "Starting...",
     "run.start.button": "Start",
+    "run.start.hint":
+      "Walk, ride, or drive. The blocks you cross become yours.",
     "run.finish.finishing": "Finishing...",
     "run.finish.button": "Finish",
     "run.needName.kicker": "One more thing",
@@ -240,7 +244,8 @@ export const dictionaries = {
     "about.faq.a1":
       "Yes. The block goes to whoever passed through last. So keep moving to keep your turf.",
     "about.faq.q2": "Does it cost anything?",
-    "about.faq.a2": "No. Playing is free. We don't charge fees.",
+    "about.faq.a2":
+      "MiniKlaim doesn't charge. Your wallet may ask you to confirm a network fee.",
     "about.faq.q3": "Why a wallet?",
     "about.faq.a3":
       "It's how we keep your name and blocks attached to you across devices. We never see your password or your money.",
@@ -335,7 +340,7 @@ export const dictionaries = {
       "Pay attention to your surroundings. The game shows you a map; the street is the source of truth. Do not run while staring at your phone. Do not run in dangerous areas because a block looks tempting.",
     "terms.noMoney.h": "No money",
     "terms.noMoney.body":
-      "MiniKlaim is free. There are no in-app purchases, no rewards in tokens, no NFTs, no claims of monetary value. The wallet connection is for identity only.",
+      "MiniKlaim doesn't charge. There are no in-app purchases, no token rewards, and no promise of money. Your wallet may ask you to confirm a network fee. The wallet is how the game knows it is you.",
     "terms.use.h": "Acceptable use",
     "terms.use.body":
       "Do not spam runs, do not impersonate other players in your runner name, do not abuse the API. The maintainer may remove accounts that break these rules.",
@@ -378,14 +383,14 @@ export const dictionaries = {
     "dashboard.mini.holders": "Holders",
     "dashboard.contract.hexes": "Hexes",
     "dashboard.contract.badges": "Badges",
-    "onboarding.gps.title": "Enable GPS",
-    "onboarding.gps.body": "Grant location permission to start capturing territory. We track your position to claim blocks.",
-    "onboarding.start.title": "Start Running",
-    "onboarding.start.body": "Tap the Start button when you're ready. Walk or run through your city to capture hexagons.",
-    "onboarding.capture.title": "Capture Territory",
-    "onboarding.capture.body": "As you move, hexagons turn blue. Each hex you cross becomes yours on-chain!",
-    "onboarding.finish.title": "Finish & Claim",
-    "onboarding.finish.body": "Tap Finish when done. Your blocks and badges will be claimed to your wallet automatically.",
+    "onboarding.gps.title": "Turn on GPS",
+    "onboarding.gps.body": "Allow location. Without it you can't play.",
+    "onboarding.start.title": "Start",
+    "onboarding.start.body": "Tap Start. Walk, ride, or drive. The blocks you cross become yours.",
+    "onboarding.capture.title": "Your blocks",
+    "onboarding.capture.body": "Each block you cross is yours until someone else crosses it.",
+    "onboarding.finish.title": "Finish",
+    "onboarding.finish.body": "Tap Finish. Then confirm in your wallet to keep the blocks.",
     "onboarding.skip": "Skip",
     "onboarding.next": "Next",
     "onboarding.gotit": "Got it!",
@@ -508,7 +513,7 @@ export const dictionaries = {
     "me.money.header": "Tu plata",
     "me.wallet.header": "Tu wallet",
     "me.wallet.subtitle":
-      "Mostrado como referencia. MiniKlaim no recibe pagos. Recompensas próximamente.",
+      "Solo de referencia. MiniKlaim no cobra. Tu billetera puede pedirte confirmar la tarifa de red. Recompensas próximamente.",
     "me.signOut": "Cerrar sesión",
     "me.username.pick": "✨ Elige un nombre. Así te verán los demás jugadores.",
     "me.username.change": "Cambia tu nombre",
@@ -566,10 +571,14 @@ export const dictionaries = {
     "run.gps.lastError": "Último error",
     "run.gps.denied":
       "Necesitas habilitar el GPS. Cierra la app, vuélvela a abrir y permítelo. Sin eso no puedes jugar.",
+    "run.gps.timeout":
+      "El GPS no llegó. Cierra la app, vuélvela a abrir y permite la ubicación. Sin eso no puedes jugar.",
     "run.gps.unavailable": "Ubicación no disponible en este dispositivo.",
     "run.start.signIn": "Entra primero",
     "run.start.starting": "Empezando...",
     "run.start.button": "Empezar",
+    "run.start.hint":
+      "Camina, ve en bici o en carro. Las cuadras que cruzas quedan tuyas.",
     "run.finish.finishing": "Terminando...",
     "run.finish.button": "Terminar",
     "run.needName.kicker": "Una cosa más",
@@ -627,7 +636,8 @@ export const dictionaries = {
     "about.faq.a1":
       "Sí. La cuadra se la lleva quien pasó de último. Sigue corriendo para no perder tu territorio.",
     "about.faq.q2": "¿Cuesta algo?",
-    "about.faq.a2": "No. Jugar es gratis. No cobramos.",
+    "about.faq.a2":
+      "MiniKlaim no cobra. Tu billetera puede pedirte confirmar la tarifa de red.",
     "about.faq.q3": "¿Por qué pide una wallet?",
     "about.faq.a3":
       "Es la forma de que tu nombre y tus cuadras te sigan en cualquier dispositivo. Nunca vemos tu contraseña ni tu plata.",
@@ -723,7 +733,7 @@ export const dictionaries = {
       "Pon atención a lo que te rodea. El juego te muestra un mapa; la calle es la verdad. No corras mirando el celular. No corras a zonas peligrosas solo porque una cuadra se ve tentadora.",
     "terms.noMoney.h": "Sin plata",
     "terms.noMoney.body":
-      "MiniKlaim es gratis. No hay compras dentro de la app, ni recompensas en tokens, ni NFTs, ni promesas de valor monetario. La wallet sirve solo de identidad.",
+      "MiniKlaim no cobra. No hay compras dentro de la app, ni recompensas en tokens, ni promesa de plata. Tu billetera puede pedirte confirmar la tarifa de red. La wallet sirve para saber que eres tú.",
     "terms.use.h": "Uso aceptable",
     "terms.use.body":
       "No hagas spam de corridas, no suplantes a otros jugadores con tu nombre, no abuses de la API. El mantenedor puede retirar cuentas que rompan estas reglas.",
@@ -767,13 +777,13 @@ export const dictionaries = {
     "dashboard.contract.hexes": "Hexes",
     "dashboard.contract.badges": "Insignias",
     "onboarding.gps.title": "Activa el GPS",
-    "onboarding.gps.body": "Otorga permiso de ubicación para comenzar a capturar territorio. Rastreamos tu posición para reclamar cuadras.",
-    "onboarding.start.title": "Empieza a Correr",
-    "onboarding.start.body": "Toca el botón Start cuando estés listo. Camina o corre por tu ciudad para capturar hexágonos.",
-    "onboarding.capture.title": "Captura Territorio",
-    "onboarding.capture.body": "Mientras te mueves, los hexágonos se vuelven azules. ¡Cada hex que cruzas es tuyo on-chain!",
-    "onboarding.finish.title": "Termina y Reclama",
-    "onboarding.finish.body": "Toca Finish cuando termines. Tus cuadras y badges se reclamarán automáticamente a tu wallet.",
+    "onboarding.gps.body": "Permite la ubicación. Sin eso no puedes jugar.",
+    "onboarding.start.title": "Empieza",
+    "onboarding.start.body": "Toca Empezar. Camina, ve en bici o en carro. Las cuadras que cruzas quedan tuyas.",
+    "onboarding.capture.title": "Tus cuadras",
+    "onboarding.capture.body": "Cada cuadra que cruzas es tuya hasta que otra persona pase por ella.",
+    "onboarding.finish.title": "Termina",
+    "onboarding.finish.body": "Toca Terminar. Luego confirma en tu billetera para quedarte con las cuadras.",
     "onboarding.skip": "Saltar",
     "onboarding.next": "Siguiente",
     "onboarding.gotit": "¡Entendido!",

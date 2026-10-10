@@ -111,30 +111,15 @@ export function PendingClaimPrompt({
             {t("pendingClaim.error")}
           </p>
         )}
-        <div className="mt-5 flex gap-2">
-          <button
-            onClick={() => {
-              setDismissed((s) => {
-                const updated = new Set(s).add(next.id);
-                localStorage.setItem("dismissed_pending_claims", JSON.stringify([...updated]));
-                return updated;
-              });
-              log.info("user dismissed pending claim", { runId: next.id });
-            }}
-            className="flex-1 rounded-full bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-200"
-          >
-            {t("pendingClaim.later")}
-          </button>
-          <button
+        <button
             onClick={runClaim}
             disabled={state === "pending"}
-            className="flex-1 rounded-full bg-orange-600 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
+            className="mt-5 w-full rounded-full bg-orange-600 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
           >
             {state === "pending"
               ? t("pendingClaim.pending")
               : t("pendingClaim.cta")}
-          </button>
-        </div>
+        </button>
       </div>
     </div>
   );
