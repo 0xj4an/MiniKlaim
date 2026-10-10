@@ -101,6 +101,17 @@ export type CaptureBatchResult =
   | { ok: true; txHash: Hex }
   | { ok: false; reason: "not-configured" | "empty" | "error"; error?: string };
 
+// A 1534-hex captureBatch estimated past the block gas cap and reverted.
+// 400 hexes is about 10M gas, under the 854-hex capture that mined at 20.3M.
+export const CAPTURE_CHUNK = 400;
+
+export function chunkIds<T>(ids: readonly T[], size: number): T[][] {
+  if (size < 1) return ids.length ? [ids.slice()] : [];
+  const out: T[][] = [];
+  for (let i = 0; i < ids.length; i += size) out.push(ids.slice(i, i + size));
+  return out;
+}
+
 /**
  * Mint/transfer every hex in `h3Ids` to `player` in a single tx on `chainKey`.
  * Never throws.
