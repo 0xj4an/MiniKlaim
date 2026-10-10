@@ -429,8 +429,6 @@ export const dictionaries = {
     "onboarding.step3.title": "🏆 Captura más territorio",
     "onboarding.step3.body":
       "Mientras más cuadras tengas, más subes. Las rachas también cuentan.",
-    "onboarding.next": "Siguiente",
-    "onboarding.start": "Listo",
     "common.loading": "Cargando...",
     "common.anonymous": "Anónimo",
     "common.home": "Inicio",
