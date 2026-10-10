@@ -405,7 +405,15 @@ async function shareClaim(
     } catch {
       setNote(null);
     }
-    window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
+    
+    const nativeUrl = "instagram://camera";
+    const webUrl = "https://www.instagram.com/";
+    
+    window.location.href = nativeUrl;
+    
+    window.setTimeout(() => {
+      window.open(webUrl, "_blank", "noopener,noreferrer");
+    }, 1500);
     return;
   }
 
