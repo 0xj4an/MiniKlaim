@@ -9,6 +9,11 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 const nextConfig: NextConfig = {
+  // Short commit of this build, shown in support emails. Railway sets
+  // RAILWAY_GIT_COMMIT_SHA at build time.
+  env: {
+    NEXT_PUBLIC_APP_VERSION: (process.env.RAILWAY_GIT_COMMIT_SHA ?? "dev").slice(0, 7),
+  },
   // Pin the Turbopack workspace root to this directory so it does not climb up
   // to ~/pnpm-lock.yaml and get confused about which project is the root.
   turbopack: {

@@ -11,6 +11,10 @@ export type PendingClaimRun = {
   endedAt: string;
   hexesClaimed: number;
   distanceMeters: number;
+  /** Hexes of this run not yet on-chain. */
+  pendingHexes: number;
+  /** Visits that have shown this run so far. */
+  offers: number;
 };
 
 export type UsePendingClaim = {

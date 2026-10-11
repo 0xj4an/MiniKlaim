@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Address } from "viem";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
@@ -46,7 +46,23 @@ export function PendingClaimPrompt({
     if (isRunClaiming(r.id)) return false;
     return true;
   });
+  // Count one offer per run per visit. The server ignores repeats within a
+  // few hours, so focus events and reloads do not inflate it. After enough
+  // offers a player who cannot pay gets the run minted by the relayer.
+  const offeredRef = useRef<Set<string>>(new Set());
+  const nextId = next?.id ?? null;
+  useEffect(() => {
+    if (!nextId || !enabled || !address) return;
+    if (offeredRef.current.has(nextId)) return;
+    offeredRef.current.add(nextId);
+    void fetch(`/api/runs/${nextId}/offered`, { method: "POST" }).catch(() => {
+      // Best effort; the next visit counts it.
+    });
+  }, [nextId, enabled, address]);
+
   if (!next || !enabled || !address) return null;
+
+  const totalBlocks = pending.reduce((sum, r) => sum + (r.pendingHexes ?? 0), 0);
 
   const distLabel =
     next.distanceMeters >= 1000
@@ -88,10 +104,17 @@ export function PendingClaimPrompt({
         <p className="mt-2 text-center text-sm text-zinc-500">
           {t("pendingClaim.body")}
         </p>
+        {pending.length > 1 && (
+          <p className="mt-1 text-center text-xs font-medium text-orange-700">
+            {t("pendingClaim.total")
+              .replace("{runs}", String(pending.length))
+              .replace("{blocks}", String(totalBlocks))}
+          </p>
+        )}
         <div className="mt-4 flex justify-center gap-8 text-center">
           <div>
             <div className="font-mono text-xl font-bold text-zinc-900">
-              {next.hexesClaimed}
+              {next.pendingHexes ?? next.hexesClaimed}
             </div>
             <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
               {t("pendingClaim.blocks")}

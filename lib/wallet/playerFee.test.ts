@@ -33,6 +33,24 @@ describe("isUserRejection", () => {
     expect(isUserRejection({ code: 4001, message: "denied" })).toBe(true);
   });
 
+  it("does not match MiniPay's internal error dressed as a rejection", () => {
+    const e = Object.assign(
+      new Error(
+        "User rejected transaction An internal error was received.\n\nRequest Arguments:",
+      ),
+      { code: 4001 },
+    );
+    expect(isUserRejection(e)).toBe(false);
+  });
+
+  it("does not match a fee shortfall with a rejection code", () => {
+    const e = Object.assign(
+      new Error("insufficient fee-currency balance: required 4922222662432225"),
+      { code: 4001 },
+    );
+    expect(isUserRejection(e)).toBe(false);
+  });
+
   it("does not match a short fee token", () => {
     expect(
       isUserRejection(new Error("insufficient fee-currency balance")),
