@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { latLngToCell } from "h3-js";
-import { frameForCells, interpolateHexIds } from "./hex";
+import {
+  claimedHexesToFeatureCollection,
+  frameForCells,
+  interpolateHexIds,
+} from "./hex";
 
 // H3 res 12 = ~9.4 m edge, ~19 m diameter. All fixture points are around
 // Medellín so the meters-per-degree factor stays consistent with production
@@ -102,5 +106,38 @@ describe("frameForCells", () => {
     const frame = frameForCells([bogota, bangalore], { ...box, maxZoom: 12 });
     expect(frame).not.toBeNull();
     expect(frame!.zoom).toBeLessThan(3);
+  });
+});
+
+describe("claimedHexesToFeatureCollection run marking", () => {
+  const me = "0x00000000000000000000000000000000000000aa";
+  const other = "0x00000000000000000000000000000000000000bb";
+  const runHex = latLngToCell(6.2442, -75.5812, 12);
+  const oldHex = latLngToCell(6.245, -75.582, 12);
+  const lostHex = latLngToCell(6.246, -75.583, 12);
+  const rows = [
+    { h3: runHex, owner: me },
+    { h3: oldHex, owner: me },
+    { h3: lostHex, owner: other },
+  ];
+
+  test("flags only this run's hexes that are still the player's", () => {
+    const fc = claimedHexesToFeatureCollection(
+      rows,
+      new Set([me]),
+      new Set([runHex, lostHex]),
+    );
+    const byHex = Object.fromEntries(
+      fc.features.map((f) => [f.properties.hex, f.properties]),
+    );
+    expect(byHex[runHex]).toMatchObject({ isMine: true, isRun: true });
+    expect(byHex[oldHex]).toMatchObject({ isMine: true, isRun: false });
+    // Taken by someone else after this run captured it: gray, not red.
+    expect(byHex[lostHex]).toMatchObject({ isMine: false, isRun: false });
+  });
+
+  test("defaults to no run hexes", () => {
+    const fc = claimedHexesToFeatureCollection(rows, new Set([me]));
+    expect(fc.features.every((f) => f.properties.isRun === false)).toBe(true);
   });
 });
