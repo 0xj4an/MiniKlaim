@@ -12,8 +12,13 @@ import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { clearRunClaiming, markRunClaiming } from "@/lib/wallet/claimInFlight";
 import { isUserRejection, playerHasNoFeeBalance } from "@/lib/wallet/playerFee";
 import { useBalances } from "@/lib/wallet/useBalances";
+import { reportDeclined, runTokenHeaders } from "@/lib/wallet/runTokens";
 
 const log = createLogger("wallet:claimRun");
+
+function orFailed(outcome: ClaimOutcome | "refused"): ClaimOutcome {
+  return outcome === "refused" ? "failed" : outcome;
+}
 
 export type ClaimOutcome = "user-claimed" | "sponsored" | "no-hexes" | "failed";
 
@@ -29,9 +34,9 @@ type Voucher = {
  * Drives the post-finish on-chain hex mint on the active chain (Celo via
  * MiniPay/Farcaster, Soneium via Startale). Player submits their own `claimRun`
  * tx (gated by a backend EIP-712 voucher for that chain) so they are the
- * on-chain msg.sender. The relayer mints when they cannot pay or the attempt
- * fails for any reason other than a declined signature. The retry cron
- * still mints runs left unminted.
+ * on-chain msg.sender. When their tx cannot go through the client asks the
+ * relayer and the server decides (it refuses players who can pay and caps
+ * each wallet per day). A declined signature is never sponsored.
  */
 export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
   const { data: walletClient } = useWalletClient();
@@ -39,12 +44,16 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
   const balances = useBalances(address, enabled);
 
   const sponsorFallback = useCallback(
-    async (runId: string): Promise<ClaimOutcome> => {
+    async (runId: string): Promise<ClaimOutcome | "refused"> => {
       try {
         const res = await fetch(
           `/api/runs/${runId}/sponsor-mint?chain=${chainKey}`,
-          { method: "POST" },
+          { method: "POST", headers: runTokenHeaders(runId) },
         );
+        if (res.status === 402 || res.status === 429 || res.status === 403) {
+          log.warn("sponsor refused", { runId, status: res.status });
+          return res.status === 402 ? "refused" : "failed";
+        }
         if (!res.ok) {
           log.error("sponsor fallback failed", { runId, status: res.status });
           Sentry.captureMessage("run sponsor mint failed", {
@@ -77,7 +86,7 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
       const contract = hexesAddress(chainKey);
       if (!walletClient || !address || !contract) {
         log.info("no wallet/contract; relayer mints", { runId });
-        return sponsorFallback(runId);
+        return orFailed(await sponsorFallback(runId));
       }
 
       let voucher: Voucher;
@@ -99,15 +108,18 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
           runId,
           message: e instanceof Error ? e.message : String(e),
         });
-        return sponsorFallback(runId);
+        return orFailed(await sponsorFallback(runId));
       }
 
       // Fee abstraction only where supported (Celo CIP-64). No held stable
       // means the relayer pays. A decline does not.
       const held = heldFeeAdapters(chain.feeCurrencies, balances);
       if (playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)) {
-        log.info("no fee balance; relayer mints", { runId });
-        return sponsorFallback(runId);
+        log.info("no fee stablecoin; asking the relayer", { runId });
+        const outcome = await sponsorFallback(runId);
+        // The server saw enough to pay (usually CELO, which the client does
+        // not read). Fall through and let the player pay in CELO.
+        if (outcome !== "refused") return outcome;
       }
       const feeCurrency = held[0]?.adapter;
       try {
@@ -141,13 +153,14 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
             runId,
             message: e instanceof Error ? e.message : String(e),
           });
+          await reportDeclined(runId);
           return "failed";
         }
         log.warn("player claim failed; relayer mints", {
           runId,
           message: e instanceof Error ? e.message : String(e),
         });
-        return sponsorFallback(runId);
+        return orFailed(await sponsorFallback(runId));
       }
     },
     // The individual `balances.<sym>` values are memoized inside useBalances,
