@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   const limitParam = Number(url.searchParams.get("limit") ?? "10");
   const limit = Math.min(
     Math.max(Number.isFinite(limitParam) ? limitParam : 10, 1),
-    50,
+    100,
   );
 
   const rows = await db
