@@ -105,6 +105,11 @@ export function runTokenMatches(
 
 export const RUN_TOKEN_HEADER = "x-run-token";
 
+/** Visits that must show an unminted run before the relayer steps in. */
+export const OFFERS_BEFORE_SPONSOR = 3;
+/** Two prompts closer together than this count as one visit. */
+export const OFFER_COOLDOWN_HOURS = 6;
+
 export type MintStatus =
   | "claimed"
   | "declined"
