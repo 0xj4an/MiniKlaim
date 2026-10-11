@@ -13,6 +13,8 @@ export type ClaimedHexProperties = {
   owner: string;
   ownerUsername: string | null;
   isMine: boolean;
+  /** Captured in the run in progress (only ever true for the player's own). */
+  isRun: boolean;
 };
 export type ClaimedHexFeature = Feature<Polygon, ClaimedHexProperties>;
 export type ClaimedHexFeatureCollection = FeatureCollection<
@@ -167,6 +169,8 @@ export function frameForCells(
 export function claimedHexesToFeatureCollection(
   rows: Array<{ h3: string; owner: string; ownerUsername?: string | null }>,
   myAddresses: ReadonlySet<string>,
+  /** Hexes captured in the run in progress. Painted apart from older ones. */
+  runHexes: ReadonlySet<string> = new Set(),
 ): ClaimedHexFeatureCollection {
   return {
     type: "FeatureCollection",
@@ -177,6 +181,8 @@ export function claimedHexesToFeatureCollection(
         owner: row.owner,
         ownerUsername: row.ownerUsername ?? null,
         isMine: myAddresses.has(row.owner.toLowerCase()),
+        isRun:
+          runHexes.has(row.h3) && myAddresses.has(row.owner.toLowerCase()),
       },
       geometry: { type: "Polygon", coordinates: [hexToPolygon(row.h3)] },
     })),

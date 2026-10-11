@@ -8,6 +8,7 @@ import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE } from "@/lib/map/config";
 import { claimedHexesToFeatureCollection } from "@/lib/map/hex";
+import { HEX_COLORS } from "@/lib/map/hexColors";
 import { useLinkedAddresses } from "@/lib/wallet/useLinkedAddresses";
 
 type HexFeatureProps = {
@@ -146,7 +147,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
           type: "fill",
           source: "others",
           minzoom: 8, // Lower threshold for better visibility
-          paint: { "fill-color": "#FF6B35", "fill-opacity": 0.45 },
+          paint: { "fill-color": HEX_COLORS.others, "fill-opacity": 0.45 },
         });
         map.addLayer({
           id: "others-line",
@@ -154,7 +155,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
           source: "others",
           minzoom: 8,
           paint: {
-            "line-color": "#FF6B35",
+            "line-color": HEX_COLORS.others,
             "line-width": 1,
             "line-opacity": 0.85,
           },
@@ -172,7 +173,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
           source: "others-points",
           maxzoom: 11,
           paint: {
-            "circle-color": "#FF6B35",
+            "circle-color": HEX_COLORS.others,
             "circle-opacity": 0.85,
             "circle-stroke-color": "#ffffff",
             "circle-stroke-width": [
@@ -210,7 +211,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
           type: "fill",
           source: "mine",
           minzoom: 9,
-          paint: { "fill-color": "#10B981", "fill-opacity": 0.6 },
+          paint: { "fill-color": HEX_COLORS.mine, "fill-opacity": 0.6 },
         });
         map.addLayer({
           id: "mine-line",
@@ -218,7 +219,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
           source: "mine",
           minzoom: 9,
           paint: {
-            "line-color": "#10B981",
+            "line-color": HEX_COLORS.mine,
             "line-width": 1.5,
             "line-opacity": 0.95,
           },
@@ -232,7 +233,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
           source: "mine-points",
           maxzoom: 11,
           paint: {
-            "circle-color": "#10B981",
+            "circle-color": HEX_COLORS.mine,
             "circle-opacity": 0.95,
             "circle-stroke-color": "#ffffff",
             "circle-stroke-width": [
