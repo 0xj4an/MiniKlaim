@@ -20,7 +20,12 @@ export async function GET(request: Request) {
     100,
   );
 
-  const rows = await db.execute(sql`
+  const meParam = url.searchParams.get("me")?.toLowerCase() ?? null;
+  const me = meParam && /^0x[0-9a-f]{40}$/.test(meParam) ? meParam : null;
+
+  // Same grouping and order as the list, so a pinned rank matches the row
+  // the player would reach by paging.
+  const ranked = sql`
     WITH group_map AS (
       SELECT
         u.address,
@@ -54,19 +59,57 @@ export async function GET(request: Request) {
         (gm.username IS NOT NULL) DESC,
         COALESCE(pw.is_primary, false) DESC,
         gm.address ASC
+    ),
+    ranked AS (
+      SELECT
+        gd.group_key,
+        gd.address,
+        gd.username,
+        ghc.hex_count::int AS hex_count,
+        ROW_NUMBER() OVER (ORDER BY ghc.hex_count DESC, gd.address ASC)::int AS rank
+      FROM group_hex_counts ghc
+      INNER JOIN group_display gd ON gd.group_key = ghc.group_key
     )
+  `;
+
+  const rows = await db.execute(sql`
+    ${ranked}
     SELECT
-      gd.address AS "address",
-      gd.username AS "username",
-      ghc.hex_count::int AS "hexCount"
-    FROM group_hex_counts ghc
-    INNER JOIN group_display gd ON gd.group_key = ghc.group_key
-    ORDER BY ghc.hex_count DESC, gd.address ASC
+      address AS "address",
+      username AS "username",
+      hex_count AS "hexCount"
+    FROM ranked
+    ORDER BY rank
     LIMIT ${limit}
   `);
 
+  let mine: {
+    rank: number;
+    address: string;
+    username: string | null;
+    hexCount: number;
+  } | null = null;
+  if (me) {
+    const [row] = (await db.execute(sql`
+      ${ranked}
+      SELECT
+        r.rank AS "rank",
+        r.address AS "address",
+        r.username AS "username",
+        r.hex_count AS "hexCount"
+      FROM ranked r
+      WHERE r.group_key = COALESCE(
+        (SELECT pw.player_id::text FROM player_wallets pw
+         WHERE LOWER(pw.address) = ${me} LIMIT 1),
+        (SELECT u.address FROM users u WHERE LOWER(u.address) = ${me} LIMIT 1)
+      )
+      LIMIT 1
+    `)) as unknown as Array<NonNullable<typeof mine>>;
+    if (row && row.hexCount > 0) mine = row;
+  }
+
   if (rows.length === 0) {
-    return NextResponse.json({ leaderboard: [] });
+    return NextResponse.json({ leaderboard: [], me: mine });
   }
 
   const addresses = (rows as unknown as Array<{ address: string }>).map(r => r.address);
@@ -214,5 +257,5 @@ export async function GET(request: Request) {
     };
   });
 
-  return NextResponse.json({ leaderboard });
+  return NextResponse.json({ leaderboard, me: mine });
 }
