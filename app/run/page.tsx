@@ -49,6 +49,7 @@ import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
 import { useClaimAll } from "@/lib/wallet/useClaimAll";
+import { rememberRunToken } from "@/lib/wallet/runTokens";
 import { useLinkedAddresses } from "@/lib/wallet/useLinkedAddresses";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -635,7 +636,12 @@ export default function RunPage() {
         track("run_start_error", { status: res.status });
         return;
       }
-      const data = (await res.json()) as { id: string; startedAt: string };
+      const data = (await res.json()) as {
+        id: string;
+        startedAt: string;
+        claimToken?: string;
+      };
+      if (data.claimToken) rememberRunToken(data.id, addr, data.claimToken);
       log.info("run started", { id: data.id });
       track("run_started");
       setRunId(data.id);
