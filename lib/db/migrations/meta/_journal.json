@@ -57,6 +57,13 @@
       "when": 1791611691209,
       "tag": "0007_run_move_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791747939280,
+      "tag": "0008_relayer_sponsor_gate",
+      "breakpoints": true
     }
   ]
 }

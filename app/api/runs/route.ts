@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { runs, users } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
+import { hashRunToken, newRunToken } from "@/lib/onchain/sponsorRules";
 
 const log = createLogger("api:runs");
 
@@ -20,12 +21,15 @@ export async function POST(request: Request) {
     .values({ address })
     .onConflictDoNothing({ target: users.address });
 
+  // Only this client gets the token. Sponsor and decline calls for the run
+  // must present it, so nobody else can spend the relayer on it.
+  const claimToken = newRunToken();
   const [run] = await db
     .insert(runs)
-    .values({ userAddress: address })
+    .values({ userAddress: address, claimTokenHash: hashRunToken(claimToken) })
     .returning({ id: runs.id, startedAt: runs.startedAt });
 
   log.info("run started", { id: run.id, address });
 
-  return NextResponse.json(run);
+  return NextResponse.json({ ...run, claimToken });
 }

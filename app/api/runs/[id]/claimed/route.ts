@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { hexes } from "@/lib/db/schema";
+import { hexes, runs } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("api:runs:claimed");
@@ -30,6 +30,10 @@ export async function POST(
     .update(hexes)
     .set({ mintedAt: sql`now()`, mintTxHash: txHash })
     .where(eq(hexes.runId, id));
+  await db
+    .update(runs)
+    .set({ mintStatus: "claimed", mintStatusAt: sql`now()` })
+    .where(eq(runs.id, id));
 
   log.info("player claim recorded", { runId: id, txHash });
   return NextResponse.json({ ok: true });
