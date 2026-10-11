@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Address } from "viem";
 import { track } from "@/lib/analytics";
+import { CloseButton } from "@/app/CloseButton";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { badgeCopy, badgeSvg } from "@/lib/onchain/badgeArt";
@@ -159,9 +160,23 @@ export function BadgeClaimPrompt({
   return (
     <>
       {show && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-            <p className="text-center text-base font-bold text-zinc-900">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+          onClick={() => {
+            if (state !== "pending") setDismissed(true);
+          }}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CloseButton
+              onClick={() => {
+                if (state !== "pending") setDismissed(true);
+              }}
+              className="absolute top-3 right-3"
+            />
+            <p className="px-8 text-center text-base font-bold text-zinc-900">
               {t("me.badges.claim.title")}
             </p>
             <p className="mt-2 text-center text-sm text-zinc-500">
