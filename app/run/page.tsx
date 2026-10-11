@@ -1317,13 +1317,14 @@ export default function RunPage() {
       )}
       <BadgeClaimPrompt
         address={address ?? null}
-        enabled={isConnected && !isWrongChain && !lastFinishedRun}
+        // Never a modal in the middle of a run.
+        enabled={isConnected && !isWrongChain && !lastFinishedRun && !runId}
         refreshKey={badgeRefresh}
         detectOnMount={false}
       />
       <PendingClaimPrompt
         address={address ?? null}
-        enabled={isConnected && !isWrongChain && !lastFinishedRun}
+        enabled={isConnected && !isWrongChain && !lastFinishedRun && !runId}
       />
     </main>
   );

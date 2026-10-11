@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { CloseButton } from "@/app/CloseButton";
 import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 
@@ -35,14 +36,29 @@ export function GeoStatusBanner({
     else if (status === "unavailable") track("gps_unavailable");
   }, [status]);
 
-  if (status === "granted") {
-    if (weakAccuracyM === null) return null;
+  // Every banner can be closed. A closed one stays hidden until the state
+  // it describes changes (another status, or the weak signal clears).
+  const kind =
+    status === "granted" ? (weakAccuracyM === null ? null : "weak") : status;
+  const [closedKind, setClosedKind] = useState<string | null>(null);
+  useEffect(() => {
+    if (kind === null) setClosedKind(null);
+  }, [kind]);
+  if (kind === null || closedKind === kind) return null;
+
+  if (status === "granted" && weakAccuracyM !== null) {
     return (
       <div
         data-gps-banner="weak"
-        className="pointer-events-none absolute top-16 right-4 left-4 z-10 rounded-md border border-amber-300 bg-amber-50 p-3 text-center text-xs font-medium text-amber-900 shadow-md backdrop-blur"
+        className="absolute top-16 right-4 left-4 z-10 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs font-medium text-amber-900 shadow-md backdrop-blur"
       >
-        {t("run.gps.weak").replace("{m}", String(Math.round(weakAccuracyM)))}
+        <span className="flex-1 text-center">
+          {t("run.gps.weak").replace("{m}", String(Math.round(weakAccuracyM)))}
+        </span>
+        <CloseButton
+          onClick={() => setClosedKind(kind)}
+          className="h-6 w-6 shrink-0"
+        />
       </div>
     );
   }
@@ -66,9 +82,13 @@ export function GeoStatusBanner({
   return (
     <div
       data-gps-banner={status}
-      className={`pointer-events-none absolute top-16 right-4 left-4 z-10 rounded-md text-center shadow-md backdrop-blur ${tone}`}
+      className={`absolute top-16 right-4 left-4 z-10 flex items-start gap-2 rounded-md shadow-md backdrop-blur ${tone}`}
     >
-      {message}
+      <span className="flex-1 text-center">{message}</span>
+      <CloseButton
+        onClick={() => setClosedKind(kind)}
+        className="h-6 w-6 shrink-0"
+      />
     </div>
   );
 }
