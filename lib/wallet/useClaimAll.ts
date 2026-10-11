@@ -19,7 +19,13 @@ import {
   markBadgeClaimSubmitted,
   markRunClaiming,
 } from "@/lib/wallet/claimInFlight";
-import { errorText, isUnpayableFee, isUserRejection, playerHasNoFeeBalance } from "@/lib/wallet/playerFee";
+import {
+  errorText,
+  isUnpayableFee,
+  isUserRejection,
+  isWalletInternalError,
+  playerHasNoFeeBalance,
+} from "@/lib/wallet/playerFee";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { useClaimRun } from "@/lib/wallet/useClaimRun";
 import { reportDeclined, runTokenHeaders } from "@/lib/wallet/runTokens";
@@ -302,6 +308,9 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           });
           await reportDeclined(runId);
           return "failed";
+        }
+        if (isWalletInternalError(lastError)) {
+          track("run_claim_wallet_error", { reason: reasonOf(lastError) });
         }
         log.warn("player claimAll failed; relayer mints", {
           runId,

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Finished runs whose hexes were never minted on-chain. Server is the source
- * of truth via `hexes.mint_tx_hash`; the client uses this to surface a claim
+ * of truth via `hexes.minted_at`; the client uses this to surface a claim
  * retry when a run was interrupted between Finish and the mint tx (typically
  * poor signal at end of run). Voucher endpoint is idempotent per run so
  * retries are safe.
@@ -21,22 +21,27 @@ export async function GET(
   const { address } = await params;
   const lower = address.toLowerCase();
 
+  // `minted_at IS NULL` is the unminted marker. The previous filter also
+  // required `mint_tx_hash NOT LIKE ...`, which is NULL for every unminted
+  // row, so this endpoint never returned anything.
   const rows = await db.execute(sql`
     SELECT
       r.id,
       r.started_at AS "startedAt",
       r.ended_at AS "endedAt",
       r.hexes_claimed AS "hexesClaimed",
-      r.distance_meters AS "distanceMeters"
+      r.distance_meters AS "distanceMeters",
+      (
+        SELECT COUNT(*)::int FROM hexes h
+        WHERE h.run_id = r.id AND h.minted_at IS NULL
+      ) AS "pendingHexes",
+      r.pending_offers AS "offers"
     FROM runs r
     WHERE r.user_address = ${lower}
       AND r.ended_at IS NOT NULL
-      AND r.hexes_claimed > 0
       AND EXISTS (
         SELECT 1 FROM hexes h
-        WHERE h.run_id = r.id 
-          AND h.mint_tx_hash IS NULL
-          AND h.mint_tx_hash NOT LIKE '0x00_%'
+        WHERE h.run_id = r.id AND h.minted_at IS NULL
       )
     ORDER BY r.ended_at DESC
     LIMIT 20

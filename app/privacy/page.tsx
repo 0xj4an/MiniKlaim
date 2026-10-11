@@ -1,6 +1,7 @@
 "use client";
 
 import { BackButton } from "@/app/BackButton";
+import { SupportLink } from "@/app/SupportLink";
 import { useLocale } from "@/lib/i18n";
 
 export default function PrivacyPage() {
@@ -52,12 +53,7 @@ export default function PrivacyPage() {
         </h2>
         <p>
           {t("privacy.deletion.before")}{" "}
-          <a
-            href="mailto:support@miniklaim.fun"
-            className="text-blue-600 underline"
-          >
-            {t("about.contact.handle")}
-          </a>{" "}
+          <SupportLink className="text-blue-600 underline" />{" "}
           {t("privacy.deletion.after")}
         </p>
       </section>

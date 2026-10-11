@@ -86,6 +86,11 @@ export const runs = pgTable(
     // reports. The retry cron only picks up sponsor_failed.
     mintStatus: text("mint_status"),
     mintStatusAt: timestamp("mint_status_at", { withTimezone: true }),
+    // How many separate visits showed this unminted run in the pending-claim
+    // prompt (at most one per OFFER_COOLDOWN). After enough offers a player
+    // with no fee balance gets it minted by the relayer.
+    pendingOffers: integer("pending_offers").notNull().default(0),
+    pendingOfferedAt: timestamp("pending_offered_at", { withTimezone: true }),
   },
   (t) => [
     // Per-user run history queries (/me runs list, streak calc).
