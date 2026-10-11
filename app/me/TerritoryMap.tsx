@@ -8,6 +8,7 @@ import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE } from "@/lib/map/config";
 import { claimedHexesToFeatureCollection, frameForCells } from "@/lib/map/hex";
+import { HEX_COLORS } from "@/lib/map/hexColors";
 
 const log = createLogger("page:me:map");
 
@@ -76,7 +77,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
             type: "fill",
             source: "mine",
             minzoom: 11,
-            paint: { "fill-color": "#10B981", "fill-opacity": 0.55 },
+            paint: { "fill-color": HEX_COLORS.mine, "fill-opacity": 0.55 },
           });
           map.addLayer({
             id: "mine-line",
@@ -84,7 +85,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
             source: "mine",
             minzoom: 11,
             paint: {
-              "line-color": "#10B981",
+              "line-color": HEX_COLORS.mine,
               "line-width": 1.5,
               "line-opacity": 0.95,
             },
@@ -111,7 +112,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
             source: "mine-points",
             maxzoom: 13,
             paint: {
-              "circle-color": "#10B981",
+              "circle-color": HEX_COLORS.mine,
               "circle-opacity": 0.9,
               "circle-stroke-color": "#ffffff",
               "circle-stroke-width": 1,
