@@ -177,11 +177,15 @@ export const dictionaries = {
     "time.unit.hours": "h",
     "time.unit.days": "d",
     "run.gps.waiting": "Waiting for GPS...",
+    "run.gps.requesting":
+      "Finding your location. If your phone asks, allow location for MiniPay.",
+    "run.gps.weak":
+      "Weak GPS signal (±{m} m). Step outside or away from tall buildings to capture blocks.",
     "run.gps.waitingHelp":
       "Still waiting? Make sure MiniPay has location permission in your phone settings.",
     "run.gps.lastError": "Last error",
     "run.gps.denied":
-      "You need to turn on GPS. Close the app, open it again, and allow it. You can't play without it.",
+      "Location is blocked for MiniPay. On Android: Settings > Apps > MiniPay > Permissions > Location > Allow. Then reopen MiniKlaim.",
     "run.gps.timeout":
       "GPS didn't arrive. Close the app, open it again, and allow location. You can't play without it.",
     "run.gps.unavailable": "Location unavailable on this device.",
@@ -572,11 +576,15 @@ export const dictionaries = {
     "time.unit.hours": "h",
     "time.unit.days": "d",
     "run.gps.waiting": "Esperando GPS...",
+    "run.gps.requesting":
+      "Buscando tu ubicación. Si el teléfono pregunta, permite la ubicación para MiniPay.",
+    "run.gps.weak":
+      "Señal GPS débil (±{m} m). Sal al aire libre o aléjate de edificios altos para capturar cuadras.",
     "run.gps.waitingHelp":
       "¿Sigue esperando? Verifica que MiniPay tenga permiso de ubicación en los ajustes del teléfono.",
     "run.gps.lastError": "Último error",
     "run.gps.denied":
-      "Necesitas habilitar el GPS. Cierra la app, vuélvela a abrir y permítelo. Sin eso no puedes jugar.",
+      "La ubicación está bloqueada para MiniPay. En Android: Ajustes > Aplicaciones > MiniPay > Permisos > Ubicación > Permitir. Luego vuelve a abrir MiniKlaim.",
     "run.gps.timeout":
       "El GPS no llegó. Cierra la app, vuélvela a abrir y permite la ubicación. Sin eso no puedes jugar.",
     "run.gps.unavailable": "Ubicación no disponible en este dispositivo.",
