@@ -21,6 +21,9 @@ export const dictionaries = {
     "home.cta.continue": "Keep capturing",
     "home.modes.label": "Run, bicycle, motorcycle, car, or plane",
     "home.hey": "Hey",
+    "home.return.body":
+      "It's been a few days. Walk, ride, or drive. The blocks you cross become yours.",
+    "home.return.dismiss": "Ok",
     "home.env.minipay.connecting": "Connecting to MiniPay...",
     "home.env.telegram.h": "Open in your browser",
     "home.env.telegram.body":
@@ -413,6 +416,9 @@ export const dictionaries = {
     "home.cta.continue": "Seguir capturando",
     "home.modes.label": "Correr, bicicleta, moto, carro o avion",
     "home.hey": "Hola",
+    "home.return.body":
+      "Hace unos días que no juegas. Camina, ve en bici o en carro. Las cuadras que cruzas quedan tuyas.",
+    "home.return.dismiss": "Listo",
     "home.env.minipay.connecting": "Conectando a MiniPay...",
     "home.env.telegram.h": "Abre desde tu navegador",
     "home.env.telegram.body":

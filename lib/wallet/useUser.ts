@@ -10,6 +10,7 @@ export type User = {
   address: string;
   username: string | null;
   createdAt: string;
+  lastRunAt: string | null;
 };
 
 export type SetUsernameResult = { ok: boolean; error?: string };

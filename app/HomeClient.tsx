@@ -14,6 +14,7 @@ import {
 } from "@/lib/wallet/environment";
 import { LinkExisting } from "@/app/LinkExisting";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
+import { ReturnNote } from "@/app/ReturnNote";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
 
@@ -91,6 +92,7 @@ export function HomeClient() {
           isWrongChain={isWrongChain}
           isSwitchingChain={isSwitchingChain}
           username={user?.username ?? null}
+          lastRunAt={user?.lastRunAt ?? null}
           hasActiveRun={activeRun !== null}
           env={env}
           connect={requestSignInAndRun}
@@ -200,6 +202,7 @@ function PrimaryCTA({
   isWrongChain,
   isSwitchingChain,
   username,
+  lastRunAt,
   hasActiveRun,
   env,
   connect,
@@ -211,6 +214,7 @@ function PrimaryCTA({
   isWrongChain: boolean;
   isSwitchingChain: boolean;
   username: string | null;
+  lastRunAt: string | null;
   hasActiveRun: boolean;
   env: WalletEnvironment;
   connect: () => void;
@@ -286,7 +290,8 @@ function PrimaryCTA({
   }
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="flex w-full max-w-xs flex-col items-center gap-3">
+      <ReturnNote lastRunAt={lastRunAt} hasActiveRun={hasActiveRun} />
       <p className="text-sm text-zinc-600">
         {t("home.hey")}{" "}
         <span className="font-semibold text-zinc-900">@{username}</span>
