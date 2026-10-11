@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Address } from "viem";
+import { CloseButton } from "@/app/CloseButton";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { isRunClaiming } from "@/lib/wallet/claimInFlight";
@@ -27,6 +28,9 @@ export function PendingClaimPrompt({
   const { pending, refresh } = usePendingClaim(address, enabled);
   const { claim } = useClaimRun(address, enabled);
   const [state, setState] = useState<"idle" | "pending" | "error">("idle");
+  // Closed for this visit. It comes back next time the app opens, which is
+  // what counts the offers toward a sponsored mint.
+  const [closed, setClosed] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(() => {
     // Load dismissed runs from localStorage
     if (typeof window === "undefined") return new Set();
@@ -60,7 +64,11 @@ export function PendingClaimPrompt({
     });
   }, [nextId, enabled, address]);
 
-  if (!next || !enabled || !address) return null;
+  if (!next || !enabled || !address || closed) return null;
+
+  const close = () => {
+    if (state !== "pending") setClosed(true);
+  };
 
   const totalBlocks = pending.reduce((sum, r) => sum + (r.pendingHexes ?? 0), 0);
 
@@ -96,9 +104,20 @@ export function PendingClaimPrompt({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-        <p className="text-center text-base font-bold text-zinc-900">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+      onClick={close}
+    >
+      <div
+        className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <CloseButton
+          onClick={close}
+          label={t("pendingClaim.later")}
+          className="absolute top-3 right-3"
+        />
+        <p className="px-8 text-center text-base font-bold text-zinc-900">
           {t("pendingClaim.title")}
         </p>
         <p className="mt-2 text-center text-sm text-zinc-500">
@@ -142,6 +161,14 @@ export function PendingClaimPrompt({
             {state === "pending"
               ? t("pendingClaim.pending")
               : t("pendingClaim.cta")}
+        </button>
+        <button
+          type="button"
+          onClick={close}
+          disabled={state === "pending"}
+          className="mt-2 w-full py-2 text-sm font-medium text-zinc-500 hover:text-zinc-700 disabled:opacity-60"
+        >
+          {t("pendingClaim.later")}
         </button>
       </div>
     </div>
