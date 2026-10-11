@@ -7,7 +7,11 @@ import { useState } from "react";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
 import { type ActivityEntry, useActivity } from "@/lib/useActivity";
 import { useGlobalStats } from "@/lib/useGlobalStats";
-import { type LeaderboardEntry, useLeaderboard } from "@/lib/useLeaderboard";
+import {
+  type LeaderboardEntry,
+  type MyRank,
+  useLeaderboard,
+} from "@/lib/useLeaderboard";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { LegalFooter } from "@/app/LegalFooter";
 
@@ -19,8 +23,11 @@ export default function CommunityPage() {
   const { address, isConnected } = useWallet();
   const { t } = useLocale();
   const globalStats = useGlobalStats();
-  const leaderboard = useLeaderboard(10);
-  const activity = useActivity(10);
+  const myAddress = isConnected && address ? address : null;
+  const [leaderboardLimit, setLeaderboardLimit] = useState(PAGE_SIZE);
+  const [activityLimit, setActivityLimit] = useState(PAGE_SIZE);
+  const leaderboard = useLeaderboard(leaderboardLimit, myAddress);
+  const activity = useActivity(activityLimit);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-8 pb-24">
@@ -55,16 +62,42 @@ export default function CommunityPage() {
       <WorldMap myAddress={isConnected ? address : null} />
 
       <Leaderboard
-        entries={leaderboard}
-        myAddress={isConnected ? address : null}
+        entries={leaderboard?.entries ?? null}
+        mine={leaderboard?.me ?? null}
+        myAddress={myAddress}
+        hasMore={hasMore(leaderboard?.entries, leaderboardLimit)}
+        onShowMore={() => setLeaderboardLimit((n) => n + PAGE_SIZE)}
       />
 
       <ActivityFeed
         entries={activity}
-        myAddress={isConnected ? address : null}
+        myAddress={myAddress}
+        hasMore={hasMore(activity, activityLimit)}
+        onShowMore={() => setActivityLimit((n) => n + PAGE_SIZE)}
       />
       <LegalFooter />
     </main>
+  );
+}
+
+const PAGE_SIZE = 10;
+/** Both APIs cap the list at 100 rows. */
+const MAX_ROWS = 100;
+
+function hasMore(entries: unknown[] | null | undefined, limit: number) {
+  return !!entries && entries.length >= limit && limit < MAX_ROWS;
+}
+
+function ShowMoreButton({ onClick }: { onClick: () => void }) {
+  const { t } = useLocale();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-2 self-center rounded-md px-3 py-1 text-xs font-medium text-blue-600 hover:bg-zinc-100"
+    >
+      {t("community.showMore")}
+    </button>
   );
 }
 
@@ -79,25 +112,58 @@ function BigStat({ label, value }: { label: string; value: number }) {
 
 function Leaderboard({
   entries,
+  mine,
   myAddress,
+  hasMore,
+  onShowMore,
 }: {
   entries: LeaderboardEntry[] | null;
+  mine: MyRank | null;
   myAddress: string | null;
+  hasMore: boolean;
+  onShowMore: () => void;
 }) {
   const { t } = useLocale();
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
 
   if (!entries || entries.length === 0) return null;
-  const me = myAddress?.toLowerCase() ?? null;
+  // A linked player shows under their primary wallet, which may not be the
+  // one connected right now.
+  const meKeys = new Set(
+    [myAddress, mine?.address]
+      .filter((a): a is string => !!a)
+      .map((a) => a.toLowerCase()),
+  );
+  const showPinned = mine !== null && mine.rank > entries.length;
 
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
       <p className="mb-1 text-center text-xs font-semibold text-zinc-500">
         {t("community.leaderboard.header")}
       </p>
+      {showPinned && (
+        <div className="mb-1 flex flex-col gap-0.5 rounded-md border border-orange-200 bg-orange-50 px-2 py-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-700">
+            {t("community.myRank")}
+          </span>
+          <div className="flex items-center gap-2 font-semibold text-zinc-900">
+            <span className="w-8 text-xs text-orange-700">#{mine.rank}</span>
+            <span className="min-w-0 flex-1 truncate">
+              {mine.username ? (
+                <Link href={`/p/${mine.username}`} className="hover:underline">
+                  @{mine.username}
+                </Link>
+              ) : (
+                t("common.anonymous")
+              )}
+            </span>
+            <span className="font-mono text-xs">{mine.hexCount}</span>
+          </div>
+        </div>
+      )}
       {entries.map((e, i) => {
         const fallback = t("common.anonymous");
-        const isMe = me !== null && e.address.toLowerCase() === me;
+        const isMe = meKeys.has(e.address.toLowerCase());
         const isExpanded = expandedPlayer === e.address;
         const profileUrl = e.username ? `/p/${e.username}` : null;
 
@@ -106,7 +172,7 @@ function Leaderboard({
             <div
               className={`flex items-center gap-2 ${isMe ? "font-semibold text-zinc-900" : "text-zinc-700"}`}
             >
-              <span className="w-6 text-xs text-zinc-500">#{i + 1}</span>
+              <span className="w-8 text-xs text-zinc-500">#{i + 1}</span>
 
               {/* Player name - clickable */}
               <button
@@ -194,6 +260,7 @@ function Leaderboard({
           </div>
         );
       })}
+      {hasMore && <ShowMoreButton onClick={onShowMore} />}
     </div>
   );
 }
@@ -222,9 +289,13 @@ function getBadgeEmoji(badge: string): string {
 function ActivityFeed({
   entries,
   myAddress,
+  hasMore,
+  onShowMore,
 }: {
   entries: ActivityEntry[] | null;
   myAddress: string | null;
+  hasMore: boolean;
+  onShowMore: () => void;
 }) {
   const { t } = useLocale();
   if (!entries || entries.length === 0) return null;
@@ -276,6 +347,7 @@ function ActivityFeed({
           </div>
         );
       })}
+      {hasMore && <ShowMoreButton onClick={onShowMore} />}
     </div>
   );
 }
