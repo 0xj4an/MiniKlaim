@@ -34,6 +34,7 @@ import { haversineMeters } from "@/lib/map/geo";
 import { liveGeoSource } from "@/lib/map/liveSource";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
 import { HEX_COLORS } from "@/lib/map/hexColors";
+import { holdScreenAwake } from "@/lib/wakeLock";
 import {
   GPS_GAP_STALE_SECONDS,
   addHexes,
@@ -67,6 +68,10 @@ const log = createLogger("page:run");
 // path. OpenFreeMap tiles at zoom 2 are about 1.5MB each, so that flight is
 // the hundreds of MB. Jump when the camera is far; ease only for a local move.
 const FAR_CAMERA_METERS = 1500;
+// Coarse fixes in a row before the weak-signal banner shows. One bad fix
+// between good ones is normal; a streak means no GPS lock (indoors, network
+// location only).
+const WEAK_FIX_STREAK = 3;
 
 function placeCamera(
   map: maplibregl.Map,
@@ -172,6 +177,9 @@ export default function RunPage() {
   const flushClaimQueueRef = useRef<() => Promise<void>>(async () => {});
 
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("idle");
+  // Set when the last few fixes were all too coarse to capture.
+  const [weakAccuracyM, setWeakAccuracyM] = useState<number | null>(null);
+  const coarseStreakRef = useRef(0);
   const [geoLastError, setGeoLastError] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [hexCount, setHexCount] = useState(0);
@@ -270,6 +278,12 @@ export default function RunPage() {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
 
+  // Screen on for the whole run: a sleeping screen stops GPS in the WebView.
+  useEffect(() => {
+    if (!runId) return;
+    return holdScreenAwake();
+  }, [runId]);
+
   // Restore state from an active server-side run (e.g. after a page reload
   // mid-run). Only seeds local state if there is no local runId yet, so a
   // freshly-started run on this page does not get clobbered.
@@ -289,6 +303,19 @@ export default function RunPage() {
       setHexCount(activeRun.hexesClaimed);
       setRunStartTime(new Date(activeRun.startedAt).getTime());
     });
+    // The run's own hexes live in memory. After a reload, ask the server so
+    // they paint red again instead of plain owned orange.
+    void fetch(`/api/runs/${activeRun.id}/hexes`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { h3Ids?: string[] } | null) => {
+        if (!data?.h3Ids?.length) return;
+        runH3Ref.current = new Set(data.h3Ids);
+        for (const h3 of data.h3Ids) mineH3Ref.current.add(h3);
+        // The next position update repaints the map with them.
+      })
+      .catch(() => {
+        // Cosmetic only: the hexes still show as owned.
+      });
   }, [activeRun, isActiveLoading, runId]);
 
   const worldRef = useRef<{ rows: PlacedHex[]; at: number } | null>(null);
@@ -1011,6 +1038,11 @@ export default function RunPage() {
           // the client filter is UX + bandwidth save.
           if (typeof accuracy === "number" && accuracy > 30) {
             log.debug("skipped capture: low accuracy", { accuracy });
+            coarseStreakRef.current += 1;
+            if (coarseStreakRef.current >= WEAK_FIX_STREAK) {
+              const rounded = Math.round(accuracy / 10) * 10;
+              setWeakAccuracyM((cur) => (cur === rounded ? cur : rounded));
+            }
             // 1-in-20 sample so we can see whether "run had 5 minutes of
             // motion but captured 0 hexes" comes from a chronically-bad
             // GPS signal without spamming the event stream.
@@ -1020,6 +1052,11 @@ export default function RunPage() {
               });
             }
             return;
+          }
+
+          if (coarseStreakRef.current > 0) {
+            coarseStreakRef.current = 0;
+            setWeakAccuracyM(null);
           }
 
           // Snapshot the previous GPS fix (and its timestamp) before either
@@ -1212,7 +1249,11 @@ export default function RunPage() {
           </span>
         </div>
       )}
-      <GeoStatusBanner status={geoStatus} lastError={geoLastError} />
+      <GeoStatusBanner
+        status={geoStatus}
+        lastError={geoLastError}
+        weakAccuracyM={runId ? weakAccuracyM : null}
+      />
       <button
         onClick={() => {
           const pos = latestPosRef.current;
