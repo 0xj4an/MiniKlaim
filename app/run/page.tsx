@@ -33,6 +33,7 @@ import {
 import { haversineMeters } from "@/lib/map/geo";
 import { liveGeoSource } from "@/lib/map/liveSource";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
+import { HEX_COLORS } from "@/lib/map/hexColors";
 import {
   GPS_GAP_STALE_SECONDS,
   addHexes,
@@ -118,6 +119,8 @@ export default function RunPage() {
   const linked = useLinkedAddresses(address, isConnected && !isWrongChain);
   const linkedRef = useRef<ReadonlySet<string>>(new Set());
   const mineH3Ref = useRef<Set<string>>(new Set());
+  // Hexes this run captured or stole. Painted red; older ones stay orange.
+  const runH3Ref = useRef<Set<string>>(new Set());
   useEffect(() => {
     linkedRef.current = linked;
   }, [linked]);
@@ -335,7 +338,9 @@ export default function RunPage() {
     const paint = (rows: ClaimedHexRow[]) => {
       rememberOwners(mineH3Ref.current, rows, linkedRef.current);
       const source = liveGeoSource(map, "claimed-hexes");
-      source?.setData(claimedHexesToFeatureCollection(rows, linkedRef.current));
+      source?.setData(
+        claimedHexesToFeatureCollection(rows, linkedRef.current, runH3Ref.current),
+      );
       log.debug("claimed-view", { count: rows.length, reason, wide });
     };
     const fetchRows = async (url: string): Promise<ClaimedHexRow[] | null> => {
@@ -484,6 +489,9 @@ export default function RunPage() {
         outcome = { kind: "ok", results: data.results ?? [] };
         for (const row of outcome.results) {
           if (row.h3 && !row.rejected) mineH3Ref.current.add(row.h3);
+          if (row.h3 && !row.rejected && row.alreadyOwned !== true) {
+            runH3Ref.current.add(row.h3);
+          }
         }
       }
     } catch (e) {
@@ -645,6 +653,7 @@ export default function RunPage() {
       log.info("run started", { id: data.id });
       track("run_started");
       setRunId(data.id);
+      runH3Ref.current = new Set();
       setHexCount(0);
       setDistanceMeters(0);
       setRunStartTime(Date.now());
@@ -725,6 +734,9 @@ export default function RunPage() {
       // The card lists the blocks and any badges, then the wallet opens
       // on its own. A decline is not sponsored in that moment.
       setRunId(null);
+      // The run's red hexes become ordinary owned (orange) territory.
+      runH3Ref.current = new Set();
+      void refreshClaimed();
       setHexCount(0);
       setDistanceMeters(0);
       setRunStartTime(null);
@@ -832,13 +844,30 @@ export default function RunPage() {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
+      // Red: captured or stolen in this run. Orange: already yours.
+      // Gray: someone else's, yours to take.
+      const ownerColor = [
+        "case",
+        ["get", "isRun"],
+        HEX_COLORS.run,
+        ["get", "isMine"],
+        HEX_COLORS.mine,
+        HEX_COLORS.others,
+      ] as maplibregl.ExpressionSpecification;
       map.addLayer({
         id: "claimed-hex-fill",
         type: "fill",
         source: "claimed-hexes",
         paint: {
-          "fill-color": ["case", ["get", "isMine"], "#10B981", "#F97316"], // Verde vs Naranja
-          "fill-opacity": ["case", ["get", "isMine"], 0.35, 0.30], // Más visible
+          "fill-color": ownerColor,
+          "fill-opacity": [
+            "case",
+            ["get", "isRun"],
+            0.5,
+            ["get", "isMine"],
+            0.4,
+            0.25,
+          ],
         },
       });
       map.addLayer({
@@ -846,9 +875,9 @@ export default function RunPage() {
         type: "line",
         source: "claimed-hexes",
         paint: {
-          "line-color": ["case", ["get", "isMine"], "#10B981", "#F97316"], // Verde vs Naranja
-          "line-width": 2, // Más grueso
-          "line-opacity": ["case", ["get", "isMine"], 0.8, 0.7], // Más visible
+          "line-color": ownerColor,
+          "line-width": 2,
+          "line-opacity": ["case", ["get", "isMine"], 0.9, 0.6],
         },
       });
 
@@ -856,23 +885,17 @@ export default function RunPage() {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
-      map.addLayer({
-        id: "hex-fill",
-        type: "fill",
-        source: "hexes",
-        paint: {
-          "fill-color": "#3B82F6", // Azul brillante más visible
-          "fill-opacity": ["case", ["get", "isCurrent"], 0.5, 0.25], // Opacity aumentada 5x
-        },
-      });
+      // Only the cell under the player, as an outline. No fill, so its own
+      // color shows through and an owned hex does not look captured again.
       map.addLayer({
         id: "hex-line",
         type: "line",
         source: "hexes",
+        filter: ["==", ["get", "isCurrent"], true],
         paint: {
-          "line-color": "#3B82F6", // Azul brillante para bordes también
-          "line-width": ["case", ["get", "isCurrent"], 2.5, 1.5],
-          "line-opacity": ["case", ["get", "isCurrent"], 1.0, 0.7],
+          "line-color": HEX_COLORS.here,
+          "line-width": 3,
+          "line-opacity": 1,
         },
       });
 
