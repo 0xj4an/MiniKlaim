@@ -11,6 +11,7 @@ import { BADGES_CLAIM_ABI, badgesAddress } from "@/lib/onchain/badgesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { isUserRejection, playerHasNoFeeBalance } from "@/lib/wallet/playerFee";
 import { useBalances } from "@/lib/wallet/useBalances";
+import { latestRunTokenFor, RUN_TOKEN_HEADER } from "@/lib/wallet/runTokens";
 
 const log = createLogger("wallet:claimBadges");
 
@@ -41,10 +42,17 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
 
   const sponsorFallback = useCallback(
     async (addr: string): Promise<BadgeClaimOutcome> => {
+      // The server only sponsors for the client that played one of this
+      // wallet's runs. Without a run token the player pays.
+      const proof = latestRunTokenFor(addr);
+      if (!proof) {
+        log.warn("no run token for badge sponsor; player must pay");
+        return { status: "error" };
+      }
       try {
         const res = await fetch(
-          `/api/users/${addr.toLowerCase()}/badges/sponsor-mint?chain=${chainKey}`,
-          { method: "POST" },
+          `/api/users/${addr.toLowerCase()}/badges/sponsor-mint?chain=${chainKey}&runId=${proof.runId}`,
+          { method: "POST", headers: { [RUN_TOKEN_HEADER]: proof.token } },
         );
         if (!res.ok) {
           log.error("badge sponsor fallback failed", { status: res.status });

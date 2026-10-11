@@ -77,6 +77,15 @@ export const runs = pgTable(
     distanceMeters: integer("distance_meters").notNull().default(0),
     // foot, bike, car, or plane. Null when the run is too short to tell.
     moveMode: text("move_mode"),
+    // sha256 of the per-run token handed to the client that started the run.
+    // Sponsor and decline calls must present it. Null for runs started before
+    // the token existed.
+    claimTokenHash: text("claim_token_hash"),
+    // Why the run is or is not minted: claimed, declined, sponsored,
+    // sponsor_denied, sponsor_capped, sponsor_failed. Null until the client
+    // reports. The retry cron only picks up sponsor_failed.
+    mintStatus: text("mint_status"),
+    mintStatusAt: timestamp("mint_status_at", { withTimezone: true }),
   },
   (t) => [
     // Per-user run history queries (/me runs list, streak calc).
@@ -88,6 +97,8 @@ export const runs = pgTable(
     index("runs_started_at_idx").on(t.startedAt),
     // Auto-finalize orphan scan (WHERE ended_at IS NULL AND started_at < X).
     index("runs_ended_at_idx").on(t.endedAt),
+    // Retry cron scan (WHERE mint_status = 'sponsor_failed').
+    index("runs_mint_status_idx").on(t.mintStatus),
   ],
 );
 
@@ -128,6 +139,29 @@ export const hexes = pgTable(
     // Rate-limit sweep in validateClaim (WHERE run_id = X AND claimed_at > NOW - 60s).
     // Compound with claimedAt for the range scan.
     index("hexes_run_id_claimed_at_idx").on(t.runId, t.claimedAt),
+  ],
+);
+
+/**
+ * One row per relayer transaction paid on a player's behalf. Drives the daily
+ * per-wallet sponsor cap and makes relayer spend auditable per player.
+ */
+export const sponsoredMints = pgTable(
+  "sponsored_mints",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userAddress: text("user_address").notNull(),
+    runId: uuid("run_id"),
+    // "hexes" or "badges".
+    kind: text("kind").notNull(),
+    count: integer("count").notNull(),
+    txHash: text("tx_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("sponsored_mints_user_created_idx").on(t.userAddress, t.createdAt),
   ],
 );
 
