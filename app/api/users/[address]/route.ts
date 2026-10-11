@@ -1,9 +1,9 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray, max } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { runs, users } from "@/lib/db/schema";
 import { getChain, parseChainKey } from "@/lib/onchain/chains";
-import { usernameForAddress } from "@/lib/players";
+import { addressesForPlayer, usernameForAddress } from "@/lib/players";
 
 export const dynamic = "force-dynamic";
 
@@ -30,11 +30,20 @@ export async function GET(
   if (!u && sharedName === null) {
     return NextResponse.json({ user: null });
   }
+
+  const linked = await addressesForPlayer(lower);
+  const [last] = await db
+    .select({ at: max(runs.startedAt) })
+    .from(runs)
+    .where(inArray(runs.userAddress, linked));
+  const lastRunAt = last?.at ? new Date(last.at).toISOString() : null;
+
   return NextResponse.json({
     user: {
       address: lower,
       username,
       createdAt: u?.createdAt ?? new Date().toISOString(),
+      lastRunAt,
     },
   });
 }
