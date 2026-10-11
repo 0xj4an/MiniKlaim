@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { LegalFooter } from "@/app/LegalFooter";
+import { SupportLink } from "@/app/SupportLink";
 import { useLocale } from "@/lib/i18n";
 
 export default function AboutPage() {
@@ -62,12 +63,7 @@ export default function AboutPage() {
         <h2 className="text-xl font-semibold">{t("about.contact.header")}</h2>
         <p className="text-sm leading-relaxed text-zinc-700">
           {t("about.contact.body")}{" "}
-          <a
-            href="mailto:support@miniklaim.fun"
-            className="text-blue-600 underline"
-          >
-            {t("about.contact.handle")}
-          </a>
+          <SupportLink className="text-blue-600 underline" />
           .
         </p>
       </section>

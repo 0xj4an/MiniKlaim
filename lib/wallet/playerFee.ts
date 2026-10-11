@@ -13,8 +13,22 @@ export function errorText(e: unknown): string {
   return parts.join(" ");
 }
 
-/** The player closed the wallet sheet. That is not a reason for the relayer to pay. */
+/**
+ * MiniPay reports some failures as a rejection: "User rejected transaction An
+ * internal error was received", code 4001. Two thirds of the "rejections" we
+ * logged (Oct 2026) were this, not a player closing the sheet.
+ */
+export function isWalletInternalError(e: unknown): boolean {
+  return errorText(e).toLowerCase().includes("internal error");
+}
+
+/**
+ * The player closed the wallet sheet. That is not a reason for the relayer to
+ * pay. A fee shortfall or a wallet-internal error wearing a rejection code is
+ * not a decline.
+ */
 export function isUserRejection(e: unknown): boolean {
+  if (isUnpayableFee(e) || isWalletInternalError(e)) return false;
   if (e && typeof e === "object" && "code" in e) {
     const code = (e as { code?: unknown }).code;
     if (code === 4001 || code === "ACTION_REJECTED") return true;

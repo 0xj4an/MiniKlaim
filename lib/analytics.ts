@@ -58,6 +58,8 @@ type EventMap = {
   // The wallet or its provider refused the transaction. `reason` carries the
   // provider's own message, which is the only way to see a method the host
   // wallet declines to sign.
+  // MiniPay failed internally but reported it as a rejection. Not a decline.
+  run_claim_wallet_error: { reason: string };
   run_claim_rejected: {
     hex_count: number;
     badge_count: number;

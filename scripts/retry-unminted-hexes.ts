@@ -6,18 +6,27 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import type { Address } from "viem";
 import { createLogger } from "../lib/logger";
-import { checkRelayerBalance, sponsorRunHexes } from "../lib/onchain/sponsor";
+import {
+  checkRelayerBalance,
+  playerCanPay,
+  setMintStatus,
+  sponsorRunHexes,
+} from "../lib/onchain/sponsor";
+import { OFFERS_BEFORE_SPONSOR } from "../lib/onchain/sponsorRules";
 
 const log = createLogger("script:retry-unminted");
 
 /**
- * Retry relayer mints that failed on our side: runs marked `sponsor_failed`
- * (relayer out of gas, RPC down, tx reverted) after the server had already
- * agreed to sponsor them.
+ * Relayer-mints two kinds of runs:
+ *   1. `sponsor_failed`: the server had already agreed to sponsor and the
+ *      relayer or RPC let us down.
+ *   2. Runs the player has been shown OFFERS_BEFORE_SPONSOR times in the
+ *      pending-claim prompt without minting, but only when they still hold
+ *      too little CELO or fee stablecoin to pay. Otherwise the run is marked
+ *      `sponsor_denied` and stays claimable from the app.
  *
- * Runs the player declined, abandoned, or could pay for are left alone. The
- * player can still claim those from the app and pay the fee. The daily
- * per-wallet allowance applies here too.
+ * Anything else (declined once, abandoned) waits for the player. The daily
+ * per-wallet allowance applies to both.
  *
  * Run:  npm run runs:retry-unminted
  * Env:  DATABASE_URL, SERVER_SIGNER_PRIVATE_KEY, NEXT_PUBLIC_CELO_HEXES_ADDRESS.
@@ -46,23 +55,33 @@ async function main() {
     user_address: string;
     hex_count: number;
   }>(sql`
-    SELECT r.id AS run_id, r.user_address, COUNT(h.h3_id)::int AS hex_count
+    SELECT r.id AS run_id, r.user_address, COUNT(h.h3_id)::int AS hex_count,
+      (r.mint_status = 'sponsor_failed') AS failed
     FROM runs r
     JOIN hexes h ON h.run_id = r.id AND h.minted_at IS NULL
-    WHERE r.mint_status = 'sponsor_failed'
-      AND r.mint_status_at < ${cutoff}
+    WHERE r.ended_at IS NOT NULL
+      AND (
+        (r.mint_status = 'sponsor_failed' AND r.mint_status_at < ${cutoff})
+        OR (
+          r.pending_offers >= ${OFFERS_BEFORE_SPONSOR}
+          AND r.mint_status IS DISTINCT FROM 'claimed'
+          AND r.mint_status IS DISTINCT FROM 'sponsor_failed'
+          AND (r.mint_status_at IS NULL OR r.mint_status_at < ${cutoff})
+        )
+      )
     GROUP BY r.id, r.user_address
-    ORDER BY MIN(r.mint_status_at) ASC
+    ORDER BY (r.mint_status = 'sponsor_failed') DESC, MIN(r.mint_status_at) ASC NULLS FIRST
     LIMIT ${MAX_RUNS_PER_INVOCATION}
   `);
   const jobs = rows as unknown as Array<{
     run_id: string;
     user_address: string;
     hex_count: number;
+    failed: boolean;
   }>;
 
   if (jobs.length === 0) {
-    log.warn("no failed sponsor mints to retry");
+    log.warn("no runs to sponsor");
     await client.end();
     return;
   }
@@ -70,7 +89,22 @@ async function main() {
   let minted = 0;
   let failed = 0;
   let capped = 0;
+  let denied = 0;
   for (const job of jobs) {
+    if (!job.failed) {
+      // Offered enough times. Only pay if the player still cannot.
+      const pay = await playerCanPay(
+        job.user_address as Address,
+        job.hex_count,
+        0,
+        "celo",
+      );
+      if (pay.canPay) {
+        await setMintStatus(db, job.run_id, "sponsor_denied");
+        denied += 1;
+        continue;
+      }
+    }
     const result = await sponsorRunHexes(db, {
       runId: job.run_id,
       player: job.user_address as Address,
@@ -91,7 +125,13 @@ async function main() {
     if (result.status === "sponsor_capped") capped += 1;
   }
 
-  log.warn("retry complete", { runs: jobs.length, minted, failed, capped });
+  log.warn("retry complete", {
+    runs: jobs.length,
+    minted,
+    failed,
+    capped,
+    denied,
+  });
   await client.end();
 }
 
