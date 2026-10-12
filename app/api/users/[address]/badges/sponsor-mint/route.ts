@@ -1,3 +1,4 @@
+import { FEE_SHORTFALL_HEADER } from "@/lib/onchain/sponsorHeaders";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
@@ -70,12 +71,10 @@ export async function POST(
     return NextResponse.json({ minted: [] });
   }
 
-  const pay = await playerCanPay(
-    lower as Address,
-    0,
-    candidates.length,
-    chainKey,
-  );
+  const shortfall = request.headers.get(FEE_SHORTFALL_HEADER) === "1";
+  const pay = shortfall
+    ? { canPay: false as const, via: undefined }
+    : await playerCanPay(lower as Address, 0, candidates.length, chainKey);
   if (pay.canPay) {
     log.warn("badge sponsor refused: player can pay", {
       player: lower,

@@ -10,7 +10,12 @@ import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
 import { HEXES_CLAIM_ABI, hexesAddress } from "@/lib/onchain/hexesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { clearRunClaiming, markRunClaiming } from "@/lib/wallet/claimInFlight";
-import { isUserRejection, playerHasNoFeeBalance } from "@/lib/wallet/playerFee";
+import { shortfallHeaders } from "@/lib/onchain/sponsorHeaders";
+import {
+  isUnpayableFee,
+  isUserRejection,
+  playerHasNoFeeBalance,
+} from "@/lib/wallet/playerFee";
 import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { reportDeclined, runTokenHeaders } from "@/lib/wallet/runTokens";
@@ -45,11 +50,20 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
   const balances = useBalances(address, enabled);
 
   const sponsorFallback = useCallback(
-    async (runId: string): Promise<ClaimOutcome | "refused"> => {
+    async (
+      runId: string,
+      shortfall = false,
+    ): Promise<ClaimOutcome | "refused"> => {
       try {
         const res = await fetch(
           `/api/runs/${runId}/sponsor-mint?chain=${chainKey}`,
-          { method: "POST", headers: runTokenHeaders(runId) },
+          {
+            method: "POST",
+            headers: {
+              ...runTokenHeaders(runId),
+              ...shortfallHeaders(shortfall),
+            },
+          },
         );
         if (res.status === 402 || res.status === 429 || res.status === 403) {
           log.warn("sponsor refused", { runId, status: res.status });
@@ -163,7 +177,7 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
           runId,
           message: e instanceof Error ? e.message : String(e),
         });
-        return orFailed(await sponsorFallback(runId));
+        return orFailed(await sponsorFallback(runId, isUnpayableFee(e)));
       }
     },
     // The individual `balances.<sym>` values are memoized inside useBalances,
