@@ -12,7 +12,7 @@ describe("sentryInitOptions beforeSend", () => {
     expect(sentryInitOptions().beforeSend(event)).toBeNull();
   });
 
-  it("keeps the wallet bridge and tags the host", () => {
+  it("drops the MiniPay iOS bridge rejection", () => {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: {
@@ -23,9 +23,17 @@ describe("sentryInitOptions beforeSend", () => {
     const sent = sentryInitOptions().beforeSend(
       crash("The object does not support the operation or argument."),
     );
-    expect(sent).not.toBeNull();
-    expect(sent?.fingerprint).toEqual(["wallet-bridge-postmessage"]);
-    expect(sent?.tags).toMatchObject({ wallet_host: "minipay", pathname: "/" });
+    expect(sent).toBeNull();
+  });
+
+  it("drops a map shader failure", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { location: { pathname: "/run" } },
+    });
+    expect(
+      sentryInitOptions().beforeSend(crash("Could not compile fragment shader: ")),
+    ).toBeNull();
   });
 
   it("leaves a real crash ungrouped", () => {
