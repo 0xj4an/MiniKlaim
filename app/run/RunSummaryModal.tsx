@@ -6,7 +6,8 @@ import { track } from "@/lib/analytics";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { formatSpeed } from "@/lib/map/geo";
-import { moveMode, moveModeLabelKey } from "@/lib/runs/moveMode";
+import { moveMode } from "@/lib/runs/moveMode";
+import { MoveModeIcon } from "@/app/MoveModeIcon";
 import { badgeCopy } from "@/lib/onchain/badgeArt";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { isBadgeClaimPending } from "@/lib/wallet/claimInFlight";
@@ -57,7 +58,6 @@ export function RunSummaryModal({
       : `${summary.distanceMeters} m`;
   const speedLabel = formatSpeed(summary.durationMs, summary.distanceMeters);
   const mode = moveMode(summary.distanceMeters, totalSec);
-  const modeLabel = mode ? t(moveModeLabelKey(mode)) : null;
   const hasBadges = (badgeIds?.length ?? 0) > 0;
   const previewReady = badgeIds !== null;
   const canClaim =
@@ -244,7 +244,12 @@ export function RunSummaryModal({
         )}
         <p className="mt-2 text-center text-xs text-zinc-500">
           {timeLabel} - {distLabel} - {speedLabel}
-          {modeLabel ? ` - ${modeLabel}` : ""}
+          {mode && (
+            <>
+              {" - "}
+              <MoveModeIcon mode={mode} showLabel />
+            </>
+          )}
         </p>
         {phase === "done" ? (
           <div className="mt-4 flex flex-col gap-2">

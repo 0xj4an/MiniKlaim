@@ -14,6 +14,8 @@ import {
 } from "@/lib/useLeaderboard";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { LegalFooter } from "@/app/LegalFooter";
+import { MoveModeIcon } from "@/app/MoveModeIcon";
+import { runMoveMode } from "@/lib/runs/moveMode";
 
 const WorldMap = dynamic(() => import("./WorldMap").then((m) => m.WorldMap), {
   ssr: false,
@@ -314,6 +316,7 @@ function ActivityFeed({
             key={e.id}
             className={`flex items-center gap-2 ${isMe ? "font-medium text-zinc-900" : "text-zinc-700"}`}
           >
+            <MoveModeIcon mode={runMoveMode(e)} className="shrink-0" />
             <span className="min-w-0 flex-1 truncate">
               {e.username ? (
                 <Link href={`/p/${e.username}`} className="hover:underline">

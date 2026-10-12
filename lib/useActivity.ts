@@ -13,6 +13,7 @@ export type ActivityEntry = {
   endedAt: string;
   hexesClaimed: number;
   distanceMeters: number;
+  moveMode: string | null;
   country: string | null;
   city: string | null;
 };
