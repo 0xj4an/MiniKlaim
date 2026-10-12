@@ -91,6 +91,10 @@ export async function POST(
   let newlyCaptured = 0;
   let distanceDelta = 0;
   let conquestDelta = 0;
+  // Written in one statement after the loop. One INSERT per hex was the
+  // N+1 Sentry flagged (MINIKLAIM-V). The in-memory map below keeps a
+  // repeated h3 out of this list, which ON CONFLICT requires.
+  const toWrite: Array<typeof hexes.$inferInsert> = [];
 
   for (const raw of items) {
     const h3 = raw.h3;
@@ -133,29 +137,13 @@ export async function POST(
 
     const country = countryForHex(h3);
     const city = country ? cityForHex(h3, country) : null;
-    await db
-      .insert(hexes)
-      .values({
-        h3Id: h3,
-        ownerAddress: run.userAddress,
-        runId: id,
-        country,
-        city,
-      })
-      .onConflictDoUpdate({
-        target: hexes.h3Id,
-        set: {
-          ownerAddress: run.userAddress,
-          runId: id,
-          claimedAt: sql`now()`,
-          country,
-          city,
-          // Re-capture: clear prior mint state so the finish flow re-mints
-          // the hex to the new owner.
-          mintedAt: null,
-          mintTxHash: null,
-        },
-      });
+    toWrite.push({
+      h3Id: h3,
+      ownerAddress: run.userAddress,
+      runId: id,
+      country,
+      city,
+    });
 
     // Update the in-memory cache so a duplicate h3 later in the same batch
     // is treated as owned-this-run instead of a second conquest.
@@ -169,6 +157,26 @@ export async function POST(
     distanceDelta += distanceMeters;
     if (action === "take") conquestDelta += 1;
     results.push({ h3, alreadyOwned: false });
+  }
+
+  if (toWrite.length > 0) {
+    await db
+      .insert(hexes)
+      .values(toWrite)
+      .onConflictDoUpdate({
+        target: hexes.h3Id,
+        set: {
+          ownerAddress: sql`excluded.owner_address`,
+          runId: sql`excluded.run_id`,
+          claimedAt: sql`now()`,
+          country: sql`excluded.country`,
+          city: sql`excluded.city`,
+          // Re-capture: clear prior mint state so the finish flow re-mints
+          // the hex to the new owner.
+          mintedAt: null,
+          mintTxHash: null,
+        },
+      });
   }
 
   if (conquestDelta > 0) {
