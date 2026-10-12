@@ -80,6 +80,8 @@ type EventMap = {
 
   // Network & error tracking.
   app_crash: { error: string; digest: string; stack: string };
+  // A tab on an old build hit a missing chunk and reloaded itself.
+  stale_chunk_reload: { path: string };
   hexes_refresh_error: { status: number };
   hexes_refresh_network_error: { error: string };
   batch_claim_error: { status: number; count: number };

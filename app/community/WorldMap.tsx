@@ -6,7 +6,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
-import { DEFAULT_MAP_STYLE } from "@/lib/map/config";
+import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
 import { claimedHexesToFeatureCollection } from "@/lib/map/hex";
 import { HEX_COLORS } from "@/lib/map/hexColors";
 import { useLinkedAddresses } from "@/lib/wallet/useLinkedAddresses";
@@ -285,6 +285,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
     const map = new maplibregl.Map({
       container,
       style: DEFAULT_MAP_STYLE,
+      ...lightMapOptions(),
       center: [0, 0],
       zoom,
       minZoom: Math.min(zoom, -2), // Allow more zoom out
