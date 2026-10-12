@@ -13,6 +13,7 @@ export type PendingClaimRun = {
   distanceMeters: number;
   /** Hexes of this run not yet on-chain. */
   pendingHexes: number;
+  moveMode?: string | null;
   /** Visits that have shown this run so far. */
   offers: number;
 };

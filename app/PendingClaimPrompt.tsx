@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type { Address } from "viem";
 import { CloseButton } from "@/app/CloseButton";
 import { useLocale } from "@/lib/i18n";
+import { MoveModeIcon } from "@/app/MoveModeIcon";
+import { runMoveMode } from "@/lib/runs/moveMode";
 import { createLogger } from "@/lib/logger";
 import { isRunClaiming } from "@/lib/wallet/claimInFlight";
 import { useClaimRun } from "@/lib/wallet/useClaimRun";
@@ -140,7 +142,8 @@ export function PendingClaimPrompt({
             </div>
           </div>
           <div>
-            <div className="font-mono text-xl font-bold text-zinc-900">
+            <div className="flex items-center justify-center gap-1 font-mono text-xl font-bold text-zinc-900">
+              <MoveModeIcon mode={runMoveMode(next)} />
               {distLabel}
             </div>
             <div className="text-[10px] tracking-wide text-zinc-500 uppercase">

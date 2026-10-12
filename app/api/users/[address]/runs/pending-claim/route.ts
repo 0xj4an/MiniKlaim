@@ -31,6 +31,7 @@ export async function GET(
       r.ended_at AS "endedAt",
       r.hexes_claimed AS "hexesClaimed",
       r.distance_meters AS "distanceMeters",
+      r.move_mode AS "moveMode",
       (
         SELECT COUNT(*)::int FROM hexes h
         WHERE h.run_id = r.id AND h.minted_at IS NULL

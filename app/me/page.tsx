@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { MoveModeIcon } from "@/app/MoveModeIcon";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import countries from "i18n-iso-countries";
@@ -8,7 +9,7 @@ import en from "i18n-iso-countries/langs/en.json";
 import es from "i18n-iso-countries/langs/es.json";
 import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
-import { moveMode, moveModeLabelKey } from "@/lib/runs/moveMode";
+import { moveMode } from "@/lib/runs/moveMode";
 
 countries.registerLocale(en);
 countries.registerLocale(es);
@@ -546,7 +547,6 @@ function RunsList({
           ? formatDuration(durationSec * 1000)
           : t("me.runs.running");
         const mode = run.moveMode ?? moveMode(run.distanceMeters, durationSec);
-        const modeLabel = mode ? t(moveModeLabelKey(mode)) : null;
         const distLabel =
           run.distanceMeters >= 1000
             ? `${(run.distanceMeters / 1000).toFixed(2)}km`
@@ -567,8 +567,8 @@ function RunsList({
               <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5">
                 <span className="font-mono text-zinc-500">{duration}</span>
                 <span className="font-mono text-zinc-500">{distLabel}</span>
-                {modeLabel && (
-                  <span className="text-zinc-500">{modeLabel}</span>
+                {mode && (
+                  <MoveModeIcon mode={mode} showLabel className="text-zinc-500" />
                 )}
                 <span className="font-mono font-semibold text-zinc-900">
                   {run.hexesClaimed}{" "}
