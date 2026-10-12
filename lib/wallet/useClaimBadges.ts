@@ -10,6 +10,7 @@ import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
 import { BADGES_CLAIM_ABI, badgesAddress } from "@/lib/onchain/badgesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { isUserRejection, playerHasNoFeeBalance } from "@/lib/wallet/playerFee";
+import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { latestRunTokenFor, RUN_TOKEN_HEADER } from "@/lib/wallet/runTokens";
 
@@ -109,7 +110,6 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
       log.info("no fee balance; relayer mints badges");
       return sponsorFallback(address);
     }
-    const feeCurrency = held[0]?.adapter;
     try {
       const data = encodeFunctionData({
         abi: BADGES_CLAIM_ABI,
@@ -120,14 +120,17 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
           voucher.signature,
         ],
       });
-      const txHash = await walletClient.sendTransaction({
-        to: contract,
-        data: withAttribution(data),
-        chain: chain.chain,
-        account: address,
-        kzg: undefined,
-        ...(feeCurrency ? { feeCurrency } : {}),
-      });
+      // Held stablecoins first, then CELO if they are too short.
+      const { result: txHash } = await sendWithFeeFallback(held, (fee) =>
+        walletClient.sendTransaction({
+          to: contract,
+          data: withAttribution(data),
+          chain: chain.chain,
+          account: address,
+          kzg: undefined,
+          ...(fee ? { feeCurrency: fee.adapter } : {}),
+        }),
+      );
       log.info("claimBadges submitted by player", { chainKey, txHash });
       return { status: "user-claimed", txHash };
     } catch (e) {

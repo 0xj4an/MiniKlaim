@@ -5,7 +5,8 @@ import { encodeFunctionData, type Address, type Hex } from "viem";
 import { useWalletClient } from "wagmi";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
-import { getChain, pickFeeAdapter } from "@/lib/onchain/chains";
+import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
+import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { REWARDS_ABI } from "@/lib/onchain/rewardsAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { useBalances } from "@/lib/wallet/useBalances";
@@ -84,7 +85,7 @@ export function useClaimRewards(address: `0x${string}` | null) {
     setState("sending");
     try {
       const chain = getChain(chainKey);
-      const feeCurrency = pickFeeAdapter(chain.feeCurrencies, balances);
+      const held = heldFeeAdapters(chain.feeCurrencies, balances);
       const data = encodeFunctionData({
         abi: REWARDS_ABI,
         functionName: "claimRewards",
@@ -94,14 +95,16 @@ export function useClaimRewards(address: `0x${string}` | null) {
           voucher.signature,
         ],
       });
-      const txHash = await walletClient.sendTransaction({
-        to: voucher.contract,
-        data: withAttribution(data),
-        chain: chain.chain,
-        account: address,
-        kzg: undefined,
-        ...(feeCurrency ? { feeCurrency } : {}),
-      });
+      const { result: txHash } = await sendWithFeeFallback(held, (fee) =>
+        walletClient.sendTransaction({
+          to: voucher.contract,
+          data: withAttribution(data),
+          chain: chain.chain,
+          account: address,
+          kzg: undefined,
+          ...(fee ? { feeCurrency: fee.adapter } : {}),
+        }),
+      );
       log.info("claimRewards submitted", { chainKey, txHash });
       setState("linked");
       return {
