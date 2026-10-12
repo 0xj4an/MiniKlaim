@@ -37,6 +37,7 @@ type Analytics = {
     d7: number;
     d30: number;
   };
+  retentionCohort?: { d1: number; d7: number; d30: number };
   topCountries: Array<{
     country: string;
     count: number;
@@ -161,29 +162,7 @@ export default function StatsPage() {
             </div>
           </section>
 
-          <section className="flex flex-col gap-2">
-            <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
-              <span className="text-base">📈</span>
-              {t("stats.section.retention")}
-            </h2>
-            <div className="grid w-full grid-cols-3 gap-2">
-              <StatCard
-                label={t("stats.card.d1")}
-                value={Math.round(data.retention.d1 * 100)}
-                suffix="%"
-              />
-              <StatCard
-                label={t("stats.card.d7")}
-                value={Math.round(data.retention.d7 * 100)}
-                suffix="%"
-              />
-              <StatCard
-                label={t("stats.card.d30")}
-                value={Math.round(data.retention.d30 * 100)}
-                suffix="%"
-              />
-            </div>
-          </section>
+          <RetentionSection data={data} />
 
           <section className="flex flex-col gap-2">
             <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
@@ -255,6 +234,39 @@ export default function StatsPage() {
         <LegalFooter />
       </div>
     </main>
+  );
+}
+
+/**
+ * A retention rate needs a cohort big enough to mean something. Most players
+ * arrived after 7 Oct 2026, so D7 and D30 came from a handful of early
+ * players and read 100% / 0%. Hide a rate until its cohorts reach this size.
+ */
+const MIN_RETENTION_COHORT = 100;
+
+function RetentionSection({ data }: { data: Analytics }) {
+  const { t } = useLocale();
+  const sizes = data.retentionCohort;
+  const cards = (
+    [
+      ["d1", t("stats.card.d1")],
+      ["d7", t("stats.card.d7")],
+      ["d30", t("stats.card.d30")],
+    ] as const
+  ).filter(([k]) => (sizes ? sizes[k] >= MIN_RETENTION_COHORT : false));
+  if (cards.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+        <span className="text-base">📈</span>
+        {t("stats.section.retention")}
+      </h2>
+      <div className={`grid w-full gap-2 ${cards.length === 1 ? "grid-cols-1" : cards.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+        {cards.map(([k, label]) => (
+          <StatCard key={k} label={label} value={Math.round(data.retention[k] * 100)} suffix="%" />
+        ))}
+      </div>
+    </section>
   );
 }
 
