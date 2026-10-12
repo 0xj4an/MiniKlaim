@@ -26,6 +26,7 @@ import {
   isWalletInternalError,
   playerHasNoFeeBalance,
 } from "@/lib/wallet/playerFee";
+import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { useClaimRun } from "@/lib/wallet/useClaimRun";
 import { reportDeclined, runTokenHeaders } from "@/lib/wallet/runTokens";
@@ -232,9 +233,8 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           if (outcome !== "refused") return outcome;
           log.info("server says the player can pay; sending natively", { runId });
         }
-        // USDT first. A short balance retries the next held stablecoin before
-        // the relayer, still as one confirmation.
-        const attempts = held.length > 0 ? held : [undefined];
+        // USDT first, then the other held stablecoins, then CELO. A short
+        // balance moves on to the next option, still as one confirmation.
         const data = encodeFunctionData({
           abi: CLAIM_ROUTER_ABI,
           functionName: "claimAll",
@@ -246,55 +246,52 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           ],
         });
         let lastError: unknown;
-        for (let i = 0; i < attempts.length; i++) {
-          const fee = attempts[i];
-          try {
-            const txHash = await walletClient.sendTransaction({
-              to: contract,
-              data: withAttribution(data),
-              chain: chain.chain,
-              account: address,
-              kzg: undefined,
-              ...(fee ? { feeCurrency: fee.adapter } : {}),
-            });
-            log.info("claimAll submitted by player", {
-              runId,
-              chainKey,
-              txHash,
-              fee: fee?.symbol ?? "native",
-              hexCount: voucher.h3Ids.length,
-              badgeCount: badgeIds.length,
-            });
-            // These badges are now on-chain but unconfirmed, so the badge prompt
-            // must not offer them again while the chain read still lags.
-            track("run_claim_submitted", {
-              hex_count: voucher.h3Ids.length,
-              badge_count: badgeIds.length,
-              tx_hash: txHash,
-              fee_currency: !!fee,
-            });
-            markBadgeClaimSubmitted(badgeIds);
-            if (voucher.h3Ids.length > 0) {
-              await fetch(`/api/runs/${runId}/claimed`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ txHash }),
-              });
-            }
-            return "claimed";
-          } catch (e) {
-            lastError = e;
-            const next = attempts[i + 1];
-            if (fee && next && isUnpayableFee(e)) {
+        try {
+          const { result: txHash, fee } = await sendWithFeeFallback(
+            held,
+            (fee) =>
+              walletClient.sendTransaction({
+                to: contract,
+                data: withAttribution(data),
+                chain: chain.chain,
+                account: address,
+                kzg: undefined,
+                ...(fee ? { feeCurrency: fee.adapter } : {}),
+              }),
+            (fee, next) =>
               log.warn("fee currency short, trying next", {
                 runId,
-                fee: fee.symbol,
-                next: next.symbol,
-              });
-              continue;
-            }
-            break;
+                fee: fee?.symbol ?? "CELO",
+                next: next?.symbol ?? "CELO",
+              }),
+          );
+          log.info("claimAll submitted by player", {
+            runId,
+            chainKey,
+            txHash,
+            fee: fee?.symbol ?? "native",
+            hexCount: voucher.h3Ids.length,
+            badgeCount: badgeIds.length,
+          });
+          // These badges are now on-chain but unconfirmed, so the badge prompt
+          // must not offer them again while the chain read still lags.
+          track("run_claim_submitted", {
+            hex_count: voucher.h3Ids.length,
+            badge_count: badgeIds.length,
+            tx_hash: txHash,
+            fee_currency: !!fee,
+          });
+          markBadgeClaimSubmitted(badgeIds);
+          if (voucher.h3Ids.length > 0) {
+            await fetch(`/api/runs/${runId}/claimed`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ txHash }),
+            });
           }
+          return "claimed";
+        } catch (e) {
+          lastError = e;
         }
         if (isUserRejection(lastError)) {
           log.warn("player claimAll declined", {
