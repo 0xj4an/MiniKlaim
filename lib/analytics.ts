@@ -152,10 +152,9 @@ export function initAnalytics(): PostHog | null {
     // otherwise silently drop calls to us.i.posthog.com.
     api_host: "/ingest",
     ui_host: "https://us.posthog.com",
-    // Full autocapture is intentional: MiniKlaim has no PII inputs (username
-    // is public by design, wallet address is the identity), so blanket capture
-    // gives us a rich free layer without extra work.
-    autocapture: true,
+    // Autocapture was ~21k events a day (Oct 2026) and pushing the billing
+    // limit; every decision we take reads our own named events instead.
+    autocapture: false,
     capture_pageview: "history_change",
     capture_pageleave: true,
     capture_performance: true,
