@@ -9,7 +9,12 @@ import { withAttribution } from "@/lib/onchain/attribution";
 import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
 import { BADGES_CLAIM_ABI, badgesAddress } from "@/lib/onchain/badgesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
-import { isUserRejection, playerHasNoFeeBalance } from "@/lib/wallet/playerFee";
+import { shortfallHeaders } from "@/lib/onchain/sponsorHeaders";
+import {
+  isUnpayableFee,
+  isUserRejection,
+  playerHasNoFeeBalance,
+} from "@/lib/wallet/playerFee";
 import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { latestRunTokenFor, RUN_TOKEN_HEADER } from "@/lib/wallet/runTokens";
@@ -42,7 +47,7 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
   const balances = useBalances(address, enabled);
 
   const sponsorFallback = useCallback(
-    async (addr: string): Promise<BadgeClaimOutcome> => {
+    async (addr: string, shortfall = false): Promise<BadgeClaimOutcome> => {
       // The server only sponsors for the client that played one of this
       // wallet's runs. Without a run token the player pays.
       const proof = latestRunTokenFor(addr);
@@ -53,15 +58,22 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
       try {
         const res = await fetch(
           `/api/users/${addr.toLowerCase()}/badges/sponsor-mint?chain=${chainKey}&runId=${proof.runId}`,
-          { method: "POST", headers: { [RUN_TOKEN_HEADER]: proof.token } },
+          {
+            method: "POST",
+            headers: {
+              [RUN_TOKEN_HEADER]: proof.token,
+              ...shortfallHeaders(shortfall),
+            },
+          },
         );
         if (!res.ok) {
           log.error("badge sponsor fallback failed", { status: res.status });
-          Sentry.captureMessage("badge sponsor mint failed", {
-            level: "warning",
-            tags: { claim: "badge-sponsor" },
-            extra: { status: res.status },
-          });
+          if (res.status !== 402 && res.status !== 429)
+            Sentry.captureMessage("badge sponsor mint failed", {
+              level: "warning",
+              tags: { claim: "badge-sponsor" },
+              extra: { status: res.status },
+            });
           return { status: "error" };
         }
         log.info("sponsored badge mint done", { addr });
@@ -106,7 +118,9 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
     }
 
     const held = heldFeeAdapters(chain.feeCurrencies, balances);
-    if (playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)) {
+    if (
+      playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)
+    ) {
       log.info("no fee balance; relayer mints badges");
       return sponsorFallback(address);
     }
@@ -143,7 +157,7 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
       log.warn("player badge claim failed; relayer mints", {
         message: e instanceof Error ? e.message : String(e),
       });
-      return sponsorFallback(address);
+      return sponsorFallback(address, isUnpayableFee(e));
     }
     // Individual balance fields are memoized in useBalances; listing them
     // keeps the callback stable across renders (unlike the whole `balances`
