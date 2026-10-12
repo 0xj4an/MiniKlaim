@@ -1,4 +1,4 @@
-import { desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { runs, users } from "@/lib/db/schema";
@@ -43,7 +43,9 @@ export async function GET(request: Request) {
     })
     .from(runs)
     .leftJoin(users, eq(runs.userAddress, users.address))
-    .where(isNotNull(runs.endedAt))
+    // Only runs that captured something. Empty starts and runs closed by the
+    // stale-run sweep were filling the feed.
+    .where(and(isNotNull(runs.endedAt), gt(runs.hexesClaimed, 0)))
     .orderBy(desc(runs.endedAt))
     .limit(limit);
 
