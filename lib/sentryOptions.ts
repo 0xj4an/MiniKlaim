@@ -1,6 +1,7 @@
 import type { ErrorEvent } from "@sentry/nextjs";
 import { clientWalletHost } from "@/lib/client/walletHost";
 import { isBrowserNoise } from "@/lib/errors/browserNoise";
+import { isWebglFailure } from "@/lib/map/isWebglFailure";
 
 const WALLET_BRIDGE = "The object does not support the operation or argument.";
 
@@ -39,11 +40,18 @@ export function sentryInitOptions(): SentryInitOptions {
           wallet_host: clientWalletHost(),
           pathname: window.location.pathname,
         };
-        // Same iOS postMessage rejection was splitting into C/D/E/F because
-        // WebKit sometimes keeps the wagmi frame and sometimes strips it.
+        // MiniPay's iOS bridge rejects a postMessage during wagmi's
+        // reconnect. Only native frames, nothing in our code to change, and
+        // no effect on the session (MINIKLAIM-H). Counted in PostHog instead.
         if (parts.some((part) => part.includes(WALLET_BRIDGE))) {
-          event.fingerprint = ["wallet-bridge-postmessage"];
+          void import("@/lib/analytics").then(({ track }) =>
+            track("wallet_bridge_rejected", {}),
+          ).catch(() => {});
+          return null;
         }
+        // The device cannot draw the map (MINIKLAIM-W). The page shows a
+        // notice and PostHog counts it; Sentry would only repeat it per frame.
+        if (parts.some((part) => isWebglFailure(part))) return null;
       }
       return event;
     },
