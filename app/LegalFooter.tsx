@@ -32,7 +32,8 @@ export function LegalFooter() {
         </Link>
         <XLink
           label={t("about.footer.x")}
-          className="min-h-11 underline hover:text-zinc-600"
+          iconOnly
+          className="min-h-11 min-w-11 justify-center text-zinc-600 hover:text-zinc-900"
         />
       </nav>
       <p>{t("about.footer.disclaimer")}</p>
