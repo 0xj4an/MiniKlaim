@@ -170,6 +170,62 @@ export async function GET() {
       GROUP BY country
       ORDER BY count DESC
     `),
+    // Runs by how they were done. Stored move_mode, else the same speed
+    // buckets as lib/runs/moveMode.ts. Only runs that captured something.
+    db.execute(sql`
+      WITH r AS (
+        SELECT
+          hexes_claimed,
+          distance_meters,
+          EXTRACT(EPOCH FROM (ended_at - started_at)) AS secs,
+          move_mode
+        FROM runs
+        WHERE ended_at IS NOT NULL AND hexes_claimed > 0
+      )
+      SELECT
+        COALESCE(move_mode, CASE
+          WHEN distance_meters < 30 OR secs < 20 THEN 'none'
+          WHEN distance_meters / secs * 3.6 >= 100 THEN 'plane'
+          WHEN distance_meters / secs * 3.6 >= 40 THEN 'car'
+          WHEN distance_meters / secs * 3.6 >= 15 THEN 'bike'
+          ELSE 'foot'
+        END) AS mode,
+        COUNT(*)::int AS runs,
+        COALESCE(SUM(hexes_claimed), 0)::int AS blocks,
+        COALESCE(SUM(distance_meters), 0)::bigint::float AS meters
+      FROM r
+      GROUP BY 1
+    `),
+    // Typical run (moved at least 30 m and captured something) and records.
+    db.execute(sql`
+      SELECT
+        COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (ended_at - started_at))), 0)::float AS median_secs,
+        COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY distance_meters), 0)::float AS median_meters,
+        COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY hexes_claimed), 0)::float AS median_blocks,
+        COALESCE(MAX(hexes_claimed), 0)::int AS best_blocks,
+        COALESCE(MAX(distance_meters), 0)::int AS best_meters
+      FROM runs
+      WHERE ended_at IS NOT NULL AND hexes_claimed > 0 AND distance_meters >= 30
+    `),
+    // Runs per day, last 14 days (UTC).
+    db.execute(sql`
+      SELECT TO_CHAR(g.d, 'YYYY-MM-DD') AS "day", COALESCE(x.n, 0)::int AS runs
+      FROM generate_series(
+        DATE_TRUNC('day', NOW()) - INTERVAL '13 days',
+        DATE_TRUNC('day', NOW()),
+        INTERVAL '1 day'
+      ) AS g(d)
+      LEFT JOIN (
+        SELECT DATE_TRUNC('day', ended_at) AS dd, COUNT(*) AS n
+        FROM runs
+        WHERE ended_at >= DATE_TRUNC('day', NOW()) - INTERVAL '13 days'
+          AND hexes_claimed > 0
+        GROUP BY 1
+      ) x ON x.dd = g.d
+      ORDER BY g.d
+    `),
+    // Blocks taken from another player, all time.
+    db.execute(sql`SELECT COALESCE(SUM(conquests), 0)::int AS c FROM users`),
     // Cities within top countries.
     db.execute(sql`
       SELECT country, city, COUNT(*)::int AS count
@@ -199,8 +255,20 @@ export async function GET() {
     retentionD7,
     retentionD30,
     topCountriesRows,
+    runsByModeRows,
+    runShapeRows,
+    runsPerDayRows,
+    conquestsTotal,
     topCitiesRows,
   ] = queries;
+
+  const shape = (runShapeRows as unknown as Array<{
+    median_secs: number;
+    median_meters: number;
+    median_blocks: number;
+    best_blocks: number;
+    best_meters: number;
+  }>)[0];
 
   const scalar = (q: unknown) =>
     (q as unknown as Row<Array<{ c: number }>>)[0]?.c ?? 0;
@@ -243,6 +311,24 @@ export async function GET() {
       city: string;
       count: number;
     }>,
+    // Runs breakdown.
+    runsByMode: (runsByModeRows as unknown as Array<{
+      mode: string;
+      runs: number;
+      blocks: number;
+      meters: number;
+    }>).filter((r) => r.mode !== "none"),
+    typicalRun: {
+      seconds: Math.round(shape?.median_secs ?? 0),
+      meters: Math.round(shape?.median_meters ?? 0),
+      blocks: Math.round(shape?.median_blocks ?? 0),
+    },
+    records: {
+      blocks: shape?.best_blocks ?? 0,
+      meters: shape?.best_meters ?? 0,
+    },
+    runsPerDay: runsPerDayRows as unknown as Array<{ day: string; runs: number }>,
+    conquests: scalar(conquestsTotal),
     chain: "celo",
     chainId: 42220,
   });
