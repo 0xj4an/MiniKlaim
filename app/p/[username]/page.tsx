@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { serverT } from "@/lib/i18nServer";
-import { badgeSvg } from "@/lib/onchain/badgeArt";
-import { BADGE_GROUPS, evaluateBadges } from "@/lib/onchain/badgeCatalog";
+import { evaluateBadges } from "@/lib/onchain/badgeCatalog";
+import { BadgeGroups } from "@/app/BadgeGroups";
 
 type PublicProfile = {
   username: string;
@@ -66,7 +66,6 @@ export default async function PublicProfilePage({
       : `${profile.bestRunDistanceMeters} m`;
 
   const badges = evaluateBadges(profile, locale === "es" ? "es" : "en");
-  const byId = new Map(badges.map((b) => [b.onchainId, b]));
   const unlockedCount = badges.filter((b) => b.unlocked).length;
 
   const joinedLabel = new Date(profile.joinedAt).toLocaleDateString(
@@ -131,37 +130,7 @@ export default async function PublicProfilePage({
         <p className="mb-1 text-center text-xs text-zinc-500">
           {t("p.badges.header")} {unlockedCount} {t("p.badges.of")} {badges.length}
         </p>
-        {BADGE_GROUPS.map((group) => (
-          <div key={group.en} className="mt-2 first:mt-1">
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-              {locale === "es" ? group.es : group.en}
-            </p>
-            {group.ids.map((id) => {
-              const b = byId.get(id);
-              if (!b) return null;
-              return (
-                <div
-                  key={b.onchainId}
-                  className={`flex items-center justify-between gap-3 ${b.unlocked ? "text-zinc-900" : "text-zinc-500"}`}
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      aria-hidden
-                      className={`inline-block h-7 w-7 shrink-0 ${b.unlocked ? "" : "opacity-40 grayscale"}`}
-                      dangerouslySetInnerHTML={{
-                        __html: badgeSvg(b.onchainId, 28),
-                      }}
-                    />
-                    <span className={b.unlocked ? "font-semibold" : ""}>
-                      {b.name}
-                    </span>
-                  </span>
-                  <span className="text-xs text-zinc-500">{b.description}</span>
-                </div>
-              );
-            })}
-          </div>
-        ))}
+        <BadgeGroups badges={badges} locale={locale === "es" ? "es" : "en"} />
       </div>
 
       <Link
