@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { MoveModeIcon } from "@/app/MoveModeIcon";
+import { BadgeGroups } from "@/app/BadgeGroups";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import countries from "i18n-iso-countries";
@@ -16,12 +17,7 @@ countries.registerLocale(es);
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { LinkWallet } from "@/app/LinkWallet";
 import { RewardsSection } from "@/app/me/RewardsSection";
-import { badgeSvg } from "@/lib/onchain/badgeArt";
-import {
-  BADGE_GROUPS,
-  evaluateBadges,
-  type EvaluatedBadge,
-} from "@/lib/onchain/badgeCatalog";
+import { evaluateBadges, type EvaluatedBadge } from "@/lib/onchain/badgeCatalog";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
 import { useUserRuns } from "@/lib/wallet/useUserRuns";
@@ -337,7 +333,6 @@ const ACHIEVEMENTS_CACHE_KEY = "miniklaim.unlockedBadges";
 function Achievements({ stats }: { stats: UserStats }) {
   const { t, locale } = useLocale();
   const achievements = evaluateBadges(stats, locale);
-  const byId = new Map(achievements.map((a) => [a.onchainId, a]));
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
   const [newlyUnlocked, setNewlyUnlocked] = useState<EvaluatedBadge | null>(
     null,
@@ -381,39 +376,7 @@ function Achievements({ stats }: { stats: UserStats }) {
           {t("me.badges.header")} {unlockedCount} {t("me.badges.of")}{" "}
           {achievements.length}
         </p>
-        {BADGE_GROUPS.map((group) => (
-          <div key={group.en} className="mt-2 first:mt-1">
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-              {locale === "es" ? group.es : group.en}
-            </p>
-            {group.ids.map((id) => {
-              const a = byId.get(id);
-              if (!a) return null;
-              return (
-                <div
-                  key={a.onchainId}
-                  className={`flex items-center justify-between gap-3 ${a.unlocked ? "text-zinc-900" : "text-zinc-500"}`}
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      aria-hidden
-                      className={`inline-block h-7 w-7 shrink-0 ${a.unlocked ? "" : "opacity-40 grayscale"}`}
-                      dangerouslySetInnerHTML={{
-                        __html: badgeSvg(a.onchainId, 28),
-                      }}
-                    />
-                    <span className={a.unlocked ? "font-semibold" : ""}>
-                      {a.name}
-                    </span>
-                  </span>
-                  <span className="text-xs text-zinc-500">
-                    {a.description}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        ))}
+        <BadgeGroups badges={achievements} locale={locale} />
       </div>
       {newlyUnlocked && (
         <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-zinc-900 px-5 py-3 text-sm text-white shadow-2xl">
