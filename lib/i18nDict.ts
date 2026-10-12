@@ -191,6 +191,8 @@ export const dictionaries = {
     "run.gps.timeout":
       "GPS didn't arrive. Close the app, open it again, and allow location. You can't play without it.",
     "run.gps.unavailable": "Location unavailable on this device.",
+    "map.webglFailed":
+      "This phone can't draw the map, so runs can't start on it. Updating Android System WebView in the Play Store may fix it.",
     "run.start.signIn": "Sign in first",
     "run.start.starting": "Starting...",
     "run.start.button": "Start",
@@ -595,6 +597,8 @@ export const dictionaries = {
     "run.gps.timeout":
       "El GPS no llegó. Cierra la app, vuélvela a abrir y permite la ubicación. Sin eso no puedes jugar.",
     "run.gps.unavailable": "Ubicación no disponible en este dispositivo.",
+    "map.webglFailed":
+      "Este teléfono no puede dibujar el mapa, así que no puede iniciar corridas. Actualizar Android System WebView en Play Store puede arreglarlo.",
     "run.start.signIn": "Entra primero",
     "run.start.starting": "Empezando...",
     "run.start.button": "Empezar",

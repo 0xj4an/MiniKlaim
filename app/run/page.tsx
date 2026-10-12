@@ -34,6 +34,8 @@ import { haversineMeters } from "@/lib/map/geo";
 import { liveGeoSource } from "@/lib/map/liveSource";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
 import { HEX_COLORS } from "@/lib/map/hexColors";
+import { useWebglFailure } from "@/lib/map/webglFailure";
+import { CloseButton } from "@/app/CloseButton";
 import { holdScreenAwake } from "@/lib/wakeLock";
 import {
   GPS_GAP_STALE_SECONDS,
@@ -117,6 +119,10 @@ export default function RunPage() {
   const { address, isConnected, isWrongChain } = useWallet();
   const { user } = useUser(isConnected ? address : null);
   const { t } = useLocale();
+  const mapFailed = useWebglFailure(() =>
+    track("map_webgl_failed", { path: "/run" }),
+  );
+  const [mapNoticeClosed, setMapNoticeClosed] = useState(false);
   const { active: activeRun, isLoading: isActiveLoading } = useActiveRun(
     isConnected && !isWrongChain ? address : null,
   );
@@ -1235,6 +1241,12 @@ export default function RunPage() {
           left: 0,
         }}
       />
+      {mapFailed && !mapNoticeClosed && (
+        <div className="absolute inset-x-4 top-16 z-20 flex items-start gap-2 rounded-md bg-white/95 p-3 text-sm text-zinc-800 shadow-md">
+          <p className="flex-1">{t("map.webglFailed")}</p>
+          <CloseButton onClick={() => setMapNoticeClosed(true)} />
+        </div>
+      )}
       <Link
         href="/"
         className="absolute top-4 left-4 z-10 rounded-md bg-white/90 px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-md backdrop-blur hover:bg-white"
