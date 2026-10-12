@@ -26,6 +26,7 @@ import {
   isWalletInternalError,
   playerHasNoFeeBalance,
 } from "@/lib/wallet/playerFee";
+import { shortfallHeaders } from "@/lib/onchain/sponsorHeaders";
 import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { useClaimRun } from "@/lib/wallet/useClaimRun";
@@ -78,7 +79,13 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
       try {
         const res = await fetch(
           `/api/runs/${runId}/sponsor-mint?chain=${chainKey}`,
-          { method: "POST", headers: runTokenHeaders(runId) },
+          {
+            method: "POST",
+            headers: {
+              ...runTokenHeaders(runId),
+              ...shortfallHeaders(trigger === "fee_shortfall"),
+            },
+          },
         );
         if (res.status === 402 || res.status === 429) {
           // The server refused: the player can pay their own fee, or this
@@ -114,18 +121,28 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
         if (hadBadges) {
           const bRes = await fetch(
             `/api/users/${addr.toLowerCase()}/badges/sponsor-mint?chain=${chainKey}&runId=${runId}`,
-            { method: "POST", headers: runTokenHeaders(runId) },
+            {
+              method: "POST",
+              headers: {
+                ...runTokenHeaders(runId),
+                ...shortfallHeaders(trigger === "fee_shortfall"),
+              },
+            },
           );
           if (!bRes.ok) {
             log.warn("sponsored badge mint failed", {
               runId,
               status: bRes.status,
             });
-            Sentry.captureMessage("badge sponsor mint failed", {
-              level: "warning",
-              tags: { claim: "badge-sponsor" },
-              extra: { runId, status: bRes.status },
-            });
+            // 402/429 are refusals (can pay, daily cap), not failures; the
+            // badges stay claimable from the badge prompt.
+            if (bRes.status !== 402 && bRes.status !== 429) {
+              Sentry.captureMessage("badge sponsor mint failed", {
+                level: "warning",
+                tags: { claim: "badge-sponsor" },
+                extra: { runId, status: bRes.status },
+              });
+            }
             track("run_claim_sponsored", { had_badges: true, trigger });
             return "badges_failed";
           }
@@ -205,7 +222,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
         const chain = getChain(chainKey);
         const held = heldFeeAdapters(chain.feeCurrencies, balances);
         const sponsorWithBadges = async (
-          trigger: "no_balance" | "tx_error",
+          trigger: "no_balance" | "fee_shortfall" | "tx_error",
         ): Promise<ClaimAllOutcome | "refused"> => {
           if (badgeIds.length > 0) markBadgeClaimSubmitted(badgeIds);
           const outcome = await sponsorFallback(
@@ -314,7 +331,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           message: reasonOf(lastError),
         });
         const outcome = await sponsorWithBadges(
-          isUnpayableFee(lastError) ? "no_balance" : "tx_error",
+          isUnpayableFee(lastError) ? "fee_shortfall" : "tx_error",
         );
         return outcome === "refused" ? "failed" : outcome;
       } finally {
