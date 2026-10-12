@@ -96,7 +96,8 @@ export async function GET() {
       SELECT COALESCE(
         AVG(d1.returned / c.cohort_size),
         0
-      )::float AS c
+      )::float AS c,
+      COALESCE(SUM(c.cohort_size), 0)::int AS n
       FROM cohorts c
       LEFT JOIN d1 ON d1.cohort_day = c.cohort_day
     `),
@@ -127,7 +128,8 @@ export async function GET() {
       SELECT COALESCE(
         AVG(d7.returned / c.cohort_size),
         0
-      )::float AS c
+      )::float AS c,
+      COALESCE(SUM(c.cohort_size), 0)::int AS n
       FROM cohorts c
       LEFT JOIN d7 ON d7.cohort_day = c.cohort_day
     `),
@@ -158,7 +160,8 @@ export async function GET() {
       SELECT COALESCE(
         AVG(d30.returned / c.cohort_size),
         0
-      )::float AS c
+      )::float AS c,
+      COALESCE(SUM(c.cohort_size), 0)::int AS n
       FROM cohorts c
       LEFT JOIN d30 ON d30.cohort_day = c.cohort_day
     `),
@@ -272,6 +275,8 @@ export async function GET() {
 
   const scalar = (q: unknown) =>
     (q as unknown as Row<Array<{ c: number }>>)[0]?.c ?? 0;
+  const cohortSize = (q: unknown) =>
+    (q as unknown as Row<Array<{ n: number }>>)[0]?.n ?? 0;
 
   return NextResponse.json({
     totalPlayers: scalar(users),
@@ -292,6 +297,13 @@ export async function GET() {
       d1: scalar(retentionD1),
       d7: scalar(retentionD7),
       d30: scalar(retentionD30),
+    },
+    // Players in the cohorts behind each rate. The page hides a rate whose
+    // cohorts are too small to mean anything yet.
+    retentionCohort: {
+      d1: cohortSize(retentionD1),
+      d7: cohortSize(retentionD7),
+      d30: cohortSize(retentionD30),
     },
     // On-chain.
     hexesOnchain: scalar(hexesOnchain),
