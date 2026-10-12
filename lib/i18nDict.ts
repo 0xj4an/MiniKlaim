@@ -134,6 +134,7 @@ export const dictionaries = {
     "me.username.cancel": "cancel",
     "me.username.edit": "change name",
     "me.share.copied": "copied",
+    "me.share.copiedPaste": "Caption copied. Paste it in your post.",
     "me.share.button": "share profile",
     "me.territory.header": "Your territory",
     "me.territory.empty":
@@ -274,6 +275,7 @@ export const dictionaries = {
       "Critical issues (broken sign-in, lost runs, on-chain mint failures) are addressed within 24 hours. Email support@miniklaim.fun.",
     "about.footer.stats": "Stats",
     "about.footer.privacy": "Privacy",
+    "about.footer.x": "Follow @MiniKlaim on X",
     "about.footer.terms": "Terms",
     "about.footer.disclaimer":
       "MiniKlaim is a hobby project. Use at your own risk. No warranty.",
@@ -540,6 +542,7 @@ export const dictionaries = {
     "me.username.cancel": "cancelar",
     "me.username.edit": "cambiar nombre",
     "me.share.copied": "copiado",
+    "me.share.copiedPaste": "Texto copiado. Pégalo en tu publicación.",
     "me.share.button": "compartir perfil",
     "me.territory.header": "Tu territorio",
     "me.territory.empty":
@@ -680,6 +683,7 @@ export const dictionaries = {
       "Los problemas críticos (sign-in roto, corridas perdidas, fallas de mint en cadena) se resuelven en menos de 24 horas. Escribe a support@miniklaim.fun.",
     "about.footer.stats": "Estadísticas",
     "about.footer.privacy": "Privacidad",
+    "about.footer.x": "Síguenos en X @MiniKlaim",
     "about.footer.terms": "Términos",
     "about.footer.disclaimer":
       "MiniKlaim es un proyecto personal. Úsalo bajo tu propio riesgo. Sin garantía.",
