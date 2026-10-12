@@ -97,6 +97,10 @@ type EventMap = {
 
   // Friction / errors that gate the golden path.
   gps_denied: Record<string, never>;
+  // The device GPU cannot draw the map. Sentry drops these; this counts them.
+  map_webgl_failed: { path: string };
+  // MiniPay iOS rejects a postMessage in its own bridge (not app code).
+  wallet_bridge_rejected: Record<string, never>;
   gps_unavailable: Record<string, never>;
   gps_minipay_ios_blocked: Record<string, never>;
   // Fired on a 1-in-20 sample when a GPS fix is dropped because accuracy
