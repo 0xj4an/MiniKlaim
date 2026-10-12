@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LogoWordmark } from "./Logo";
 import { HomeClient } from "./HomeClient";
 import { serverT } from "@/lib/i18nServer";
+import { XLink } from "./XLink";
 
 export default async function HomePage() {
   const { t } = await serverT();
@@ -51,6 +52,10 @@ export default async function HomePage() {
             {t("about.footer.terms")}
           </Link>
         </nav>
+        <XLink
+          label={t("about.footer.x")}
+          className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-sm hover:bg-zinc-50"
+        />
       </div>
     </main>
   );

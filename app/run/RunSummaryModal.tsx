@@ -8,6 +8,7 @@ import { createLogger } from "@/lib/logger";
 import { formatSpeed } from "@/lib/map/geo";
 import { moveMode } from "@/lib/runs/moveMode";
 import { MoveModeIcon } from "@/app/MoveModeIcon";
+import { shareTo } from "@/lib/client/share";
 import { badgeCopy } from "@/lib/onchain/badgeArt";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { isBadgeClaimPending } from "@/lib/wallet/claimInFlight";
@@ -404,45 +405,12 @@ async function shareClaim(
   track("share_button_pressed", { surface: "run_summary", channel });
   const { text, url: origin } = claimCaption(summary, timeLabel, distLabel, t);
   const url = username ? `${origin}/p/${username}` : origin;
-  const caption = `${text} ${url}`;
-
-  if (channel === "instagram") {
-    try {
-      await navigator.clipboard.writeText(caption);
-      setNote(t("me.share.copied"));
-      window.setTimeout(() => setNote(null), 2000);
-    } catch {
-      setNote(null);
-    }
-    
-    const nativeUrl = "instagram://camera";
-    const webUrl = "https://www.instagram.com/";
-    
-    window.location.href = nativeUrl;
-    
-    window.setTimeout(() => {
-      window.open(webUrl, "_blank", "noopener,noreferrer");
-    }, 1500);
-    return;
-  }
-
-  if (channel === "x") {
-    const nativeUrl = `twitter://post?message=${encodeURIComponent(caption)}`;
-    const webUrl = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
-    
-    window.location.href = nativeUrl;
-    
-    window.setTimeout(() => {
-      window.open(webUrl, "_blank", "noopener,noreferrer");
-    }, 1500);
-  } else {
-    const nativeUrl = `fb://facewebmodal/f?href=${encodeURIComponent(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`)}`;
-    const webUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
-    
-    window.location.href = nativeUrl;
-    
-    window.setTimeout(() => {
-      window.open(webUrl, "_blank", "noopener,noreferrer");
-    }, 1500);
+  const method = await shareTo(channel, text, url);
+  track("share_result", { surface: "run_summary", channel, method });
+  if (method === "copied" || (method === "intent" && channel === "instagram")) {
+    setNote(t("me.share.copiedPaste"));
+    window.setTimeout(() => setNote(null), 3000);
+  } else if (method === "none") {
+    setNote(null);
   }
 }
