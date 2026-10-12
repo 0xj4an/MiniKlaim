@@ -19,19 +19,24 @@ export function XLogo({ size = 14 }: { size?: number }) {
 export function XLink({
   label,
   className = "",
+  iconOnly = false,
 }: {
   label: string;
   className?: string;
+  /** Just the logo; the label stays for screen readers and the tooltip. */
+  iconOnly?: boolean;
 }) {
   return (
     <a
       href={MINIKLAIM_X_URL}
       target="_blank"
       rel="noopener noreferrer"
+      aria-label={iconOnly ? label : undefined}
+      title={iconOnly ? label : undefined}
       className={`inline-flex items-center gap-1.5 ${className}`}
     >
-      <XLogo />
-      <span>{label}</span>
+      <XLogo size={iconOnly ? 16 : 14} />
+      {!iconOnly && <span>{label}</span>}
     </a>
   );
 }
