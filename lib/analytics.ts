@@ -129,6 +129,12 @@ type EventMap = {
     surface: "run_summary" | "profile";
     channel?: "x" | "facebook" | "instagram";
   };
+  // Which path actually worked: web intent, system sheet, clipboard, none.
+  share_result: {
+    surface: "run_summary" | "profile";
+    channel: "x" | "facebook" | "instagram" | "sheet";
+    method: "intent" | "sheet" | "copied" | "none";
+  };
 };
 
 type EventName = keyof EventMap;
