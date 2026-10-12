@@ -7,6 +7,8 @@ import en from "i18n-iso-countries/langs/en.json";
 import es from "i18n-iso-countries/langs/es.json";
 import { LegalFooter } from "@/app/LegalFooter";
 import { useLocale } from "@/lib/i18n";
+import { MoveModeIcon } from "@/app/MoveModeIcon";
+import type { MoveMode } from "@/lib/runs/moveMode";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("page:stats");
@@ -46,6 +48,11 @@ type Analytics = {
   }>;
   hexesContract: string;
   badgesContract: string;
+  runsByMode?: Array<{ mode: string; runs: number; blocks: number; meters: number }>;
+  typicalRun?: { seconds: number; meters: number; blocks: number };
+  records?: { blocks: number; meters: number };
+  runsPerDay?: Array<{ day: string; runs: number }>;
+  conquests?: number;
 };
 
 export default function StatsPage() {
@@ -140,6 +147,8 @@ export default function StatsPage() {
             </div>
           </section>
 
+          <RunsSection data={data} />
+
           <section className="flex flex-col gap-2">
             <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
               <span className="text-base">👥</span>
@@ -223,9 +232,9 @@ export default function StatsPage() {
                   href={`https://celoscan.io/address/${data.hexesContract}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-mono text-blue-600"
+                  className="break-all text-right font-mono text-blue-600"
                 >
-                  {data.hexesContract.slice(0, 6)}...{data.hexesContract.slice(-4)}
+                  {data.hexesContract}
                 </a>
               </div>
               <div className="flex justify-between gap-2">
@@ -234,9 +243,9 @@ export default function StatsPage() {
                   href={`https://celoscan.io/address/${data.badgesContract}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-mono text-blue-600"
+                  className="break-all text-right font-mono text-blue-600"
                 >
-                  {data.badgesContract.slice(0, 6)}...{data.badgesContract.slice(-4)}
+                  {data.badgesContract}
                 </a>
               </div>
             </div>
@@ -246,6 +255,115 @@ export default function StatsPage() {
         <LegalFooter />
       </div>
     </main>
+  );
+}
+
+const MODE_ORDER: MoveMode[] = ["foot", "bike", "car", "plane"];
+
+function formatMeters(m: number): string {
+  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
+}
+
+function RunsSection({ data }: { data: Analytics }) {
+  const { t, locale } = useLocale();
+  if (!data.runsByMode || !data.typicalRun || !data.records) return null;
+  const byMode = new Map(data.runsByMode.map((r) => [r.mode, r]));
+  const totalRuns = data.runsByMode.reduce((sum, r) => sum + r.runs, 0);
+  const totalBlocks = data.runsByMode.reduce((sum, r) => sum + r.blocks, 0);
+  const days = data.runsPerDay ?? [];
+  const maxDay = Math.max(1, ...days.map((d) => d.runs));
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+        <span className="text-base">🏃</span>
+        {t("stats.section.runs")}
+      </h2>
+
+      <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
+          {t("stats.runs.byMode")}
+        </p>
+        {MODE_ORDER.map((mode) => {
+          const row = byMode.get(mode);
+          if (!row) return null;
+          const runPct = totalRuns ? Math.round((row.runs / totalRuns) * 100) : 0;
+          const blockPct = totalBlocks ? Math.round((row.blocks / totalBlocks) * 100) : 0;
+          return (
+            <div key={mode} className="flex flex-col gap-1">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <MoveModeIcon mode={mode} showLabel className="font-semibold text-zinc-800" />
+                <span className="tabular-nums text-zinc-500">
+                  {row.runs.toLocaleString()} {t("stats.card.runs")} · {row.blocks.toLocaleString()}{" "}
+                  {t("stats.runs.blocks")} · {formatMeters(row.meters)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[10px] tabular-nums text-zinc-400">
+                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100">
+                  <span className="block h-full rounded-full bg-blue-500" style={{ width: `${runPct}%` }} />
+                </span>
+                <span className="shrink-0 whitespace-nowrap text-right">
+                  {runPct}% {t("stats.runs.ofRuns")} · {blockPct}% {t("stats.runs.ofBlocks")}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
+        {t("stats.runs.typical")}
+      </p>
+      <div className="grid w-full grid-cols-3 gap-2">
+        <StatCard
+          label={t("stats.runs.duration")}
+          value={Math.round(data.typicalRun.seconds / 60)}
+          suffix=" min"
+        />
+        <StatCard
+          label={t("stats.runs.distance")}
+          value={
+            data.typicalRun.meters >= 1000
+              ? Number((data.typicalRun.meters / 1000).toFixed(1))
+              : data.typicalRun.meters
+          }
+          suffix={data.typicalRun.meters >= 1000 ? " km" : " m"}
+        />
+        <StatCard label={t("stats.runs.blocks")} value={data.typicalRun.blocks} />
+      </div>
+      <div className="grid w-full grid-cols-3 gap-2">
+        <StatCard label={t("stats.runs.recordBlocks")} value={data.records.blocks} />
+        <StatCard
+          label={t("stats.runs.recordDistance")}
+          value={Number((data.records.meters / 1000).toFixed(1))}
+          suffix=" km"
+        />
+        <StatCard label={t("stats.runs.conquests")} value={data.conquests ?? 0} />
+      </div>
+
+      {days.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
+            {t("stats.runs.perDay")}
+          </p>
+          <div className="flex h-24 items-end gap-1">
+            {days.map((d) => (
+              <div key={d.day} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+                <span className="text-[9px] tabular-nums text-zinc-500">{d.runs > 0 ? d.runs : ""}</span>
+                <span
+                  className="w-full rounded-t bg-blue-500"
+                  style={{ height: `${Math.max(2, (d.runs / maxDay) * 100)}%` }}
+                  title={`${d.day}: ${d.runs}`}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between text-[9px] text-zinc-400">
+            <span>{new Date(`${days[0].day}T12:00:00Z`).toLocaleDateString(locale, { month: "short", day: "numeric" })}</span>
+            <span>{new Date(`${days[days.length - 1].day}T12:00:00Z`).toLocaleDateString(locale, { month: "short", day: "numeric" })}</span>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
