@@ -13,6 +13,7 @@ import {
   DEFAULT_CENTER,
   DEFAULT_MAP_STYLE,
   DEFAULT_ZOOM,
+  lightMapOptions,
   FOLLOW_ZOOM,
   HEX_RESOLUTION,
   RUN_MIN_ZOOM,
@@ -858,6 +859,7 @@ export default function RunPage() {
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: DEFAULT_MAP_STYLE,
+      ...lightMapOptions(),
       center: initialCenter,
       zoom: initialZoom,
       minZoom: RUN_MIN_ZOOM,

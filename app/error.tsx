@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { track } from "@/lib/analytics";
+import { reloadForStaleChunk } from "@/lib/client/chunkReload";
 
 export default function ErrorBoundary({
   error,
@@ -12,6 +13,10 @@ export default function ErrorBoundary({
   reset: () => void;
 }) {
   useEffect(() => {
+    if (reloadForStaleChunk(error)) {
+      track("stale_chunk_reload", { path: window.location.pathname });
+      return;
+    }
     track("app_crash", {
       error: error.message,
       digest: error.digest ?? "none",

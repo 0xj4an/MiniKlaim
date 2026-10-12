@@ -26,3 +26,17 @@ export const HEX_RESOLUTION = 12;
  */
 export const DEFAULT_MAP_STYLE =
   "https://tiles.openfreemap.org/styles/positron";
+
+/**
+ * Keep MapLibre's GPU and tile memory small on low-end phones. One player's
+ * phone ran out of memory ("Array buffer allocation failed") on /run, /me
+ * and /community on 12 Oct. A 3x screen renders 9x the pixels of 1x; 2x is
+ * still sharp, and a 40-tile cache is plenty for a walking-speed map.
+ */
+export function lightMapOptions(): {
+  pixelRatio: number;
+  maxTileCacheSize: number;
+} {
+  const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+  return { pixelRatio: Math.min(dpr, 2), maxTileCacheSize: 40 };
+}

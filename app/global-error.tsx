@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
+import { reloadForStaleChunk } from "@/lib/client/chunkReload";
 
 export default function GlobalError({
   error,
@@ -12,6 +13,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    if (reloadForStaleChunk(error)) return;
     Sentry.captureException(error);
   }, [error]);
 
