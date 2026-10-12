@@ -11,6 +11,7 @@ import { HEXES_CLAIM_ABI, hexesAddress } from "@/lib/onchain/hexesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { clearRunClaiming, markRunClaiming } from "@/lib/wallet/claimInFlight";
 import { isUserRejection, playerHasNoFeeBalance } from "@/lib/wallet/playerFee";
+import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { reportDeclined, runTokenHeaders } from "@/lib/wallet/runTokens";
 
@@ -121,7 +122,6 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
         // not read). Fall through and let the player pay in CELO.
         if (outcome !== "refused") return outcome;
       }
-      const feeCurrency = held[0]?.adapter;
       try {
         const data = encodeFunctionData({
           abi: HEXES_CLAIM_ABI,
@@ -132,14 +132,17 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
             voucher.signature,
           ],
         });
-        const txHash = await walletClient.sendTransaction({
-          to: contract,
-          data: withAttribution(data),
-          chain: chain.chain,
-          account: address,
-          kzg: undefined,
-          ...(feeCurrency ? { feeCurrency } : {}),
-        });
+        // Held stablecoins first, then CELO if they are too short.
+        const { result: txHash } = await sendWithFeeFallback(held, (fee) =>
+          walletClient.sendTransaction({
+            to: contract,
+            data: withAttribution(data),
+            chain: chain.chain,
+            account: address,
+            kzg: undefined,
+            ...(fee ? { feeCurrency: fee.adapter } : {}),
+          }),
+        );
         log.info("claimRun submitted by player", { runId, chainKey, txHash });
         await fetch(`/api/runs/${runId}/claimed`, {
           method: "POST",

@@ -11,7 +11,8 @@ import {
 import { useWalletClient } from "wagmi";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
-import { getChain, pickFeeAdapter } from "@/lib/onchain/chains";
+import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
+import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { useBalances } from "@/lib/wallet/useBalances";
 
@@ -49,20 +50,22 @@ export function useLinkRedeem(address: `0x${string}` | null) {
       }
       const chain = getChain(chainKey);
       const codeHash = keccak256(toBytes(code));
-      const feeCurrency = pickFeeAdapter(chain.feeCurrencies, balances);
+      const held = heldFeeAdapters(chain.feeCurrencies, balances);
 
       setState("sending");
       let txHash: Hex;
       try {
-        txHash = await walletClient.sendTransaction({
-          account: address,
-          to: chain.linkVerifier,
-          value: 0n,
-          data: withAttribution(codeHash),
-          chain: chain.chain,
-          kzg: undefined,
-          ...(feeCurrency ? { feeCurrency } : {}),
-        });
+        ({ result: txHash } = await sendWithFeeFallback(held, (fee) =>
+          walletClient.sendTransaction({
+            account: address,
+            to: chain.linkVerifier,
+            value: 0n,
+            data: withAttribution(codeHash),
+            chain: chain.chain,
+            kzg: undefined,
+            ...(fee ? { feeCurrency: fee.adapter } : {}),
+          }),
+        ));
         log.info("link tx submitted", { chainKey, txHash });
       } catch (e) {
         log.warn("link tx rejected", {
