@@ -6,7 +6,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
-import { DEFAULT_MAP_STYLE } from "@/lib/map/config";
+import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
 import { claimedHexesToFeatureCollection, frameForCells } from "@/lib/map/hex";
 import { HEX_COLORS } from "@/lib/map/hexColors";
 
@@ -58,6 +58,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
         const map = new maplibregl.Map({
           container: containerRef.current,
           style: DEFAULT_MAP_STYLE,
+          ...lightMapOptions(),
           center: frame.center,
           zoom: frame.zoom,
           attributionControl: { compact: true },

@@ -88,3 +88,40 @@ describe("relayer queue", () => {
     );
   });
 });
+
+describe("nonce retry", () => {
+  vi.setConfig({ testTimeout: 10_000 });
+  it("retries a nonce collision and returns the second result", async () => {
+    let calls = 0;
+    const { sendExclusive } = await freshModule();
+    const out = await sendExclusive(async () => {
+      calls += 1;
+      if (calls === 1) {
+        throw new Error(
+          "Nonce provided for the transaction is lower than the current nonce of the account.",
+        );
+      }
+      return "0xhash";
+    });
+    expect(out).toBe("0xhash");
+    expect(calls).toBe(2);
+  });
+
+  it("does not retry other errors", async () => {
+    const { sendExclusive } = await freshModule();
+    let calls = 0;
+    await expect(
+      sendExclusive(async () => {
+        calls += 1;
+        throw new Error("execution reverted");
+      }),
+    ).rejects.toThrow("execution reverted");
+    expect(calls).toBe(1);
+  });
+
+  it("recognises the Celo and geth wordings", async () => {
+    const { isNonceError } = await freshModule();
+    expect(isNonceError(new Error("nonce too low"))).toBe(true);
+    expect(isNonceError(new Error("insufficient funds"))).toBe(false);
+  });
+});
