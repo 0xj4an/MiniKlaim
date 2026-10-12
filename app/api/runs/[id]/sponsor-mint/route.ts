@@ -1,3 +1,4 @@
+import { FEE_SHORTFALL_HEADER } from "@/lib/onchain/sponsorHeaders";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
@@ -74,7 +75,17 @@ export async function POST(
       return NextResponse.json({ ok: true, minted: 0 });
     }
 
-    const pay = await playerCanPay(player, pending, 0, chainKey);
+    const shortfall = request.headers.get(FEE_SHORTFALL_HEADER) === "1";
+    const pay = shortfall
+      ? { canPay: false as const }
+      : await playerCanPay(player, pending, 0, chainKey);
+    if (shortfall) {
+      log.info("sponsoring after wallet fee shortfall", {
+        runId: id,
+        player,
+        pending,
+      });
+    }
     if (pay.canPay) {
       await setMintStatus(db, id, "sponsor_denied");
       log.warn("sponsor refused: player can pay", {
