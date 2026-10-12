@@ -23,6 +23,7 @@ export async function GET(request: Request) {
       endedAt: runs.endedAt,
       hexesClaimed: runs.hexesClaimed,
       distanceMeters: runs.distanceMeters,
+      moveMode: runs.moveMode,
       country: sql<string | null>`(
         SELECT country
         FROM hexes h
