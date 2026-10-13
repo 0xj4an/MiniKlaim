@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
@@ -8,7 +8,7 @@ import { createLogger } from "@/lib/logger";
 import { hexClaimAction } from "@/lib/runs/claimDecision";
 import { addressesForPlayer } from "@/lib/players";
 import { validateClaim } from "@/lib/runs/validation";
-import { checkChain, pathFitsReported } from "@/lib/runs/movementGuard";
+import { checkChain, pathFitsReported, reachableFromPrevious } from "@/lib/runs/movementGuard";
 
 const log = createLogger("api:runs:claim");
 
@@ -96,12 +96,46 @@ export async function POST(
   const ordered = items
     .filter((raw) => typeof raw.h3 === "string" && raw.h3.length > 0)
     .map((raw) => raw.h3);
-  const chain = checkChain({
+  let chain = checkChain({
     lastH3: run.lastH3,
     lastAt: run.lastClaimAt ?? run.startedAt,
     now,
     hexes: ordered,
   });
+  // No position in this run yet: the first hex must be reachable from where
+  // the player's previous run left off, or a new run is a free teleport.
+  if (!run.lastH3 && chain.accepted.length > 0) {
+    const [prev] = await db
+      .select({ lastH3: runs.lastH3, lastClaimAt: runs.lastClaimAt })
+      .from(runs)
+      .where(
+        and(
+          inArray(runs.userAddress, [run.userAddress, ...playerAddresses]),
+          ne(runs.id, id),
+          isNotNull(runs.lastH3),
+          isNotNull(runs.lastClaimAt),
+        ),
+      )
+      .orderBy(desc(runs.lastClaimAt))
+      .limit(1);
+    if (
+      prev &&
+      !reachableFromPrevious({
+        prevH3: prev.lastH3,
+        prevAt: prev.lastClaimAt,
+        now,
+        firstH3: chain.accepted[0],
+      })
+    ) {
+      log.info("movement guard: run starts out of reach of previous run", {
+        runId: id,
+        player: run.userAddress,
+        prevH3: prev.lastH3,
+        firstH3: chain.accepted[0],
+      });
+      chain = { accepted: [], rejected: ordered, meters: 0, endH3: null };
+    }
+  }
   const reportedInBatch = items.reduce(
     (sum, raw) =>
       sum +

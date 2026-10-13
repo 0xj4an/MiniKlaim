@@ -65,6 +65,29 @@ export function checkChain(params: {
 }
 
 /**
+ * A run's first capture has no position to check against inside the run,
+ * so it is checked against where the player's previous run left off. Without
+ * this, every new run started a fresh chain: on 13 Oct a player on a flight
+ * from Belgrade north opened a new short run every few minutes and each
+ * first batch landed 100+ km from the last one (600-800 km/h).
+ *
+ * Returns true when the first hex is reachable from the previous capture at
+ * MAX_SPEED_KMH. No previous capture means nothing to check.
+ */
+export function reachableFromPrevious(params: {
+  prevH3: string | null;
+  prevAt: Date | null;
+  now: Date;
+  firstH3: string | undefined;
+}): boolean {
+  const { prevH3, prevAt, now, firstH3 } = params;
+  if (!prevH3 || !prevAt || !firstH3) return true;
+  if (!isValidCell(prevH3) || !isValidCell(firstH3)) return true;
+  const dtSec = Math.max(1, (now.getTime() - prevAt.getTime()) / 1000);
+  return hexDistanceMeters(prevH3, firstH3) <= MAX_SPEED_MPS * dtSec + SLACK_METERS;
+}
+
+/**
  * The hex path of a run must roughly match the distance the phone's GPS
  * reported. Hex centres zigzag, so the path can run longer, but not by more
  * than PATH_RATIO plus PATH_SLACK_METERS. A client that submits blocks while
