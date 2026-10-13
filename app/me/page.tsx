@@ -131,6 +131,13 @@ export default function MePage() {
                 </div>
               )}
 
+            </>
+          )}
+
+          {address && <TerritoryMap address={address} />}
+
+          {stats && !isWrongChain && (
+            <>
               <Achievements stats={stats} />
               <BadgeClaimPrompt
                 address={address ?? null}
@@ -139,8 +146,6 @@ export default function MePage() {
               <RewardsSection address={address ?? null} />
             </>
           )}
-
-          {address && <TerritoryMap address={address} />}
 
           {recentRuns && recentRuns.length > 0 && (
             <RunsList runs={recentRuns} />
