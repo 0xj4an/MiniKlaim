@@ -4,14 +4,15 @@ import { join } from "path";
 
 export const dynamic = "force-dynamic";
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET || "change-me-in-production";
+// No fallback: an unset secret used to mean the public default worked.
+const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
 export async function GET(request: Request) {
   try {
     const authHeader = request.headers.get("authorization");
     const providedSecret = authHeader?.replace("Bearer ", "");
 
-    if (providedSecret !== ADMIN_SECRET) {
+    if (!ADMIN_SECRET || providedSecret !== ADMIN_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

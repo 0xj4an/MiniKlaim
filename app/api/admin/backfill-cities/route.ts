@@ -7,14 +7,15 @@ import { sql } from "drizzle-orm";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 5 minutes
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET || "change-me-in-production";
+// No fallback: an unset secret used to mean the public default worked.
+const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
 export async function POST(request: Request) {
   try {
     const authHeader = request.headers.get("authorization");
     const providedSecret = authHeader?.replace("Bearer ", "");
 
-    if (providedSecret !== ADMIN_SECRET) {
+    if (!ADMIN_SECRET || providedSecret !== ADMIN_SECRET) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
