@@ -85,6 +85,23 @@ describe("reachableFromPrevious", () => {
     expect(reachableFromPrevious({ prevH3: surcin, prevAt: at, now, firstH3: vrdnik })).toBe(true);
   });
 
+  it("blocks restarting runs mid-flight (under an hour, airliner speed)", () => {
+    // 13 Oct: Surčin to Partizánske (SVK), ~390 km, 40 min later.
+    const partizanske = latLngToCell(48.63, 18.38, 12);
+    const now = new Date(at.getTime() + 40 * 60_000);
+    expect(reachableFromPrevious({ prevH3: surcin, prevAt: at, now, firstH3: partizanske })).toBe(
+      false,
+    );
+  });
+
+  it("allows playing right after landing from a long flight", () => {
+    // Bogotá to Madrid, ~8,000 km, run 11 h after the last one in Bogotá.
+    const bogota = latLngToCell(4.71, -74.07, 12);
+    const madrid = latLngToCell(40.42, -3.7, 12);
+    const now = new Date(at.getTime() + 11 * 3_600_000);
+    expect(reachableFromPrevious({ prevH3: bogota, prevAt: at, now, firstH3: madrid })).toBe(true);
+  });
+
   it("allows a nearby start right away", () => {
     const now = new Date(at.getTime() + 30_000);
     expect(reachableFromPrevious({ prevH3: surcin, prevAt: at, now, firstH3: surcin })).toBe(true);
