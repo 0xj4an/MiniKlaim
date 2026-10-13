@@ -71,9 +71,18 @@ export function checkChain(params: {
  * from Belgrade north opened a new short run every few minutes and each
  * first batch landed 100+ km from the last one (600-800 km/h).
  *
- * Returns true when the first hex is reachable from the previous capture at
- * MAX_SPEED_KMH. No previous capture means nothing to check.
+ * Between runs a player may have taken a flight, so the limit depends on the
+ * gap. Under FLIGHT_MIN_GAP_MS only road speed (MAX_SPEED_KMH) counts: that
+ * blocks restarting runs mid-flight. After it, airliner ground speed
+ * (FLIGHT_SPEED_KMH, cruise ~900 km/h plus jet-stream tailwind) is allowed,
+ * so someone who lands and plays is not blocked.
+ *
+ * Returns true when the first hex is reachable. No previous capture means
+ * nothing to check.
  */
+export const FLIGHT_SPEED_KMH = 1300;
+export const FLIGHT_MIN_GAP_MS = 60 * 60 * 1000;
+
 export function reachableFromPrevious(params: {
   prevH3: string | null;
   prevAt: Date | null;
@@ -83,8 +92,10 @@ export function reachableFromPrevious(params: {
   const { prevH3, prevAt, now, firstH3 } = params;
   if (!prevH3 || !prevAt || !firstH3) return true;
   if (!isValidCell(prevH3) || !isValidCell(firstH3)) return true;
-  const dtSec = Math.max(1, (now.getTime() - prevAt.getTime()) / 1000);
-  return hexDistanceMeters(prevH3, firstH3) <= MAX_SPEED_MPS * dtSec + SLACK_METERS;
+  const gapMs = Math.max(1000, now.getTime() - prevAt.getTime());
+  const speedKmh = gapMs >= FLIGHT_MIN_GAP_MS ? FLIGHT_SPEED_KMH : MAX_SPEED_KMH;
+  const allowed = (speedKmh / 3.6) * (gapMs / 1000) + SLACK_METERS;
+  return hexDistanceMeters(prevH3, firstH3) <= allowed;
 }
 
 /**
