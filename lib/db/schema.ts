@@ -91,6 +91,12 @@ export const runs = pgTable(
     // with no fee balance gets it minted by the relayer.
     pendingOffers: integer("pending_offers").notNull().default(0),
     pendingOfferedAt: timestamp("pending_offered_at", { withTimezone: true }),
+    // Movement guard (lib/runs/movementGuard.ts): where the run last captured,
+    // when, the server-measured hex path, and how many hexes it refused.
+    lastH3: text("last_h3"),
+    lastClaimAt: timestamp("last_claim_at", { withTimezone: true }),
+    serverDistanceMeters: integer("server_distance_meters").notNull().default(0),
+    rejectedHexes: integer("rejected_hexes").notNull().default(0),
   },
   (t) => [
     // Per-user run history queries (/me runs list, streak calc).
