@@ -8,6 +8,7 @@ import { createLogger } from "@/lib/logger";
 import { hexClaimAction } from "@/lib/runs/claimDecision";
 import { addressesForPlayer } from "@/lib/players";
 import { validateClaim } from "@/lib/runs/validation";
+import { checkChain, pathFitsReported } from "@/lib/runs/movementGuard";
 
 const log = createLogger("api:runs:claim");
 
@@ -52,6 +53,11 @@ export async function POST(
       id: runs.id,
       userAddress: runs.userAddress,
       endedAt: runs.endedAt,
+      startedAt: runs.startedAt,
+      distanceMeters: runs.distanceMeters,
+      lastH3: runs.lastH3,
+      lastClaimAt: runs.lastClaimAt,
+      serverDistanceMeters: runs.serverDistanceMeters,
     })
     .from(runs)
     .where(eq(runs.id, id))
@@ -83,6 +89,35 @@ export async function POST(
     (await addressesForPlayer(run.userAddress)).map((address) => address.toLowerCase()),
   );
 
+  // Movement guard: the batch must be a path the phone could travel since
+  // the run's last capture, and the hex path must roughly match the distance
+  // the client reports. See lib/runs/movementGuard.ts.
+  const now = new Date();
+  const ordered = items
+    .filter((raw) => typeof raw.h3 === "string" && raw.h3.length > 0)
+    .map((raw) => raw.h3);
+  const chain = checkChain({
+    lastH3: run.lastH3,
+    lastAt: run.lastClaimAt ?? run.startedAt,
+    now,
+    hexes: ordered,
+  });
+  const reportedInBatch = items.reduce(
+    (sum, raw) =>
+      sum +
+      (typeof raw.distanceMeters === "number" && Number.isFinite(raw.distanceMeters) && raw.distanceMeters > 0
+        ? Math.min(raw.distanceMeters, 10_000)
+        : 0),
+    0,
+  );
+  const pathOk = pathFitsReported(
+    run.serverDistanceMeters + chain.meters,
+    run.distanceMeters + reportedInBatch,
+  );
+  const blocked = new Set(pathOk ? chain.rejected : ordered);
+  const blockedReason = pathOk ? "too-fast" : "path-mismatch";
+  let rejectedByGuard = 0;
+
   const results: Array<{
     h3: string;
     alreadyOwned?: boolean;
@@ -100,6 +135,12 @@ export async function POST(
     const h3 = raw.h3;
     if (!h3 || typeof h3 !== "string") {
       results.push({ h3: "", rejected: { reason: "invalid-h3" } });
+      continue;
+    }
+
+    if (blocked.has(h3)) {
+      rejectedByGuard += 1;
+      results.push({ h3, rejected: { reason: blockedReason } });
       continue;
     }
 
@@ -185,6 +226,32 @@ export async function POST(
       .set({ conquests: sql`${users.conquests} + ${conquestDelta}` })
       .where(eq(users.address, run.userAddress));
   }
+
+  if (rejectedByGuard > 0) {
+    log.warn("movement guard rejected hexes", {
+      runId: id,
+      player: run.userAddress,
+      reason: blockedReason,
+      rejected: rejectedByGuard,
+      submitted: items.length,
+      serverMeters: Math.round(run.serverDistanceMeters + chain.meters),
+      reportedMeters: Math.round(run.distanceMeters + reportedInBatch),
+    });
+  }
+  const guardAccepted = pathOk && chain.accepted.length > 0;
+  await db
+    .update(runs)
+    .set({
+      ...(guardAccepted
+        ? {
+            lastH3: chain.endH3,
+            lastClaimAt: now,
+            serverDistanceMeters: sql`${runs.serverDistanceMeters} + ${Math.round(chain.meters)}`,
+          }
+        : {}),
+      rejectedHexes: sql`${runs.rejectedHexes} + ${rejectedByGuard}`,
+    })
+    .where(eq(runs.id, id));
 
   if (newlyCaptured > 0 || distanceDelta > 0) {
     await db
