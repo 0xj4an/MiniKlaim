@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { gridDisk, latLngToCell } from "h3-js";
-import { checkChain, hexDistanceMeters, pathFitsReported } from "@/lib/runs/movementGuard";
+import {
+  checkChain,
+  hexDistanceMeters,
+  pathFitsReported,
+  reachableFromPrevious,
+} from "@/lib/runs/movementGuard";
 
 const RES = 12;
 // A walk east along a street in Medellín, one hex per ~20 m.
@@ -61,5 +66,31 @@ describe("pathFitsReported", () => {
   it("rejects a path of blocks with almost no reported movement", () => {
     // 13 Oct: 122 blocks with 2 m reported.
     expect(pathFitsReported(2400, 2)).toBe(false);
+  });
+});
+
+describe("reachableFromPrevious", () => {
+  // Real case, 13 Oct: Surčin (Belgrade) at 15:25, then Vrdnik 58 km away 2 min later.
+  const surcin = latLngToCell(44.8, 20.28, 12);
+  const vrdnik = latLngToCell(45.12, 19.79, 12);
+  const at = new Date("2026-10-13T15:25:00Z");
+
+  it("rejects a new run that starts far beyond road speed from the last one", () => {
+    const now = new Date(at.getTime() + 2 * 60_000);
+    expect(reachableFromPrevious({ prevH3: surcin, prevAt: at, now, firstH3: vrdnik })).toBe(false);
+  });
+
+  it("allows the same place after enough time to drive there", () => {
+    const now = new Date(at.getTime() + 60 * 60_000);
+    expect(reachableFromPrevious({ prevH3: surcin, prevAt: at, now, firstH3: vrdnik })).toBe(true);
+  });
+
+  it("allows a nearby start right away", () => {
+    const now = new Date(at.getTime() + 30_000);
+    expect(reachableFromPrevious({ prevH3: surcin, prevAt: at, now, firstH3: surcin })).toBe(true);
+  });
+
+  it("allows anything when there is no previous capture", () => {
+    expect(reachableFromPrevious({ prevH3: null, prevAt: null, now: at, firstH3: vrdnik })).toBe(true);
   });
 });
