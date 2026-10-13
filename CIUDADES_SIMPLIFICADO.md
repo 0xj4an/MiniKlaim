@@ -86,7 +86,7 @@ Hacer claim de hexes nuevos
 **4. Backfill API**
 ```bash
 curl -X POST https://miniklaim.fun/api/admin/backfill-cities \
-  -H "Authorization: Bearer change-me-in-production" \
+  -H "Authorization: Bearer $ADMIN_SECRET" \
   -d '{"batchSize":100,"maxBatches":1}'
 
 → Debe procesar sin error
