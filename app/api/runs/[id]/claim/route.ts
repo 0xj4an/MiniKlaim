@@ -110,10 +110,23 @@ export async function POST(
         : 0),
     0,
   );
-  const pathOk = pathFitsReported(
+  // Logged, not enforced. Until 13 Oct the client dropped most of a walk's
+  // distance (fix-to-fix steps under its 2 m jitter floor), so honest
+  // walkers report a few metres for hundreds of blocks. Enforce once clients
+  // on the anchored distance have been out long enough.
+  const pathFits = pathFitsReported(
     run.serverDistanceMeters + chain.meters,
     run.distanceMeters + reportedInBatch,
   );
+  if (!pathFits) {
+    log.info("movement guard: path longer than reported (not enforced)", {
+      runId: id,
+      player: run.userAddress,
+      serverMeters: Math.round(run.serverDistanceMeters + chain.meters),
+      reportedMeters: Math.round(run.distanceMeters + reportedInBatch),
+    });
+  }
+  const pathOk = true;
   const blocked = new Set(pathOk ? chain.rejected : ordered);
   const blockedReason = pathOk ? "too-fast" : "path-mismatch";
   let rejectedByGuard = 0;
