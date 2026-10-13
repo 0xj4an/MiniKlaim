@@ -149,6 +149,11 @@ export default function RunPage() {
   // Last GPS coordinate seen *during the active run*. Used to compute the
   // haversine segment per tick. Reset to null on Start, set on each fix.
   const lastPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  // Where distance was last counted. Distance is measured from here, not
+  // from the previous fix: at walking pace a 1 Hz GPS moves ~1.4 m per fix,
+  // under the 2 m jitter floor, so measuring fix-to-fix dropped almost all
+  // of a walk (runs with hundreds of blocks reported a few metres).
+  const distAnchorRef = useRef<{ lat: number; lng: number } | null>(null);
   // Timestamp (Date.now()) of the last accepted GPS fix while a run is active.
   // Used to detect stale gaps: if too long has passed since the previous fix
   // (signal loss, app backgrounded, phone locked, tunnel, elevator), the
@@ -278,6 +283,7 @@ export default function RunPage() {
       }
       log.info("visibility returned, dropping stale GPS anchor");
       lastPosRef.current = null;
+      distAnchorRef.current = null;
       lastPosTsRef.current = 0;
       void flushClaimQueueRef.current();
     };
@@ -692,6 +698,7 @@ export default function RunPage() {
       setDistanceMeters(0);
       setRunStartTime(Date.now());
       lastPosRef.current = null;
+      distAnchorRef.current = null;
       lastPosTsRef.current = 0;
       pendingDistanceRef.current = 0;
       // Claim the hex we are currently standing in, if any.
@@ -775,6 +782,7 @@ export default function RunPage() {
       setDistanceMeters(0);
       setRunStartTime(null);
       lastPosRef.current = null;
+      distAnchorRef.current = null;
       lastPosTsRef.current = 0;
       pendingDistanceRef.current = 0;
       await refreshClaimed();
@@ -1115,18 +1123,25 @@ export default function RunPage() {
           // and B), we just refuse to CLAIM the intermediate hexes because
           // we cannot prove they walked the straight line.
           if (runIdRef.current && previousPos) {
+            const anchor = distAnchorRef.current ?? previousPos;
             const seg = haversineMeters(
-              previousPos.lat,
-              previousPos.lng,
+              anchor.lat,
+              anchor.lng,
               latitude,
               longitude,
             );
-            // Ignore tiny GPS jitter (<2m). Reduces noise without losing real
-            // movement. accuracy is typically 5-20m anyway.
+            // Ignore tiny GPS jitter (<2m) around the anchor. Slow movement
+            // still adds up: the anchor stays put until the phone has moved
+            // past the floor, then the whole stretch counts.
             if (seg > 2) {
               pendingDistanceRef.current += seg;
               setDistanceMeters((d) => d + seg);
+              distAnchorRef.current = { lat: latitude, lng: longitude };
+            } else if (!distAnchorRef.current) {
+              distAnchorRef.current = anchor;
             }
+          } else if (runIdRef.current) {
+            distAnchorRef.current = { lat: latitude, lng: longitude };
           }
           if (runIdRef.current) {
             lastPosRef.current = { lat: latitude, lng: longitude };
