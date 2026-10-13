@@ -71,6 +71,13 @@
       "when": 1791754274024,
       "tag": "0009_pending_offers",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791902325246,
+      "tag": "0010_movement_guard",
+      "breakpoints": true
     }
   ]
 }
