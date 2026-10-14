@@ -82,6 +82,20 @@ export function checkChain(params: {
 }
 
 /**
+ * Blocks crossed in the air do not count. A batch whose path since the last
+ * capture is faster than CAPTURE_MAX_KMH is a plane in flight: the run keeps
+ * its position (so the next batch is checked from there) but the blocks are
+ * not captured. A flight then keeps only the blocks at the airports, where
+ * the plane boards, taxis and lands. Trains (up to ~250 km/h) still count.
+ */
+export const CAPTURE_MAX_KMH = 250;
+
+export function isAirborne(params: { meters: number; lastAt: Date; now: Date }): boolean {
+  const dtSec = Math.max(1, (params.now.getTime() - params.lastAt.getTime()) / 1000);
+  return (params.meters / dtSec) * 3.6 > CAPTURE_MAX_KMH;
+}
+
+/**
  * A run's first capture has no position to check against inside the run,
  * so it is checked against where the player's previous run left off: a new
  * run cannot start further away than MAX_SPEED_KMH allows since then. This

@@ -8,7 +8,12 @@ import { createLogger } from "@/lib/logger";
 import { hexClaimAction } from "@/lib/runs/claimDecision";
 import { addressesForPlayer } from "@/lib/players";
 import { validateClaim } from "@/lib/runs/validation";
-import { checkChain, pathFitsReported, reachableFromPrevious } from "@/lib/runs/movementGuard";
+import {
+  checkChain,
+  isAirborne,
+  pathFitsReported,
+  reachableFromPrevious,
+} from "@/lib/runs/movementGuard";
 
 const log = createLogger("api:runs:claim");
 
@@ -164,6 +169,23 @@ export async function POST(
   const blocked = new Set(pathOk ? chain.rejected : ordered);
   const blockedReason = pathOk ? "too-fast" : "path-mismatch";
   let rejectedByGuard = 0;
+  // In the air: the position moves on, the blocks are not captured.
+  const airborne =
+    chain.accepted.length > 0 &&
+    isAirborne({ meters: chain.meters, lastAt: run.lastClaimAt ?? run.startedAt, now });
+  const inFlight = new Set(airborne ? chain.accepted : []);
+  if (airborne) {
+    log.warn("fast travel: airborne batch not captured", {
+      runId: id,
+      player: run.userAddress,
+      hexes: inFlight.size,
+      kmh: Math.round(
+        (chain.meters /
+          Math.max(1, (now.getTime() - (run.lastClaimAt ?? run.startedAt).getTime()) / 1000)) *
+          3.6,
+      ),
+    });
+  }
 
   const results: Array<{
     h3: string;
@@ -188,6 +210,11 @@ export async function POST(
     if (blocked.has(h3)) {
       rejectedByGuard += 1;
       results.push({ h3, rejected: { reason: blockedReason } });
+      continue;
+    }
+
+    if (inFlight.has(h3)) {
+      results.push({ h3, rejected: { reason: "in-flight" } });
       continue;
     }
 
