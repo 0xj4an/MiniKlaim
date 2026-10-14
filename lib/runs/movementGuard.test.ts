@@ -111,3 +111,27 @@ describe("reachableFromPrevious", () => {
     expect(reachableFromPrevious({ prevH3: null, prevAt: null, now: at, firstH3: vrdnik })).toBe(true);
   });
 });
+
+describe("road speed limit", () => {
+  // A straight line of hexes north, ~one hex apart, claimed in one batch.
+  const line = (n: number) => {
+    const out: string[] = [];
+    for (let i = 0; i < n; i++) out.push(latLngToCell(59 + i * 0.00015, 17, 12));
+    return Array.from(new Set(out));
+  };
+  const at = new Date("2026-10-13T20:00:00Z");
+
+  it("accepts a car at 110 km/h on a highway", () => {
+    const hexes = line(200); // ~3.3 km
+    const now = new Date(at.getTime() + 120_000); // 2 min -> ~100 km/h
+    const res = checkChain({ lastH3: hexes[0], lastAt: at, now, hexes: hexes.slice(1) });
+    expect(res.rejected).toHaveLength(0);
+  });
+
+  it("rejects a train at 170 km/h", () => {
+    const hexes = line(200); // ~3.3 km
+    const now = new Date(at.getTime() + 70_000); // 70 s -> ~170 km/h
+    const res = checkChain({ lastH3: hexes[0], lastAt: at, now, hexes: hexes.slice(1) });
+    expect(res.rejected.length).toBeGreaterThan(0);
+  });
+});
