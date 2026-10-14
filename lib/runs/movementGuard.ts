@@ -12,10 +12,12 @@ import { cellToLatLng, greatCircleDistance, isValidCell } from "h3-js";
  * the hex size. The first hex that does not fit, and every hex after it in
  * the batch, is rejected; the run's position stays at the last good hex.
  *
- * Cars and bikes stay legal (the game allows any movement); 300 km/h is
- * above any road speed and well below a GPS teleport.
+ * The game says "walk, bike, or drive", so road speed is the limit. 130 km/h
+ * covers driving on a highway; trains (150-200 km/h) and planes do not fit.
+ * On 13 Oct one player took 6,270 blocks in 40 min from a train and 1,127
+ * from a plane taxiing and taking off, all under the old 300 km/h limit.
  */
-export const MAX_SPEED_KMH = 300;
+export const MAX_SPEED_KMH = 130;
 export const SLACK_METERS = 120;
 const MAX_SPEED_MPS = MAX_SPEED_KMH / 3.6;
 
