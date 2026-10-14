@@ -11,7 +11,7 @@ export type UserRun = {
   endedAt: string | null;
   hexesClaimed: number;
   distanceMeters: number;
-  moveMode?: "foot" | "bike" | "car" | "plane" | null;
+  moveMode?: "foot" | "bike" | "car" | "train" | "plane" | null;
   mintTxHash: string | null;
   topCity: string | null;
   topCountry: string | null;

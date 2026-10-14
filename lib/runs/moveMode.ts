@@ -1,9 +1,10 @@
-export type MoveMode = "foot" | "bike" | "car" | "plane";
+export type MoveMode = "foot" | "bike" | "car" | "train" | "plane";
 
 const LABEL_KEY = {
   foot: "run.move.foot",
   bike: "run.move.bike",
   car: "run.move.car",
+  train: "run.move.train",
   plane: "run.move.plane",
 } as const;
 
@@ -13,7 +14,8 @@ export function moveModeLabelKey(mode: MoveMode) {
 
 // Session average, meters over the whole run, stops included.
 // Under 30m or 20s there is nothing to call a trip.
-// 100 km/h and up is a plane. 123 km/h lands here.
+// Over road speed (130 km/h) is a train; 300 km/h and up is a plane.
+// Labels only: fast travel is allowed, and watched (see the finish route).
 const MIN_METERS = 30;
 const MIN_SECONDS = 20;
 
@@ -25,7 +27,8 @@ export function moveMode(
     return null;
   if (distanceMeters < MIN_METERS || durationSec < MIN_SECONDS) return null;
   const kmh = (distanceMeters / durationSec) * 3.6;
-  if (kmh >= 100) return "plane";
+  if (kmh >= 300) return "plane";
+  if (kmh >= 130) return "train";
   if (kmh >= 40) return "car";
   if (kmh >= 15) return "bike";
   return "foot";
@@ -35,6 +38,7 @@ const ICON: Record<MoveMode, string> = {
   foot: "🚶",
   bike: "🚲",
   car: "🚗",
+  train: "🚆",
   plane: "✈️",
 };
 

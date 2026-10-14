@@ -188,7 +188,8 @@ export async function GET() {
       SELECT
         COALESCE(move_mode, CASE
           WHEN distance_meters < 30 OR secs < 20 THEN 'none'
-          WHEN distance_meters / secs * 3.6 >= 100 THEN 'plane'
+          WHEN distance_meters / secs * 3.6 >= 300 THEN 'plane'
+          WHEN distance_meters / secs * 3.6 >= 130 THEN 'train'
           WHEN distance_meters / secs * 3.6 >= 40 THEN 'car'
           WHEN distance_meters / secs * 3.6 >= 15 THEN 'bike'
           ELSE 'foot'

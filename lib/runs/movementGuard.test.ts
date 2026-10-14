@@ -70,36 +70,19 @@ describe("pathFitsReported", () => {
 });
 
 describe("reachableFromPrevious", () => {
-  // Real case, 13 Oct: Surčin (Belgrade) at 15:25, then Vrdnik 58 km away 2 min later.
   const surcin = latLngToCell(44.8, 20.28, 12);
-  const vrdnik = latLngToCell(45.12, 19.79, 12);
   const at = new Date("2026-10-13T15:25:00Z");
 
-  it("rejects a new run that starts far beyond road speed from the last one", () => {
-    const now = new Date(at.getTime() + 2 * 60_000);
-    expect(reachableFromPrevious({ prevH3: surcin, prevAt: at, now, firstH3: vrdnik })).toBe(false);
-  });
-
-  it("allows the same place after enough time to drive there", () => {
-    const now = new Date(at.getTime() + 60 * 60_000);
-    expect(reachableFromPrevious({ prevH3: surcin, prevAt: at, now, firstH3: vrdnik })).toBe(true);
-  });
-
-  it("blocks restarting runs mid-flight (under an hour, airliner speed)", () => {
-    // 13 Oct: Surčin to Partizánske (SVK), ~390 km, 40 min later.
+  it("allows a new run after a flight (13 Oct: Belgrade to Partizánske, 40 min)", () => {
     const partizanske = latLngToCell(48.63, 18.38, 12);
     const now = new Date(at.getTime() + 40 * 60_000);
-    expect(reachableFromPrevious({ prevH3: surcin, prevAt: at, now, firstH3: partizanske })).toBe(
-      false,
-    );
+    expect(reachableFromPrevious({ prevH3: surcin, prevAt: at, now, firstH3: partizanske })).toBe(true);
   });
 
-  it("allows playing right after landing from a long flight", () => {
-    // Bogotá to Madrid, ~8,000 km, run 11 h after the last one in Bogotá.
+  it("rejects a jump no plane could make (Belgrade to Bogotá in an hour)", () => {
     const bogota = latLngToCell(4.71, -74.07, 12);
-    const madrid = latLngToCell(40.42, -3.7, 12);
-    const now = new Date(at.getTime() + 11 * 3_600_000);
-    expect(reachableFromPrevious({ prevH3: bogota, prevAt: at, now, firstH3: madrid })).toBe(true);
+    const now = new Date(at.getTime() + 60 * 60_000);
+    expect(reachableFromPrevious({ prevH3: surcin, prevAt: at, now, firstH3: bogota })).toBe(false);
   });
 
   it("allows a nearby start right away", () => {
@@ -108,11 +91,12 @@ describe("reachableFromPrevious", () => {
   });
 
   it("allows anything when there is no previous capture", () => {
-    expect(reachableFromPrevious({ prevH3: null, prevAt: null, now: at, firstH3: vrdnik })).toBe(true);
+    const now = new Date(at.getTime() + 1000);
+    expect(reachableFromPrevious({ prevH3: null, prevAt: null, now, firstH3: surcin })).toBe(true);
   });
 });
 
-describe("road speed limit", () => {
+describe("fast travel", () => {
   // A straight line of hexes north, ~one hex apart, claimed in one batch.
   const line = (n: number) => {
     const out: string[] = [];
@@ -123,15 +107,33 @@ describe("road speed limit", () => {
 
   it("accepts a car at 110 km/h on a highway", () => {
     const hexes = line(200); // ~3.3 km
-    const now = new Date(at.getTime() + 120_000); // 2 min -> ~100 km/h
+    const now = new Date(at.getTime() + 120_000);
     const res = checkChain({ lastH3: hexes[0], lastAt: at, now, hexes: hexes.slice(1) });
     expect(res.rejected).toHaveLength(0);
   });
 
-  it("rejects a train at 170 km/h", () => {
+  it("accepts a train at 170 km/h on a straight track", () => {
     const hexes = line(200); // ~3.3 km
-    const now = new Date(at.getTime() + 70_000); // 70 s -> ~170 km/h
+    const now = new Date(at.getTime() + 70_000);
+    const res = checkChain({ lastH3: hexes[0], lastAt: at, now, hexes: hexes.slice(1) });
+    expect(res.rejected).toHaveLength(0);
+  });
+
+  it("rejects faster than a plane", () => {
+    const hexes = line(200); // ~3.3 km in 5 s = ~2,400 km/h
+    const now = new Date(at.getTime() + 5_000);
     const res = checkChain({ lastH3: hexes[0], lastAt: at, now, hexes: hexes.slice(1) });
     expect(res.rejected.length).toBeGreaterThan(0);
+  });
+
+  it("rejects a fast zigzag cloud even within plane speed", () => {
+    // 40 hexes around one spot in 2 s. Plane speed would allow ~840 m of
+    // path, but the path is not straight, so only road speed counts.
+    const centre = latLngToCell(59, 17, 12);
+    const cloud = gridDisk(centre, 4).slice(1, 41);
+    const now = new Date(at.getTime() + 2_000);
+    const res = checkChain({ lastH3: centre, lastAt: at, now, hexes: cloud });
+    expect(res.accepted.length).toBeLessThanOrEqual(15);
+    expect(res.rejected.length).toBeGreaterThan(25);
   });
 });

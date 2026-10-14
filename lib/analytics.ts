@@ -36,7 +36,7 @@ type EventMap = {
     blocks: number;
     distance_m: number;
     speed_kmh: number;
-    move_mode: "foot" | "bike" | "car" | "plane" | "none";
+    move_mode: "foot" | "bike" | "car" | "train" | "plane" | "none";
   };
   run_capture_milestone: { hex_count: number };
 
