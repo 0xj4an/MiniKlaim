@@ -486,7 +486,7 @@ function RunsList({
     endedAt: string | null;
     hexesClaimed: number;
     distanceMeters: number;
-    moveMode?: "foot" | "bike" | "car" | "plane" | null;
+    moveMode?: "foot" | "bike" | "car" | "train" | "plane" | null;
     topCity: string | null;
     topCountry: string | null;
   }>;

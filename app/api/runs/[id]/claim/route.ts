@@ -127,7 +127,7 @@ export async function POST(
         firstH3: chain.accepted[0],
       })
     ) {
-      log.info("movement guard: run starts out of reach of previous run", {
+      log.warn("movement guard: run starts out of reach of previous run", {
         runId: id,
         player: run.userAddress,
         prevH3: prev.lastH3,

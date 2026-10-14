@@ -8,11 +8,16 @@ describe("move mode", () => {
     expect(moveMode(500, 10)).toBeNull();
   });
 
-  test("walk, bike, car, and the 123 km/h run", () => {
+  test("walk, bike, car, train, plane", () => {
     expect(moveMode(500, 600)).toBe("foot");
     expect(moveMode(2000, 400)).toBe("bike");
     expect(moveMode(5000, 300)).toBe("car");
-    expect(moveMode(2225, 65)).toBe("plane");
+    // 123 km/h is a fast car on a highway.
+    expect(moveMode(2225, 65)).toBe("car");
+    // 13 Oct, Gnesta to Flen: 33.9 km in 11.5 min (177 km/h).
+    expect(moveMode(33885, 690)).toBe("train");
+    // 400 km in 40 min (600 km/h).
+    expect(moveMode(400_000, 2400)).toBe("plane");
   });
 });
 
@@ -49,5 +54,6 @@ describe("runMoveMode", () => {
   it("has an icon per mode", () => {
     expect(moveModeIcon("foot")).toBe("🚶");
     expect(moveModeIcon("car")).toBe("🚗");
+    expect(moveModeIcon("train")).toBe("🚆");
   });
 });

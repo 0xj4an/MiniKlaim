@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { runs } from "@/lib/db/schema";
@@ -42,6 +42,7 @@ export async function PATCH(
       endedAt: runs.endedAt,
       hexesClaimed: runs.hexesClaimed,
       distanceMeters: runs.distanceMeters,
+      serverDistanceMeters: runs.serverDistanceMeters,
     });
 
   if (!updated || !updated.endedAt) {
@@ -50,9 +51,17 @@ export async function PATCH(
 
   const durationSec =
     (new Date(updated.endedAt).getTime() - new Date(updated.startedAt).getTime()) / 1000;
-  const mode = moveMode(updated.distanceMeters, durationSec);
+  // The server's hex path is the better distance when the client dropped
+  // part of its GPS track; take whichever is longer.
+  const mode = moveMode(
+    Math.max(updated.distanceMeters, updated.serverDistanceMeters),
+    durationSec,
+  );
   if (mode) {
     await db.update(runs).set({ moveMode: mode }).where(eq(runs.id, id));
+  }
+  if ((mode === "train" || mode === "plane") && updated.hexesClaimed > 0) {
+    await watchFastTravel(updated.userAddress, id, mode, updated.hexesClaimed);
   }
 
   log.info("run finished", {
@@ -67,4 +76,48 @@ export async function PATCH(
   // retry cron still mints runs left unminted.
 
   return NextResponse.json({ ...updated, moveMode: mode });
+}
+
+/**
+ * Trains and planes are allowed, but nobody lives on one. Every fast run is
+ * logged, and a player who keeps doing them is flagged for review:
+ * FAST_DAYS_FLAG distinct days or FAST_RUNS_FLAG runs in the last 7 days.
+ */
+const FAST_DAYS_FLAG = 3;
+const FAST_RUNS_FLAG = 6;
+
+async function watchFastTravel(
+  player: string,
+  runId: string,
+  mode: "train" | "plane",
+  hexes: number,
+) {
+  try {
+    const [week] = await db
+      .select({
+        runs: sql<number>`count(*)::int`,
+        days: sql<number>`count(distinct date_trunc('day', ${runs.startedAt}))::int`,
+        blocks: sql<number>`coalesce(sum(${runs.hexesClaimed}), 0)::int`,
+      })
+      .from(runs)
+      .where(
+        and(
+          eq(runs.userAddress, player),
+          inArray(runs.moveMode, ["train", "plane"]),
+          gt(runs.startedAt, sql`now() - interval '7 days'`),
+        ),
+      );
+    const flagged = week.days >= FAST_DAYS_FLAG || week.runs >= FAST_RUNS_FLAG;
+    log.warn(flagged ? "fast travel: frequent, review player" : "fast travel run", {
+      player,
+      runId,
+      mode,
+      hexes,
+      runs7d: week.runs,
+      days7d: week.days,
+      blocks7d: week.blocks,
+    });
+  } catch (err) {
+    log.error("fast travel watch failed", { player, runId, err: String(err) });
+  }
 }
