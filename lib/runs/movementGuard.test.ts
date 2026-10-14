@@ -3,6 +3,7 @@ import { gridDisk, latLngToCell } from "h3-js";
 import {
   checkChain,
   hexDistanceMeters,
+  isAirborne,
   pathFitsReported,
   reachableFromPrevious,
 } from "@/lib/runs/movementGuard";
@@ -135,5 +136,19 @@ describe("fast travel", () => {
     const res = checkChain({ lastH3: centre, lastAt: at, now, hexes: cloud });
     expect(res.accepted.length).toBeLessThanOrEqual(15);
     expect(res.rejected.length).toBeGreaterThan(25);
+  });
+});
+
+describe("isAirborne", () => {
+  const at = new Date("2026-10-13T15:40:00Z");
+  it("a plane at cruise is airborne", () => {
+    // 13 Oct: ~8 km between batches 40 s apart (~720 km/h).
+    expect(isAirborne({ meters: 8000, lastAt: at, now: new Date(at.getTime() + 40_000) })).toBe(true);
+  });
+  it("a train at 200 km/h still captures", () => {
+    expect(isAirborne({ meters: 2222, lastAt: at, now: new Date(at.getTime() + 40_000) })).toBe(false);
+  });
+  it("walking and taxiing capture", () => {
+    expect(isAirborne({ meters: 60, lastAt: at, now: new Date(at.getTime() + 40_000) })).toBe(false);
   });
 });
