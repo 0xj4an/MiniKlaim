@@ -34,6 +34,9 @@ export function sentryInitOptions(): SentryInitOptions {
         ...(event.exception?.values ?? []).map((v) => v.value ?? ""),
       ];
       if (parts.some((part) => isBrowserNoise(part))) return null;
+      // Every frame in PostHog's proxied scripts: a third-party script that
+      // arrived truncated (MINIKLAIM-Y). Nothing of ours ran.
+      if (onlyThirdPartyFrames(event)) return null;
       if (typeof window !== "undefined") {
         event.tags = {
           ...event.tags,
@@ -56,4 +59,16 @@ export function sentryInitOptions(): SentryInitOptions {
       return event;
     },
   };
+}
+
+const THIRD_PARTY = ["/ingest/static/"];
+
+export function onlyThirdPartyFrames(event: ErrorEvent): boolean {
+  const frames = (event.exception?.values ?? []).flatMap(
+    (v) => v.stacktrace?.frames ?? [],
+  );
+  if (frames.length === 0) return false;
+  return frames.every((f) =>
+    THIRD_PARTY.some((p) => (f.abs_path ?? f.filename ?? "").includes(p)),
+  );
 }

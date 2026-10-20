@@ -12,7 +12,7 @@ export function isChunkLoadError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return (
     name === "ChunkLoadError" ||
-    /failed to load chunk|loading chunk [\w-]+ failed|failed to fetch dynamically imported module/i.test(
+    /failed to load chunk|loading chunk [\w-]+ failed|failed to fetch dynamically imported module|importing a module script failed|error loading dynamically imported module/i.test(
       message,
     )
   );
@@ -30,4 +30,21 @@ export function reloadForStaleChunk(error: unknown): boolean {
   }
   window.location.reload();
   return true;
+}
+
+/**
+ * Chunk errors outside a React boundary (a lazy import in an event handler
+ * or a promise) never reach app/error.tsx, so the tab stayed broken. Catch
+ * them on window. During a run a reload restarts GPS, so /run only counts
+ * them; the boundary still reloads if the page itself breaks.
+ */
+export function installStaleChunkReload(onReload: () => void): void {
+  if (typeof window === "undefined") return;
+  const handle = (error: unknown) => {
+    if (!isChunkLoadError(error)) return;
+    if (window.location.pathname.startsWith("/run")) return;
+    if (reloadForStaleChunk(error)) onReload();
+  };
+  window.addEventListener("error", (e) => handle(e.error ?? e.message));
+  window.addEventListener("unhandledrejection", (e) => handle(e.reason));
 }

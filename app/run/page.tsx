@@ -864,20 +864,241 @@ export default function RunPage() {
       zoom: initialZoom,
     });
 
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: DEFAULT_MAP_STYLE,
-      ...lightMapOptions(),
-      center: initialCenter,
-      zoom: initialZoom,
-      minZoom: RUN_MIN_ZOOM,
-      attributionControl: { compact: true },
-    });
-    mapRef.current = map;
-
     let watchId: number | null = null;
     let firstFix = true;
     let alive = true;
+
+    // GPS tracking. Normally wired once the map loads. A phone that cannot
+    // draw the map (old GPU, no WebGL) never fires "load"; it still tracks
+    // and captures, without the map (see the fallback below).
+    const startTracking = (map: maplibregl.Map | null) => {
+      if (watchId !== null || !alive) return;
+      if (!("geolocation" in navigator)) {
+        log.warn("geolocation unavailable");
+        return;
+      }
+      // Primer fires from the top-level eager useEffect; here we only wire
+      // the long-lived watchPosition for ongoing tracking.
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          if (!alive) return;
+          const { latitude, longitude, accuracy } = pos.coords;
+          setGeoStatus("granted");
+          log.debug("position", { lat: latitude, lng: longitude, accuracy });
+
+          // Always render the live position dot and refresh the "center on
+          // me" ref, even if accuracy is poor. The dot is UX (better a rough
+          // marker than none), the accuracy gate below is only for hex
+          // capture where a wrong-hex claim would corrupt the game.
+          latestPosRef.current = { lat: latitude, lng: longitude };
+          writeCachedPosition(latitude, longitude);
+          if (map) renderPositionDot(map, latitude, longitude);
+
+          if (firstFix) {
+            log.info("first fix", { lat: latitude, lng: longitude });
+            if (map) placeCamera(map, longitude, latitude, FOLLOW_ZOOM);
+            firstFix = false;
+          }
+
+          // Gate the capture pipeline on accuracy. Server enforces the same
+          // threshold in `lib/runs/validation.ts` (single source of truth);
+          // the client filter is UX + bandwidth save.
+          if (typeof accuracy === "number" && accuracy > 30) {
+            log.debug("skipped capture: low accuracy", { accuracy });
+            coarseStreakRef.current += 1;
+            if (coarseStreakRef.current >= WEAK_FIX_STREAK) {
+              const rounded = Math.round(accuracy / 10) * 10;
+              setWeakAccuracyM((cur) => (cur === rounded ? cur : rounded));
+            }
+            // 1-in-20 sample so we can see whether "run had 5 minutes of
+            // motion but captured 0 hexes" comes from a chronically-bad
+            // GPS signal without spamming the event stream.
+            if (Math.random() < 0.05) {
+              track("gps_low_accuracy_dropped", {
+                accuracy: Math.round(accuracy),
+              });
+            }
+            return;
+          }
+
+          if (coarseStreakRef.current > 0) {
+            coarseStreakRef.current = 0;
+            setWeakAccuracyM(null);
+          }
+
+          // Snapshot the previous GPS fix (and its timestamp) before either
+          // gets overwritten. The timestamp is what tells us whether the
+          // segment is a real continuous stretch of movement or a "gap"
+          // (signal loss / backgrounded app / phone locked).
+          const previousPos = lastPosRef.current;
+          const previousTs = lastPosTsRef.current;
+          const now = Date.now();
+          const gapSeconds = previousTs > 0 ? (now - previousTs) / 1000 : 0;
+          const staleGap = gapSeconds > GPS_GAP_STALE_SECONDS;
+
+          // Analytics: report visibility-triggered gaps first (the fix cache
+          // was already nuked by the visibility handler, so `previousPos` is
+          // null here and we cannot compute it inline). Then report time-only
+          // gaps that survived visibility. Two branches, one event.
+          const visReset = visibilityResetRef.current;
+          if (runIdRef.current && visReset) {
+            const visGapSec = (now - visReset.ts) / 1000;
+            const visDist = haversineMeters(
+              visReset.lat,
+              visReset.lng,
+              latitude,
+              longitude,
+            );
+            track("gps_gap_detected", {
+              trigger: "visibility",
+              gap_seconds: Math.round(visGapSec),
+              segment_distance_m: Math.round(visDist),
+            });
+            visibilityResetRef.current = null;
+          } else if (runIdRef.current && staleGap && previousPos) {
+            const gapDist = haversineMeters(
+              previousPos.lat,
+              previousPos.lng,
+              latitude,
+              longitude,
+            );
+            track("gps_gap_detected", {
+              trigger: "time",
+              gap_seconds: Math.round(gapSeconds),
+              segment_distance_m: Math.round(gapDist),
+            });
+          }
+
+          // Accumulate distance while a run is active. Distance still counts
+          // even across stale gaps (the runner did cover ground between A
+          // and B), we just refuse to CLAIM the intermediate hexes because
+          // we cannot prove they walked the straight line.
+          if (runIdRef.current && previousPos) {
+            const anchor = distAnchorRef.current ?? previousPos;
+            const seg = haversineMeters(
+              anchor.lat,
+              anchor.lng,
+              latitude,
+              longitude,
+            );
+            // Ignore tiny GPS jitter (<2m) around the anchor. Slow movement
+            // still adds up: the anchor stays put until the phone has moved
+            // past the floor, then the whole stretch counts.
+            if (seg > 2) {
+              pendingDistanceRef.current += seg;
+              setDistanceMeters((d) => d + seg);
+              distAnchorRef.current = { lat: latitude, lng: longitude };
+            } else if (!distAnchorRef.current) {
+              distAnchorRef.current = anchor;
+            }
+          } else if (runIdRef.current) {
+            distAnchorRef.current = { lat: latitude, lng: longitude };
+          }
+          if (runIdRef.current) {
+            lastPosRef.current = { lat: latitude, lng: longitude };
+            lastPosTsRef.current = now;
+          }
+
+          const { hexes, currentHex } = hexesAround(
+            latitude,
+            longitude,
+            HEX_RESOLUTION,
+          );
+          const previousHex = currentHexRef.current;
+          if (currentHex !== previousHex) {
+            log.info("entered hex", { hex: currentHex, gapSeconds, staleGap });
+            currentHexRef.current = currentHex;
+            if (runIdRef.current) {
+              const delta = pendingDistanceRef.current;
+              pendingDistanceRef.current = 0;
+              // Fresh fixes keep the cells between pings. A stale gap stores
+              // only the hex under this fix. The missing time is not filled
+              // with a straight line.
+              const claimList = hexesForSegment(
+                previousPos && !staleGap ? previousPos : null,
+                { lat: latitude, lng: longitude },
+                staleGap ? GPS_GAP_STALE_SECONDS + 1 : gapSeconds,
+                HEX_RESOLUTION,
+              );
+              void claimHexes(claimList, delta, accuracy);
+              if (!alive) return;
+              try {
+                map.easeTo({
+                  center: [longitude, latitude],
+                  duration: 600,
+                });
+              } catch (e) {
+                log.debug("camera follow skipped", {
+                  message: e instanceof Error ? e.message : String(e),
+                });
+              }
+            }
+          }
+          const source = map ? liveGeoSource(map, "hexes") : null;
+          source?.setData(hexes);
+        },
+        (err) => {
+          const label =
+            err.code === err.PERMISSION_DENIED
+              ? "denied"
+              : err.code === err.POSITION_UNAVAILABLE
+                ? "unavailable"
+                : err.code === err.TIMEOUT
+                  ? "timeout"
+                  : `code ${err.code}`;
+          queueMicrotask(() =>
+            setGeoLastError(`watch ${label}: ${err.message}`),
+          );
+          if (err.code === err.PERMISSION_DENIED) {
+            setGeoStatus("denied");
+            log.warn("geolocation denied");
+            return;
+          }
+          if (err.code === err.TIMEOUT && firstFix) setGeoStatus("timeout");
+          // POSITION_UNAVAILABLE (2) and TIMEOUT (3) are typically transient
+          // on macOS / mobile. The watch keeps running and recovers on its
+          // own. Don't downgrade the UI to a permanent "unavailable" state.
+          log.warn("transient geolocation error", {
+            code: err.code,
+            message: err.message,
+          });
+        },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+      );
+    };
+
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
+        container: containerRef.current,
+        style: DEFAULT_MAP_STYLE,
+        ...lightMapOptions(),
+        center: initialCenter,
+        zoom: initialZoom,
+        minZoom: RUN_MIN_ZOOM,
+        attributionControl: { compact: true },
+      });
+    } catch (e) {
+      // No WebGL at all: the constructor throws. Track without a map.
+      log.warn("map init failed; tracking without map", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+      track("map_webgl_failed", { path: "/run" });
+      startTracking(null);
+      return () => {
+        alive = false;
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      };
+    }
+    mapRef.current = map;
+    // The map never loaded (shader failure on old GPUs, MINIKLAIM-W): start
+    // GPS anyway so the run still captures.
+    const trackingFallback = window.setTimeout(() => {
+      if (watchId === null) {
+        log.warn("map not loaded; tracking without map");
+        startTracking(map);
+      }
+    }, 10_000);
 
     map.on("load", () => {
       log.info("map loaded");
@@ -1022,198 +1243,7 @@ export default function RunPage() {
         map.getCanvas().style.cursor = "";
       });
 
-      if (!("geolocation" in navigator)) {
-        log.warn("geolocation unavailable");
-        return;
-      }
-      // Primer fires from the top-level eager useEffect; here we only wire
-      // the long-lived watchPosition for ongoing tracking.
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          if (!alive) return;
-          const { latitude, longitude, accuracy } = pos.coords;
-          setGeoStatus("granted");
-          log.debug("position", { lat: latitude, lng: longitude, accuracy });
-
-          // Always render the live position dot and refresh the "center on
-          // me" ref, even if accuracy is poor. The dot is UX (better a rough
-          // marker than none), the accuracy gate below is only for hex
-          // capture where a wrong-hex claim would corrupt the game.
-          latestPosRef.current = { lat: latitude, lng: longitude };
-          writeCachedPosition(latitude, longitude);
-          renderPositionDot(map, latitude, longitude);
-
-          if (firstFix) {
-            log.info("first fix", { lat: latitude, lng: longitude });
-            placeCamera(map, longitude, latitude, FOLLOW_ZOOM);
-            firstFix = false;
-          }
-
-          // Gate the capture pipeline on accuracy. Server enforces the same
-          // threshold in `lib/runs/validation.ts` (single source of truth);
-          // the client filter is UX + bandwidth save.
-          if (typeof accuracy === "number" && accuracy > 30) {
-            log.debug("skipped capture: low accuracy", { accuracy });
-            coarseStreakRef.current += 1;
-            if (coarseStreakRef.current >= WEAK_FIX_STREAK) {
-              const rounded = Math.round(accuracy / 10) * 10;
-              setWeakAccuracyM((cur) => (cur === rounded ? cur : rounded));
-            }
-            // 1-in-20 sample so we can see whether "run had 5 minutes of
-            // motion but captured 0 hexes" comes from a chronically-bad
-            // GPS signal without spamming the event stream.
-            if (Math.random() < 0.05) {
-              track("gps_low_accuracy_dropped", {
-                accuracy: Math.round(accuracy),
-              });
-            }
-            return;
-          }
-
-          if (coarseStreakRef.current > 0) {
-            coarseStreakRef.current = 0;
-            setWeakAccuracyM(null);
-          }
-
-          // Snapshot the previous GPS fix (and its timestamp) before either
-          // gets overwritten. The timestamp is what tells us whether the
-          // segment is a real continuous stretch of movement or a "gap"
-          // (signal loss / backgrounded app / phone locked).
-          const previousPos = lastPosRef.current;
-          const previousTs = lastPosTsRef.current;
-          const now = Date.now();
-          const gapSeconds = previousTs > 0 ? (now - previousTs) / 1000 : 0;
-          const staleGap = gapSeconds > GPS_GAP_STALE_SECONDS;
-
-          // Analytics: report visibility-triggered gaps first (the fix cache
-          // was already nuked by the visibility handler, so `previousPos` is
-          // null here and we cannot compute it inline). Then report time-only
-          // gaps that survived visibility. Two branches, one event.
-          const visReset = visibilityResetRef.current;
-          if (runIdRef.current && visReset) {
-            const visGapSec = (now - visReset.ts) / 1000;
-            const visDist = haversineMeters(
-              visReset.lat,
-              visReset.lng,
-              latitude,
-              longitude,
-            );
-            track("gps_gap_detected", {
-              trigger: "visibility",
-              gap_seconds: Math.round(visGapSec),
-              segment_distance_m: Math.round(visDist),
-            });
-            visibilityResetRef.current = null;
-          } else if (runIdRef.current && staleGap && previousPos) {
-            const gapDist = haversineMeters(
-              previousPos.lat,
-              previousPos.lng,
-              latitude,
-              longitude,
-            );
-            track("gps_gap_detected", {
-              trigger: "time",
-              gap_seconds: Math.round(gapSeconds),
-              segment_distance_m: Math.round(gapDist),
-            });
-          }
-
-          // Accumulate distance while a run is active. Distance still counts
-          // even across stale gaps (the runner did cover ground between A
-          // and B), we just refuse to CLAIM the intermediate hexes because
-          // we cannot prove they walked the straight line.
-          if (runIdRef.current && previousPos) {
-            const anchor = distAnchorRef.current ?? previousPos;
-            const seg = haversineMeters(
-              anchor.lat,
-              anchor.lng,
-              latitude,
-              longitude,
-            );
-            // Ignore tiny GPS jitter (<2m) around the anchor. Slow movement
-            // still adds up: the anchor stays put until the phone has moved
-            // past the floor, then the whole stretch counts.
-            if (seg > 2) {
-              pendingDistanceRef.current += seg;
-              setDistanceMeters((d) => d + seg);
-              distAnchorRef.current = { lat: latitude, lng: longitude };
-            } else if (!distAnchorRef.current) {
-              distAnchorRef.current = anchor;
-            }
-          } else if (runIdRef.current) {
-            distAnchorRef.current = { lat: latitude, lng: longitude };
-          }
-          if (runIdRef.current) {
-            lastPosRef.current = { lat: latitude, lng: longitude };
-            lastPosTsRef.current = now;
-          }
-
-          const { hexes, currentHex } = hexesAround(
-            latitude,
-            longitude,
-            HEX_RESOLUTION,
-          );
-          const previousHex = currentHexRef.current;
-          if (currentHex !== previousHex) {
-            log.info("entered hex", { hex: currentHex, gapSeconds, staleGap });
-            currentHexRef.current = currentHex;
-            if (runIdRef.current) {
-              const delta = pendingDistanceRef.current;
-              pendingDistanceRef.current = 0;
-              // Fresh fixes keep the cells between pings. A stale gap stores
-              // only the hex under this fix. The missing time is not filled
-              // with a straight line.
-              const claimList = hexesForSegment(
-                previousPos && !staleGap ? previousPos : null,
-                { lat: latitude, lng: longitude },
-                staleGap ? GPS_GAP_STALE_SECONDS + 1 : gapSeconds,
-                HEX_RESOLUTION,
-              );
-              void claimHexes(claimList, delta, accuracy);
-              if (!alive) return;
-              try {
-                map.easeTo({
-                  center: [longitude, latitude],
-                  duration: 600,
-                });
-              } catch (e) {
-                log.debug("camera follow skipped", {
-                  message: e instanceof Error ? e.message : String(e),
-                });
-              }
-            }
-          }
-          const source = liveGeoSource(map, "hexes");
-          source?.setData(hexes);
-        },
-        (err) => {
-          const label =
-            err.code === err.PERMISSION_DENIED
-              ? "denied"
-              : err.code === err.POSITION_UNAVAILABLE
-                ? "unavailable"
-                : err.code === err.TIMEOUT
-                  ? "timeout"
-                  : `code ${err.code}`;
-          queueMicrotask(() =>
-            setGeoLastError(`watch ${label}: ${err.message}`),
-          );
-          if (err.code === err.PERMISSION_DENIED) {
-            setGeoStatus("denied");
-            log.warn("geolocation denied");
-            return;
-          }
-          if (err.code === err.TIMEOUT && firstFix) setGeoStatus("timeout");
-          // POSITION_UNAVAILABLE (2) and TIMEOUT (3) are typically transient
-          // on macOS / mobile. The watch keeps running and recovers on its
-          // own. Don't downgrade the UI to a permanent "unavailable" state.
-          log.warn("transient geolocation error", {
-            code: err.code,
-            message: err.message,
-          });
-        },
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
-      );
+      startTracking(map);
     });
 
     map.on("error", (e) =>
@@ -1225,6 +1255,7 @@ export default function RunPage() {
     return () => {
       alive = false;
       window.clearTimeout(resizeTimer);
+      window.clearTimeout(trackingFallback);
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       log.debug("disposing map");
       map.remove();

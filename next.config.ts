@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: (process.env.RAILWAY_GIT_COMMIT_SHA ?? "dev").slice(0, 7),
   },
+  // Version skew: a tab on an old build calls Server Actions and chunks the
+  // new build no longer has ("Failed to find Server Action", ChunkLoadError).
+  // With a deployment id Next sees the mismatch and does a hard navigation
+  // instead. Same commit Railway builds from.
+  deploymentId: process.env.RAILWAY_GIT_COMMIT_SHA || undefined,
   // Pin the Turbopack workspace root to this directory so it does not climb up
   // to ~/pnpm-lock.yaml and get confused about which project is the root.
   turbopack: {

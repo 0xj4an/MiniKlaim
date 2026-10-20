@@ -205,7 +205,10 @@ export function initAnalytics(): PostHog | null {
       maskAllInputs: true,
       maskTextSelector: "[data-ph-mask]",
     },
-    disable_session_recording: false,
+    // Replay pulls a ~150 KB recorder script and records every DOM change.
+    // On 2 GB Android phones and data-saver proxies (Opera Mini on itel, 15
+    // Oct) the script arrived broken and threw (MINIKLAIM-Y). Skip it there.
+    disable_session_recording: isConstrainedDevice(),
     persistence: "localStorage+cookie",
     loaded: (ph) => {
       if (process.env.NODE_ENV !== "production") ph.debug(false);
@@ -218,6 +221,21 @@ export function initAnalytics(): PostHog | null {
   syncClientContext();
   log.info("posthog initialized", { host: "/ingest" });
   return posthog;
+}
+
+/** Low memory, few cores, or the user asked the browser to save data. */
+export function isConstrainedDevice(
+  nav: {
+    deviceMemory?: number;
+    hardwareConcurrency?: number;
+    connection?: { saveData?: boolean };
+  } | null = typeof navigator === "undefined" ? null : (navigator as never),
+): boolean {
+  if (!nav) return false;
+  if (nav.connection?.saveData === true) return true;
+  if (typeof nav.deviceMemory === "number" && nav.deviceMemory <= 2) return true;
+  if (typeof nav.hardwareConcurrency === "number" && nav.hardwareConcurrency <= 2) return true;
+  return false;
 }
 
 // Super properties ride on $exception too. Refresh on navigation: the host

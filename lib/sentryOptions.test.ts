@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { ErrorEvent } from "@sentry/nextjs";
-import { sentryInitOptions } from "./sentryOptions";
+import { onlyThirdPartyFrames, sentryInitOptions } from "./sentryOptions";
 
 describe("sentryInitOptions beforeSend", () => {
   afterEach(() => {
@@ -55,3 +55,37 @@ function crash(message: string): ErrorEvent {
     exception: { values: [{ type: "Error", value: message }] },
   } as ErrorEvent;
 }
+
+describe("onlyThirdPartyFrames", () => {
+  it("drops errors thrown only inside PostHog's proxied recorder", () => {
+    const event = {
+      exception: {
+        values: [
+          {
+            type: "SyntaxError",
+            value: "Unexpected token ':'",
+            stacktrace: { frames: [{ abs_path: "app:///ingest/static/posthog-recorder.js?v=1.414.0" }] },
+          },
+        ],
+      },
+    } as unknown as ErrorEvent;
+    expect(onlyThirdPartyFrames(event)).toBe(true);
+  });
+  it("keeps errors with our own frames", () => {
+    const event = {
+      exception: {
+        values: [
+          {
+            stacktrace: {
+              frames: [
+                { abs_path: "app:///ingest/static/posthog-recorder.js" },
+                { abs_path: "app:///_next/static/chunks/app.js" },
+              ],
+            },
+          },
+        ],
+      },
+    } as unknown as ErrorEvent;
+    expect(onlyThirdPartyFrames(event)).toBe(false);
+  });
+});

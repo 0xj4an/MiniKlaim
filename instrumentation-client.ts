@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
-import { initAnalytics } from "@/lib/analytics";
+import { initAnalytics, track } from "@/lib/analytics";
+import { installStaleChunkReload } from "@/lib/client/chunkReload";
 import { sentryInitOptions } from "@/lib/sentryOptions";
 
 // Before React. Wagmi reconnects in an effect and the iOS bridge can reject
@@ -7,5 +8,8 @@ import { sentryInitOptions } from "@/lib/sentryOptions";
 // rejections reached Sentry and never became a PostHog $exception.
 Sentry.init(sentryInitOptions());
 initAnalytics();
+installStaleChunkReload(() =>
+  track("stale_chunk_reload", { path: window.location.pathname }),
+);
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
