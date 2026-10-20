@@ -6,8 +6,8 @@ export const MOVE_MODES = [
   "bus",
   "train",
   "plane",
-  "horse",
   "boat",
+  "horse",
 ] as const;
 
 export type MoveMode = (typeof MOVE_MODES)[number];
@@ -109,7 +109,8 @@ const ICON: Record<MoveMode, string> = {
   bus: "🚌",
   train: "🚆",
   plane: "✈️",
-  horse: "🐎",
+  // Shown as a unicorn on purpose.
+  horse: "🦄",
   boat: "⛵",
 };
 
