@@ -3,13 +3,14 @@ import { db } from "@/lib/db";
 import { runs, users } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
 import { hashRunToken, newRunToken } from "@/lib/onchain/sponsorRules";
+import { isMoveMode } from "@/lib/runs/moveMode";
 
 const log = createLogger("api:runs");
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as { address?: string };
+  const body = (await request.json()) as { address?: string; mode?: string };
   const address = body.address?.toLowerCase();
 
   if (!address || !/^0x[a-f0-9]{40}$/.test(address)) {
@@ -26,7 +27,12 @@ export async function POST(request: Request) {
   const claimToken = newRunToken();
   const [run] = await db
     .insert(runs)
-    .values({ userAddress: address, claimTokenHash: hashRunToken(claimToken) })
+    .values({
+      userAddress: address,
+      claimTokenHash: hashRunToken(claimToken),
+      // How the player said they travel. Older clients send nothing.
+      declaredMode: isMoveMode(body.mode) ? body.mode : null,
+    })
     .returning({ id: runs.id, startedAt: runs.startedAt });
 
   log.info("run started", { id: run.id, address });
