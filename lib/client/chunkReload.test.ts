@@ -21,3 +21,15 @@ describe("isChunkLoadError", () => {
     );
   });
 });
+
+describe("isChunkLoadError on Safari and Firefox", () => {
+  it("matches module script failures", () => {
+    expect(isChunkLoadError(new TypeError("Importing a module script failed."))).toBe(true);
+    expect(
+      isChunkLoadError(new TypeError("error loading dynamically imported module: https://miniklaim.fun/_next/x.js")),
+    ).toBe(true);
+  });
+  it("ignores ordinary errors", () => {
+    expect(isChunkLoadError(new TypeError("Failed to fetch"))).toBe(false);
+  });
+});

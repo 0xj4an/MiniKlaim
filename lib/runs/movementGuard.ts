@@ -82,17 +82,58 @@ export function checkChain(params: {
 }
 
 /**
- * Blocks crossed in the air do not count. A batch whose path since the last
- * capture is faster than CAPTURE_MAX_KMH is a plane in flight: the run keeps
- * its position (so the next batch is checked from there) but the blocks are
- * not captured. A flight then keeps only the blocks at the airports, where
- * the plane boards, taxis and lands. Trains (up to ~250 km/h) still count.
+ * Blocks crossed in the air do not count. A plane in flight keeps moving the
+ * run's position (so the next batch is checked from there) but its blocks
+ * are not captured. A flight then keeps only the blocks at the airports,
+ * where the plane boards, taxis and lands. Trains (up to ~250 km/h) count.
+ *
+ * Speed is measured over a window of at least AIR_WINDOW_MIN_SEC, never
+ * between two batches. Batches arrive ~2.5 s apart by server clock, but the
+ * phone hands GPS fixes over in bursts (iOS WebViews especially), so one
+ * batch can hold 15 s of driving and land a second after the previous one.
+ * Per-batch speed then read a car at 60 km/h as 400-800 km/h and dropped
+ * its blocks (18 Oct, MINIKLAIM-12). Over 30 s or more the bursts average
+ * out; a real flight stays far above the threshold.
+ *
+ * The anchor is where the window starts. It moves to the run's position once
+ * the window passes AIR_WINDOW_RESET_SEC. Between measurements (window under
+ * AIR_WINDOW_MIN_SEC) the last decision holds.
  */
 export const CAPTURE_MAX_KMH = 250;
+export const AIR_WINDOW_MIN_SEC = 30;
+export const AIR_WINDOW_RESET_SEC = 90;
 
-export function isAirborne(params: { meters: number; lastAt: Date; now: Date }): boolean {
-  const dtSec = Math.max(1, (params.now.getTime() - params.lastAt.getTime()) / 1000);
-  return (params.meters / dtSec) * 3.6 > CAPTURE_MAX_KMH;
+export type AirState = {
+  anchorH3: string | null;
+  anchorAt: Date | null;
+  airborne: boolean;
+};
+
+export function airborneStep(params: {
+  state: AirState;
+  /** The run's position after this batch. */
+  endH3: string | null;
+  now: Date;
+}): AirState & { kmh: number | null } {
+  const { state, endH3, now } = params;
+  if (!endH3 || !isValidCell(endH3)) return { ...state, kmh: null };
+  if (!state.anchorH3 || !state.anchorAt || !isValidCell(state.anchorH3)) {
+    return { anchorH3: endH3, anchorAt: now, airborne: false, kmh: null };
+  }
+  const windowSec = (now.getTime() - state.anchorAt.getTime()) / 1000;
+  if (windowSec < AIR_WINDOW_MIN_SEC) return { ...state, kmh: null };
+  // Straight line, less the hex size and GPS noise. A flight is straight; a
+  // car's zigzag only makes this smaller.
+  const meters = Math.max(0, hexDistanceMeters(state.anchorH3, endH3) - SLACK_METERS);
+  const kmh = (meters / windowSec) * 3.6;
+  const airborne = kmh > CAPTURE_MAX_KMH;
+  const reset = windowSec >= AIR_WINDOW_RESET_SEC;
+  return {
+    anchorH3: reset ? endH3 : state.anchorH3,
+    anchorAt: reset ? now : state.anchorAt,
+    airborne,
+    kmh,
+  };
 }
 
 /**

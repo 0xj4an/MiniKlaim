@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchWithRetry } from "@/lib/client/netRetry";
 import * as Sentry from "@sentry/nextjs";
 import { useCallback } from "react";
 import { encodeFunctionData, type Address, type Hex } from "viem";
@@ -56,7 +57,7 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
         return { status: "error" };
       }
       try {
-        const res = await fetch(
+        const res = await fetchWithRetry(
           `/api/users/${addr.toLowerCase()}/badges/sponsor-mint?chain=${chainKey}&runId=${proof.runId}`,
           {
             method: "POST",
@@ -100,7 +101,7 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
 
     let voucher: Voucher;
     try {
-      const res = await fetch(
+      const res = await fetchWithRetry(
         `/api/users/${address.toLowerCase()}/badges/voucher?chain=${chainKey}`,
         { method: "POST" },
       );

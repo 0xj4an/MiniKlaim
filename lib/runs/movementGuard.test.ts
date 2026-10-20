@@ -3,7 +3,8 @@ import { gridDisk, latLngToCell } from "h3-js";
 import {
   checkChain,
   hexDistanceMeters,
-  isAirborne,
+  airborneStep,
+  type AirState,
   pathFitsReported,
   reachableFromPrevious,
 } from "@/lib/runs/movementGuard";
@@ -139,16 +140,78 @@ describe("fast travel", () => {
   });
 });
 
-describe("isAirborne", () => {
-  const at = new Date("2026-10-13T15:40:00Z");
-  it("a plane at cruise is airborne", () => {
-    // 13 Oct: ~8 km between batches 40 s apart (~720 km/h).
-    expect(isAirborne({ meters: 8000, lastAt: at, now: new Date(at.getTime() + 40_000) })).toBe(true);
+describe("airborneStep", () => {
+  const at = new Date("2026-10-18T03:40:00Z");
+  const sec = (s: number) => new Date(at.getTime() + s * 1000);
+  // A point `km` east of Medellín's centre along a straight line.
+  const east = (km: number) => latLngToCell(6.2442, -75.5812 + km / 110.6, RES);
+  const none: AirState = { anchorH3: null, anchorAt: null, airborne: false };
+
+  /** Feed batches (seconds since start, km travelled) and return the states. */
+  function ride(batches: Array<[number, number]>) {
+    let state = none;
+    return batches.map(([s, km]) => {
+      state = airborneStep({ state, endH3: east(km), now: sec(s) });
+      return state;
+    });
+  }
+
+  it("the first batch anchors the window and captures", () => {
+    const res = airborneStep({ state: none, endH3: east(0), now: at });
+    expect(res.airborne).toBe(false);
+    expect(res.anchorH3).toBe(east(0));
   });
-  it("a train at 200 km/h still captures", () => {
-    expect(isAirborne({ meters: 2222, lastAt: at, now: new Date(at.getTime() + 40_000) })).toBe(false);
+
+  it("a car at 60 km/h whose GPS fixes arrive in bursts still captures (18 Oct)", () => {
+    // Batches land 1.2 s apart by server clock but carry ~15 s of driving.
+    // Per-batch speed read this as 823 km/h; over the window it is ~60.
+    const batches: Array<[number, number]> = [];
+    let km = 0;
+    for (let s = 0; s <= 300; s += 16) {
+      batches.push([s, km]);
+      batches.push([s + 1.2, km + 0.27]);
+      km += 0.27;
+    }
+    expect(ride(batches).every((st) => !st.airborne)).toBe(true);
   });
-  it("walking and taxiing capture", () => {
-    expect(isAirborne({ meters: 60, lastAt: at, now: new Date(at.getTime() + 40_000) })).toBe(false);
+
+  it("a car at 130 km/h on the highway captures", () => {
+    const states = ride(Array.from({ length: 80 }, (_, i) => [i * 2.5, (i * 2.5 * 130) / 3600]));
+    expect(states.every((st) => !st.airborne)).toBe(true);
+  });
+
+  it("a train at 200 km/h captures", () => {
+    const states = ride(Array.from({ length: 80 }, (_, i) => [i * 2.5, (i * 2.5 * 200) / 3600]));
+    expect(states.every((st) => !st.airborne)).toBe(true);
+  });
+
+  it("a plane at cruise is airborne once the window fills, and stays so", () => {
+    const states = ride(Array.from({ length: 80 }, (_, i) => [i * 2.5, (i * 2.5 * 800) / 3600]));
+    const firstAir = states.findIndex((st) => st.airborne);
+    // Detected within the first 30 s window (12 batches of 2.5 s).
+    expect(firstAir).toBeGreaterThan(0);
+    expect(firstAir).toBeLessThanOrEqual(12);
+    expect(states.slice(firstAir).every((st) => st.airborne)).toBe(true);
+  });
+
+  it("a GPS jump of a few hundred metres does not ground a walk", () => {
+    const batches: Array<[number, number]> = Array.from({ length: 40 }, (_, i) => [i * 2.5, (i * 2.5 * 5) / 3600]);
+    batches.splice(20, 0, [50.1, 0.5]); // one fix 400 m off
+    expect(ride(batches).every((st) => !st.airborne)).toBe(true);
+  });
+
+  it("moves the anchor once the window passes the reset", () => {
+    const states = ride([[0, 0], [95, 1]]);
+    expect(states[1].anchorH3).toBe(east(1));
+  });
+
+  it("holds the decision between measurements", () => {
+    const held = airborneStep({
+      state: { anchorH3: east(0), anchorAt: at, airborne: true },
+      endH3: east(0.1),
+      now: sec(5),
+    });
+    expect(held.airborne).toBe(true);
+    expect(held.kmh).toBeNull();
   });
 });

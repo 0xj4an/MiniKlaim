@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchWithRetry, isSponsorInProgress } from "@/lib/client/netRetry";
 import { useCallback } from "react";
 import { encodeFunctionData, type Address, type Hex } from "viem";
 import { useWalletClient } from "wagmi";
@@ -55,7 +56,7 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
       shortfall = false,
     ): Promise<ClaimOutcome | "refused"> => {
       try {
-        const res = await fetch(
+        const res = await fetchWithRetry(
           `/api/runs/${runId}/sponsor-mint?chain=${chainKey}`,
           {
             method: "POST",
@@ -65,6 +66,10 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
             },
           },
         );
+        if (await isSponsorInProgress(res)) {
+          log.info("sponsor already in progress", { runId });
+          return "sponsored";
+        }
         if (res.status === 402 || res.status === 429 || res.status === 403) {
           log.warn("sponsor refused", { runId, status: res.status });
           return res.status === 402 ? "refused" : "failed";
@@ -106,7 +111,7 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
 
       let voucher: Voucher;
       try {
-        const res = await fetch(
+        const res = await fetchWithRetry(
           `/api/runs/${runId}/voucher?chain=${chainKey}`,
           {
             method: "POST",

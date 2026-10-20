@@ -864,164 +864,15 @@ export default function RunPage() {
       zoom: initialZoom,
     });
 
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: DEFAULT_MAP_STYLE,
-      ...lightMapOptions(),
-      center: initialCenter,
-      zoom: initialZoom,
-      minZoom: RUN_MIN_ZOOM,
-      attributionControl: { compact: true },
-    });
-    mapRef.current = map;
-
     let watchId: number | null = null;
     let firstFix = true;
     let alive = true;
 
-    map.on("load", () => {
-      log.info("map loaded");
-      map.resize();
-
-      map.addSource("claimed-hexes", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-      // Red: captured or stolen in this run. Orange: already yours.
-      // Gray: someone else's, yours to take.
-      const ownerColor = [
-        "case",
-        ["get", "isRun"],
-        HEX_COLORS.run,
-        ["get", "isMine"],
-        HEX_COLORS.mine,
-        HEX_COLORS.others,
-      ] as maplibregl.ExpressionSpecification;
-      map.addLayer({
-        id: "claimed-hex-fill",
-        type: "fill",
-        source: "claimed-hexes",
-        paint: {
-          "fill-color": ownerColor,
-          "fill-opacity": [
-            "case",
-            ["get", "isRun"],
-            0.5,
-            ["get", "isMine"],
-            0.4,
-            0.25,
-          ],
-        },
-      });
-      map.addLayer({
-        id: "claimed-hex-line",
-        type: "line",
-        source: "claimed-hexes",
-        paint: {
-          "line-color": ownerColor,
-          "line-width": 2,
-          "line-opacity": ["case", ["get", "isMine"], 0.9, 0.6],
-        },
-      });
-
-      map.addSource("hexes", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-      // Only the cell under the player, as an outline. No fill, so its own
-      // color shows through and an owned hex does not look captured again.
-      map.addLayer({
-        id: "hex-line",
-        type: "line",
-        source: "hexes",
-        filter: ["==", ["get", "isCurrent"], true],
-        paint: {
-          "line-color": HEX_COLORS.here,
-          "line-width": 3,
-          "line-opacity": 1,
-        },
-      });
-
-      map.addSource("position", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-      map.addLayer({
-        id: "position-circle",
-        type: "circle",
-        source: "position",
-        paint: {
-          "circle-radius": 8,
-          "circle-color": "#FF6B35",
-          "circle-stroke-color": "#FFFFFF",
-          "circle-stroke-width": 3,
-        },
-      });
-
-      // If the eager primer already got a fix before the map finished loading
-      // (common when the user has cached permission), paint the dot now that
-      // the source exists. Otherwise the player stares at a map with no
-      // "you are here" marker until watchPosition eventually fires.
-      const initialPos = latestPosRef.current;
-      if (initialPos) {
-        renderPositionDot(map, initialPos.lat, initialPos.lng);
-      }
-
-      void refreshClaimed();
-      map.on("moveend", () => {
-        if (Date.now() < hexRefreshPauseUntil.current) return;
-        hexRefreshPauseUntil.current = Date.now() + 4_000;
-        void refreshClaimed("move");
-      });
-
-      const popupRef = { current: null as maplibregl.Popup | null };
-      const handleHexClick = (e: maplibregl.MapLayerMouseEvent) => {
-        log.debug("claimed hex click", {
-          features: e.features?.length ?? 0,
-          point: [e.point.x, e.point.y],
-        });
-        const feature = e.features?.[0];
-        if (!feature) return;
-        const props = feature.properties as {
-          owner: string;
-          ownerUsername: string | null;
-          isMine: boolean;
-        };
-        popupRef.current?.remove();
-        const el = document.createElement("div");
-        el.style.fontSize = "13px";
-        el.style.padding = "4px 6px";
-        el.style.whiteSpace = "nowrap";
-        el.appendChild(document.createTextNode(`${capturedByLabel} `));
-        if (props.ownerUsername) {
-          const link = document.createElement("a");
-          link.href = `/p/${props.ownerUsername}`;
-          link.textContent = `@${props.ownerUsername}`;
-          link.style.color = "#FF6B35";
-          link.style.textDecoration = "underline";
-          el.appendChild(link);
-        } else {
-          el.appendChild(document.createTextNode(anonymousLabel));
-        }
-        if (props.isMine) {
-          el.appendChild(document.createTextNode(` ${youLabel}`));
-        }
-        popupRef.current = new maplibregl.Popup({
-          closeButton: true,
-          closeOnClick: false,
-        })
-          .setLngLat(e.lngLat)
-          .setDOMContent(el)
-          .addTo(map);
-      };
-      map.on("click", "claimed-hex-fill", handleHexClick);
-      map.on("mouseenter", "claimed-hex-fill", () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", "claimed-hex-fill", () => {
-        map.getCanvas().style.cursor = "";
-      });
-
+    // GPS tracking. Normally wired once the map loads. A phone that cannot
+    // draw the map (old GPU, no WebGL) never fires "load"; it still tracks
+    // and captures, without the map (see the fallback below).
+    const startTracking = (map: maplibregl.Map | null) => {
+      if (watchId !== null || !alive) return;
       if (!("geolocation" in navigator)) {
         log.warn("geolocation unavailable");
         return;
@@ -1041,11 +892,11 @@ export default function RunPage() {
           // capture where a wrong-hex claim would corrupt the game.
           latestPosRef.current = { lat: latitude, lng: longitude };
           writeCachedPosition(latitude, longitude);
-          renderPositionDot(map, latitude, longitude);
+          if (map) renderPositionDot(map, latitude, longitude);
 
           if (firstFix) {
             log.info("first fix", { lat: latitude, lng: longitude });
-            placeCamera(map, longitude, latitude, FOLLOW_ZOOM);
+            if (map) placeCamera(map, longitude, latitude, FOLLOW_ZOOM);
             firstFix = false;
           }
 
@@ -1183,7 +1034,7 @@ export default function RunPage() {
               }
             }
           }
-          const source = liveGeoSource(map, "hexes");
+          const source = map ? liveGeoSource(map, "hexes") : null;
           source?.setData(hexes);
         },
         (err) => {
@@ -1214,6 +1065,196 @@ export default function RunPage() {
         },
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
       );
+    };
+
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
+        container: containerRef.current,
+        style: DEFAULT_MAP_STYLE,
+        ...lightMapOptions(),
+        center: initialCenter,
+        zoom: initialZoom,
+        minZoom: RUN_MIN_ZOOM,
+        attributionControl: { compact: true },
+      });
+    } catch (e) {
+      // No WebGL at all: the constructor throws. Track without a map.
+      log.warn("map init failed; tracking without map", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+      track("map_webgl_failed", { path: "/run" });
+      startTracking(null);
+      return () => {
+        alive = false;
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      };
+    }
+    mapRef.current = map;
+    // Layer listeners still fire for a touch that lands while the page
+    // unmounts, and MapLibre then reads the style remove() has cleared
+    // ("reading 'getLayer'", MINIKLAIM-4). They are taken off first.
+    const layerListenerOffs: Array<() => void> = [];
+    // The map never loaded (shader failure on old GPUs, MINIKLAIM-W): start
+    // GPS anyway so the run still captures.
+    const trackingFallback = window.setTimeout(() => {
+      if (watchId === null) {
+        log.warn("map not loaded; tracking without map");
+        startTracking(map);
+      }
+    }, 10_000);
+
+    map.on("load", () => {
+      log.info("map loaded");
+      map.resize();
+
+      map.addSource("claimed-hexes", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      // Red: captured or stolen in this run. Orange: already yours.
+      // Gray: someone else's, yours to take.
+      const ownerColor = [
+        "case",
+        ["get", "isRun"],
+        HEX_COLORS.run,
+        ["get", "isMine"],
+        HEX_COLORS.mine,
+        HEX_COLORS.others,
+      ] as maplibregl.ExpressionSpecification;
+      map.addLayer({
+        id: "claimed-hex-fill",
+        type: "fill",
+        source: "claimed-hexes",
+        paint: {
+          "fill-color": ownerColor,
+          "fill-opacity": [
+            "case",
+            ["get", "isRun"],
+            0.5,
+            ["get", "isMine"],
+            0.4,
+            0.25,
+          ],
+        },
+      });
+      map.addLayer({
+        id: "claimed-hex-line",
+        type: "line",
+        source: "claimed-hexes",
+        paint: {
+          "line-color": ownerColor,
+          "line-width": 2,
+          "line-opacity": ["case", ["get", "isMine"], 0.9, 0.6],
+        },
+      });
+
+      map.addSource("hexes", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      // Only the cell under the player, as an outline. No fill, so its own
+      // color shows through and an owned hex does not look captured again.
+      map.addLayer({
+        id: "hex-line",
+        type: "line",
+        source: "hexes",
+        filter: ["==", ["get", "isCurrent"], true],
+        paint: {
+          "line-color": HEX_COLORS.here,
+          "line-width": 3,
+          "line-opacity": 1,
+        },
+      });
+
+      map.addSource("position", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "position-circle",
+        type: "circle",
+        source: "position",
+        paint: {
+          "circle-radius": 8,
+          "circle-color": "#FF6B35",
+          "circle-stroke-color": "#FFFFFF",
+          "circle-stroke-width": 3,
+        },
+      });
+
+      // If the eager primer already got a fix before the map finished loading
+      // (common when the user has cached permission), paint the dot now that
+      // the source exists. Otherwise the player stares at a map with no
+      // "you are here" marker until watchPosition eventually fires.
+      const initialPos = latestPosRef.current;
+      if (initialPos) {
+        renderPositionDot(map, initialPos.lat, initialPos.lng);
+      }
+
+      void refreshClaimed();
+      map.on("moveend", () => {
+        if (Date.now() < hexRefreshPauseUntil.current) return;
+        hexRefreshPauseUntil.current = Date.now() + 4_000;
+        void refreshClaimed("move");
+      });
+
+      const popupRef = { current: null as maplibregl.Popup | null };
+      const handleHexClick = (e: maplibregl.MapLayerMouseEvent) => {
+        log.debug("claimed hex click", {
+          features: e.features?.length ?? 0,
+          point: [e.point.x, e.point.y],
+        });
+        const feature = e.features?.[0];
+        if (!feature) return;
+        const props = feature.properties as {
+          owner: string;
+          ownerUsername: string | null;
+          isMine: boolean;
+        };
+        popupRef.current?.remove();
+        const el = document.createElement("div");
+        el.style.fontSize = "13px";
+        el.style.padding = "4px 6px";
+        el.style.whiteSpace = "nowrap";
+        el.appendChild(document.createTextNode(`${capturedByLabel} `));
+        if (props.ownerUsername) {
+          const link = document.createElement("a");
+          link.href = `/p/${props.ownerUsername}`;
+          link.textContent = `@${props.ownerUsername}`;
+          link.style.color = "#FF6B35";
+          link.style.textDecoration = "underline";
+          el.appendChild(link);
+        } else {
+          el.appendChild(document.createTextNode(anonymousLabel));
+        }
+        if (props.isMine) {
+          el.appendChild(document.createTextNode(` ${youLabel}`));
+        }
+        popupRef.current = new maplibregl.Popup({
+          closeButton: true,
+          closeOnClick: false,
+        })
+          .setLngLat(e.lngLat)
+          .setDOMContent(el)
+          .addTo(map);
+      };
+      const onEnter = () => {
+        map.getCanvas().style.cursor = "pointer";
+      };
+      const onLeave = () => {
+        map.getCanvas().style.cursor = "";
+      };
+      map.on("click", "claimed-hex-fill", handleHexClick);
+      map.on("mouseenter", "claimed-hex-fill", onEnter);
+      map.on("mouseleave", "claimed-hex-fill", onLeave);
+      layerListenerOffs.push(
+        () => map.off("click", "claimed-hex-fill", handleHexClick),
+        () => map.off("mouseenter", "claimed-hex-fill", onEnter),
+        () => map.off("mouseleave", "claimed-hex-fill", onLeave),
+      );
+
+      startTracking(map);
     });
 
     map.on("error", (e) =>
@@ -1225,9 +1266,23 @@ export default function RunPage() {
     return () => {
       alive = false;
       window.clearTimeout(resizeTimer);
+      window.clearTimeout(trackingFallback);
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       log.debug("disposing map");
-      map.remove();
+      for (const off of layerListenerOffs) {
+        try {
+          off();
+        } catch {
+          // Already gone with the style.
+        }
+      }
+      try {
+        map.remove();
+      } catch (e) {
+        log.debug("map remove failed", {
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
       mapRef.current = null;
     };
   }, [

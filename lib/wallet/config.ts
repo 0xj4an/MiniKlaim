@@ -11,9 +11,21 @@ import { injected } from "wagmi/connectors";
 // first so their auto-connect runs before the cookie-restored injected one when
 // present. Outside their host each is a no-op and the injected fallback (MiniPay
 // / browser wallet) takes over.
+//
+// MiniPay is never a Startale host, and the Startale SDK opens IndexedDB as it
+// starts. Old Android WebViews in MiniPay fail that open and the rejection
+// surfaced as an app error (MINIKLAIM-10, -K). Leave it out there.
+const inMiniPay =
+  typeof window !== "undefined" &&
+  (window as { ethereum?: { isMiniPay?: boolean } }).ethereum?.isMiniPay === true;
+
 export const wagmiConfig = createConfig({
   chains: [celo, soneium],
-  connectors: [startaleConnector(), farcasterMiniApp(), injected()],
+  connectors: [
+    ...(inMiniPay ? [] : [startaleConnector()]),
+    farcasterMiniApp(),
+    injected(),
+  ],
   storage: createStorage({ storage: cookieStorage }),
   ssr: true,
   transports: {

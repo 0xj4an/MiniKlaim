@@ -78,6 +78,13 @@
       "when": 1791902325246,
       "tag": "0010_movement_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792446554176,
+      "tag": "0011_air_window",
+      "breakpoints": true
     }
   ]
 }

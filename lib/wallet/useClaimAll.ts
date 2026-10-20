@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchWithRetry, isNetworkError, isSponsorInProgress } from "@/lib/client/netRetry";
 import * as Sentry from "@sentry/nextjs";
 import { useCallback } from "react";
 import { encodeFunctionData, type Hex } from "viem";
@@ -77,7 +78,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
       trigger: string,
     ): Promise<ClaimAllOutcome | "badges_failed" | "refused"> => {
       try {
-        const res = await fetch(
+        const res = await fetchWithRetry(
           `/api/runs/${runId}/sponsor-mint?chain=${chainKey}`,
           {
             method: "POST",
@@ -87,6 +88,12 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
             },
           },
         );
+        if (await isSponsorInProgress(res)) {
+          // A retry reached the server while the first call is still minting.
+          log.info("sponsor already in progress", { runId });
+          track("run_claim_sponsored", { had_badges: hadBadges, trigger });
+          return "sponsored";
+        }
         if (res.status === 402 || res.status === 429) {
           // The server refused: the player can pay their own fee, or this
           // wallet used today's sponsored allowance. Not an error on our side.
@@ -119,7 +126,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           return "failed";
         }
         if (hadBadges) {
-          const bRes = await fetch(
+          const bRes = await fetchWithRetry(
             `/api/users/${addr.toLowerCase()}/badges/sponsor-mint?chain=${chainKey}&runId=${runId}`,
             {
               method: "POST",
@@ -156,10 +163,20 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           message: reasonOf(e),
         });
         track("run_claim_failed", { trigger: `sponsor_threw:${reasonOf(e)}` });
-        Sentry.captureException(e, {
-          tags: { claim: "sponsor" },
-          extra: { runId },
-        });
+        // Offline after three tries is the player's signal, not our bug. The
+        // run stays pending and the claim prompt offers it again.
+        if (isNetworkError(e)) {
+          Sentry.captureMessage("sponsor unreachable after retries", {
+            level: "warning",
+            tags: { claim: "sponsor", network: "offline" },
+            extra: { runId, message: reasonOf(e) },
+          });
+        } else {
+          Sentry.captureException(e, {
+            tags: { claim: "sponsor" },
+            extra: { runId },
+          });
+        }
         return "failed";
       }
     },
@@ -187,7 +204,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
         let voucher: Voucher;
         let voucherStatus = 0;
         try {
-          const res = await fetch(
+          const res = await fetchWithRetry(
             `/api/runs/${runId}/claim-all/voucher?chain=${chainKey}`,
             { method: "POST" },
           );
