@@ -99,6 +99,13 @@
       "when": 1792509823117,
       "tag": "0013_hex_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792513820355,
+      "tag": "0014_hexes_v2_markers",
+      "breakpoints": true
     }
   ]
 }
