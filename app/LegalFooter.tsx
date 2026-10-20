@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLocale } from "@/lib/i18n";
+import { SupportLink } from "@/app/SupportLink";
 import { XLink } from "@/app/XLink";
 
 export function LegalFooter() {
@@ -30,6 +31,10 @@ export function LegalFooter() {
         >
           {t("about.footer.terms")}
         </Link>
+        <SupportLink
+          label={t("support.link.help")}
+          className="inline-flex min-h-11 items-center underline hover:text-zinc-600"
+        />
         <XLink
           label={t("about.footer.x")}
           iconOnly

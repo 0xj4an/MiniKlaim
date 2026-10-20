@@ -6,6 +6,8 @@ All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Ch
 
 ### Added
 
+- **Support form before the email opens.** "Help" in the footer and the support address on About and Privacy now open a short form: pick what it is about and describe what happened (at least a short sentence) before the email app opens with that text, the wallet, device and app version. 37 of 84 support emails (7-20 Oct) arrived empty or with just a name.
+
 - **Runs of any length settle in one approval** (Hexes v2, behind `NEXT_PUBLIC_<CHAIN>_HEXES_RECORDS`). A capture is recorded on-chain instead of minted as a token: ~3k gas per block instead of ~28k. One player tx now carries up to 8,000 blocks instead of 700. Runs over 700 blocks were 1% of runs but half of all blocks, and could only settle through the capped relayer. Blocks that are already NFTs still move to whoever recaptures them.
 - **Live on Celo mainnet** since 2026-10-20 16:29 UTC (Hexes implementation `0xf0250e4f530c38f6eca3c1936fb478a18ee05d7f`, verified on Blockscout). Migration `0014_hexes_v2_markers` fixes the token markers around the switch.
 - **Backlog settled.** Every finished run that had not reached the chain (16 runs capped by the daily sponsor allowance, 280 never reported, 37 denied because the player could pay) was recorded by the relayer: 34,922 blocks in 303 txs, ~3.5k gas each. `npm run runs:settle-backlog` repeats it when needed.
