@@ -1,5 +1,6 @@
 import type { ErrorEvent } from "@sentry/nextjs";
 import { clientWalletHost } from "@/lib/client/walletHost";
+import { headSnapshot } from "@/lib/client/headWatch";
 import { isBrowserNoise } from "@/lib/errors/browserNoise";
 import { isWebglFailure } from "@/lib/map/isWebglFailure";
 
@@ -55,6 +56,25 @@ export function sentryInitOptions(): SentryInitOptions {
         // The device cannot draw the map (MINIKLAIM-W). The page shows a
         // notice and PostHog counts it; Sentry would only repeat it per frame.
         if (parts.some((part) => isWebglFailure(part))) return null;
+        // MINIKLAIM-T: a hoisted <head> tag was removed by someone else.
+        // Ship what <head> looks like now; head.removed crumbs show who.
+        if (parts.some((part) => part.includes("reading 'removeChild'"))) {
+          try {
+            event.contexts = { ...event.contexts, head: headSnapshot(document) };
+          } catch {
+            // Diagnostics only.
+          }
+        }
+      }
+      // A wallet extension threw inside its own injected script (MetaMask's
+      // "Failed to connect", "extension not found": MINIKLAIM-13). Kept, so
+      // a real wallet problem stays visible, but as a warning grouped into one
+      // issue per extension and message instead of a new issue each time.
+      const ext = extensionSource(event);
+      if (ext) {
+        event.level = "warning";
+        event.tags = { ...event.tags, source: "wallet-extension", extension: ext };
+        event.fingerprint = ["wallet-extension", ext, normalise(parts[1] ?? parts[0] ?? "")];
       }
       return event;
     },
@@ -71,4 +91,21 @@ export function onlyThirdPartyFrames(event: ErrorEvent): boolean {
   return frames.every((f) =>
     THIRD_PARTY.some((p) => (f.abs_path ?? f.filename ?? "").includes(p)),
   );
+}
+
+const EXTENSION_FRAME = /(chrome|moz|safari-web)-extension:\/\/|\/scripts\/inpage\.js|\/inpage\.js|contentscript/i;
+
+/** The extension that threw, when every frame of the error is its own code. */
+export function extensionSource(event: ErrorEvent): string | null {
+  const frames = (event.exception?.values ?? []).flatMap((v) => v.stacktrace?.frames ?? []);
+  if (frames.length === 0) return null;
+  const paths = frames.map((f) => f.abs_path ?? f.filename ?? "");
+  if (!paths.every((p) => EXTENSION_FRAME.test(p))) return null;
+  const text = (event.exception?.values ?? []).map((v) => v.value ?? "").join(" ");
+  if (/metamask/i.test(text) || paths.some((p) => /inpage\.js/.test(p))) return "metamask";
+  return "unknown";
+}
+
+function normalise(message: string): string {
+  return message.replace(/0x[0-9a-f]{6,}/gi, "0x…").replace(/\d+/g, "#").slice(0, 80);
 }

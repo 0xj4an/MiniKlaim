@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { track } from "@/lib/analytics";
 import { reloadForStaleChunk } from "@/lib/client/chunkReload";
+import { reloadForDetachedHead } from "@/lib/client/headWatch";
 
 export default function ErrorBoundary({
   error,
@@ -13,6 +14,10 @@ export default function ErrorBoundary({
   reset: () => void;
 }) {
   useEffect(() => {
+    if (reloadForDetachedHead(error)) {
+      track("head_detach_reload", { path: window.location.pathname });
+      return;
+    }
     if (reloadForStaleChunk(error)) {
       track("stale_chunk_reload", { path: window.location.pathname });
       return;

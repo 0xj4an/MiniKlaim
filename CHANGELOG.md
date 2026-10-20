@@ -2,6 +2,16 @@
 
 All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project does not use SemVer tags today, so entries are dated instead.
 
+## 2026-10-20
+
+### Fixed
+
+- **Error screen after switching pages on some Android MiniPay WebViews** (MINIKLAIM-T). React removes the previous page's hoisted `<head>` tags with `parentNode.removeChild`, and on those WebViews the tag was already gone. The error screen now reloads the page once instead of stopping there.
+
+### Changed
+
+- **Better diagnostics.** Every `<head>` change outside React is recorded as a Sentry breadcrumb, and the `removeChild` error carries a snapshot of `<head>`, so the next event shows what removed the tag. Errors thrown entirely inside a wallet extension's injected script (MetaMask "Failed to connect", MINIKLAIM-13) are kept but sent as warnings, tagged `source: wallet-extension`, and grouped per extension and message.
+
 ## 2026-10-19
 
 ### Fixed
