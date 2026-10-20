@@ -9,8 +9,8 @@ import { hexClaimAction } from "@/lib/runs/claimDecision";
 import { addressesForPlayer } from "@/lib/players";
 import { validateClaim } from "@/lib/runs/validation";
 import {
+  airborneStep,
   checkChain,
-  isAirborne,
   pathFitsReported,
   reachableFromPrevious,
 } from "@/lib/runs/movementGuard";
@@ -63,6 +63,9 @@ export async function POST(
       lastH3: runs.lastH3,
       lastClaimAt: runs.lastClaimAt,
       serverDistanceMeters: runs.serverDistanceMeters,
+      airAnchorH3: runs.airAnchorH3,
+      airAnchorAt: runs.airAnchorAt,
+      airborne: runs.airborne,
     })
     .from(runs)
     .where(eq(runs.id, id))
@@ -169,21 +172,28 @@ export async function POST(
   const blocked = new Set(pathOk ? chain.rejected : ordered);
   const blockedReason = pathOk ? "too-fast" : "path-mismatch";
   let rejectedByGuard = 0;
-  // In the air: the position moves on, the blocks are not captured.
-  const airborne =
-    chain.accepted.length > 0 &&
-    isAirborne({ meters: chain.meters, lastAt: run.lastClaimAt ?? run.startedAt, now });
+  // In the air: the position moves on, the blocks are not captured. Speed
+  // is judged over a window of 30 s or more, never one batch (see
+  // airborneStep).
+  const air = chain.accepted.length > 0
+    ? airborneStep({
+        state: {
+          anchorH3: run.airAnchorH3,
+          anchorAt: run.airAnchorAt,
+          airborne: run.airborne,
+        },
+        endH3: chain.endH3,
+        now,
+      })
+    : null;
+  const airborne = air?.airborne === true;
   const inFlight = new Set(airborne ? chain.accepted : []);
   if (airborne) {
     log.warn("fast travel: airborne batch not captured", {
       runId: id,
       player: run.userAddress,
       hexes: inFlight.size,
-      kmh: Math.round(
-        (chain.meters /
-          Math.max(1, (now.getTime() - (run.lastClaimAt ?? run.startedAt).getTime()) / 1000)) *
-          3.6,
-      ),
+      kmh: air?.kmh === null || air?.kmh === undefined ? "held" : Math.round(air.kmh),
     });
   }
 
@@ -321,6 +331,13 @@ export async function POST(
             lastH3: chain.endH3,
             lastClaimAt: now,
             serverDistanceMeters: sql`${runs.serverDistanceMeters} + ${Math.round(chain.meters)}`,
+            ...(air
+              ? {
+                  airAnchorH3: air.anchorH3,
+                  airAnchorAt: air.anchorAt,
+                  airborne: air.airborne,
+                }
+              : {}),
           }
         : {}),
       rejectedHexes: sql`${runs.rejectedHexes} + ${rejectedByGuard}`,

@@ -97,6 +97,11 @@ export const runs = pgTable(
     lastClaimAt: timestamp("last_claim_at", { withTimezone: true }),
     serverDistanceMeters: integer("server_distance_meters").notNull().default(0),
     rejectedHexes: integer("rejected_hexes").notNull().default(0),
+    // In-flight check (airborneStep): where and when the speed window
+    // starts, and the last decision, which holds until the next measurement.
+    airAnchorH3: text("air_anchor_h3"),
+    airAnchorAt: timestamp("air_anchor_at", { withTimezone: true }),
+    airborne: boolean("airborne").notNull().default(false),
   },
   (t) => [
     // Per-user run history queries (/me runs list, streak calc).
