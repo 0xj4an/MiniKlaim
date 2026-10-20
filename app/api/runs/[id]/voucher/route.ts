@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
 import { db } from "@/lib/db";
@@ -33,10 +33,11 @@ export async function POST(
     return NextResponse.json({ error: "run not found" }, { status: 404 });
   }
 
+  // Only unsettled hexes: Hexes v2 would count a resent hex twice.
   const rows = await db
     .select({ h3Id: hexes.h3Id })
     .from(hexes)
-    .where(eq(hexes.runId, id));
+    .where(and(eq(hexes.runId, id), isNull(hexes.mintedAt)));
   const h3Ids = rows.map((r) => r.h3Id);
 
   if (h3Ids.length === 0) {

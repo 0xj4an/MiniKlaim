@@ -33,6 +33,9 @@ export function relayerLowBalanceCelo(): number {
 // so this leans high. A high estimate only makes us sponsor more often, never
 // refuse a player who could not actually pay.
 const GAS_PER_HEX = 35_000n;
+// Hexes v2 records instead of minting: about 3k gas per hex through the router
+// (8,000 hexes measured at 24.1M execution plus 1.8M calldata). Leans high too.
+const GAS_PER_HEX_RECORDED = 4_000n;
 const GAS_BASE = 200_000n;
 const GAS_PER_BADGE = 100_000n;
 
@@ -41,13 +44,35 @@ const GAS_PER_BADGE = 100_000n;
  * block, so they cannot pay for the run however much they hold.
  */
 export const PLAYER_TX_MAX_HEXES = 700;
+/** Same limit once the chain's Hexes contract records (v2): ~26M gas. */
+export const PLAYER_TX_MAX_HEXES_RECORDED = 8_000;
 
-export function estimateClaimGas(hexCount: number, badgeCount = 0): bigint {
+export function playerTxMaxHexes(recorded: boolean): number {
+  return recorded ? PLAYER_TX_MAX_HEXES_RECORDED : PLAYER_TX_MAX_HEXES;
+}
+
+export function estimateClaimGas(
+  hexCount: number,
+  badgeCount = 0,
+  recorded = false,
+): bigint {
   return (
     GAS_BASE +
-    GAS_PER_HEX * BigInt(Math.max(0, hexCount)) +
+    (recorded ? GAS_PER_HEX_RECORDED : GAS_PER_HEX) *
+      BigInt(Math.max(0, hexCount)) +
     GAS_PER_BADGE * BigInt(Math.max(0, badgeCount))
   );
+}
+
+/**
+ * Hexes a player may turn into tokens in one `mintTokens` tx. Each mint is a
+ * real ERC-721 mint (~28k gas), so this keeps the tx near 20M gas.
+ */
+export const MINT_TOKENS_MAX = 700;
+
+/** Gas for one `mintTokens` tx of `count` hexes. */
+export function estimateMintTokensGas(count: number): bigint {
+  return GAS_BASE + 30_000n * BigInt(Math.max(0, count));
 }
 
 /**

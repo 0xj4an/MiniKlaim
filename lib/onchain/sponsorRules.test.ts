@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   dailyHexCap,
   estimateClaimGas,
+  estimateMintTokensGas,
+  MINT_TOKENS_MAX,
+  playerTxMaxHexes,
   feeInToken,
   feeWithBuffer,
   hashRunToken,
@@ -22,6 +25,28 @@ describe("estimateClaimGas", () => {
     expect(estimateClaimGas(0)).toBe(200_000n);
     expect(estimateClaimGas(10)).toBe(550_000n);
     expect(estimateClaimGas(10, 2)).toBe(750_000n);
+  });
+
+  it("is far cheaper once Hexes records (v2)", () => {
+    expect(estimateClaimGas(10, 0, true)).toBe(240_000n);
+    // The largest real run (8,463 hexes) measured ~26.6M; 8,000 must stay
+    // under the 30M block even with this high per-hex estimate.
+    expect(estimateClaimGas(playerTxMaxHexes(true), 0, true)).toBeLessThan(
+      33_000_000n,
+    );
+  });
+});
+
+describe("playerTxMaxHexes", () => {
+  it("lifts the one-tx limit from 700 to 8,000 hexes on v2", () => {
+    expect(playerTxMaxHexes(false)).toBe(700);
+    expect(playerTxMaxHexes(true)).toBe(8000);
+  });
+});
+
+describe("estimateMintTokensGas", () => {
+  it("keeps a full mint batch near 21M gas", () => {
+    expect(estimateMintTokensGas(MINT_TOKENS_MAX)).toBe(21_200_000n);
   });
 });
 

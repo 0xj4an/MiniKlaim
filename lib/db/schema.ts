@@ -135,8 +135,15 @@ export const hexes = pgTable(
       .notNull()
       .defaultNow(),
     runId: uuid("run_id").references(() => runs.id, { onDelete: "set null" }),
+    // Set once this hex is settled on-chain (recorded, or minted before v2).
+    // Cleared on recapture so the new owner's settlement runs.
     mintedAt: timestamp("minted_at", { withTimezone: true }),
     mintTxHash: text("mint_tx_hash"),
+    // Set when the hex exists as an ERC-721 token (every v1 mint, or a v2
+    // `mintTokens`). Not cleared on recapture: the token stays on-chain and
+    // the next settlement moves it to the new owner. A cache of the chain;
+    // the token voucher re-checks `ownerOf` before signing.
+    tokenAt: timestamp("token_at", { withTimezone: true }),
     // ISO 3166-1 alpha-3 country of the hex centroid, resolved at capture.
     // Drives the country badges; null when resolution failed or is pending.
     country: text("country"),

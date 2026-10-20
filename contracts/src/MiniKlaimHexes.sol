@@ -10,9 +10,17 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /// @title MiniKlaimHexes
-/// @notice Each captured H3 hex (resolution 12) is an ERC-721 token whose id equals the
-///         H3 cell index. Players cannot transfer tokens directly; the contract moves
-///         ownership when a hex is recaptured by another player.
+/// @notice Records every captured H3 hex (resolution 12). A hex can also exist as an
+///         ERC-721 token whose id equals the H3 cell index. Players cannot transfer
+///         tokens directly; the contract moves ownership when a hex is recaptured.
+/// @dev Since v2, captures are recorded rather than minted. Minting cost about 28k gas
+///      per hex, so a run over ~700 hexes could not fit one player transaction, and
+///      MiniPay allows one approval per finished run. A recorded capture costs about
+///      3k gas: the run is emitted once in `HexesRecorded` and only counters change.
+///      Hexes that already exist as tokens still move to the new owner, so no token
+///      ever shows a stale owner. Players turn their recorded hexes into tokens later,
+///      when they choose, with `mintTokens`. The app database stays the canonical
+///      ownership list; events reproduce it.
 /// @dev UUPS-upgradeable (deployed behind an ERC1967 proxy; upgrades gated by DEFAULT_ADMIN_ROLE).
 ///      Two capture paths exist:
 ///      - `capture` / `captureBatch`: called by the backend relayer (CAPTURER_ROLE). Used as a
@@ -33,6 +41,11 @@ contract MiniKlaimHexes is
     bytes32 private constant CLAIM_RUN_TYPEHASH =
         keccak256("ClaimRun(address player,uint256[] h3Ids,uint256 nonce)");
 
+    /// @dev keccak256("MintTokens(address player,uint256[] h3Ids,uint256 nonce,uint256 deadline)")
+    bytes32 private constant MINT_TOKENS_TYPEHASH = keccak256(
+        "MintTokens(address player,uint256[] h3Ids,uint256 nonce,uint256 deadline)"
+    );
+
     string private _baseUri;
 
     // --- Reportable on-chain metrics -------------------------------------------------
@@ -49,8 +62,11 @@ contract MiniKlaimHexes is
     /// @dev Each voucher nonce can be redeemed once.
     mapping(uint256 => bool) public usedNonces;
 
+    /// @notice Hexes turned into tokens through `mintTokens` (v2).
+    uint256 public totalTokensMinted;
+
     /// @dev Storage gap for safe future upgrades (append new state above, shrink the gap).
-    uint256[45] private __gap;
+    uint256[44] private __gap;
 
     /// @dev Emitted when a brand new hex is claimed for the first time.
     event HexClaimed(address indexed player, uint256 indexed h3Id);
@@ -58,10 +74,17 @@ contract MiniKlaimHexes is
     event HexRecaptured(address indexed from, address indexed to, uint256 indexed h3Id);
     /// @dev Emitted once per successful player-submitted run claim.
     event RunClaimed(address indexed player, uint256 indexed nonce, uint256 count);
+    /// @dev Emitted once per recorded batch (v2). `h3Ids` are every hex captured by
+    ///      `player` in this call, tokens or not. Tokens among them also emit
+    ///      `HexRecaptured` (and a Transfer) when they changed owner.
+    event HexesRecorded(address indexed player, uint256[] h3Ids);
+    /// @dev Emitted when a player turns recorded hexes into tokens (v2).
+    event TokensMinted(address indexed player, uint256 indexed nonce, uint256 count);
 
     error TransfersDisabled();
     error NonceAlreadyUsed();
     error InvalidVoucher();
+    error VoucherExpired();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -78,20 +101,26 @@ contract MiniKlaimHexes is
         _baseUri = baseUri;
     }
 
-    /// @notice Mint or transfer a single hex to `player`. Mints if unowned, transfers
-    ///         from the current owner otherwise.
+    /// @notice Record a single hex for `player`. Moves the token if one exists.
     function capture(address player, uint256 h3Id) external onlyRole(CAPTURER_ROLE) {
-        _capture(player, h3Id);
+        _notePlayer(player);
+        if (_recordOne(player, h3Id)) {
+            totalCaptures++;
+            capturesByPlayer[player]++;
+        }
+        uint256[] memory one = new uint256[](1);
+        one[0] = h3Id;
+        emit HexesRecorded(player, one);
     }
 
-    /// @notice Same as `capture` but for many hexes in one tx. Used at run-finish.
+    /// @notice Record many hexes for `player` in one tx. Used at run-finish, both by the
+    ///         relayer and by MiniKlaimClaimRouter (which passes the player). Since v2 it
+    ///         records instead of minting; the router needs no change.
     function captureBatch(address player, uint256[] calldata h3Ids)
         external
         onlyRole(CAPTURER_ROLE)
     {
-        for (uint256 i = 0; i < h3Ids.length; i++) {
-            _capture(player, h3Ids[i]);
-        }
+        _recordBatch(player, h3Ids);
     }
 
     /// @notice Player-submitted claim. The caller captures `h3Ids` to themselves, but only if
@@ -112,10 +141,51 @@ contract MiniKlaimHexes is
         if (!hasRole(CAPTURER_ROLE, signer)) revert InvalidVoucher();
 
         totalClaimRuns++;
-        for (uint256 i = 0; i < h3Ids.length; i++) {
-            _capture(msg.sender, h3Ids[i]);
-        }
+        _recordBatch(msg.sender, h3Ids);
         emit RunClaimed(msg.sender, nonce, h3Ids.length);
+    }
+
+    /// @notice Turn recorded hexes into tokens owned by the caller, paid by the caller.
+    ///         Gated by an EIP-712 voucher from a CAPTURER_ROLE key, which the backend
+    ///         issues only for hexes the caller owns right now. Hexes that already exist
+    ///         as tokens are skipped, so a stale voucher can never take a token from
+    ///         anyone. Capture counters do not change: these hexes were counted when
+    ///         recorded.
+    /// @param deadline Unix time after which the voucher is void. Keeps the window in
+    ///        which someone else could recapture a hex before this mint lands short.
+    function mintTokens(
+        uint256[] calldata h3Ids,
+        uint256 nonce,
+        uint256 deadline,
+        bytes calldata sig
+    ) external {
+        if (block.timestamp > deadline) revert VoucherExpired();
+        if (usedNonces[nonce]) revert NonceAlreadyUsed();
+        usedNonces[nonce] = true;
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                MINT_TOKENS_TYPEHASH,
+                msg.sender,
+                keccak256(abi.encodePacked(h3Ids)),
+                nonce,
+                deadline
+            )
+        );
+        address signer = ECDSA.recover(_hashTypedDataV4(structHash), sig);
+        if (!hasRole(CAPTURER_ROLE, signer)) revert InvalidVoucher();
+
+        uint256 minted;
+        for (uint256 i = 0; i < h3Ids.length; i++) {
+            if (_ownerOf(h3Ids[i]) == address(0)) {
+                _mint(msg.sender, h3Ids[i]);
+                unchecked {
+                    minted++;
+                }
+            }
+        }
+        totalTokensMinted += minted;
+        emit TokensMinted(msg.sender, nonce, minted);
     }
 
     /// @notice One-time migration helper: re-mint existing ownership into this contract from a
@@ -131,11 +201,45 @@ contract MiniKlaimHexes is
         }
     }
 
-    function _capture(address player, uint256 h3Id) internal {
+    /// @dev v2 capture path. Hexes without a token cost no storage: they are counted and
+    ///      listed in one event. A token owned by someone else moves to `player`. The
+    ///      backend never sends a hex the player already owns (it skips those at claim
+    ///      time), so every id counts as a capture, except a token already held.
+    function _recordBatch(address player, uint256[] calldata h3Ids) internal {
+        _notePlayer(player);
+        uint256 counted;
+        for (uint256 i = 0; i < h3Ids.length; i++) {
+            if (_recordOne(player, h3Ids[i])) {
+                unchecked {
+                    counted++;
+                }
+            }
+        }
+        totalCaptures += counted;
+        capturesByPlayer[player] += counted;
+        emit HexesRecorded(player, h3Ids);
+    }
+
+    /// @dev True when the hex counts as a capture for `player`.
+    function _recordOne(address player, uint256 id) private returns (bool) {
+        address current = _ownerOf(id);
+        if (current == address(0)) return true;
+        if (current == player) return false;
+        _safeTransfer(current, player, id, "");
+        emit HexRecaptured(current, player, id);
+        return true;
+    }
+
+    function _notePlayer(address player) private {
         if (!_seenPlayer[player]) {
             _seenPlayer[player] = true;
             uniquePlayers++;
         }
+    }
+
+    /// @dev v1 path, kept for `adminImport` only: mints a token, or moves an existing one.
+    function _capture(address player, uint256 h3Id) internal {
+        _notePlayer(player);
         address current = _ownerOf(h3Id);
         if (current == address(0)) {
             _mint(player, h3Id);
@@ -154,7 +258,7 @@ contract MiniKlaimHexes is
     }
 
     /// @notice Block all player-initiated transfers. Only the contract's own `_safeTransfer`
-    ///         call inside `_capture` is allowed.
+    ///         calls (recapture) are allowed.
     function _update(address to, uint256 tokenId, address auth)
         internal
         override

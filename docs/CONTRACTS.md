@@ -8,13 +8,20 @@ All MiniKlaim smart contracts, their addresses, roles, and upgrade model. For hi
 
 ### `MiniKlaimHexes` (ERC-721, upgradeable)
 
-Territory NFT. Each captured H3 hex (resolution 12, ~13m across) is a token whose `tokenId` equals the raw H3 cell index cast to `uint256`.
+Territory record and optional NFT. Each captured H3 hex (resolution 12, ~13m across) is identified by the raw H3 cell index cast to `uint256`, which is also its `tokenId` when it exists as a token.
+
+**v2 (records by default).** A capture no longer mints a token. Minting cost ~28k gas per hex, so a run over ~700 hexes could not fit one player tx, and MiniPay allows one approval per finished run. Since v2 every capture path records instead (~3k gas per hex): the hexes are counted (`totalCaptures`, `capturesByPlayer`, `uniquePlayers`) and listed once in `HexesRecorded(player, h3Ids)`. A hex that already exists as a token (every v1 mint) moves to the new owner (`HexRecaptured` + `Transfer`), so no token ever shows a stale owner. The router needs no change: it still calls `captureBatch`.
+
+Players turn recorded hexes into tokens when they choose, from the profile, with `mintTokens(uint256[] h3Ids, uint256 nonce, uint256 deadline, bytes sig)`, paying the fee themselves. The voucher (EIP-712 `MintTokens`, signed by `CAPTURER_ROLE`) is issued only for hexes the player owns now in the DB, expires after 15 min, and the contract skips any hex that already has a token. Capture counters do not change on mint; `totalTokensMinted` counts these.
+
+The app DB stays the canonical ownership list. `hexes.minted_at` means "settled on-chain" (recorded or minted); `hexes.token_at` marks hexes that exist as tokens.
 
 Non-transferable by players. The contract itself moves ownership when a hex is recaptured by another player.
 
-Two capture paths:
-- `capture(address, uint256)` and `captureBatch(address, uint256[])`: backend relayer (`CAPTURER_ROLE`) mints or transfers when the player has no fee balance. A declined player signature does not use this path.
-- `claimRun(uint256[], uint256 nonce, bytes sig)`: called by the player from their own wallet, gated by an EIP-712 voucher signed by `CAPTURER_ROLE`. Player becomes the on-chain `msg.sender`.
+Capture paths (all record since v2):
+- `capture(address, uint256)` and `captureBatch(address, uint256[])`: `CAPTURER_ROLE` (the relayer when the player has no fee balance, and `MiniKlaimClaimRouter` for the player's own one-approval claim).
+- `claimRun(uint256[], uint256 nonce, bytes sig)`: legacy two-tx path, called by the player, gated by an EIP-712 voucher.
+- `adminImport(address[], uint256[])`: migration only; still mints tokens.
 
 Roles:
 - `DEFAULT_ADMIN_ROLE`: upgrade + role management.
@@ -227,6 +234,18 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for the full sequence.
 
 ## Upgrading
 
+### Hexes v2 rollout (records by default)
+
+1. Merge and deploy the app. Migration `0013_hex_tokens` adds `hexes.token_at` and marks every settled hex as a token. With `NEXT_PUBLIC_CELO_HEXES_RECORDS` unset nothing changes yet.
+2. Celo Sepolia first: `HEXES_PROXY=<sepolia proxy> forge script script/UpgradeHexes.s.sol --rpc-url <sepolia> --broadcast`, set `NEXT_PUBLIC_CELO_SEPOLIA_HEXES_RECORDS=1`, claim a run and mint from the profile.
+3. Mainnet: dry-run `HEXES_PROXY=0x9945dDEAa9C52c3C4e667B71B698c4e4551F242B forge script script/UpgradeHexes.s.sol --rpc-url celo` (no `--broadcast`), then broadcast, verify the implementation on Celoscan.
+4. Right after the upgrade tx confirms, set `NEXT_PUBLIC_CELO_HEXES_RECORDS=1` and redeploy. Between the two, runs still settle correctly (the old limits are only conservative).
+5. Fix the token markers around the switch, with `<T>` the upgrade block time:
+   - `UPDATE hexes SET token_at = minted_at WHERE minted_at < '<T>' AND token_at IS NULL;` (settled as v1 tokens after the migration ran; only makes profile counts exact sooner, the mint voucher re-checks `ownerOf` anyway).
+   - `UPDATE hexes SET token_at = NULL WHERE token_at >= '<T>';` (recorded under v2 before the flag was on, so the app still marked them as tokens; without this they never show up as mintable).
+
+Rollback: upgrade back to the v1 implementation `0x9Ae06a93154b6f54E4Ad44A2664b321AC68554EE` and unset the flag. Hexes recorded under v2 then have no token; the relayer can mint them with `captureBatch`.
+
 `MiniKlaimHexes`, `MiniKlaimBadges` and `MiniKlaimRewards` are UUPS, so an upgrade is a single tx from the `DEFAULT_ADMIN_ROLE` holder. `MiniKlaimClaimRouter` has no upgrade path by design; replacing it means deploying a new one, granting it the two roles and revoking them from the old one.
 
 ```solidity
@@ -234,4 +253,4 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for the full sequence.
 UUPSUpgradeable(proxy).upgradeToAndCall(newImplementation, "")
 ```
 
-Storage layout must be preserved. Each contract reserves a `__gap` array for future variables (`uint256[45] __gap` in Hexes, similar in others). When you add a new state variable, reduce the gap by the same slot count.
+Storage layout must be preserved. Each contract reserves a `__gap` array for future variables (`uint256[44] __gap` in Hexes since v2 added `totalTokensMinted`, similar in others). When you add a new state variable, reduce the gap by the same slot count.
