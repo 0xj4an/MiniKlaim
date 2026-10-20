@@ -42,6 +42,13 @@ export type ChainConfig = {
    */
   claimRouterAddress: Address;
   /**
+   * True once this chain's Hexes proxy runs v2, which records captures instead
+   * of minting a token per hex (about 3k gas per hex instead of 28k). Set
+   * NEXT_PUBLIC_<KEY>_HEXES_RECORDS=1 only after the upgrade is live: it raises
+   * the per-tx hex limit and turns on "mint your blocks" in the profile.
+   */
+  hexesRecords: boolean;
+  /**
    * Fee-currency adapters for paying gas in a stablecoin (Celo CIP-64).
    * Ordered by preference: the client picks the first one for which the user
    * has a positive balance. Empty on chains without fee abstraction (gas paid
@@ -101,6 +108,7 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     badgesAddress: addr(process.env.NEXT_PUBLIC_CELO_BADGES_ADDRESS),
     rewardsAddress: addr(process.env.NEXT_PUBLIC_CELO_REWARDS_ADDRESS),
     claimRouterAddress: addr(process.env.NEXT_PUBLIC_CELO_CLAIM_ROUTER_ADDRESS),
+    hexesRecords: process.env.NEXT_PUBLIC_CELO_HEXES_RECORDS === "1",
     feeCurrencies: CELO_FEE_CURRENCIES,
     linkVerifier: LINK_VERIFIER,
     explorerBase: "https://celoscan.io",
@@ -115,6 +123,7 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     claimRouterAddress: addr(
       process.env.NEXT_PUBLIC_CELO_SEPOLIA_CLAIM_ROUTER_ADDRESS,
     ),
+    hexesRecords: process.env.NEXT_PUBLIC_CELO_SEPOLIA_HEXES_RECORDS === "1",
     // Testnet also supports CIP-64 fee abstraction but the adapter set is
     // different. Leave empty until testnet Mento adapters are wired.
     feeCurrencies: [],
@@ -132,6 +141,7 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     claimRouterAddress: addr(
       process.env.NEXT_PUBLIC_SONEIUM_CLAIM_ROUTER_ADDRESS,
     ),
+    hexesRecords: process.env.NEXT_PUBLIC_SONEIUM_HEXES_RECORDS === "1",
     feeCurrencies: [],
     linkVerifier: LINK_VERIFIER,
     explorerBase: "https://soneium.blockscout.com",

@@ -16,6 +16,7 @@ countries.registerLocale(en);
 countries.registerLocale(es);
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { LinkWallet } from "@/app/LinkWallet";
+import { NftSection } from "@/app/me/NftSection";
 import { RewardsSection } from "@/app/me/RewardsSection";
 import { evaluateBadges, type EvaluatedBadge } from "@/lib/onchain/badgeCatalog";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
@@ -144,6 +145,7 @@ export default function MePage() {
                 enabled={isConnected && !isWrongChain}
               />
               <RewardsSection address={address ?? null} />
+              <NftSection address={address ?? null} />
             </>
           )}
 

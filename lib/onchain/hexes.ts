@@ -104,6 +104,8 @@ export type CaptureBatchResult =
 // A 1534-hex captureBatch estimated past the block gas cap and reverted.
 // 400 hexes is about 10M gas, under the 854-hex capture that mined at 20.3M.
 export const CAPTURE_CHUNK = 400;
+// Hexes v2 records at ~3k gas per hex, so a relayer chunk can be much larger.
+export const CAPTURE_CHUNK_RECORDED = 4000;
 
 export function chunkIds<T>(ids: readonly T[], size: number): T[][] {
   if (size < 1) return ids.length ? [ids.slice()] : [];

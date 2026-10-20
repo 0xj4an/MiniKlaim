@@ -100,6 +100,10 @@ type EventMap = {
   reward_claim_started: { amount_usdm: string; badge_count: number };
   reward_claim_confirmed: { amount_usdm: string; tx_hash: string };
   reward_claim_failed: { reason: string };
+  // "Mint your blocks as NFTs" (Hexes v2).
+  nft_mint_started: { count: number };
+  nft_mint_confirmed: { count: number; tx_hash: string };
+  nft_mint_failed: { reason: string };
 
   // Friction / errors that gate the golden path.
   gps_denied: Record<string, never>;

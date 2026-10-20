@@ -1,0 +1,162 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { encodeFunctionData, type Address, type Hex } from "viem";
+import { useWalletClient } from "wagmi";
+import { track } from "@/lib/analytics";
+import { createLogger } from "@/lib/logger";
+import { withAttribution } from "@/lib/onchain/attribution";
+import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
+import { HEXES_MINT_TOKENS_ABI } from "@/lib/onchain/hexesAbi";
+import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
+import { isUserRejection } from "@/lib/wallet/playerFee";
+import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
+import { useBalances } from "@/lib/wallet/useBalances";
+
+const log = createLogger("wallet:mintTokens");
+
+export type TokenStatus = {
+  enabled: boolean;
+  recorded: number;
+  tokens: number;
+  maxPerTx: number;
+  nextBatch: number;
+};
+
+type Voucher = {
+  h3Ids: string[];
+  nonce: string;
+  deadline: string;
+  signature: Hex;
+  contract: Address;
+};
+
+export type MintTokensState =
+  | "idle"
+  | "fetching-voucher"
+  | "sending"
+  | "confirming"
+  | "done"
+  | "rejected"
+  | "error";
+
+/**
+ * "Mint your blocks as NFTs" in the profile. Runs settle as on-chain records
+ * (Hexes v2); this turns up to `maxPerTx` recorded blocks into ERC-721 tokens
+ * per tap, one wallet approval each, paid by the player.
+ */
+export function useMintTokens(address: Address | null) {
+  const { data: walletClient } = useWalletClient();
+  const chainKey = useActiveChainKey();
+  const balances = useBalances(address, !!address);
+  const [status, setStatus] = useState<TokenStatus | null>(null);
+  const [state, setState] = useState<MintTokensState>("idle");
+  const [lastMinted, setLastMinted] = useState(0);
+  const [refresh, setRefresh] = useState(0);
+
+  useEffect(() => {
+    if (!address) return;
+    let cancelled = false;
+    void fetch(`/api/users/${address}/tokens?chain=${chainKey}`)
+      .then((r) => (r.ok ? (r.json() as Promise<TokenStatus>) : null))
+      .then((s) => {
+        if (!cancelled) setStatus(s);
+      })
+      .catch(() => {
+        if (!cancelled) setStatus(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [address, chainKey, refresh]);
+
+  const mint = useCallback(async () => {
+    if (!walletClient || !address) return;
+    setState("fetching-voucher");
+    let voucher: Voucher;
+    try {
+      const res = await fetch(
+        `/api/users/${address}/tokens/voucher?chain=${chainKey}`,
+        { method: "POST" },
+      );
+      if (res.status === 409) {
+        setState("idle");
+        setRefresh((n) => n + 1);
+        return;
+      }
+      if (!res.ok) throw new Error(`voucher status ${res.status}`);
+      voucher = (await res.json()) as Voucher;
+    } catch (e) {
+      log.warn("mint voucher failed", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+      track("nft_mint_failed", { reason: "voucher" });
+      setState("error");
+      return;
+    }
+
+    track("nft_mint_started", { count: voucher.h3Ids.length });
+    setState("sending");
+    let txHash: Hex;
+    try {
+      const chain = getChain(chainKey);
+      const held = heldFeeAdapters(chain.feeCurrencies, balances);
+      const data = encodeFunctionData({
+        abi: HEXES_MINT_TOKENS_ABI,
+        functionName: "mintTokens",
+        args: [
+          voucher.h3Ids.map((h) => BigInt(h)),
+          BigInt(voucher.nonce),
+          BigInt(voucher.deadline),
+          voucher.signature,
+        ],
+      });
+      ({ result: txHash } = await sendWithFeeFallback(held, (fee) =>
+        walletClient.sendTransaction({
+          to: voucher.contract,
+          data: withAttribution(data),
+          chain: chain.chain,
+          account: address,
+          kzg: undefined,
+          ...(fee ? { feeCurrency: fee.adapter } : {}),
+        }),
+      ));
+    } catch (e) {
+      if (isUserRejection(e)) {
+        track("nft_mint_failed", { reason: "rejected" });
+        setState("rejected");
+        return;
+      }
+      log.warn("mintTokens tx failed", {
+        message: e instanceof Error ? e.message.slice(0, 200) : String(e),
+      });
+      track("nft_mint_failed", { reason: "tx" });
+      setState("error");
+      return;
+    }
+
+    setState("confirming");
+    try {
+      const res = await fetch(
+        `/api/users/${address}/tokens/confirm?chain=${chainKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ txHash }),
+        },
+      );
+      const body = (await res.json().catch(() => ({}))) as { minted?: number };
+      setLastMinted(body.minted ?? voucher.h3Ids.length);
+      track("nft_mint_confirmed", { count: body.minted ?? 0, tx_hash: txHash });
+    } catch {
+      // The tx is on-chain; the next voucher re-checks ownerOf and catches up.
+      setLastMinted(voucher.h3Ids.length);
+    }
+    setState("done");
+    setRefresh((n) => n + 1);
+    // Individual balance fields are memoized in useBalances.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [walletClient, address, chainKey, balances.USDm, balances.USDC, balances.USDT]);
+
+  return { status, state, mint, lastMinted };
+}

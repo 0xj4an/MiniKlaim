@@ -130,8 +130,8 @@ contract MiniKlaimClaimRouterTest is Test {
         vm.prank(alice);
         router.claimAll(h3, bg, NONCE, sig);
 
-        assertEq(hexes.ownerOf(HEX_A), alice);
-        assertEq(hexes.ownerOf(HEX_B), alice);
+        // Hexes are recorded to the caller (v2: no token minted).
+        assertEq(hexes.capturesByPlayer(alice), 2);
         assertEq(badges.balanceOf(alice, FIRST_STEPS), 1);
         assertEq(badges.balanceOf(alice, FIVE_BLOCKS), 1);
     }
@@ -144,9 +144,9 @@ contract MiniKlaimClaimRouterTest is Test {
         vm.prank(alice);
         router.claimAll(h3, bg, NONCE, sig);
 
-        assertEq(hexes.balanceOf(address(router)), 0);
+        assertEq(hexes.capturesByPlayer(address(router)), 0);
         assertEq(badges.balanceOf(address(router), FIRST_STEPS), 0);
-        assertEq(hexes.balanceOf(alice), 2);
+        assertEq(hexes.capturesByPlayer(alice), 2);
     }
 
     function test_claimAllWorksWithHexesOnly() public {
@@ -157,7 +157,7 @@ contract MiniKlaimClaimRouterTest is Test {
         vm.prank(alice);
         router.claimAll(h3, bg, NONCE, sig);
 
-        assertEq(hexes.ownerOf(HEX_A), alice);
+        assertEq(hexes.capturesByPlayer(alice), 2);
         assertEq(badges.balanceOf(alice, FIRST_STEPS), 0);
     }
 
@@ -169,7 +169,7 @@ contract MiniKlaimClaimRouterTest is Test {
         vm.prank(alice);
         router.claimAll(h3, bg, NONCE, sig);
 
-        assertEq(hexes.balanceOf(alice), 0);
+        assertEq(hexes.capturesByPlayer(alice), 0);
         assertEq(badges.balanceOf(alice, FIRST_STEPS), 1);
     }
 
@@ -272,20 +272,25 @@ contract MiniKlaimClaimRouterTest is Test {
 
     // --- idempotency ---------------------------------------------------------------
 
-    function test_alreadyOwnedHexesAndHeldBadgesAreNoops() public {
+    /// @dev Replaying a nonce is refused; held badges are no-ops. Hexes are recorded,
+    ///      not tracked per id, so the backend never resends a settled hex.
+    function test_replayedNonceRefusedAndHeldBadgesAreNoops() public {
         uint256[] memory h3 = _twoHexes();
         uint256[] memory bg = _twoBadges();
 
         vm.prank(alice);
         router.claimAll(h3, bg, NONCE, _sign(SIGNER_PK, alice, h3, bg, NONCE));
 
-        uint256 capturesBefore = hexes.totalCaptures();
         uint256 badgesBefore = badges.totalBadgesMinted();
 
+        bytes memory replay = _sign(SIGNER_PK, alice, h3, bg, NONCE);
         vm.prank(alice);
-        router.claimAll(h3, bg, NONCE + 1, _sign(SIGNER_PK, alice, h3, bg, NONCE + 1));
+        vm.expectRevert(MiniKlaimClaimRouter.NonceAlreadyUsed.selector);
+        router.claimAll(h3, bg, NONCE, replay);
 
-        assertEq(hexes.totalCaptures(), capturesBefore);
+        uint256[] memory none = _empty();
+        vm.prank(alice);
+        router.claimAll(none, bg, NONCE + 1, _sign(SIGNER_PK, alice, none, bg, NONCE + 1));
         assertEq(badges.totalBadgesMinted(), badgesBefore);
     }
 
@@ -293,13 +298,36 @@ contract MiniKlaimClaimRouterTest is Test {
         uint256[] memory h3 = _twoHexes();
         uint256[] memory bg = _empty();
 
-        vm.prank(alice);
-        router.claimAll(h3, bg, NONCE, _sign(SIGNER_PK, alice, h3, bg, NONCE));
+        // alice holds HEX_A as a token (legacy v1 mint, here via the import path).
+        address[] memory owners = new address[](2);
+        owners[0] = alice;
+        owners[1] = alice;
+        vm.prank(admin);
+        hexes.adminImport(owners, h3);
         assertEq(hexes.ownerOf(HEX_A), alice);
 
         vm.prank(bob);
         router.claimAll(h3, bg, NONCE + 1, _sign(SIGNER_PK, bob, h3, bg, NONCE + 1));
         assertEq(hexes.ownerOf(HEX_A), bob);
+    }
+
+    /// @dev The reason for v2: the largest real run (8,463 hexes, Oct 2026) must fit
+    ///      one player tx under Celo's 30M block gas limit.
+    function test_largeRunFitsOneTx() public {
+        uint256 n = 8000;
+        uint256[] memory h3 = new uint256[](n);
+        for (uint256 i; i < n; i++) h3[i] = 0x8c2a3066380000f + i * 4096;
+        uint256[] memory bg = _empty();
+        bytes memory sig = _sign(SIGNER_PK, alice, h3, bg, NONCE);
+        vm.prank(alice);
+        uint256 start = gasleft();
+        router.claimAll(h3, bg, NONCE, sig);
+        uint256 used = start - gasleft();
+        // ~24.1M execution, ~25.9M when forge's isolation also charges the calldata.
+        // On a Celo mainnet fork with the real router: 700 hexes 2.23M, 2,000 hexes
+        // 6.04M (~2.9k per hex). The backend caps a player tx at 8,000 hexes.
+        assertLt(used, 27_000_000);
+        assertEq(hexes.capturesByPlayer(alice), n);
     }
 
     // --- metrics -------------------------------------------------------------------

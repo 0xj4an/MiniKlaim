@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
 import { db } from "@/lib/db";
@@ -45,10 +45,12 @@ export async function POST(
 
   const player = run.userAddress as Address;
 
+  // Only hexes not yet settled. Hexes v2 records rather than tracking each id,
+  // so resending a settled hex would count it twice in the on-chain metrics.
   const hexRows = await db
     .select({ h3Id: hexes.h3Id })
     .from(hexes)
-    .where(eq(hexes.runId, id));
+    .where(and(eq(hexes.runId, id), isNull(hexes.mintedAt)));
   const h3Ids = hexRows.map((r) => r.h3Id);
 
   // Subtract badges held on any linked wallet, not only this address.

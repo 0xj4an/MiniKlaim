@@ -163,7 +163,7 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
           }),
         );
         log.info("claimRun submitted by player", { runId, chainKey, txHash });
-        await fetch(`/api/runs/${runId}/claimed`, {
+        await fetch(`/api/runs/${runId}/claimed?chain=${chainKey}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ txHash }),

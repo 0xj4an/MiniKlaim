@@ -7,6 +7,7 @@ import { createLogger } from "@/lib/logger";
 import { type ChainKey, getChain } from "@/lib/onchain/chains";
 import {
   CAPTURE_CHUNK,
+  CAPTURE_CHUNK_RECORDED,
   captureBatch,
   chunkIds,
   hexesPublicClient,
@@ -17,7 +18,7 @@ import {
   feeInToken,
   feeWithBuffer,
   type MintStatus,
-  PLAYER_TX_MAX_HEXES,
+  playerTxMaxHexes,
   relayerLowBalanceCelo,
   remainingHexAllowance,
 } from "@/lib/onchain/sponsorRules";
@@ -54,8 +55,9 @@ export async function playerCanPay(
   badgeCount: number,
   chainKey: ChainKey,
 ): Promise<PayCheck> {
-  const gas = estimateClaimGas(hexCount, badgeCount);
-  if (hexCount > PLAYER_TX_MAX_HEXES) {
+  const recorded = getChain(chainKey).hexesRecords;
+  const gas = estimateClaimGas(hexCount, badgeCount, recorded);
+  if (hexCount > playerTxMaxHexes(recorded)) {
     // One claim tx cannot carry this many hexes.
     return { canPay: false, feeWei: 0n };
   }
@@ -210,7 +212,10 @@ export async function sponsorRunHexes(
   const client = hexesPublicClient(chainKey);
   let minted = 0;
   let txHash: string | undefined;
-  for (const chunk of chunkIds(ids, opts.chunkSize ?? CAPTURE_CHUNK)) {
+  const chunkSize =
+    opts.chunkSize ??
+    (getChain(chainKey).hexesRecords ? CAPTURE_CHUNK_RECORDED : CAPTURE_CHUNK);
+  for (const chunk of chunkIds(ids, chunkSize)) {
     const result = await captureBatch(player, chunk, chainKey);
     let error: string | undefined;
     if (result.ok === true) {
@@ -223,7 +228,11 @@ export async function sponsorRunHexes(
       if (receipt?.status === "success") {
         await db
           .update(hexes)
-          .set({ mintedAt: sql`now()`, mintTxHash: result.txHash })
+          .set({
+            mintedAt: sql`now()`,
+            mintTxHash: result.txHash,
+            ...(getChain(chainKey).hexesRecords ? {} : { tokenAt: sql`now()` }),
+          })
           .where(inArray(hexes.h3Id, chunk));
         await recordSponsored(db, {
           address: player,
