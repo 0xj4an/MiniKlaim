@@ -100,6 +100,9 @@ type EventMap = {
   reward_claim_started: { amount_usdm: string; badge_count: number };
   reward_claim_confirmed: { amount_usdm: string; tx_hash: string };
   reward_claim_failed: { reason: string };
+  // Support form (topic + required description before the mailto opens).
+  support_form_opened: Record<string, never>;
+  support_mail_opened: { topic: string; chars: number };
   // "Mint your blocks as NFTs" (Hexes v2).
   nft_mint_started: { count: number };
   nft_mint_confirmed: { count: number; tx_hash: string };
