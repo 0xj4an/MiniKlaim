@@ -270,7 +270,7 @@ function RetentionSection({ data }: { data: Analytics }) {
   );
 }
 
-const MODE_ORDER: MoveMode[] = ["foot", "bike", "moto", "car", "bus", "train", "plane", "horse", "boat"];
+const MODE_ORDER: MoveMode[] = ["foot", "bike", "moto", "car", "bus", "train", "plane", "boat", "horse"];
 
 function formatMeters(m: number): string {
   return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
