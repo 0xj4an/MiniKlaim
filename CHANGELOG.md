@@ -2,6 +2,22 @@
 
 All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project does not use SemVer tags today, so entries are dated instead.
 
+## 2026-10-19
+
+### Fixed
+
+- **Driving no longer counts as flying.** The in-flight check measured speed between two claim batches by server clock, but phones hand GPS fixes over in bursts (iOS WebViews especially), so one batch could carry 15 s of driving and land a second after the previous one. A car at 55 km/h read as 278-823 km/h and its blocks were dropped as airborne (18 Oct: 39 blocks over two runs). Speed is now measured over a window of at least 30 s (`airborneStep`, migration `0011_air_window`); a real flight is still caught within the first window.
+- **Sponsored claims survive a dropped connection.** Sponsor and voucher calls retry up to three times on a network drop or gateway error, and a repeated sponsor call that finds the first one still minting counts as sponsored (MINIKLAIM-12, -G, -X, -7).
+- **Runs work on phones that cannot draw the map.** GPS tracking used to start only once the map loaded, so a device without WebGL, or whose GPU fails MapLibre's shaders, could not capture at all. Tracking now starts without the map after 10 s, or at once when the map cannot be created (MINIKLAIM-W).
+- **No crash when the run page closes under a finger.** Layer listeners are taken off before the map is removed; a tap during unmount read the cleared style (MINIKLAIM-4).
+- **Stale tabs after a deploy.** Next `deploymentId` (the Railway commit) turns version skew into a hard navigation, and chunk-load errors outside React boundaries reload the page once (not on `/run`).
+- **Old Android WebViews in MiniPay.** The Startale connector is left out inside MiniPay; its IndexedDB open failed there (MINIKLAIM-10, -11, -K).
+
+### Changed
+
+- **Session replay is off on constrained devices** (2 GB RAM, two cores, or data saver). The recorder script arrived truncated through a data-saver proxy and threw (MINIKLAIM-Y).
+- **Sentry filters** wallet-extension "not authorized yet" rejections (MINIKLAIM-Z), the old-WebView IndexedDB failures, and errors whose every frame sits in PostHog's proxied scripts.
+
 ## 2026-09-23
 
 ### Added

@@ -1091,6 +1091,10 @@ export default function RunPage() {
       };
     }
     mapRef.current = map;
+    // Layer listeners still fire for a touch that lands while the page
+    // unmounts, and MapLibre then reads the style remove() has cleared
+    // ("reading 'getLayer'", MINIKLAIM-4). They are taken off first.
+    const layerListenerOffs: Array<() => void> = [];
     // The map never loaded (shader failure on old GPUs, MINIKLAIM-W): start
     // GPS anyway so the run still captures.
     const trackingFallback = window.setTimeout(() => {
@@ -1235,13 +1239,20 @@ export default function RunPage() {
           .setDOMContent(el)
           .addTo(map);
       };
-      map.on("click", "claimed-hex-fill", handleHexClick);
-      map.on("mouseenter", "claimed-hex-fill", () => {
+      const onEnter = () => {
         map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", "claimed-hex-fill", () => {
+      };
+      const onLeave = () => {
         map.getCanvas().style.cursor = "";
-      });
+      };
+      map.on("click", "claimed-hex-fill", handleHexClick);
+      map.on("mouseenter", "claimed-hex-fill", onEnter);
+      map.on("mouseleave", "claimed-hex-fill", onLeave);
+      layerListenerOffs.push(
+        () => map.off("click", "claimed-hex-fill", handleHexClick),
+        () => map.off("mouseenter", "claimed-hex-fill", onEnter),
+        () => map.off("mouseleave", "claimed-hex-fill", onLeave),
+      );
 
       startTracking(map);
     });
@@ -1258,7 +1269,20 @@ export default function RunPage() {
       window.clearTimeout(trackingFallback);
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       log.debug("disposing map");
-      map.remove();
+      for (const off of layerListenerOffs) {
+        try {
+          off();
+        } catch {
+          // Already gone with the style.
+        }
+      }
+      try {
+        map.remove();
+      } catch (e) {
+        log.debug("map remove failed", {
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
       mapRef.current = null;
     };
   }, [
