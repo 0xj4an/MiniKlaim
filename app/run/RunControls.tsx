@@ -1,6 +1,12 @@
 "use client";
 
 import { useLocale } from "@/lib/i18n";
+import {
+  MOVE_MODES,
+  type MoveMode,
+  moveModeIcon,
+  moveModeLabelKey,
+} from "@/lib/runs/moveMode";
 import { ElapsedBanner } from "./ElapsedBanner";
 
 /**
@@ -18,6 +24,8 @@ export function RunControls({
   runStartTime,
   onStart,
   onFinish,
+  mode,
+  onModeChange,
 }: {
   canStart: boolean;
   locationReady: boolean;
@@ -28,6 +36,9 @@ export function RunControls({
   runStartTime: number | null;
   onStart: () => void;
   onFinish: () => void;
+  /** How the player says they will move; null until they pick once. */
+  mode: MoveMode | null;
+  onModeChange: (mode: MoveMode) => void;
 }) {
   const { t } = useLocale();
   if (!isActive) {
@@ -40,9 +51,49 @@ export function RunControls({
         <p className="rounded-full bg-black/75 px-3 py-1.5 text-center text-xs leading-snug text-white">
           {t("run.start.hint")}
         </p>
+        {canStart && (
+          <div
+            role="radiogroup"
+            aria-label={t("run.mode.ask")}
+            className="flex w-full flex-col gap-1.5 rounded-2xl bg-white/95 p-2 shadow-lg"
+          >
+            <p className="text-center text-xs font-semibold text-zinc-700">
+              {t("run.mode.ask")}
+            </p>
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {MOVE_MODES.map((m) => {
+                const label = t(moveModeLabelKey(m));
+                const on = m === mode;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    aria-label={label}
+                    title={label}
+                    onClick={() => onModeChange(m)}
+                    className={`flex h-10 min-w-10 items-center justify-center rounded-full border px-2 text-lg leading-none ${
+                      on
+                        ? "border-orange-700 bg-orange-100"
+                        : "border-zinc-200 bg-white"
+                    }`}
+                  >
+                    <span aria-hidden>{moveModeIcon(m)}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {mode && (
+              <p className="text-center text-[11px] text-zinc-600">
+                {t(moveModeLabelKey(mode))}
+              </p>
+            )}
+          </div>
+        )}
         <button
           onClick={onStart}
-          disabled={!canStart || !locationReady || isBusy}
+          disabled={!canStart || !locationReady || isBusy || !mode}
           className="rounded-full bg-orange-700 px-6 py-3 text-base font-semibold text-white shadow-lg hover:bg-orange-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
           aria-label={!canStart ? t("run.start.signIn") : t("run.start.button")}
         >
@@ -50,7 +101,9 @@ export function RunControls({
             ? t("run.start.signIn")
             : isBusy
               ? t("run.start.starting")
-              : t("run.start.button")}
+              : !mode
+                ? t("run.mode.pick")
+                : t("run.start.button")}
         </button>
         </div>
       </div>

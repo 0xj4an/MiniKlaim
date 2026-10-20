@@ -1,5 +1,5 @@
 import { describe, expect, it, test } from "vitest";
-import { moveMode, moveModeIcon, runMoveMode } from "./moveMode";
+import { finalMoveMode, moveMode, moveModeIcon, runMoveMode } from "./moveMode";
 
 describe("move mode", () => {
   test("a tap is not a trip", () => {
@@ -55,5 +55,24 @@ describe("runMoveMode", () => {
     expect(moveModeIcon("foot")).toBe("🚶");
     expect(moveModeIcon("car")).toBe("🚗");
     expect(moveModeIcon("train")).toBe("🚆");
+  });
+});
+
+describe("finalMoveMode", () => {
+  it("keeps the player's pick", () => {
+    expect(finalMoveMode({ declared: "car", distanceMeters: 1802, durationSec: 441, maxSustainedKmh: 30 })).toEqual({ mode: "car", mismatch: false });
+    expect(finalMoveMode({ declared: "horse", distanceMeters: 5000, durationSec: 1800, maxSustainedKmh: 20 })).toEqual({ mode: "horse", mismatch: false });
+  });
+  it("flags a pick speed cannot believe", () => {
+    expect(finalMoveMode({ declared: "foot", distanceMeters: 20000, durationSec: 1200, maxSustainedKmh: 70 }).mismatch).toBe(true);
+  });
+  it("reads a slow city drive with a motor-speed stretch as a car (20 Oct)", () => {
+    expect(finalMoveMode({ declared: null, distanceMeters: 1802, durationSec: 441, maxSustainedKmh: 52 }).mode).toBe("car");
+  });
+  it("falls back to the average with no pick and no fast stretch", () => {
+    expect(finalMoveMode({ declared: undefined, distanceMeters: 2000, durationSec: 441, maxSustainedKmh: 20 }).mode).toBe("bike");
+  });
+  it("ignores an unknown pick", () => {
+    expect(finalMoveMode({ declared: "rocket", distanceMeters: 1000, durationSec: 600, maxSustainedKmh: null }).mode).toBe("foot");
   });
 });

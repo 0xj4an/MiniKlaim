@@ -6,7 +6,7 @@ import { track } from "@/lib/analytics";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { formatSpeed } from "@/lib/map/geo";
-import { moveMode } from "@/lib/runs/moveMode";
+import { type MoveMode, moveMode } from "@/lib/runs/moveMode";
 import { MoveModeIcon } from "@/app/MoveModeIcon";
 import { shareTo } from "@/lib/client/share";
 import { badgeCopy } from "@/lib/onchain/badgeArt";
@@ -21,6 +21,8 @@ export type RunSummary = {
   durationMs: number;
   hexesClaimed: number;
   distanceMeters: number;
+  /** The run's label from the server (the player's pick when they made one). */
+  moveMode?: MoveMode | null;
 };
 
 /**
@@ -58,7 +60,7 @@ export function RunSummaryModal({
       ? `${(summary.distanceMeters / 1000).toFixed(2)} km`
       : `${summary.distanceMeters} m`;
   const speedLabel = formatSpeed(summary.durationMs, summary.distanceMeters);
-  const mode = moveMode(summary.distanceMeters, totalSec);
+  const mode = summary.moveMode ?? moveMode(summary.distanceMeters, totalSec);
   const hasBadges = (badgeIds?.length ?? 0) > 0;
   const previewReady = badgeIds !== null;
   const canClaim =

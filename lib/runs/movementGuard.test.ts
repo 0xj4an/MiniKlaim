@@ -214,4 +214,12 @@ describe("airborneStep", () => {
     expect(held.airborne).toBe(true);
     expect(held.kmh).toBeNull();
   });
+
+  it("measures sustained path speed for the run's label", () => {
+    let state: AirState = none;
+    state = airborneStep({ state, endH3: east(0), now: sec(0), pathMeters: 0 });
+    const next = airborneStep({ state, endH3: east(0.5), now: sec(36), pathMeters: 520 });
+    expect(next.pathKmh).toBeCloseTo(52, 0);
+    expect(next.airborne).toBe(false);
+  });
 });

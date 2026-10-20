@@ -102,6 +102,12 @@ export const runs = pgTable(
     airAnchorH3: text("air_anchor_h3"),
     airAnchorAt: timestamp("air_anchor_at", { withTimezone: true }),
     airborne: boolean("airborne").notNull().default(false),
+    // Server hex path at the air anchor, and the best sustained (30 s+)
+    // speed along the path so far: tells a car in traffic from a bike.
+    airAnchorMeters: integer("air_anchor_meters"),
+    maxSustainedKmh: integer("max_sustained_kmh"),
+    // How the player said they would travel, picked before Start.
+    declaredMode: text("declared_mode"),
   },
   (t) => [
     // Per-user run history queries (/me runs list, streak calc).

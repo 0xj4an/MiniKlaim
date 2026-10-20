@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { runs } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
-import { moveMode } from "@/lib/runs/moveMode";
+import { finalMoveMode } from "@/lib/runs/moveMode";
 import { leftoverDistance } from "@/lib/runs/validation";
 
 const log = createLogger("api:runs:finish");
@@ -43,6 +43,8 @@ export async function PATCH(
       hexesClaimed: runs.hexesClaimed,
       distanceMeters: runs.distanceMeters,
       serverDistanceMeters: runs.serverDistanceMeters,
+      declaredMode: runs.declaredMode,
+      maxSustainedKmh: runs.maxSustainedKmh,
     });
 
   if (!updated || !updated.endedAt) {
@@ -53,10 +55,21 @@ export async function PATCH(
     (new Date(updated.endedAt).getTime() - new Date(updated.startedAt).getTime()) / 1000;
   // The server's hex path is the better distance when the client dropped
   // part of its GPS track; take whichever is longer.
-  const mode = moveMode(
-    Math.max(updated.distanceMeters, updated.serverDistanceMeters),
+  const { mode, mismatch } = finalMoveMode({
+    declared: updated.declaredMode,
+    distanceMeters: Math.max(updated.distanceMeters, updated.serverDistanceMeters),
     durationSec,
-  );
+    maxSustainedKmh: updated.maxSustainedKmh,
+  });
+  if (mismatch) {
+    log.warn("declared move mode does not fit the speed", {
+      id,
+      player: updated.userAddress,
+      declared: updated.declaredMode,
+      maxSustainedKmh: updated.maxSustainedKmh,
+      avgKmh: durationSec > 0 ? Math.round((updated.serverDistanceMeters / durationSec) * 3.6) : 0,
+    });
+  }
   if (mode) {
     await db.update(runs).set({ moveMode: mode }).where(eq(runs.id, id));
   }

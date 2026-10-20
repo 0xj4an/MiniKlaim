@@ -4,6 +4,11 @@ All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Ch
 
 ## 2026-10-20
 
+### Added
+
+- **Pick how you move before Start.** On foot, bike, motorbike, car, bus, train, plane, horse or boat; the last pick is remembered, so only the first run asks. The pick becomes the run's label. A car in city traffic averages bike speed with its stops, so the speed-only label called a 7-minute drive a bike (20 Oct). Speed still checks the pick: a run "on foot" at motor speed is logged for review.
+- **Best sustained speed per run** (`max_sustained_kmh`, 30 s windows along the hex path). With no pick (older clients), a slow average with a motor-speed stretch is labelled a car.
+
 ### Fixed
 
 - **Error screen after switching pages on some Android MiniPay WebViews** (MINIKLAIM-T). React removes the previous page's hoisted `<head>` tags with `parentNode.removeChild`, and on those WebViews the tag was already gone. The error screen now reloads the page once instead of stopping there.

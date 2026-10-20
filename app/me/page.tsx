@@ -10,7 +10,7 @@ import en from "i18n-iso-countries/langs/en.json";
 import es from "i18n-iso-countries/langs/es.json";
 import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
-import { moveMode } from "@/lib/runs/moveMode";
+import { isMoveMode, moveMode } from "@/lib/runs/moveMode";
 
 countries.registerLocale(en);
 countries.registerLocale(es);
@@ -486,7 +486,7 @@ function RunsList({
     endedAt: string | null;
     hexesClaimed: number;
     distanceMeters: number;
-    moveMode?: "foot" | "bike" | "car" | "train" | "plane" | null;
+    moveMode?: string | null;
     topCity: string | null;
     topCountry: string | null;
   }>;
@@ -514,7 +514,7 @@ function RunsList({
         const duration = run.endedAt
           ? formatDuration(durationSec * 1000)
           : t("me.runs.running");
-        const mode = run.moveMode ?? moveMode(run.distanceMeters, durationSec);
+        const mode = isMoveMode(run.moveMode) ? run.moveMode : moveMode(run.distanceMeters, durationSec);
         const distLabel =
           run.distanceMeters >= 1000
             ? `${(run.distanceMeters / 1000).toFixed(2)}km`

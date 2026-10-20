@@ -107,6 +107,8 @@ export type AirState = {
   anchorH3: string | null;
   anchorAt: Date | null;
   airborne: boolean;
+  /** Server hex path of the run at the anchor, metres. */
+  anchorMeters?: number | null;
 };
 
 export function airborneStep(params: {
@@ -114,14 +116,22 @@ export function airborneStep(params: {
   /** The run's position after this batch. */
   endH3: string | null;
   now: Date;
-}): AirState & { kmh: number | null } {
+  /** The run's server hex path after this batch, metres. */
+  pathMeters?: number;
+}): AirState & { kmh: number | null; pathKmh: number | null } {
   const { state, endH3, now } = params;
-  if (!endH3 || !isValidCell(endH3)) return { ...state, kmh: null };
+  const path = params.pathMeters ?? null;
+  if (!endH3 || !isValidCell(endH3)) return { ...state, kmh: null, pathKmh: null };
   if (!state.anchorH3 || !state.anchorAt || !isValidCell(state.anchorH3)) {
-    return { anchorH3: endH3, anchorAt: now, airborne: false, kmh: null };
+    return { anchorH3: endH3, anchorAt: now, airborne: false, anchorMeters: path, kmh: null, pathKmh: null };
   }
   const windowSec = (now.getTime() - state.anchorAt.getTime()) / 1000;
-  if (windowSec < AIR_WINDOW_MIN_SEC) return { ...state, kmh: null };
+  if (windowSec < AIR_WINDOW_MIN_SEC) return { ...state, kmh: null, pathKmh: null };
+  // Sustained speed along the path (streets bend): feeds the run's label.
+  const pathKmh =
+    path !== null && typeof state.anchorMeters === "number"
+      ? (Math.max(0, path - state.anchorMeters) / windowSec) * 3.6
+      : null;
   // Straight line, less the hex size and GPS noise. A flight is straight; a
   // car's zigzag only makes this smaller.
   const meters = Math.max(0, hexDistanceMeters(state.anchorH3, endH3) - SLACK_METERS);
@@ -131,8 +141,10 @@ export function airborneStep(params: {
   return {
     anchorH3: reset ? endH3 : state.anchorH3,
     anchorAt: reset ? now : state.anchorAt,
+    anchorMeters: reset ? path : (state.anchorMeters ?? null),
     airborne,
     kmh,
+    pathKmh,
   };
 }
 

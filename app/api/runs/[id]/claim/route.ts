@@ -66,6 +66,8 @@ export async function POST(
       airAnchorH3: runs.airAnchorH3,
       airAnchorAt: runs.airAnchorAt,
       airborne: runs.airborne,
+      airAnchorMeters: runs.airAnchorMeters,
+      maxSustainedKmh: runs.maxSustainedKmh,
     })
     .from(runs)
     .where(eq(runs.id, id))
@@ -181,9 +183,11 @@ export async function POST(
           anchorH3: run.airAnchorH3,
           anchorAt: run.airAnchorAt,
           airborne: run.airborne,
+          anchorMeters: run.airAnchorMeters,
         },
         endH3: chain.endH3,
         now,
+        pathMeters: run.serverDistanceMeters + Math.round(chain.meters),
       })
     : null;
   const airborne = air?.airborne === true;
@@ -336,6 +340,12 @@ export async function POST(
                   airAnchorH3: air.anchorH3,
                   airAnchorAt: air.anchorAt,
                   airborne: air.airborne,
+                  airAnchorMeters: air.anchorMeters ?? null,
+                  ...(air.pathKmh !== null &&
+                  !air.airborne &&
+                  air.pathKmh > (run.maxSustainedKmh ?? 0)
+                    ? { maxSustainedKmh: Math.round(air.pathKmh) }
+                    : {}),
                 }
               : {}),
           }

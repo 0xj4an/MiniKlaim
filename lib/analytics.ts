@@ -1,6 +1,7 @@
 "use client";
 
 import posthog, { type PostHog } from "posthog-js";
+import type { MoveMode } from "@/lib/runs/moveMode";
 import { clientWalletHost } from "@/lib/client/walletHost";
 import { isBrowserNoise } from "@/lib/errors/browserNoise";
 import { createLogger } from "@/lib/logger";
@@ -30,13 +31,13 @@ type EventMap = {
   onboarding_completed: { via: "cta" | "backdrop" };
 
   // Run lifecycle.
-  run_started: Record<string, never>;
+  run_started: { mode?: MoveMode };
   run_finished: {
     duration_sec: number;
     blocks: number;
     distance_m: number;
     speed_kmh: number;
-    move_mode: "foot" | "bike" | "car" | "train" | "plane" | "none";
+    move_mode: MoveMode | "none";
   };
   run_capture_milestone: { hex_count: number };
 

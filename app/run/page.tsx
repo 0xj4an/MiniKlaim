@@ -6,7 +6,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
-import { moveMode } from "@/lib/runs/moveMode";
+import { isMoveMode, type MoveMode, moveMode } from "@/lib/runs/moveMode";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import {
@@ -75,6 +75,7 @@ const FAR_CAMERA_METERS = 1500;
 // between good ones is normal; a streak means no GPS lock (indoors, network
 // location only).
 const WEAK_FIX_STREAK = 3;
+const MODE_STORAGE_KEY = "miniklaim.moveMode";
 
 function placeCamera(
   map: maplibregl.Map,
@@ -203,6 +204,7 @@ export default function RunPage() {
     durationMs: number;
     hexesClaimed: number;
     distanceMeters: number;
+    moveMode: MoveMode | null;
   } | null>(null);
   // Gate any wallet-dependent UI so SSR and first-client-render emit the
   // same tree. Without this the wallet badge appears on SSR (cookie state)
@@ -669,6 +671,31 @@ export default function RunPage() {
     }
   }, [flushClaimQueue]);
 
+  // How the player says they travel. The last pick is remembered so most
+  // runs start with no extra tap; the first run asks.
+  const [declaredMode, setDeclaredMode] = useState<MoveMode | null>(null);
+  const declaredModeRef = useRef<MoveMode | null>(null);
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(MODE_STORAGE_KEY);
+      if (isMoveMode(saved)) {
+        declaredModeRef.current = saved;
+        queueMicrotask(() => setDeclaredMode(saved));
+      }
+    } catch {
+      // No storage: the player picks each time.
+    }
+  }, []);
+  const pickMode = useCallback((m: MoveMode) => {
+    declaredModeRef.current = m;
+    setDeclaredMode(m);
+    try {
+      window.localStorage.setItem(MODE_STORAGE_KEY, m);
+    } catch {
+      // Remembering the pick is a convenience only.
+    }
+  }, []);
+
   const startRun = useCallback(async () => {
     const addr = addressRef.current;
     if (!addr) return;
@@ -677,7 +704,10 @@ export default function RunPage() {
       const res = await fetch("/api/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: addr }),
+        body: JSON.stringify({
+          address: addr,
+          mode: declaredModeRef.current ?? undefined,
+        }),
       });
       if (!res.ok) {
         log.error("start run failed", { status: res.status });
@@ -691,7 +721,7 @@ export default function RunPage() {
       };
       if (data.claimToken) rememberRunToken(data.id, addr, data.claimToken);
       log.info("run started", { id: data.id });
-      track("run_started");
+      track("run_started", declaredModeRef.current ? { mode: declaredModeRef.current } : {});
       setRunId(data.id);
       runH3Ref.current = new Set();
       setHexCount(0);
@@ -747,6 +777,7 @@ export default function RunPage() {
         distanceMeters: number;
         startedAt: string;
         endedAt: string;
+        moveMode?: string | null;
       };
       const durationMs =
         new Date(data.endedAt).getTime() - new Date(data.startedAt).getTime();
@@ -764,13 +795,16 @@ export default function RunPage() {
           durationSec > 0
             ? Math.round((data.distanceMeters / durationSec) * 3.6 * 10) / 10
             : 0,
-        move_mode: moveMode(data.distanceMeters, durationSec) ?? "none",
+        move_mode:
+          (isMoveMode(data.moveMode) ? data.moveMode : moveMode(data.distanceMeters, durationSec)) ??
+          "none",
       });
       setLastFinishedRun({
         id,
         durationMs,
         hexesClaimed: data.hexesClaimed,
         distanceMeters: data.distanceMeters,
+        moveMode: isMoveMode(data.moveMode) ? data.moveMode : null,
       });
       // The card lists the blocks and any badges, then the wallet opens
       // on its own. A decline is not sponsored in that moment.
@@ -1375,6 +1409,8 @@ export default function RunPage() {
         runStartTime={runStartTime}
         onStart={startRun}
         onFinish={finishRun}
+        mode={declaredMode}
+        onModeChange={pickMode}
       />
       {lastFinishedRun && (
         <RunSummaryModal
