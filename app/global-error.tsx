@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
 import { reloadForStaleChunk } from "@/lib/client/chunkReload";
+import { reloadForDetachedHead } from "@/lib/client/headWatch";
 
 export default function GlobalError({
   error,
@@ -13,7 +14,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    if (reloadForStaleChunk(error)) return;
+    if (reloadForDetachedHead(error) || reloadForStaleChunk(error)) return;
     Sentry.captureException(error);
   }, [error]);
 
