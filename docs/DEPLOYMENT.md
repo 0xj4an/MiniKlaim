@@ -44,6 +44,7 @@ Set via Railway UI or `railway variables --service web --set "KEY=VALUE"`:
 | `NEXT_PUBLIC_LINK_VERIFIER_ADDRESS` | Destination for the tx-based link-ownership proof. Same account as the deployer/relayer. | See [CONTRACTS.md](CONTRACTS.md#deployed-addresses) |
 | `NEXT_PUBLIC_CELO_REWARDS_ADDRESS` | (Optional) MiniKlaimRewards proxy. Leave empty until MiniPay Stage 2 activation. | (unset) |
 | `NEXT_PUBLIC_CELO_CLAIM_ROUTER_ADDRESS` | (Optional) MiniKlaimClaimRouter. When set, finishing a run costs one wallet approval instead of two. Unset falls back to the two-tx path. | (unset) |
+| `NEXT_PUBLIC_CELO_HEXES_RECORDS` | `1` once the Hexes proxy runs v2 (records captures). Raises the player tx limit from 700 to 8,000 hexes and the relayer chunk from 400 to 4,000, and turns on "mint your blocks" in the profile. Set on `web` and `cron-retry-unminted`. Live on Celo since 2026-10-20. | `1` |
 | `NEXT_PUBLIC_SONEIUM_CLAIM_ROUTER_ADDRESS` | Same, for Soneium. | (unset) |
 | `NEXT_PUBLIC_POSTHOG_KEY` | PostHog client key (`phc_...`). Public. | `phc_...` |
 
@@ -87,9 +88,11 @@ Two cron services keep the app self-healing:
 
 **Command**: `npm run runs:retry-unminted`
 **Schedule**: `0 */4 * * *` (every 4 hours, on the hour)
-**Purpose**: retries `captureBatch` for runs whose hexes never made it on-chain (client claim failed, sponsor-mint timed out, or the app closed before minting). Idempotent because the contract's `capture` mint-or-transfers per hex. A declined signature is not sponsored immediately; if the run is still unminted 15 minutes later, this job mints it. Capped at 20 runs per pass.
+**Purpose**: retries `captureBatch` for runs whose hexes never made it on-chain (client claim failed, sponsor-mint timed out, or the app closed before minting). Idempotent because it only sends hexes with `minted_at IS NULL` (on v2 a resent hex would count twice in the on-chain metrics, never change ownership). A declined signature is not sponsored immediately; if the run is still unminted 15 minutes later, this job mints it. Capped at 20 runs per pass.
 
 This job spends the relayer's CELO. If the relayer is dry it logs the failed chunks and those hexes wait for the next pass. See [Funding the relayer](#funding-the-relayer).
+
+**Backlog, by hand.** Runs the cron does not pick up (capped by the daily allowance, denied because the player could pay, or never reported by the client) stay unsettled. On Hexes v2 settling all of them costs cents, so after a backlog builds up run `npm run runs:settle-backlog` (plan) and then `npm run runs:settle-backlog -- --send` with production env. Declined runs are skipped. First run, 2026-10-20: 34,922 hexes in 303 txs, ~3.5k gas each.
 
 **Env vars**:
 - `DATABASE_URL` (reference `${{postgres.DATABASE_URL}}`)

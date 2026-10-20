@@ -8,7 +8,7 @@ Live: [www.miniklaim.fun](https://www.miniklaim.fun)
 
 ## How it works
 
-The world is a grid of ~13-meter hexagons (H3 resolution 12). When you start a run, the app tracks your GPS path and claims every hex you pass through. Any mode of movement counts - walk, run, bike, drive, fly. Claimed hexes are minted as ERC-721 NFTs on Celo. If another player crosses a hex you own, the contract transfers it to them. The only way to take it back is to go there yourself.
+The world is a grid of ~13-meter hexagons (H3 resolution 12). When you start a run, the app tracks your GPS path and claims every hex you pass through. Any mode of movement counts - walk, run, bike, drive, fly. Claimed hexes are recorded on Celo in one approval per run, and you can turn yours into ERC-721 NFTs from your profile whenever you like. If another player crosses a hex you own, it becomes theirs (an NFT moves with it). The only way to take it back is to go there yourself.
 
 Achievements (First Steps, Mayor, Marathon, and 52 more) are tracked as soulbound ERC-1155 badges across 8 categories.
 
@@ -87,7 +87,7 @@ docs/               Public documentation
 
 Two token contracts per chain, live and verified on Celo mainnet and Soneium mainnet:
 
-- `MiniKlaimHexes` - ERC-721 territory, one token per H3 hex.
+- `MiniKlaimHexes` - territory record per H3 hex; a hex becomes an ERC-721 token when its owner mints it (v2, Oct 2026; every hex settled before then is already a token).
 - `MiniKlaimBadges` - ERC-1155 soulbound achievements.
 
 A third, `MiniKlaimClaimRouter`, settles a whole run in one wallet approval and is live on Celo mainnet. `MiniKlaimRewards` is written and tested but dormant.

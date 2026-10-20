@@ -22,7 +22,7 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 | `PATCH /api/runs/[id]/finish` | Close a run. No anti-cheat sanity check, game accepts any transport mode. Returns the closed run row. |
 | `POST /api/runs/[id]/voucher` | Issue an EIP-712 voucher for the player to submit `claimRun` on-chain. Returns `{ tokenIds, nonce, signature, contract, chainId }`. Returns 409 if the run has no captured hexes. |
 | `POST /api/runs/[id]/claim-all/voucher` | Issue the single EIP-712 voucher that settles a whole run through `MiniKlaimClaimRouter.claimAll`: this run's hexes plus every earned-but-unheld badge, in one tx and therefore one wallet approval. Returns `{ h3Ids, badgeIds, nonce, signature, contract, chainId }`. Returns 409 when there is nothing to settle, and 503 when no router is deployed for the chain (the client then falls back to the two-tx `claimRun` + `claimBadges` path). |
-| `POST /api/runs/[id]/claimed` | Backend hook confirming a mint tx has landed. Body: `{ txHash }`. |
+| `POST /api/runs/[id]/claimed` | Backend hook confirming a settlement tx has landed. Body: `{ txHash }`; `?chain=`. On a v1 chain the hexes are also marked as tokens (`token_at`). Vouchers only include hexes not yet settled. |
 | `POST /api/runs/[id]/sponsor-mint` | Relayer `captureBatch`, decided server-side. Requires the `x-run-token` header. 403 for a wrong token, 402 when the player holds enough CELO or fee stablecoin to pay, 429 when the wallet used its daily allowance (`SPONSOR_DAILY_HEX_CAP`, default 200 hexes), 503 when the relayer fails (the run is marked `sponsor_failed` and the retry cron picks it up). |
 | `POST /api/runs/[id]/declined` | The player closed the wallet sheet. Requires `x-run-token`. Marks the run `declined` so nothing pays for it. |
 
@@ -41,6 +41,9 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 | `POST /api/users/[address]/badges/sponsor-mint` | Relayer badge mint, decided server-side. Needs `?runId=` of one of the player's runs plus its `x-run-token`. 402 when the player can pay, 429 past `SPONSOR_DAILY_BADGE_TX_CAP` (default 2) txs per day. |
 | `POST /api/users/[address]/rewards/voucher` | (Dormant) EIP-712 voucher for USDm rewards. Returns 503 unless `NEXT_PUBLIC_CELO_REWARDS_ADDRESS` is set. |
 | `GET /api/users/[address]/linked` | All wallets linked to this player's identity. |
+| `GET /api/users/[address]/tokens` | Blocks of this wallet recorded on-chain without a token vs tokens. `?chain=`. Returns `{ enabled, recorded, tokens, maxPerTx, nextBatch, nextBatchGas }`; `enabled` is false until the chain's Hexes contract records (v2). |
+| `POST /api/users/[address]/tokens/voucher` | `MintTokens` voucher for up to 700 recorded blocks this wallet owns. Re-checks `ownerOf` on-chain first and moves a token stuck with a previous owner. 409 nothing to mint or chain not on v2, 503 chain read or signer failed. |
+| `POST /api/users/[address]/tokens/confirm` | Body `{ txHash }`. Reads the receipt (must be this wallet's successful `mintTokens`), marks the minted blocks, and moves any block recaptured meanwhile to its current owner. |
 
 ### Cross-wallet linking
 
