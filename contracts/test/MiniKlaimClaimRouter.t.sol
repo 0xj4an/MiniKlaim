@@ -323,9 +323,10 @@ contract MiniKlaimClaimRouterTest is Test {
         uint256 start = gasleft();
         router.claimAll(h3, bg, NONCE, sig);
         uint256 used = start - gasleft();
-        // Execution ~24.1M; calldata adds ~1.8M and intrinsic 21k, so the whole tx
-        // stays under 28M. The backend caps a player tx at PLAYER_TX_MAX_HEXES = 8000.
-        assertLt(used, 25_000_000);
+        // ~24.1M execution, ~25.9M when forge's isolation also charges the calldata.
+        // On a Celo mainnet fork with the real router: 700 hexes 2.23M, 2,000 hexes
+        // 6.04M (~2.9k per hex). The backend caps a player tx at 8,000 hexes.
+        assertLt(used, 27_000_000);
         assertEq(hexes.capturesByPlayer(alice), n);
     }
 
