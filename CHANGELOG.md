@@ -7,6 +7,7 @@ All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Ch
 ### Added
 
 - **Runs of any length settle in one approval** (Hexes v2, behind `NEXT_PUBLIC_<CHAIN>_HEXES_RECORDS`). A capture is recorded on-chain instead of minted as a token: ~3k gas per block instead of ~28k. One player tx now carries up to 8,000 blocks instead of 700. Runs over 700 blocks were 1% of runs but half of all blocks, and could only settle through the capped relayer. Blocks that are already NFTs still move to whoever recaptures them.
+- **Live on Celo mainnet** since 2026-10-20 16:29 UTC (Hexes implementation `0xf0250e4f530c38f6eca3c1936fb478a18ee05d7f`, verified on Blockscout). Migration `0014_hexes_v2_markers` fixes the token markers around the switch.
 - **Mint your blocks as NFTs** from the profile, when you choose: up to 700 per tx, you pay the fee. Backed by `mintTokens` with a 15-minute voucher; a block that already has a token is skipped.
 
 - **Pick how you move before Start.** On foot, bike, motorbike, car, bus, train, plane, horse or boat; the last pick is remembered, so only the first run asks. The pick becomes the run's label. A car in city traffic averages bike speed with its stops, so the speed-only label called a 7-minute drive a bike (20 Oct). Speed still checks the pick: a run "on foot" at motor speed is logged for review.

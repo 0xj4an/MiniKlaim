@@ -88,7 +88,8 @@ Use the PROXY address in env, dApps, explorers. The implementation address is de
 | Contract | Role | Address | Block | Deployed |
 |---|---|---|---|---|
 | MiniKlaimHexes | proxy | `0x9945dDEAa9C52c3C4e667B71B698c4e4551F242B` | 69727199 | 2026-06-16 |
-| MiniKlaimHexes | implementation | `0x9Ae06a93154b6f54E4Ad44A2664b321AC68554EE` | 69727198 | 2026-06-16 |
+| MiniKlaimHexes | implementation (v2, live) | `0xf0250e4f530c38f6eca3c1936fb478a18ee05d7f` | 80613033 | 2026-10-20 |
+| MiniKlaimHexes | implementation (v1, retired) | `0x9Ae06a93154b6f54E4Ad44A2664b321AC68554EE` | 69727198 | 2026-06-16 |
 | MiniKlaimBadges | proxy | `0x79c5d6365f447d1F707EA6d4bDE5D6A96f181cf7` | 69759385 | 2026-06-17 |
 | MiniKlaimBadges | implementation | `0x332D8Aa1B0CA847Fb7B95Ed020eF9600860ae406` | 69759385 | 2026-06-17 |
 | MiniKlaimClaimRouter | single (no proxy) | `0x9C3369e1519B03c16C329aCE13dB528eC8Ca8c74` | 78286681 | 2026-09-23 |
@@ -98,6 +99,7 @@ Creation transactions:
 
 - Hexes proxy: `0xe2a3c853929d23ee74e3f474f62aaecf904c1debf09991a1a24cc6b8fc64eca8`
 - Hexes implementation: `0x3afaf852c0baec8004f5be83c438fdce515359caa4a836225c8d461c37456a55`
+- Hexes v2 implementation: `0xdf039b4945c7da85eabc3969943b4e080c881ea57fbbbc53fdeda979020228fb`; upgrade: `0x758bec335bf86f16ae325fec35090111728965f3d3579e1054c8e3eb71c8d227` (block 80613040, 2026-10-20T16:29:58Z)
 - Badges proxy: `0xf839c9bbffbc217cd9c16bc9f32cf3779a377099b6da3d1cb5876d715726ad83`
 - Badges implementation: `0x2edc0b150e647d1709fddabf05ef78586737d95b352d3efc83c6f9db21ea5533`
 - ClaimRouter: `0x500a52e3ccb2e52efba0afee55d6c935f262c94965a546d7ab6acfbaad665ccf`
@@ -152,7 +154,7 @@ They predate the on-chain metrics counters: `totalCaptures()`, `uniquePlayers()`
 Audited from the full event history of all four live proxies, using the explorers' server-side topic filter (paginating the v2 logs endpoint gives up long before reaching the deploy block on Hexes, which has 13k+ captures):
 
 - **`RoleRevoked`: zero, ever, on any contract.**
-- **`Upgraded`: exactly 1 per proxy**, the initial one. No contract has ever been upgraded, so every implementation listed above is the original.
+- **`Upgraded`**: 1 per proxy (the initial one), except Celo Hexes, upgraded once to v2 on 2026-10-20 (records by default, `mintTokens`).
 - **`RoleGranted`**, per contract:
 
 | Contract | Grants | To |
