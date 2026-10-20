@@ -24,6 +24,7 @@
     "migrate:hexes": "tsx scripts/migrate-hexes.ts",
     "runs:finalize-orphans": "tsx scripts/auto-finalize-orphan-runs.ts",
     "runs:retry-unminted": "tsx scripts/retry-unminted-hexes.ts",
+    "runs:settle-backlog": "tsx scripts/settle-backlog.ts",
     "db:backfill-cities": "tsx scripts/backfill-cities.ts"
   },
   "dependencies": {

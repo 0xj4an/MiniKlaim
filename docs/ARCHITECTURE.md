@@ -69,7 +69,8 @@ High-level view of how MiniKlaim is put together. For contract details see [CONT
 
 ### On-chain
 
-- Two token contracts per chain, both UUPS-upgradeable: `MiniKlaimHexes` (ERC-721 territory) and `MiniKlaimBadges` (ERC-1155 soulbound achievements).
+- Two token contracts per chain, both UUPS-upgradeable: `MiniKlaimHexes` (territory) and `MiniKlaimBadges` (ERC-1155 soulbound achievements).
+- Hexes v2 (Celo, since 2026-10-20) records captures instead of minting a token per hex: ~3k gas per hex instead of ~28k, so one player tx carries up to 8,000 hexes. A hex that is already a token moves to whoever recaptures it. Players mint their recorded hexes as ERC-721 tokens from the profile (`mintTokens`, they pay the fee). Gated per chain by `NEXT_PUBLIC_<CHAIN>_HEXES_RECORDS`. `hexes.minted_at` means "settled on-chain"; `hexes.token_at` marks hexes that exist as tokens.
 - `MiniKlaimClaimRouter` settles a finished run in one transaction across both, so the player approves once instead of twice. Not upgradeable by design. Gated on `NEXT_PUBLIC_<CHAIN>_CLAIM_ROUTER_ADDRESS`; unset falls back to the two-tx path.
 - Player transactions carry an ERC-8021 attribution suffix (`@celo/attribution-tags`) so the Celo ecosystem can attribute the activity.
 - Fee abstraction via CIP-64 on Celo (USDm / USDC / USDT adapters), with `pickFeeAdapter` selecting the first token the player holds.
@@ -84,7 +85,8 @@ Finishing a run has to put two things on-chain: the hexes captured, and any badg
 1. `PATCH /api/runs/[id]/finish` closes the run server-side and returns the summary. The UI shows it immediately.
 2. `POST /api/runs/[id]/claim-all/voucher` returns one EIP-712 voucher covering the run's hexes plus every earned-but-unheld badge.
 3. The client submits a single `claimAll` tx to `MiniKlaimClaimRouter`. One wallet approval. The player pays the network fee in USDT, USDC, or USDm.
-4. If the player holds none of those, or the attempt fails for a reason other than a declined signature, the relayer mints. A decline is not sponsored in that moment. `cron-retry-unminted` still mints runs left unminted after 15 minutes.
+4. If the player holds none of those, or the attempt fails for a reason other than a declined signature, the relayer settles it. A decline is not sponsored in that moment. `cron-retry-unminted` still settles runs left unsettled after 15 minutes.
+5. Later, from the profile, the player can turn recorded hexes into NFTs: `POST /api/users/[address]/tokens/voucher` signs a 15-minute `MintTokens` voucher for up to 700 hexes they own now, the player sends `mintTokens`, and `/tokens/confirm` reads the receipt.
 
 Chains without a deployed router fall back to two separate player transactions (`claimRun`, then `claimBadges`), which is the original flow.
 
