@@ -106,7 +106,7 @@ type EventMap = {
   // "Mint your blocks as NFTs" (Hexes v2).
   nft_mint_started: { count: number };
   nft_mint_confirmed: { count: number; tx_hash: string };
-  nft_mint_failed: { reason: string };
+  nft_mint_failed: { reason: string; message?: string; count?: number };
 
   // Friction / errors that gate the golden path.
   gps_denied: Record<string, never>;

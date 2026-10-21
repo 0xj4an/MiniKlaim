@@ -84,7 +84,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
             method: "POST",
             headers: {
               ...runTokenHeaders(runId),
-              ...shortfallHeaders(trigger === "fee_shortfall"),
+              ...shortfallHeaders(trigger === "fee_shortfall" || trigger === "tx_error"),
             },
           },
         );
@@ -132,7 +132,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
               method: "POST",
               headers: {
                 ...runTokenHeaders(runId),
-                ...shortfallHeaders(trigger === "fee_shortfall"),
+                ...shortfallHeaders(trigger === "fee_shortfall" || trigger === "tx_error"),
               },
             },
           );

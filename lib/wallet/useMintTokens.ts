@@ -9,7 +9,13 @@ import { withAttribution } from "@/lib/onchain/attribution";
 import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
 import { HEXES_MINT_TOKENS_ABI } from "@/lib/onchain/hexesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
-import { isUserRejection } from "@/lib/wallet/playerFee";
+import * as Sentry from "@sentry/nextjs";
+import {
+  errorText,
+  isUnpayableFee,
+  isUserRejection,
+  isWalletInternalError,
+} from "@/lib/wallet/playerFee";
 import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 
@@ -38,6 +44,7 @@ export type MintTokensState =
   | "confirming"
   | "done"
   | "rejected"
+  | "no_fee"
   | "error";
 
 /**
@@ -127,11 +134,22 @@ export function useMintTokens(address: Address | null) {
         setState("rejected");
         return;
       }
-      log.warn("mintTokens tx failed", {
-        message: e instanceof Error ? e.message.slice(0, 200) : String(e),
+      // Keep the wallet's own message: "tx" alone left 32 failures on 20-21
+      // Oct undiagnosable.
+      const message = errorText(e).slice(0, 200);
+      const kind = isUnpayableFee(e)
+        ? "no_fee"
+        : isWalletInternalError(e)
+          ? "wallet_internal"
+          : "tx";
+      log.warn("mintTokens tx failed", { kind, message });
+      track("nft_mint_failed", { reason: kind, message, count: voucher.h3Ids.length });
+      Sentry.captureMessage("nft mint tx failed", {
+        level: "warning",
+        tags: { claim: "nft-mint", kind },
+        extra: { message, count: voucher.h3Ids.length },
       });
-      track("nft_mint_failed", { reason: "tx" });
-      setState("error");
+      setState(kind === "no_fee" ? "no_fee" : "error");
       return;
     }
 

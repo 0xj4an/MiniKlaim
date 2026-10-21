@@ -80,7 +80,7 @@ export async function POST(
       ? { canPay: false as const }
       : await playerCanPay(player, pending, 0, chainKey);
     if (shortfall) {
-      log.info("sponsoring after wallet fee shortfall", {
+      log.info("sponsoring after the player's own tx failed", {
         runId: id,
         player,
         pending,

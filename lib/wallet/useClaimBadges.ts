@@ -12,7 +12,6 @@ import { BADGES_CLAIM_ABI, badgesAddress } from "@/lib/onchain/badgesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { shortfallHeaders } from "@/lib/onchain/sponsorHeaders";
 import {
-  isUnpayableFee,
   isUserRejection,
   playerHasNoFeeBalance,
 } from "@/lib/wallet/playerFee";
@@ -158,7 +157,8 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
       log.warn("player badge claim failed; relayer mints", {
         message: e instanceof Error ? e.message : String(e),
       });
-      return sponsorFallback(address, isUnpayableFee(e));
+      // The wallet already failed (not a decline): the player cannot pay now.
+      return sponsorFallback(address, true);
     }
     // Individual balance fields are memoized in useBalances; listing them
     // keeps the callback stable across renders (unlike the whole `balances`

@@ -2,6 +2,13 @@
 
 All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project does not use SemVer tags today, so entries are dated instead.
 
+## 2026-10-21
+
+### Fixed
+
+- **Claims no longer dead-end when MiniPay errors.** When the player's own claim tx failed for a reason other than a decline ("An internal error was received", "User not authenticated", "Only SecretKey is supported", the wallet's RPC host unreachable), the app asked the relayer to pay and the server refused because the player "can pay". On 20-21 Oct that left 24 run claims and 23 badge claims with nothing settled. Any non-decline failure of the player's tx now counts as "cannot pay right now"; the run token and the daily cap still apply.
+- **NFT mint failures are diagnosable.** All 32 mint attempts on 20-21 Oct failed and were logged only as "tx". The wallet's message and a kind (`no_fee`, `wallet_internal`, `tx`) now go to PostHog and Sentry, and a fee shortfall tells the player to top up.
+
 ## 2026-10-20
 
 ### Added

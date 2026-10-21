@@ -13,7 +13,6 @@ import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { clearRunClaiming, markRunClaiming } from "@/lib/wallet/claimInFlight";
 import { shortfallHeaders } from "@/lib/onchain/sponsorHeaders";
 import {
-  isUnpayableFee,
   isUserRejection,
   playerHasNoFeeBalance,
 } from "@/lib/wallet/playerFee";
@@ -182,7 +181,8 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
           runId,
           message: e instanceof Error ? e.message : String(e),
         });
-        return orFailed(await sponsorFallback(runId, isUnpayableFee(e)));
+        // The wallet already failed (not a decline): the player cannot pay now.
+        return orFailed(await sponsorFallback(runId, true));
       }
     },
     // The individual `balances.<sym>` values are memoized inside useBalances,
