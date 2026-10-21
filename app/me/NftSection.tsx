@@ -58,6 +58,9 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
           {t("me.nfts.done").replace("{count}", lastMinted.toLocaleString())}
         </p>
       )}
+      {state === "no_fee" && (
+        <p className="text-center text-xs text-red-600">{t("me.nfts.noFee")}</p>
+      )}
       {state === "error" && (
         <p className="text-center text-xs text-red-600">{t("me.nfts.error")}</p>
       )}
