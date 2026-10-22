@@ -184,7 +184,7 @@ cast call <PROXY> 'hasRole(bytes32,address)(bool)' \
 
 ## Attribution
 
-All player-submitted and relayer transactions carry an ERC-8021 attribution suffix appended to calldata via `@celo/attribution-tags` (code: `miniklaim`). See [`lib/onchain/attribution.ts`](../lib/onchain/attribution.ts).
+All player-submitted and relayer transactions carry an ERC-8021 attribution suffix appended to calldata via `@celo/attribution-tags`. The code is the tag issued by the Celo Attribution Tag Registry, read from `NEXT_PUBLIC_CELO_ATTRIBUTION_CODE` (kept out of the repo at Celo's request; unset means untagged). Check a tx with the SDK's `verifyTx`. See [`lib/onchain/attribution.ts`](../lib/onchain/attribution.ts).
 
 ## Fee abstraction
 

@@ -4,6 +4,10 @@ All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Ch
 
 ## 2026-10-22
 
+### Changed
+
+- **Transactions carry MiniKlaim's official Celo attribution tag.** Every write tx (player claims, badge and reward claims, NFT mints, link tx, relayer captures) now ends with the ERC-8021 tag issued by the Celo Attribution Tag Registry instead of the self-chosen `miniklaim` code, which no registry tracked. The tag is read from `NEXT_PUBLIC_CELO_ATTRIBUTION_CODE` and kept out of the repo at Celo's request; with it unset, txs go untagged. `@celo/attribution-tags` bumped to 0.5.
+
 ### Fixed
 
 - **No more dead-end "Mint your blocks" inside MiniPay.** MiniPay refuses the `mintTokens` transaction with "Permission denied" whatever the batch size: all 37 mint attempts from 14 players on 22 Oct failed (1 to 700 blocks), while run claims on the same contract go through. Inside MiniPay the profile now shows the recorded blocks and a note that minting isn't available there yet, instead of a button that always fails. Other wallets still mint. To be reverted once MiniPay allows the call.

@@ -45,6 +45,7 @@ Set via Railway UI or `railway variables --service web --set "KEY=VALUE"`:
 | `NEXT_PUBLIC_CELO_REWARDS_ADDRESS` | (Optional) MiniKlaimRewards proxy. Leave empty until MiniPay Stage 2 activation. | (unset) |
 | `NEXT_PUBLIC_CELO_CLAIM_ROUTER_ADDRESS` | (Optional) MiniKlaimClaimRouter. When set, finishing a run costs one wallet approval instead of two. Unset falls back to the two-tx path. | (unset) |
 | `NEXT_PUBLIC_CELO_HEXES_RECORDS` | `1` once the Hexes proxy runs v2 (records captures). Raises the player tx limit from 700 to 8,000 hexes and the relayer chunk from 400 to 4,000, and turns on "mint your blocks" in the profile. Set on `web` and `cron-retry-unminted`. Live on Celo since 2026-10-20. | `1` |
+| `NEXT_PUBLIC_CELO_ATTRIBUTION_CODE` | ERC-8021 attribution tag issued by the Celo Attribution Tag Registry (`celo_xxxxxxxx`), appended to every write tx. Build-time: redeploy after changing. Keep it out of the repo. Set on `web` and on the relayer cron services. Empty means untagged. | (from Celo) |
 | `NEXT_PUBLIC_SONEIUM_CLAIM_ROUTER_ADDRESS` | Same, for Soneium. | (unset) |
 | `NEXT_PUBLIC_POSTHOG_KEY` | PostHog client key (`phc_...`). Public. | `phc_...` |
 

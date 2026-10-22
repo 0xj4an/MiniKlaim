@@ -2,31 +2,43 @@ import { toDataSuffix } from "@celo/attribution-tags";
 import { concat, type Hex } from "viem";
 
 /**
- * ERC-8021 attribution code for MiniKlaim. Appended to the calldata of every
- * Celo write transaction (both client-side player txs and backend relayer
- * txs). Impact tracking to the Celo ecosystem is derived from this suffix;
- * un-tagged transactions are invisible to future reward-program distributions.
- * Source: celopedia attribution-tags reference, ERC-8021 spec.
+ * ERC-8021 attribution tag issued to MiniKlaim by the Celo Attribution Tag
+ * Registry (an opaque `celo_xxxxxxxx` code). It is appended to the calldata of
+ * every write transaction, both player txs and backend relayer txs, so Celo
+ * credits the on-chain activity to MiniKlaim. The EVM ignores trailing
+ * calldata, so the suffix changes neither behaviour nor meaningful gas.
+ *
+ * The tag comes from the env, not the source: the repo is public and Celo asks
+ * that the code-to-app mapping stay private. It is NEXT_PUBLIC because player
+ * txs are built in the browser. Unset or invalid: transactions go untagged.
  */
-export const APP_ATTRIBUTION_CODE = "miniklaim";
+export const APP_ATTRIBUTION_CODE = process.env.NEXT_PUBLIC_CELO_ATTRIBUTION_CODE?.trim() || null;
 
-/**
- * Cached suffix so `toDataSuffix` runs once, not on every tx. The suffix is
- * deterministic for a fixed code, so we can memoize at module scope.
- */
-const ATTRIBUTION_SUFFIX = toDataSuffix(APP_ATTRIBUTION_CODE);
+function buildSuffix(code: string | null): Hex | null {
+  if (!code) return null;
+  try {
+    return toDataSuffix(code);
+  } catch {
+    // The SDK rejects codes outside [a-z0-9_] or longer than 32 bytes.
+    console.warn("[attribution] invalid NEXT_PUBLIC_CELO_ATTRIBUTION_CODE; txs go untagged");
+    return null;
+  }
+}
+
+/** Computed once: the suffix is deterministic for a fixed code. */
+const ATTRIBUTION_SUFFIX = buildSuffix(APP_ATTRIBUTION_CODE);
 
 /**
  * Append the MiniKlaim ERC-8021 attribution suffix to a piece of calldata.
- * Use before `sendTransaction` for any Celo write path (claimRun, claimBadges,
- * claimRewards, link tx, and relayer capture / mint calls).
+ * Use before `sendTransaction` for every write path (claimRun, claimBadges,
+ * claimRewards, mintTokens, link tx, relayer capture and mint calls).
  *
- * `data` must include the function selector already (e.g. produced by
- * viem's `encodeFunctionData`). For raw-data txs (e.g. the link ownership
- * proof) just pass the raw bytes; the suffix is appended after them.
+ * `data` must already include the function selector (e.g. from viem's
+ * `encodeFunctionData`). For raw-data txs (the link ownership proof) pass the
+ * raw bytes; the suffix goes after them.
  */
 export function withAttribution(data: Hex): Hex {
-  return concat([data, ATTRIBUTION_SUFFIX]);
+  return ATTRIBUTION_SUFFIX ? concat([data, ATTRIBUTION_SUFFIX]) : data;
 }
 
 export { ATTRIBUTION_SUFFIX };

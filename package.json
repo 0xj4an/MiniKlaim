@@ -28,7 +28,7 @@
     "db:backfill-cities": "tsx scripts/backfill-cities.ts"
   },
   "dependencies": {
-    "@celo/attribution-tags": "^0.3.0",
+    "@celo/attribution-tags": "^0.5.0",
     "@farcaster/miniapp-sdk": "^0.3.0",
     "@farcaster/miniapp-wagmi-connector": "^2.0.0",
     "@sentry/nextjs": "^11.1.0",
