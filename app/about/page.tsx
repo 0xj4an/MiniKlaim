@@ -63,7 +63,7 @@ export default function AboutPage() {
         <h2 className="text-xl font-semibold">{t("about.contact.header")}</h2>
         <p className="text-sm leading-relaxed text-zinc-700">
           {t("about.contact.body")}{" "}
-          <SupportLink className="text-blue-600 underline" />
+          <SupportLink className="text-blue-600 underline" openFromUrl />
           .
         </p>
       </section>

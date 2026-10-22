@@ -101,7 +101,7 @@ type EventMap = {
   reward_claim_confirmed: { amount_usdm: string; tx_hash: string };
   reward_claim_failed: { reason: string };
   // Support form (in-app form posted to /api/support).
-  support_form_opened: Record<string, never>;
+  support_form_opened: { source?: "direct_link" };
   support_sent: { topic: string; chars: number; screenshot: boolean };
   support_failed: { status: number };
   // "Mint your blocks as NFTs" (Hexes v2).

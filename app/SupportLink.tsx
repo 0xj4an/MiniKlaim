@@ -45,13 +45,27 @@ function saveEmail(email: string) {
 export function SupportLink({
   className,
   label,
+  openFromUrl = false,
 }: {
   className?: string;
   /** Link text; defaults to "Contact support". */
   label?: string;
+  /**
+   * Open the form on load when the URL has ?support (the direct link
+   * miniklaim.fun/support redirects to /about?support=1).
+   */
+  openFromUrl?: boolean;
 }) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!openFromUrl) return;
+    if (new URLSearchParams(window.location.search).has("support")) {
+      track("support_form_opened", { source: "direct_link" });
+      setOpen(true);
+    }
+  }, [openFromUrl]);
   return (
     <>
       <button
