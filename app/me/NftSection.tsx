@@ -1,16 +1,26 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
+import { isMiniPay } from "@/lib/minipay";
 import { useMintTokens } from "@/lib/wallet/useMintTokens";
 
 /**
  * Runs settle on-chain as records in one approval (Hexes v2). Here the player
  * can turn their recorded blocks into NFTs, paying the fee themselves. Hidden
  * until the chain's Hexes contract records.
+ *
+ * MiniPay refuses `mintTokens` with "Permission denied" whatever the batch
+ * size (all 37 attempts from 14 players on 22 Oct 2026, 1 to 700 blocks),
+ * while `claimRun` on the same contract goes through. Until MiniPay allows it,
+ * the button is replaced by a note there; other wallets can still mint.
  */
 export function NftSection({ address }: { address: `0x${string}` | null }) {
   const { t } = useLocale();
   const { status, state, mint, lastMinted } = useMintTokens(address);
+  // Read after mount: the server render has no window.ethereum.
+  const [inMiniPay, setInMiniPay] = useState(false);
+  useEffect(() => setInMiniPay(isMiniPay()), []);
 
   if (!address || !status?.enabled) return null;
   if (status.recorded === 0 && status.tokens === 0) return null;
@@ -29,7 +39,9 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
           .replace("{tokens}", status.tokens.toLocaleString())}
       </p>
 
-      {status.nextBatch > 0 ? (
+      {status.nextBatch > 0 && inMiniPay ? (
+        <p className="text-center text-xs text-zinc-500">{t("me.nfts.minipay")}</p>
+      ) : status.nextBatch > 0 ? (
         <>
           <p className="text-center text-xs text-zinc-500">{t("me.nfts.explain")}</p>
           <button

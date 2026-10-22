@@ -2,6 +2,12 @@
 
 All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project does not use SemVer tags today, so entries are dated instead.
 
+## 2026-10-22
+
+### Fixed
+
+- **No more dead-end "Mint your blocks" inside MiniPay.** MiniPay refuses the `mintTokens` transaction with "Permission denied" whatever the batch size: all 37 mint attempts from 14 players on 22 Oct failed (1 to 700 blocks), while run claims on the same contract go through. Inside MiniPay the profile now shows the recorded blocks and a note that minting isn't available there yet, instead of a button that always fails. Other wallets still mint. To be reverted once MiniPay allows the call.
+
 ## 2026-10-21
 
 ### Changed
