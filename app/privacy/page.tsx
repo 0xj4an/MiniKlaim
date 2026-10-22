@@ -53,7 +53,7 @@ export default function PrivacyPage() {
         </h2>
         <p>
           {t("privacy.deletion.before")}{" "}
-          <SupportLink className="text-blue-600 underline" />{" "}
+          <SupportLink label={t("support.link.inline")} className="text-blue-600 underline" />{" "}
           {t("privacy.deletion.after")}
         </p>
       </section>

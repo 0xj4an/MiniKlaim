@@ -53,3 +53,82 @@ describe("support form rules", () => {
     expect(body.startsWith("Tell us what happened:\nClaim button spins forever\n")).toBe(true);
   });
 });
+
+describe("parseSupportRequest", () => {
+  const base = {
+    topic: "claim",
+    description: "The claim button spins forever after my run",
+    email: "player@example.com",
+    wallet: "0x8f51DC0791CdDDDCE08052FfF939eb7cf0c17856",
+    locale: "en",
+    appVersion: "474b888",
+  };
+
+  it("accepts a complete request", async () => {
+    const { parseSupportRequest } = await import("@/lib/supportMail");
+    const parsed = parseSupportRequest(base);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.data.topic).toBe("claim");
+      expect(parsed.data.wallet).toBe(base.wallet);
+    }
+  });
+
+  it("rejects what used to reach the inbox", async () => {
+    const { parseSupportRequest } = await import("@/lib/supportMail");
+    expect(parseSupportRequest({ ...base, topic: "money" })).toEqual({ ok: false, error: "topic" });
+    expect(parseSupportRequest({ ...base, description: "Garzali aliyu" })).toEqual({
+      ok: false,
+      error: "description",
+    });
+    expect(parseSupportRequest({ ...base, description: "0726919614" })).toEqual({
+      ok: false,
+      error: "description",
+    });
+    expect(parseSupportRequest({ ...base, email: "Amospapa688" })).toEqual({ ok: false, error: "email" });
+    expect(parseSupportRequest({ ...base, wallet: "0x123" })).toEqual({ ok: false, error: "wallet" });
+  });
+
+  it("allows a player without a connected wallet", async () => {
+    const { parseSupportRequest } = await import("@/lib/supportMail");
+    const parsed = parseSupportRequest({ ...base, wallet: "" });
+    expect(parsed.ok && parsed.data.wallet).toBe(null);
+  });
+});
+
+describe("buildSupportEmail", () => {
+  it("puts the topic in the subject and the context under the description", async () => {
+    const { buildSupportEmail } = await import("@/lib/supportMail");
+    const mail = buildSupportEmail(
+      {
+        topic: "start",
+        description: "I tapped Start and the map stayed white",
+        email: "player@example.com",
+        wallet: null,
+        locale: "es",
+        appVersion: "abc1234",
+      },
+      { userAgent: "Mozilla/5.0 (Linux; Android 15)", screenshot: true },
+    );
+    expect(mail.subject).toBe("MiniKlaim support · Can't start a run");
+    expect(mail.text.startsWith("I tapped Start and the map stayed white\n")).toBe(true);
+    expect(mail.text).toContain("Reply to: player@example.com");
+    expect(mail.text).toContain("Wallet: not connected");
+    expect(mail.text).toContain("App: abc1234");
+    expect(mail.text).toContain("Screenshot: attached");
+  });
+});
+
+describe("allowSupportRequest", () => {
+  it("lets three messages through per hour and key", async () => {
+    const { allowSupportRequest, resetSupportRateLimit } = await import("@/lib/supportRateLimit");
+    resetSupportRateLimit();
+    const now = 1_000_000;
+    expect(allowSupportRequest("ip|wallet", now)).toBe(true);
+    expect(allowSupportRequest("ip|wallet", now + 1)).toBe(true);
+    expect(allowSupportRequest("ip|wallet", now + 2)).toBe(true);
+    expect(allowSupportRequest("ip|wallet", now + 3)).toBe(false);
+    expect(allowSupportRequest("other", now + 3)).toBe(true);
+    expect(allowSupportRequest("ip|wallet", now + 60 * 60 * 1000 + 1)).toBe(true);
+  });
+});
