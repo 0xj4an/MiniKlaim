@@ -121,7 +121,7 @@ Both claim prompts consult `lib/wallet/claimInFlight.ts` before asking for a sig
 
 ### Attribution
 
-- Every Celo write tx (relayer or player) carries the ERC-8021 attribution suffix via `withAttribution(...)`. Code is `miniklaim`.
+- Every Celo write tx (relayer or player) carries the ERC-8021 attribution suffix via `withAttribution(...)`. The code is the Celo-issued tag in `NEXT_PUBLIC_CELO_ATTRIBUTION_CODE`.
 
 ## Deployment
 
