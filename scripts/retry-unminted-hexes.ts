@@ -12,6 +12,7 @@ import {
   setMintStatus,
   sponsorRunHexes,
 } from "../lib/onchain/sponsor";
+import { settleBacklog } from "../lib/onchain/settleBacklog";
 import { OFFERS_BEFORE_SPONSOR } from "../lib/onchain/sponsorRules";
 
 const log = createLogger("script:retry-unminted");
@@ -27,6 +28,10 @@ const log = createLogger("script:retry-unminted");
  *
  * Anything else (declined once, abandoned) waits for the player. The daily
  * per-wallet allowance applies to both.
+ *
+ * Then it settles the backlog: hexes of runs that ended more than a day ago
+ * and are still not on-chain (sponsor_capped, never claimed), so they never
+ * pile up again. Declined runs are left alone. Capped per pass.
  *
  * Run:  npm run runs:retry-unminted
  * Env:  DATABASE_URL, SERVER_SIGNER_PRIVATE_KEY, NEXT_PUBLIC_CELO_HEXES_ADDRESS.
@@ -82,6 +87,7 @@ async function main() {
 
   if (jobs.length === 0) {
     log.warn("no runs to sponsor");
+    await settleOldBacklog(client);
     await client.end();
     return;
   }
@@ -132,7 +138,23 @@ async function main() {
     capped,
     denied,
   });
+  if (failed === 0) await settleOldBacklog(client);
   await client.end();
+}
+
+const BACKLOG_MIN_AGE = "24 hours";
+const BACKLOG_MAX_HEXES_PER_PASS = 20_000;
+
+async function settleOldBacklog(client: postgres.Sql) {
+  try {
+    const res = await settleBacklog(client, {
+      minAge: BACKLOG_MIN_AGE,
+      maxHexes: BACKLOG_MAX_HEXES_PER_PASS,
+    });
+    log.warn("backlog pass", res);
+  } catch (e) {
+    log.error("backlog pass crashed", { error: e instanceof Error ? e.message : String(e) });
+  }
 }
 
 void main();
