@@ -97,7 +97,7 @@ export const dictionaries = {
     "me.rewards.error": "Could not claim. Please try again.",
     "me.nfts.header": "🧩 Your blocks as NFTs",
     "me.nfts.summary": "{recorded} blocks recorded on-chain · {tokens} as NFTs",
-    "me.nfts.explain": "Your runs are saved on-chain for free in one approval. Turn your blocks into NFTs whenever you like: you pay the network fee (a few cents).",
+    "me.nfts.explain": "Your runs are saved on-chain when you claim them. Turn your blocks into NFTs whenever you like; you pay the network fee, usually a few cents.",
     "me.nfts.mint": "Mint {count} blocks as NFTs",
     "me.nfts.minting": "Confirm in wallet...",
     "me.nfts.confirming": "Waiting for the network...",
@@ -136,7 +136,7 @@ export const dictionaries = {
     "me.money.header": "Your money",
     "me.wallet.header": "Wallet",
     "me.wallet.subtitle":
-      "Shown for reference. MiniKlaim doesn't charge. Your wallet may ask you to confirm a network fee. Rewards coming soon.",
+      "Shown for reference. Playing is free. Saving a run on-chain uses a small network fee from this wallet, usually under $0.01; MiniKlaim pays it when you can't.",
     "me.signOut": "Sign out",
     "me.username.pick": "✨ Pick a name. This is how people will see you.",
     "me.username.change": "Change your name",
@@ -250,6 +250,8 @@ export const dictionaries = {
     "run.summary.claiming": "Claiming...",
     "run.summary.claimed": "Blocks claimed.",
     "run.summary.claimedBoth": "Blocks and badges claimed.",
+    "run.summary.fee": "Network fee ≈ {fee}, paid from your wallet.",
+    "run.summary.feeSponsored": "MiniKlaim pays the network fee for this one.",
     "run.banner.block": "block",
     "run.banner.blocks": "blocks",
     "run.popup.capturedBy": "Captured by",
@@ -317,7 +319,7 @@ export const dictionaries = {
       "Yes. The block goes to whoever passed through last. So keep moving to keep your turf.",
     "about.faq.q2": "Does it cost anything?",
     "about.faq.a2":
-      "MiniKlaim doesn't charge. Your wallet may ask you to confirm a network fee.",
+      "Playing is free and MiniKlaim never charges you. Saving a run on the Celo blockchain uses a network fee paid from your wallet: usually under $0.01, more for very long runs. The claim screen shows the estimate before you confirm, and MiniKlaim pays the fee when your balance can't cover it.",
     "about.faq.q3": "Why a wallet?",
     "about.faq.a3":
       "It's how we keep your name and blocks attached to you across devices. We never see your password or your money.",
@@ -425,7 +427,7 @@ export const dictionaries = {
       "Pay attention to your surroundings. The game shows you a map; the street is the source of truth. Do not run while staring at your phone. Do not run in dangerous areas because a block looks tempting.",
     "terms.noMoney.h": "No money",
     "terms.noMoney.body":
-      "MiniKlaim doesn't charge. There are no in-app purchases, no token rewards, and no promise of money. Your wallet may ask you to confirm a network fee. The wallet is how the game knows it is you.",
+      "MiniKlaim doesn't charge. There are no in-app purchases, no token rewards, and no promise of money. Saving a run on-chain uses a small network fee paid from your wallet, which MiniKlaim pays when you can't. The wallet is how the game knows it is you.",
     "terms.use.h": "Acceptable use",
     "terms.use.body":
       "Do not spam runs, do not impersonate other players in your runner name, do not abuse the API. The maintainer may remove accounts that break these rules.",
@@ -574,7 +576,7 @@ export const dictionaries = {
     "me.rewards.error": "No se pudo reclamar. Intenta de nuevo.",
     "me.nfts.header": "🧩 Tus bloques como NFTs",
     "me.nfts.summary": "{recorded} bloques registrados on-chain · {tokens} como NFTs",
-    "me.nfts.explain": "Tus corridas quedan guardadas on-chain en una sola aprobación. Convierte tus bloques en NFTs cuando quieras: tú pagas la comisión de red (unos centavos).",
+    "me.nfts.explain": "Tus corridas quedan guardadas on-chain cuando las reclamas. Convierte tus bloques en NFTs cuando quieras; tú pagas la comisión de red, normalmente unos centavos.",
     "me.nfts.mint": "Mintear {count} bloques como NFTs",
     "me.nfts.minting": "Confirma en tu wallet...",
     "me.nfts.confirming": "Esperando la red...",
@@ -613,7 +615,7 @@ export const dictionaries = {
     "me.money.header": "Tu plata",
     "me.wallet.header": "Tu wallet",
     "me.wallet.subtitle":
-      "Solo de referencia. MiniKlaim no cobra. Tu billetera puede pedirte confirmar la tarifa de red. Recompensas próximamente.",
+      "Solo de referencia. Jugar es gratis. Guardar una corrida on-chain usa una pequeña comisión de red de esta billetera, normalmente menos de $0.01; MiniKlaim la paga cuando tú no puedes.",
     "me.signOut": "Cerrar sesión",
     "me.username.pick": "✨ Elige un nombre. Así te verán los demás jugadores.",
     "me.username.change": "Cambia tu nombre",
@@ -728,6 +730,8 @@ export const dictionaries = {
     "run.summary.claiming": "Reclamando...",
     "run.summary.claimed": "Cuadras reclamadas.",
     "run.summary.claimedBoth": "Cuadras e insignias reclamadas.",
+    "run.summary.fee": "Comisión de red ≈ {fee}, desde tu billetera.",
+    "run.summary.feeSponsored": "MiniKlaim paga la comisión de red de esta vez.",
     "run.banner.block": "cuadra",
     "run.banner.blocks": "cuadras",
     "run.popup.capturedBy": "Capturada por",
@@ -794,7 +798,7 @@ export const dictionaries = {
       "Sí. La cuadra se la lleva quien pasó de último. Sigue corriendo para no perder tu territorio.",
     "about.faq.q2": "¿Cuesta algo?",
     "about.faq.a2":
-      "MiniKlaim no cobra. Tu billetera puede pedirte confirmar la tarifa de red.",
+      "Jugar es gratis y MiniKlaim nunca te cobra. Guardar una corrida en la blockchain de Celo usa una comisión de red que se paga desde tu billetera: normalmente menos de $0.01, más en corridas muy largas. La pantalla de reclamo muestra el estimado antes de confirmar, y MiniKlaim paga la comisión cuando tu saldo no alcanza.",
     "about.faq.q3": "¿Por qué pide una wallet?",
     "about.faq.a3":
       "Es la forma de que tu nombre y tus cuadras te sigan en cualquier dispositivo. Nunca vemos tu contraseña ni tu plata.",
@@ -903,7 +907,7 @@ export const dictionaries = {
       "Pon atención a lo que te rodea. El juego te muestra un mapa; la calle es la verdad. No corras mirando el celular. No corras a zonas peligrosas solo porque una cuadra se ve tentadora.",
     "terms.noMoney.h": "Sin plata",
     "terms.noMoney.body":
-      "MiniKlaim no cobra. No hay compras dentro de la app, ni recompensas en tokens, ni promesa de plata. Tu billetera puede pedirte confirmar la tarifa de red. La wallet sirve para saber que eres tú.",
+      "MiniKlaim no cobra. No hay compras dentro de la app, ni recompensas en tokens, ni promesa de plata. Guardar una corrida on-chain usa una pequeña comisión de red que se paga desde tu billetera, y MiniKlaim la paga cuando tú no puedes. La wallet sirve para saber que eres tú.",
     "terms.use.h": "Uso aceptable",
     "terms.use.body":
       "No hagas spam de corridas, no suplantes a otros jugadores con tu nombre, no abuses de la API. El mantenedor puede retirar cuentas que rompan estas reglas.",

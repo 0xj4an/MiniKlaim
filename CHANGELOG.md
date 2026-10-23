@@ -18,6 +18,11 @@ All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Ch
 
 - **/community no longer crashes on phones without WebGL.** The world map's constructor threw into the error page (31 crashes from 14 players up to 23 Oct); it now shows a note instead of the map and skips the world download. On /run a run already tracked without the map; the notice now says the run still records instead of "runs can't start".
 
+### Changed
+
+- **The claim sheet shows the network fee before the wallet opens.** After a run, under "Claim your blocks", players now see "Network fee ≈ $0.02, paid from your wallet", or "MiniKlaim pays the network fee for this one" when they can't cover it and the sponsor will. The estimate comes from `GET /api/onchain/fee-estimate` (claim gas estimate × current gas price × the USDm/CELO rate from Celo's FeeCurrencyDirectory, cached a minute). If the read fails, the line is left out. Support kept hearing "the app said it was free" from players whose balance dropped after long runs.
+- **Fee copy is accurate.** The FAQ, wallet card, terms and NFT section no longer say runs are saved "for free" or just "MiniKlaim doesn't charge". They now say playing is free, saving a run uses a small network fee from the player's wallet (usually under $0.01, more for very long runs), and MiniKlaim pays it when the player can't. EN and ES.
+
 ## 2026-10-22
 
 ### Changed
