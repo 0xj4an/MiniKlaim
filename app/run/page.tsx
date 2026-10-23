@@ -36,6 +36,11 @@ import { liveGeoSource } from "@/lib/map/liveSource";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
 import { HEX_COLORS } from "@/lib/map/hexColors";
 import { useWebglFailure } from "@/lib/map/webglFailure";
+import {
+  endpointLabel,
+  reportServerError,
+  reportWebglFailure,
+} from "@/lib/client/sentryReport";
 import { CloseButton } from "@/app/CloseButton";
 import { holdScreenAwake } from "@/lib/wakeLock";
 import {
@@ -121,9 +126,10 @@ export default function RunPage() {
   const { address, isConnected, isWrongChain } = useWallet();
   const { user } = useUser(isConnected ? address : null);
   const { t } = useLocale();
-  const mapFailed = useWebglFailure(() =>
-    track("map_webgl_failed", { path: "/run" }),
-  );
+  const mapFailed = useWebglFailure(() => {
+    track("map_webgl_failed", { path: "/run" });
+    reportWebglFailure("/run");
+  });
   const [mapNoticeClosed, setMapNoticeClosed] = useState(false);
   const { active: activeRun, isLoading: isActiveLoading } = useActiveRun(
     isConnected && !isWrongChain ? address : null,
@@ -396,6 +402,7 @@ export default function RunPage() {
             pace: backoff ? "claim-refresh-504-20s" : "claim-refresh-4s",
           });
           track("hexes_refresh_error", { status: res.status });
+          reportServerError(endpointLabel(url), res.status);
           return null;
         }
         const data = (await res.json()) as { hexes: ClaimedHexRow[] };
@@ -520,6 +527,7 @@ export default function RunPage() {
         outcome = { kind: "retry" };
         log.warn("batch claim failed", { status: res.status, count: batch.length });
         track("batch_claim_error", { status: res.status, count: batch.length });
+        reportServerError("/api/runs/:id/claim", res.status);
       } else {
         const data = (await res.json()) as {
           results: Array<{
@@ -1118,6 +1126,7 @@ export default function RunPage() {
         message: e instanceof Error ? e.message : String(e),
       });
       track("map_webgl_failed", { path: "/run" });
+      reportWebglFailure("/run");
       startTracking(null);
       return () => {
         alive = false;

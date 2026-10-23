@@ -1,11 +1,12 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useAccount, useChainId } from "wagmi";
 import {
   capturePageview,
   identify,
+  identityAction,
   initAnalytics,
   resetIdentity,
   syncClientContext,
@@ -28,15 +29,19 @@ export function PostHogProvider() {
     syncClientContext();
   }, []);
 
-  const { address, isConnected } = useAccount();
+  const { address, status } = useAccount();
   const chainId = useChainId();
+  const identified = useRef<string | null>(null);
   useEffect(() => {
-    if (!isConnected || !address) {
+    const action = identityAction(status, address, identified.current);
+    if (action === "identify" && address) {
+      identify(address, { env: detectEnv(), chain_id: chainId });
+      identified.current = address.toLowerCase();
+    } else if (action === "reset") {
       resetIdentity();
-      return;
+      identified.current = null;
     }
-    identify(address, { env: detectEnv(), chain_id: chainId });
-  }, [address, isConnected, chainId]);
+  }, [address, status, chainId]);
 
   return (
     <Suspense fallback={null}>

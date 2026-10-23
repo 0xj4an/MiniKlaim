@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { setPersonUsername } from "@/lib/analytics";
 import { createLogger } from "@/lib/logger";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 
@@ -40,6 +41,7 @@ export function useUser(address: string | null): UseUser {
         );
         const data = (await res.json()) as { user: User | null };
         if (!cancelled) setUser(data.user);
+        setPersonUsername(data.user?.username);
       } catch (e) {
         log.error("fetch user failed", {
           message: e instanceof Error ? e.message : String(e),
@@ -72,6 +74,7 @@ export function useUser(address: string | null): UseUser {
           return { ok: false, error };
         }
         setUser(data.user);
+        setPersonUsername(data.user.username);
         log.info("username updated", { username: data.user.username });
         return { ok: true };
       } catch (e) {

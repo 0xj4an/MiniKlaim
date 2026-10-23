@@ -283,13 +283,53 @@ export function identify(
   props?: { env?: string; chain_id?: number; has_username?: boolean },
 ): void {
   if (!initialized) return;
-  posthog.identify(address.toLowerCase(), props);
+  const id = address.toLowerCase();
+  // Same wallet as the stored identity: only refresh the person properties.
+  // A repeat identify() is a no-op for PostHog anyway, but this keeps it from
+  // sending an $identify event on every page load.
+  if (posthog.get_distinct_id() === id) {
+    if (props) posthog.setPersonProperties(props);
+    return;
+  }
+  posthog.identify(id, props);
 }
 
 /** Clear identity on disconnect so subsequent events are anonymous again. */
 export function resetIdentity(): void {
   if (!initialized) return;
   posthog.reset();
+}
+
+export type IdentityAction = "identify" | "reset" | "none";
+
+/**
+ * What to do with the PostHog identity for the current wallet state.
+ *
+ * wagmi starts every page load as "connecting"/"reconnecting" (or briefly
+ * "disconnected" before the MiniPay provider injects) and only then reports
+ * the account. Resetting on that first not-connected render threw away the
+ * stored identity and minted a new anonymous person on every page load, which
+ * is why PostHog counted ~14k people against ~8k real players. So: identify
+ * whenever an address is connected; reset only when a wallet that was
+ * identified in this page session actually disconnects.
+ */
+export function identityAction(
+  status: "connected" | "connecting" | "reconnecting" | "disconnected",
+  address: string | undefined,
+  identifiedThisSession: string | null,
+): IdentityAction {
+  if (status === "connected" && address) return "identify";
+  if (status === "disconnected" && identifiedThisSession) return "reset";
+  return "none";
+}
+
+let lastUsername: string | null = null;
+
+/** Attach the player's username to their PostHog person, once per change. */
+export function setPersonUsername(username: string | null | undefined): void {
+  if (!initialized || !username || username === lastUsername) return;
+  lastUsername = username;
+  posthog.setPersonProperties({ username });
 }
 
 /**

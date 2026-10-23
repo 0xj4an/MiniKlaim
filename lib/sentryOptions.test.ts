@@ -36,6 +36,18 @@ describe("sentryInitOptions beforeSend", () => {
     ).toBeNull();
   });
 
+  it("keeps a WebGL failure that crashed into the error boundary", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { location: { pathname: "/community" } },
+    });
+    const event = crash('{"type":"webglcontextcreationerror","message":"Failed to initialize WebGL"}');
+    event.tags = { boundary: "app" };
+    const sent = sentryInitOptions().beforeSend(event);
+    expect(sent).not.toBeNull();
+    expect(sent?.tags).toMatchObject({ boundary: "app", pathname: "/community" });
+  });
+
   it("leaves a real crash ungrouped", () => {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
