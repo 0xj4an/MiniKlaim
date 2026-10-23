@@ -1,10 +1,12 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import Link from "next/link";
 import { useEffect } from "react";
 import { track } from "@/lib/analytics";
 import { reloadForStaleChunk } from "@/lib/client/chunkReload";
 import { reloadForDetachedHead } from "@/lib/client/headWatch";
+import { isWebglFailure } from "@/lib/map/isWebglFailure";
 
 export default function ErrorBoundary({
   error,
@@ -26,6 +28,21 @@ export default function ErrorBoundary({
       error: error.message,
       digest: error.digest ?? "none",
       stack: error.stack?.slice(0, 200) ?? "none",
+    });
+    // React caught this crash, so Sentry's global handlers never saw it and it
+    // only reached PostHog. The `boundary` tag tells beforeSend to keep it even
+    // when it is a WebGL failure (dropped elsewhere because the map shows a
+    // notice): here the notice never appeared and the page crashed.
+    const webgl = isWebglFailure(error.message);
+    Sentry.captureException(error, {
+      tags: {
+        boundary: "app",
+        ...(webgl ? { source: "map" } : {}),
+        ...(error.digest ? { digest: error.digest } : {}),
+      },
+      ...(webgl
+        ? { fingerprint: ["webgl-crash", window.location.pathname] }
+        : {}),
     });
   }, [error]);
 

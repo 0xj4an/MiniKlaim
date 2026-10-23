@@ -2,6 +2,13 @@
 
 All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project does not use SemVer tags today, so entries are dated instead.
 
+## 2026-10-23
+
+### Fixed
+
+- **Errors that only reached PostHog now reach Sentry too.** Crashes caught by the app's error boundary (337 `app_crash` events, 81 people, to 23 Oct) never reached Sentry, because React catches them before Sentry's global handlers. The boundary now reports them, and a WebGL failure that crashed the page (117 events on /run and /community) is kept as one `webgl-crash` issue instead of being dropped as map noise. Map WebGL failures handled with a notice, and 5xx responses the run screen gets from `/api/hexes` and `/api/runs/:id/claim` (~40 504s in 3 days), are reported as warnings grouped by endpoint and status, at most 3 per kind per page session.
+- **PostHog no longer creates a new person on every page load.** wagmi starts each load as "reconnecting", and the analytics provider reset the identity on that first render, so every visit began as a new anonymous person (~14k people counted against ~8k players). The identity is now reset only when a wallet identified in that session disconnects, a repeat identify for the same wallet only refreshes person properties, and the player's username is attached to their person.
+
 ## 2026-10-22
 
 ### Changed

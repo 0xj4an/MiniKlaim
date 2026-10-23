@@ -55,7 +55,14 @@ export function sentryInitOptions(): SentryInitOptions {
         }
         // The device cannot draw the map (MINIKLAIM-W). The page shows a
         // notice and PostHog counts it; Sentry would only repeat it per frame.
-        if (parts.some((part) => isWebglFailure(part))) return null;
+        // A WebGL failure that crashed the page into the error boundary is a
+        // bug of ours (no notice, no fallback), so that one is kept.
+        if (
+          event.tags?.boundary !== "app" &&
+          parts.some((part) => isWebglFailure(part))
+        ) {
+          return null;
+        }
         // MINIKLAIM-T: a hoisted <head> tag was removed by someone else.
         // Ship what <head> looks like now; head.removed crumbs show who.
         if (parts.some((part) => part.includes("reading 'removeChild'"))) {
