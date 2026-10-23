@@ -14,6 +14,7 @@ All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Ch
 
 ### Changed
 
+- **Stats and leaderboard queries are ~5x faster.** The rank in `/api/users/:address/stats` looked up `player_wallets` once per joined hex row (~230k rows per call, about 2 billion index scans so far) and took ~1.5 s; hexes are now counted per address first (~0.3 s, same ranks). The leaderboard gets the same change (1.5 s to 0.2 s, identical top 20). This runs on every /me visit and every run summary, and is a likely source of the 504s.
 - **Location is explained before the phone asks for it.** On a device that never had a GPS fix, /run first shows a short sheet: why the game needs location, that only the blocks captured during a run are saved, and what to choose in the prompt. Its button fires the permission request (keeping the user gesture MiniPay iOS needs); GPS tracking waits until then. 729 people had denied location cold, and in MiniPay a denial can only be undone from the phone settings. Events `gps_prompt_shown` and `gps_prompt_accepted`.
 - **Blocked location has a way back.** The blocked and timed-out banners now carry a "Try again" button (event `gps_retry`), and the blocked text also covers iPhone.
 

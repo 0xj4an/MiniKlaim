@@ -68,37 +68,37 @@ export async function GET(
     // Rank across per-player aggregated hex counts. Each address in the DB is
     // grouped by its `player_id` (via player_wallets) or by its own address as
     // a fallback for wallets that never linked. Then we count how many groups
-    // have a hex_count > this player's.
+    // have a hex_count > this player's. Hexes are counted per address first:
+    // looking up player_wallets per joined hex row (~230k per request) ran
+    // ~2 billion index scans and took ~1.5 s per stats call.
     db.execute(sql`
-      WITH group_scores AS (
-        SELECT
-          COALESCE(
-            (SELECT pw.player_id::text
-             FROM player_wallets pw
-             WHERE pw.address = u.address
-             LIMIT 1),
-            u.address
-          ) AS group_key,
-          COUNT(h.h3_id) AS hex_count
-        FROM users u
-        LEFT JOIN hexes h ON h.owner_address = u.address
-        GROUP BY group_key
+      WITH per_address AS (
+        SELECT owner_address AS address, COUNT(*) AS n
+        FROM hexes
+        GROUP BY owner_address
       ),
-      my_score AS (
-        SELECT hex_count FROM group_scores
-        WHERE group_key = (
-          SELECT COALESCE(
-            (SELECT pw2.player_id::text
-             FROM player_wallets pw2
-             WHERE pw2.address = ${lower}
-             LIMIT 1),
-            ${lower}
-          )
-        )
+      group_scores AS (
+        SELECT
+          COALESCE(pw.player_id::text, u.address) AS group_key,
+          COALESCE(SUM(pa.n), 0) AS hex_count
+        FROM users u
+        LEFT JOIN per_address pa ON pa.address = u.address
+        LEFT JOIN LATERAL (
+          SELECT player_id FROM player_wallets WHERE address = u.address LIMIT 1
+        ) pw ON true
+        GROUP BY 1
+      ),
+      me AS (
+        SELECT COALESCE(
+          (SELECT player_id::text FROM player_wallets WHERE address = ${lower} LIMIT 1),
+          ${lower}
+        ) AS group_key
       )
       SELECT (
         SELECT COUNT(*) FROM group_scores
-        WHERE hex_count > (SELECT hex_count FROM my_score)
+        WHERE hex_count > (
+          SELECT hex_count FROM group_scores WHERE group_key = (SELECT group_key FROM me)
+        )
       )::int + 1 AS rank
     `),
     streakDays(linked),

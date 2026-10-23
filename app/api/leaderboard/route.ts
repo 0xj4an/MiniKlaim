@@ -39,12 +39,17 @@ export async function GET(request: Request) {
         ) AS group_key
       FROM users u
     ),
+    per_address AS (
+      SELECT owner_address AS address, COUNT(*) AS n
+      FROM hexes
+      GROUP BY owner_address
+    ),
     group_hex_counts AS (
       SELECT
         gm.group_key,
-        COUNT(h.h3_id) AS hex_count
+        COALESCE(SUM(pa.n), 0) AS hex_count
       FROM group_map gm
-      LEFT JOIN hexes h ON h.owner_address = gm.address
+      LEFT JOIN per_address pa ON pa.address = gm.address
       GROUP BY gm.group_key
     ),
     group_display AS (
