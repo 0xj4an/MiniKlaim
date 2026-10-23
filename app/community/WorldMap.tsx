@@ -10,6 +10,7 @@ import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
 import { claimedHexesToFeatureCollection } from "@/lib/map/hex";
 import { HEX_COLORS } from "@/lib/map/hexColors";
+import { rowsFromWorldResponse, WORLD_GROUPED_PARAM } from "@/lib/map/worldHexes";
 import { useLinkedAddresses } from "@/lib/wallet/useLinkedAddresses";
 
 type HexFeatureProps = {
@@ -328,15 +329,15 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
 
     void (async () => {
       try {
-        const res = await fetch("/api/hexes");
+        const res = await fetch(`/api/hexes?${WORLD_GROUPED_PARAM}`);
         if (!res.ok) {
           log.warn("world hexes failed", { status: res.status });
           return;
         }
-        const data = (await res.json()) as { hexes: HexRow[] };
+        const rows: HexRow[] = rowsFromWorldResponse(await res.json());
         if (cancelled) return;
-        rowsRef.current = data.hexes;
-        setCount(data.hexes.length);
+        rowsRef.current = rows;
+        setCount(rows.length);
         
         // Paint immediately if map is ready, otherwise wait for load event
         if (map.isStyleLoaded()) {

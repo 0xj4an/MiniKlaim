@@ -6,6 +6,7 @@ import { hexes, users } from "@/lib/db/schema";
 import { jsonBody, packJson, type PackedJson } from "@/lib/http/json-body";
 import { createLogger } from "@/lib/logger";
 import { addressesForPlayer } from "@/lib/players";
+import { groupByOwner } from "@/lib/map/worldHexes";
 
 const log = createLogger("api:hexes");
 
@@ -14,32 +15,39 @@ export const dynamic = "force-dynamic";
 // Caps the disk so a client cannot ask for a continental IN-list.
 const MAX_DISK = 60;
 
-// The world list is ~2 MB of JSON and gzip takes it to ~100 KB. Pages are
+// The world list is ~24 MB of JSON as flat rows (~1.2 MB gzipped) at 230k
+// hexes; `?fmt=owners` groups it by owner (~4 MB, ~0.8 MB gzipped), which is
+// what the app asks for. The flat shape stays for old clients. Pages are
 // compressed by Next; this route handler is not, so the body is packed here.
 // One shared copy for a minute: community can lag a fresh claim by that long.
 const WORLD_TTL_MS = 60_000;
 const WORLD_CACHE = "public, max-age=60";
 const SCOPED_CACHE = "private, no-cache";
 
-let worldCache: { packed: PackedJson; at: number } | null = null;
-let worldInflight: Promise<PackedJson> | null = null;
+type WorldShape = "flat" | "owners";
+const worldCache = new Map<WorldShape, { packed: PackedJson; at: number }>();
+const worldInflight = new Map<WorldShape, Promise<PackedJson>>();
 
 async function worldPacked(
+  shape: WorldShape,
   load: () => Promise<PackedJson>,
 ): Promise<PackedJson> {
   const now = Date.now();
-  if (worldCache && now - worldCache.at < WORLD_TTL_MS) return worldCache.packed;
-  if (!worldInflight) {
-    worldInflight = load()
+  const cached = worldCache.get(shape);
+  if (cached && now - cached.at < WORLD_TTL_MS) return cached.packed;
+  let inflight = worldInflight.get(shape);
+  if (!inflight) {
+    inflight = load()
       .then((packed) => {
-        worldCache = { packed, at: Date.now() };
+        worldCache.set(shape, { packed, at: Date.now() });
         return packed;
       })
       .finally(() => {
-        worldInflight = null;
+        worldInflight.delete(shape);
       });
+    worldInflight.set(shape, inflight);
   }
-  return worldInflight;
+  return inflight;
 }
 
 export async function GET(request: Request) {
@@ -75,10 +83,11 @@ export async function GET(request: Request) {
   // No `near`: the world map needs every claim. The run screen passes a
   // res-12 cell so a walk does not download the whole table.
   if (!near) {
-    const packed = await worldPacked(async () => {
+    const shape: WorldShape = url.searchParams.get("fmt") === "owners" ? "owners" : "flat";
+    const packed = await worldPacked(shape, async () => {
       const rows = await base;
-      log.info("hexes fetched", { count: rows.length, scoped: "all" });
-      return packJson({ hexes: rows });
+      log.info("hexes fetched", { count: rows.length, scoped: "all", shape });
+      return packJson(shape === "owners" ? { owners: groupByOwner(rows) } : { hexes: rows });
     });
     return jsonBody(request, packed, WORLD_CACHE);
   }

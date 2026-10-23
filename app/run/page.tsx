@@ -70,6 +70,7 @@ import { NeedNameOverlay } from "./NeedNameOverlay";
 import { OnboardingTooltip } from "./OnboardingTooltip";
 import { readCachedPosition, writeCachedPosition } from "./positionCache";
 import { RunControls } from "./RunControls";
+import { rowsFromWorldResponse, WORLD_GROUPED_PARAM } from "@/lib/map/worldHexes";
 import { RunSummaryModal } from "./RunSummaryModal";
 
 const log = createLogger("page:run");
@@ -415,8 +416,7 @@ export default function RunPage() {
           reportServerError(endpointLabel(url), res.status);
           return null;
         }
-        const data = (await res.json()) as { hexes: ClaimedHexRow[] };
-        return data.hexes;
+        return rowsFromWorldResponse(await res.json());
       } catch (e) {
         log.error("failed to refresh claimed hexes", {
           message: e instanceof Error ? e.message : String(e),
@@ -463,7 +463,7 @@ export default function RunPage() {
       !worldRef.current || Date.now() - worldRef.current.at > 60_000;
     if (worldStale) {
       if (!worldInflight.current) {
-        const pending = fetchRows("/api/hexes");
+        const pending = fetchRows(`/api/hexes?${WORLD_GROUPED_PARAM}`);
         worldInflight.current = pending;
         void pending.finally(() => {
           if (worldInflight.current === pending) worldInflight.current = null;
