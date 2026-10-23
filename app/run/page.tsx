@@ -64,6 +64,8 @@ import { useLinkedAddresses } from "@/lib/wallet/useLinkedAddresses";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { GeoStatusBanner, type GeoStatus } from "./GeoStatusBanner";
+import { GpsExplainer } from "./GpsExplainer";
+import { markGpsAsked, shouldExplainGps } from "./gpsPrimer";
 import { NeedNameOverlay } from "./NeedNameOverlay";
 import { OnboardingTooltip } from "./OnboardingTooltip";
 import { readCachedPosition, writeCachedPosition } from "./positionCache";
@@ -131,6 +133,14 @@ export default function RunPage() {
     reportWebglFailure("/run");
   });
   const [mapNoticeClosed, setMapNoticeClosed] = useState(false);
+  // The map constructor threw (no WebGL at all). The run still tracks.
+  const [mapInitFailed, setMapInitFailed] = useState(false);
+  const mapUnavailable = mapFailed || mapInitFailed;
+  // First-run location explainer. While it is open nothing may call the
+  // geolocation API, or the browser prompt would appear behind it.
+  const [gpsExplain, setGpsExplain] = useState(false);
+  const gpsExplainOpenRef = useRef(false);
+  const pendingTrackingRef = useRef<(() => void) | null>(null);
   const { active: activeRun, isLoading: isActiveLoading } = useActiveRun(
     isConnected && !isWrongChain ? address : null,
   );
@@ -846,11 +856,12 @@ export default function RunPage() {
   // WKWebView (MiniPay iOS) silently hang on getCurrentPosition. Calling it
   // synchronously from this useEffect fires it on the same task as the route
   // transition, which iOS treats as still-gestured.
-  useEffect(() => {
+  const requestLocation = useCallback(() => {
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
       queueMicrotask(() => setGeoStatus("unavailable"));
       return;
     }
+    geoFailedRef.current = false;
     queueMicrotask(() => setGeoStatus("requesting"));
     log.info("eager geolocation primer");
     navigator.geolocation.getCurrentPosition(
@@ -897,6 +908,34 @@ export default function RunPage() {
   }, []);
 
   useEffect(() => {
+    if (shouldExplainGps()) {
+      gpsExplainOpenRef.current = true;
+      queueMicrotask(() => setGpsExplain(true));
+      track("gps_prompt_shown");
+      return;
+    }
+    requestLocation();
+  }, [requestLocation]);
+
+  // Runs inside the button's click, so the permission prompt keeps the user
+  // gesture (MiniPay iOS hangs without one).
+  const allowLocation = useCallback(() => {
+    markGpsAsked();
+    gpsExplainOpenRef.current = false;
+    setGpsExplain(false);
+    track("gps_prompt_accepted");
+    requestLocation();
+    const pending = pendingTrackingRef.current;
+    pendingTrackingRef.current = null;
+    pending?.();
+  }, [requestLocation]);
+
+  const retryLocation = useCallback(() => {
+    track("gps_retry", { from: geoStatus });
+    requestLocation();
+  }, [geoStatus, requestLocation]);
+
+  useEffect(() => {
     if (!containerRef.current || !mapBoot) return;
 
     const initialCenter = mapBoot.center;
@@ -915,6 +954,10 @@ export default function RunPage() {
     // and captures, without the map (see the fallback below).
     const startTracking = (map: maplibregl.Map | null) => {
       if (watchId !== null || !alive) return;
+      if (gpsExplainOpenRef.current) {
+        pendingTrackingRef.current = () => startTracking(map);
+        return;
+      }
       if (!("geolocation" in navigator)) {
         log.warn("geolocation unavailable");
         return;
@@ -1127,6 +1170,7 @@ export default function RunPage() {
       });
       track("map_webgl_failed", { path: "/run" });
       reportWebglFailure("/run");
+      queueMicrotask(() => setMapInitFailed(true));
       startTracking(null);
       return () => {
         alive = false;
@@ -1356,7 +1400,7 @@ export default function RunPage() {
           left: 0,
         }}
       />
-      {mapFailed && !mapNoticeClosed && (
+      {mapUnavailable && !mapNoticeClosed && (
         <div className="absolute inset-x-4 top-16 z-20 flex items-start gap-2 rounded-md bg-white/95 p-3 text-sm text-zinc-800 shadow-md">
           <p className="flex-1">{t("map.webglFailed")}</p>
           <CloseButton onClick={() => setMapNoticeClosed(true)} />
@@ -1379,6 +1423,7 @@ export default function RunPage() {
       <GeoStatusBanner
         status={geoStatus}
         lastError={geoLastError}
+        onRetry={retryLocation}
         weakAccuracyM={runId ? weakAccuracyM : null}
       />
       <button
@@ -1421,6 +1466,7 @@ export default function RunPage() {
         mode={declaredMode}
         onModeChange={pickMode}
       />
+      {gpsExplain && <GpsExplainer onAllow={allowLocation} />}
       {lastFinishedRun && (
         <RunSummaryModal
           summary={lastFinishedRun}

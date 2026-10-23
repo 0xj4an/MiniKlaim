@@ -9,6 +9,15 @@ All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Ch
 - **Errors that only reached PostHog now reach Sentry too.** Crashes caught by the app's error boundary (337 `app_crash` events, 81 people, to 23 Oct) never reached Sentry, because React catches them before Sentry's global handlers. The boundary now reports them, and a WebGL failure that crashed the page (117 events on /run and /community) is kept as one `webgl-crash` issue instead of being dropped as map noise. Map WebGL failures handled with a notice, and 5xx responses the run screen gets from `/api/hexes` and `/api/runs/:id/claim` (~40 504s in 3 days), are reported as warnings grouped by endpoint and status, at most 3 per kind per page session.
 - **PostHog no longer creates a new person on every page load.** wagmi starts each load as "reconnecting", and the analytics provider reset the identity on that first render, so every visit began as a new anonymous person (~14k people counted against ~8k players). The identity is now reset only when a wallet identified in that session disconnects, a repeat identify for the same wallet only refreshes person properties, and the player's username is attached to their person.
 
+### Changed
+
+- **Location is explained before the phone asks for it.** On a device that never had a GPS fix, /run first shows a short sheet: why the game needs location, that only the blocks captured during a run are saved, and what to choose in the prompt. Its button fires the permission request (keeping the user gesture MiniPay iOS needs); GPS tracking waits until then. 729 people had denied location cold, and in MiniPay a denial can only be undone from the phone settings. Events `gps_prompt_shown` and `gps_prompt_accepted`.
+- **Blocked location has a way back.** The blocked and timed-out banners now carry a "Try again" button (event `gps_retry`), and the blocked text also covers iPhone.
+
+### Fixed
+
+- **/community no longer crashes on phones without WebGL.** The world map's constructor threw into the error page (31 crashes from 14 players up to 23 Oct); it now shows a note instead of the map and skips the world download. On /run a run already tracked without the map; the notice now says the run still records instead of "runs can't start".
+
 ## 2026-10-22
 
 ### Changed

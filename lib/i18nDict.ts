@@ -200,12 +200,23 @@ export const dictionaries = {
       "Still waiting? Make sure MiniPay has location permission in your phone settings.",
     "run.gps.lastError": "Last error",
     "run.gps.denied":
-      "Location is blocked for MiniPay. On Android: Settings > Apps > MiniPay > Permissions > Location > Allow. Then reopen MiniKlaim.",
+      "Location is blocked for MiniPay. On Android: Settings > Apps > MiniPay > Permissions > Location > Allow. On iPhone: Settings > MiniPay > Location > While Using. Then tap Try again.",
+    "run.gps.retry": "Try again",
+    "run.gps.explain.title": "MiniKlaim needs your location",
+    "run.gps.explain.body":
+      "The game works by moving: every street block you cross during a run becomes yours. Without location we can't tell which blocks you crossed.",
+    "run.gps.explain.privacy":
+      "We only save the blocks you capture during a run, never your location outside a run.",
+    "run.gps.explain.next":
+      "Your phone will ask next. Choose Allow (or While using the app).",
+    "run.gps.explain.allow": "Allow location",
     "run.gps.timeout":
       "GPS didn't arrive. Close the app, open it again, and allow location. You can't play without it.",
     "run.gps.unavailable": "Location unavailable on this device.",
     "map.webglFailed":
-      "This phone can't draw the map, so runs can't start on it. Updating Android System WebView in the Play Store may fix it.",
+      "This phone can't draw the map. Your run still records: blocks, distance and time show below. Updating Android System WebView in the Play Store may bring the map back.",
+    "map.unavailable":
+      "This phone can't draw the map. Updating Android System WebView in the Play Store may fix it.",
     "run.start.signIn": "Sign in first",
     "run.start.starting": "Starting...",
     "run.start.button": "Start",
@@ -666,12 +677,23 @@ export const dictionaries = {
       "¿Sigue esperando? Verifica que MiniPay tenga permiso de ubicación en los ajustes del teléfono.",
     "run.gps.lastError": "Último error",
     "run.gps.denied":
-      "La ubicación está bloqueada para MiniPay. En Android: Ajustes > Aplicaciones > MiniPay > Permisos > Ubicación > Permitir. Luego vuelve a abrir MiniKlaim.",
+      "La ubicación está bloqueada para MiniPay. En Android: Ajustes > Aplicaciones > MiniPay > Permisos > Ubicación > Permitir. En iPhone: Ajustes > MiniPay > Ubicación > Mientras se usa. Luego toca Reintentar.",
+    "run.gps.retry": "Reintentar",
+    "run.gps.explain.title": "MiniKlaim necesita tu ubicación",
+    "run.gps.explain.body":
+      "El juego funciona moviéndote: cada cuadra que cruzas durante una corrida se vuelve tuya. Sin ubicación no sabemos qué cuadras cruzaste.",
+    "run.gps.explain.privacy":
+      "Solo guardamos las cuadras que capturas durante una corrida, nunca tu ubicación fuera de una corrida.",
+    "run.gps.explain.next":
+      "Tu teléfono te va a preguntar ahora. Elige Permitir (o Mientras se usa la app).",
+    "run.gps.explain.allow": "Permitir ubicación",
     "run.gps.timeout":
       "El GPS no llegó. Cierra la app, vuélvela a abrir y permite la ubicación. Sin eso no puedes jugar.",
     "run.gps.unavailable": "Ubicación no disponible en este dispositivo.",
     "map.webglFailed":
-      "Este teléfono no puede dibujar el mapa, así que no puede iniciar corridas. Actualizar Android System WebView en Play Store puede arreglarlo.",
+      "Este teléfono no puede dibujar el mapa. Tu corrida igual se registra: las cuadras, la distancia y el tiempo aparecen abajo. Actualizar Android System WebView en Play Store puede traer el mapa de vuelta.",
+    "map.unavailable":
+      "Este teléfono no puede dibujar el mapa. Actualizar Android System WebView en Play Store puede arreglarlo.",
     "run.start.signIn": "Entra primero",
     "run.start.starting": "Empezando...",
     "run.start.button": "Empezar",

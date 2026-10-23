@@ -4,6 +4,7 @@ import { cellToLatLng } from "h3-js";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
+import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
@@ -65,6 +66,9 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
   const boundLayers = useRef(new Set<string>());
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const [count, setCount] = useState<number | null>(null);
+  // No WebGL: the constructor throws, which used to crash /community into
+  // the error page (31 crashes from 14 players up to 23 Oct).
+  const [mapUnavailable, setMapUnavailable] = useState(false);
   const { t } = useLocale();
   const linked = useLinkedAddresses(myAddress, myAddress !== null);
 
@@ -282,17 +286,27 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
       container.clientHeight || 320,
     );
     const zoom = span >= 64 ? Math.min(0, Math.log2(span / 512)) : 0;
-    const map = new maplibregl.Map({
-      container,
-      style: DEFAULT_MAP_STYLE,
-      ...lightMapOptions(),
-      center: [0, 0],
-      zoom,
-      minZoom: Math.min(zoom, -2), // Allow more zoom out
-      maxZoom: 18,
-      attributionControl: { compact: true },
-      interactive: true,
-    });
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
+        container,
+        style: DEFAULT_MAP_STYLE,
+        ...lightMapOptions(),
+        center: [0, 0],
+        zoom,
+        minZoom: Math.min(zoom, -2), // Allow more zoom out
+        maxZoom: 18,
+        attributionControl: { compact: true },
+        interactive: true,
+      });
+    } catch (e) {
+      log.warn("world map init failed", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+      track("map_webgl_failed", { path: "/community" });
+      queueMicrotask(() => setMapUnavailable(true));
+      return;
+    }
     mapRef.current = map;
     map.on("load", () => {
       if (cancelled) return;
@@ -364,10 +378,16 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
           ? ` (${count} ${t("community.worldmap.captured")})`
           : ""}
       </p>
+      {mapUnavailable && (
+        <p className="py-2 text-center text-xs text-zinc-600">
+          {t("map.unavailable")}
+        </p>
+      )}
       <div
         ref={containerRef}
         style={{
           position: "relative",
+          display: mapUnavailable ? "none" : undefined,
           height: 320,
           borderRadius: 6,
           overflow: "hidden",

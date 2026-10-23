@@ -21,9 +21,12 @@ export type GeoStatus =
 export function GeoStatusBanner({
   status,
   weakAccuracyM = null,
+  onRetry,
 }: {
   status: GeoStatus;
   lastError: string | null;
+  /** Asks for location again; offered when it was blocked or timed out. */
+  onRetry?: () => void;
   /** Accuracy in meters of recent fixes when all were too coarse to capture. */
   weakAccuracyM?: number | null;
 }) {
@@ -84,7 +87,18 @@ export function GeoStatusBanner({
       data-gps-banner={status}
       className={`absolute top-16 right-4 left-4 z-10 flex items-start gap-2 rounded-md shadow-md backdrop-blur ${tone}`}
     >
-      <span className="flex-1 text-center">{message}</span>
+      <div className="flex flex-1 flex-col items-center gap-2 text-center">
+        <span>{message}</span>
+        {onRetry && (status === "denied" || status === "timeout") && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="rounded-full bg-amber-900 px-4 py-1.5 text-xs font-semibold text-white"
+          >
+            {t("run.gps.retry")}
+          </button>
+        )}
+      </div>
       <CloseButton
         onClick={() => setClosedKind(kind)}
         className="h-6 w-6 shrink-0"

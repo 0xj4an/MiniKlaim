@@ -111,6 +111,11 @@ type EventMap = {
 
   // Friction / errors that gate the golden path.
   gps_denied: Record<string, never>;
+  /** First-run location explainer shown before the browser prompt. */
+  gps_prompt_shown: Record<string, never>;
+  gps_prompt_accepted: Record<string, never>;
+  /** "Try again" on the blocked-location banner. */
+  gps_retry: { from: string };
   // The device GPU cannot draw the map. Sentry drops these; this counts them.
   map_webgl_failed: { path: string };
   // MiniPay iOS rejects a postMessage in its own bridge (not app code).
