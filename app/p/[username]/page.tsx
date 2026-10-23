@@ -14,6 +14,7 @@ type PublicProfile = {
   bestRunHexes: number;
   bestRunDistanceMeters: number;
   streak: number;
+  bestStreak?: number;
   lifetimeDistanceMeters: number;
   cityCount: number;
   conquests: number;
