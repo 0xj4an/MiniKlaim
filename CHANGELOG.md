@@ -22,6 +22,9 @@ All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Ch
 
 - **The claim sheet shows the network fee before the wallet opens.** After a run, under "Claim your blocks", players now see "Network fee ≈ $0.02, paid from your wallet", or "MiniKlaim pays the network fee for this one" when they can't cover it and the sponsor will. The estimate comes from `GET /api/onchain/fee-estimate` (claim gas estimate × current gas price × the USDm/CELO rate from Celo's FeeCurrencyDirectory, cached a minute). If the read fails, the line is left out. Support kept hearing "the app said it was free" from players whose balance dropped after long runs.
 - **Fee copy is accurate.** The FAQ, wallet card, terms and NFT section no longer say runs are saved "for free" or just "MiniKlaim doesn't charge". They now say playing is free, saving a run uses a small network fee from the player's wallet (usually under $0.01, more for very long runs), and MiniKlaim pays it when the player can't. EN and ES.
+### Changed
+
+- **Unsettled blocks are settled automatically.** The 4-hourly `cron-retry-unminted` now also settles hexes of runs that ended more than a day ago and are still not on-chain (sponsor-capped or never claimed), up to 20,000 per pass, with the Celo attribution tag. On 23 Oct 9,724 blocks had piled up this way and were settled by hand. Declined runs are left alone. The logic moved to `lib/onchain/settleBacklog.ts`; `npm run runs:settle-backlog` uses it too.
 
 ## 2026-10-22
 
