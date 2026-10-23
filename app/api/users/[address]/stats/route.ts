@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
 import { addressesForPlayer } from "@/lib/players";
-import { computeStreak } from "@/lib/runs/streak";
+import { computeBestStreak, computeStreak, streakDays } from "@/lib/runs/streak";
 
 export const dynamic = "force-dynamic";
 
@@ -22,14 +22,6 @@ export async function GET(
   // to `[lower]` when the wallet has no player yet, so pre-link behavior is
   // unchanged.
   const linked = await addressesForPlayer(lower);
-
-  // `sql` interpolates a JS array as a record `($1, $2, $3)`, which
-  // Postgres cannot cast to `text[]`. Emit as an inline list via
-  // `sql.join` so raw-SQL clauses read `IN ($1, $2, $3)` instead.
-  const addressList = sql.join(
-    linked.map((a) => sql`${a}`),
-    sql`, `,
-  );
 
   const [
     hexResult,
@@ -109,14 +101,7 @@ export async function GET(
         WHERE hex_count > (SELECT hex_count FROM my_score)
       )::int + 1 AS rank
     `),
-    db.execute(sql`
-      SELECT DISTINCT DATE(ended_at AT TIME ZONE 'UTC') AS day
-      FROM runs
-      WHERE user_address IN (${addressList})
-        AND ended_at IS NOT NULL
-      ORDER BY day DESC
-      LIMIT 365
-    `),
+    streakDays(linked),
     db
       .select({ total: sql<number>`coalesce(sum(${runs.distanceMeters}), 0)` })
       .from(runs)
@@ -138,8 +123,8 @@ export async function GET(
   ]);
 
   const rank = (rankResult as unknown as Array<{ rank: number }>)[0]?.rank ?? 1;
-  const days = (runDays as unknown as Array<{ day: string }>).map((r) => r.day);
-  const streak = computeStreak(days);
+  const streak = computeStreak(runDays);
+  const bestStreak = computeBestStreak(runDays);
   const cityCount = new Set(
     ownedHexes.map((h) => cellToParent(h.h3Id, CITY_RESOLUTION)),
   ).size;
@@ -153,6 +138,7 @@ export async function GET(
     bestRunDistanceMeters: bestRunDist[0]?.distanceMeters ?? 0,
     rank,
     streak,
+    bestStreak,
     lifetimeDistanceMeters: Number(lifetimeRow[0]?.total ?? 0),
     cityCount,
     conquests,

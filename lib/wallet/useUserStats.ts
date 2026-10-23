@@ -13,6 +13,8 @@ export type UserStats = {
   bestRunDistanceMeters: number;
   rank: number;
   streak: number;
+  /** Longest streak ever (days with at least one block). */
+  bestStreak: number;
   lifetimeDistanceMeters: number;
   cityCount: number;
   conquests: number;

@@ -3,7 +3,7 @@ import { and, count, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
-import { getPlayerStreak } from "@/lib/runs/streak";
+import { getPlayerStreaks } from "@/lib/runs/streak";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +36,7 @@ export async function GET(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  const [runResult, bestRun, bestRunDist, lifetimeRow, ownedHexes, countryRows, streak] =
+  const [runResult, bestRun, bestRunDist, lifetimeRow, ownedHexes, countryRows, streaks] =
     await Promise.all([
       db
         .select({ count: count() })
@@ -66,7 +66,7 @@ export async function GET(
         .selectDistinct({ country: hexes.country })
         .from(hexes)
         .where(and(eq(hexes.ownerAddress, user.address), isNotNull(hexes.country))),
-      getPlayerStreak(user.address),
+      getPlayerStreaks(user.address),
     ]);
 
   const cityCount = new Set(
@@ -80,7 +80,8 @@ export async function GET(
     totalRuns: runResult[0]?.count ?? 0,
     bestRunHexes: bestRun[0]?.hexesClaimed ?? 0,
     bestRunDistanceMeters: bestRunDist[0]?.distanceMeters ?? 0,
-    streak,
+    streak: streaks.current,
+    bestStreak: streaks.best,
     lifetimeDistanceMeters: Number(lifetimeRow[0]?.total ?? 0),
     cityCount,
     conquests: user.conquests ?? 0,

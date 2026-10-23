@@ -25,6 +25,12 @@ All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Ch
 
 - **Unsettled blocks are settled automatically.** The 4-hourly `cron-retry-unminted` now also settles hexes of runs that ended more than a day ago and are still not on-chain (sponsor-capped or never claimed), up to 20,000 per pass, with the Celo attribution tag. On 23 Oct 9,724 blocks had piled up this way and were settled by hand. Declined runs are left alone. The logic moved to `lib/onchain/settleBacklog.ts`; `npm run runs:settle-backlog` uses it too.
 - **World map download is 6x smaller.** `/api/hexes` without `near` returned every claimed hex as a flat row (about 24 MB of JSON at 230k hexes, repeating the owner on each row). The app now asks for `?fmt=owners`, grouped by owner (about 4 MB, 0.8 MB gzipped). Parsing the flat list was the likely cause of out-of-memory crashes on low-end phones and slow world loads on /run and /community. Old clients still get the flat shape.
+- **Streaks count only days with a captured block.** A run closed without capturing anything used to keep a streak alive, so streak badges could be farmed by opening and closing a run each day: 20 of the 80 wallets holding the 3-day badge got it with empty days, and 5 never captured a block. Badges already minted stay.
+- **Streak badges no longer get lost.** They were granted only from the *current* streak at claim time, so a player who reached 3 or 7 days but did not claim while the streak was alive never got the badge (19 wallets). Eligibility now uses the best streak ever; they get it on their next claim.
+
+### Added
+
+- **Streak on the run summary.** After a run: "🔥 3-day streak · Capture a block tomorrow to reach 4 days", naming the badge when tomorrow unlocks one. Event `streak_shown`.
 
 ## 2026-10-22
 

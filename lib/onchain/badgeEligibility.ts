@@ -4,7 +4,7 @@ import type { Address } from "viem";
 import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
 import { BADGE_IDS } from "@/lib/onchain/badges";
-import { getPlayerStreak } from "@/lib/runs/streak";
+import { getPlayerStreaks } from "@/lib/runs/streak";
 
 // A "city" is an H3 resolution-5 cluster (~city scale), the same grouping the
 // territory map uses. Distinct res-5 parents of a player's owned hexes.
@@ -29,7 +29,7 @@ export async function computeEligibleBadgeIds(
     lifetimeRow,
     userRow,
     countryRows,
-    streak,
+    streaks,
   ] = await Promise.all([
       db.select({ h3Id: hexes.h3Id }).from(hexes).where(eq(hexes.ownerAddress, lower)),
       db.select({ c: count() }).from(runs).where(eq(runs.userAddress, lower)),
@@ -54,7 +54,7 @@ export async function computeEligibleBadgeIds(
         .selectDistinct({ country: hexes.country })
         .from(hexes)
         .where(and(eq(hexes.ownerAddress, lower), isNotNull(hexes.country))),
-      getPlayerStreak(lower),
+      getPlayerStreaks(lower),
     ]);
 
   const hexesOwned = ownedHexes.length;
@@ -124,7 +124,10 @@ export async function computeEligibleBadgeIds(
   if (cityCount >= 1000) candidates.push(BADGE_IDS.worldwalker);
   if (conquests >= 500) candidates.push(BADGE_IDS.conqueror);
   if (conquests >= 1000) candidates.push(BADGE_IDS.overlord);
-  // Streaks (consecutive days with a finished run).
+  // Streaks: consecutive days with at least one captured block. The best
+  // streak ever counts, so a player who reached it but did not claim while it
+  // was alive still gets the badge on their next claim.
+  const streak = streaks.best;
   if (streak >= 3) candidates.push(BADGE_IDS.threeDays);
   if (streak >= 7) candidates.push(BADGE_IDS.oneWeek);
   if (streak >= 14) candidates.push(BADGE_IDS.twoWeeks);

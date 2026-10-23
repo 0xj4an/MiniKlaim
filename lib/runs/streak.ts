@@ -1,39 +1,45 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { computeBestStreak, computeStreak } from "@/lib/runs/streakMath";
+
+export {
+  STREAK_BADGE_DAYS,
+  computeBestStreak,
+  computeStreak,
+  nextStreakBadge,
+} from "@/lib/runs/streakMath";
 
 /**
- * Walk a list of run days (UTC, ISO yyyy-mm-dd, newest first) and count
- * consecutive days ending today or yesterday. A streak only "counts" if the
- * most recent run day is today or yesterday; otherwise the streak is over.
+ * Distinct UTC days on which these wallets finished a run that captured at
+ * least one block. Empty runs do not count: opening a run and closing it
+ * without moving used to keep a streak (and earn streak badges) alive.
  */
-export function computeStreak(days: string[]): number {
-  if (days.length === 0) return 0;
-  const todayUtc = new Date().toISOString().slice(0, 10);
-  const yesterdayUtc = new Date(Date.now() - 86_400_000)
-    .toISOString()
-    .slice(0, 10);
-  const set = new Set(days.map((d) => d.slice(0, 10)));
-  if (!set.has(todayUtc) && !set.has(yesterdayUtc)) return 0;
-  let streak = 0;
-  let cursor = new Date(set.has(todayUtc) ? todayUtc : yesterdayUtc);
-  while (set.has(cursor.toISOString().slice(0, 10))) {
-    streak += 1;
-    cursor = new Date(cursor.getTime() - 86_400_000);
-  }
-  return streak;
+export async function streakDays(addressesLower: string[]): Promise<string[]> {
+  if (addressesLower.length === 0) return [];
+  const list = sql.join(
+    addressesLower.map((a) => sql`${a}`),
+    sql`, `,
+  );
+  const rows = await db.execute(sql`
+    SELECT DISTINCT DATE(ended_at AT TIME ZONE 'UTC')::text AS day
+    FROM runs
+    WHERE user_address IN (${list})
+      AND ended_at IS NOT NULL
+      AND hexes_claimed > 0
+    ORDER BY day DESC
+  `);
+  return (rows as unknown as Array<{ day: string }>).map((r) => String(r.day));
+}
+
+/** Current and best day-streak for a player (lowercased address). */
+export async function getPlayerStreaks(
+  addressLower: string,
+): Promise<{ current: number; best: number }> {
+  const days = await streakDays([addressLower]);
+  return { current: computeStreak(days), best: computeBestStreak(days) };
 }
 
 /** Current day-streak for a player (lowercased address). */
 export async function getPlayerStreak(addressLower: string): Promise<number> {
-  const rows = await db.execute(sql`
-    SELECT DISTINCT DATE(ended_at AT TIME ZONE 'UTC') AS day
-    FROM runs
-    WHERE user_address = ${addressLower} AND ended_at IS NOT NULL
-    ORDER BY day DESC
-    LIMIT 365
-  `);
-  const days = (rows as unknown as Array<{ day: string }>).map((r) =>
-    String(r.day),
-  );
-  return computeStreak(days);
+  return (await getPlayerStreaks(addressLower)).current;
 }

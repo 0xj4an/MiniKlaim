@@ -8,6 +8,8 @@ export type BadgeStats = {
   bestRunHexes: number;
   bestRunDistanceMeters: number;
   streak: number;
+  /** Longest streak ever; streak badges use it when present. */
+  bestStreak?: number;
   lifetimeDistanceMeters: number;
   cityCount: number;
   conquests: number;
@@ -70,14 +72,14 @@ export function evaluateBadges(
     [24, s.lifetimeDistanceMeters >= 5000000],
     [25, s.lifetimeDistanceMeters >= 40000000],
     // Streaks.
-    [26, s.streak >= 3],
-    [27, s.streak >= 7],
-    [28, s.streak >= 14],
-    [29, s.streak >= 30],
-    [30, s.streak >= 60],
-    [31, s.streak >= 90],
-    [32, s.streak >= 180],
-    [33, s.streak >= 365],
+    [26, (s.bestStreak ?? s.streak) >= 3],
+    [27, (s.bestStreak ?? s.streak) >= 7],
+    [28, (s.bestStreak ?? s.streak) >= 14],
+    [29, (s.bestStreak ?? s.streak) >= 30],
+    [30, (s.bestStreak ?? s.streak) >= 60],
+    [31, (s.bestStreak ?? s.streak) >= 90],
+    [32, (s.bestStreak ?? s.streak) >= 180],
+    [33, (s.bestStreak ?? s.streak) >= 365],
     // Cities.
     [34, s.cityCount >= 1],
     [35, s.cityCount >= 3],
