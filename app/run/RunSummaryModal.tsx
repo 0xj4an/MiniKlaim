@@ -10,7 +10,6 @@ import { type MoveMode, moveMode } from "@/lib/runs/moveMode";
 import { MoveModeIcon } from "@/app/MoveModeIcon";
 import { shareTo } from "@/lib/client/share";
 import { badgeCopy } from "@/lib/onchain/badgeArt";
-import { type FeeEstimate, formatFeeUsd } from "@/lib/onchain/feeEstimate";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { isBadgeClaimPending } from "@/lib/wallet/claimInFlight";
 
@@ -102,36 +101,6 @@ export function RunSummaryModal({
     };
   }, [address, chainKey]);
 
-  // One fee quote per sheet, once the badge preview says what the claim holds.
-  // A failed read just leaves the line out.
-  const [fee, setFee] = useState<FeeEstimate | null>(null);
-  useEffect(() => {
-    if (badgeIds === null || !address) return;
-    if (summary.hexesClaimed <= 0 && badgeIds.length === 0) return;
-    let cancelled = false;
-    const qs = new URLSearchParams({
-      chain: chainKey,
-      hexes: String(summary.hexesClaimed),
-      badges: String(badgeIds.length),
-      address: address.toLowerCase(),
-    });
-    fetch(`/api/onchain/fee-estimate?${qs}`)
-      .then((res) => (res.ok ? (res.json() as Promise<FeeEstimate>) : null))
-      .then((data) => {
-        if (!cancelled && data) setFee(data);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [badgeIds, address, chainKey, summary.hexesClaimed]);
-  const feeLine = !fee
-    ? null
-    : fee.sponsored
-      ? t("run.summary.feeSponsored")
-      : fee.usd !== null
-        ? t("run.summary.fee").replace("{fee}", formatFeeUsd(fee.usd))
-        : null;
 
   const trackedBadges = useRef(false);
   useEffect(() => {
@@ -276,9 +245,6 @@ export function RunSummaryModal({
           >
             {claimLine}
           </p>
-        )}
-        {feeLine && phase !== "done" && (
-          <p className="mt-1 text-center text-xs text-zinc-500">{feeLine}</p>
         )}
         <p className="mt-2 text-center text-xs text-zinc-500">
           {timeLabel} - {distLabel} - {speedLabel}

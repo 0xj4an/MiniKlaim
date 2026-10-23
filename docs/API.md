@@ -69,7 +69,6 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 |---|---|
 | `GET /api/onchain/badges/[id]` | ERC-1155 metadata JSON for badge `id`. |
 | `GET /api/onchain/badges/[id]/image` | SVG art for badge `id` (hexagon medallion). |
-| `GET /api/onchain/fee-estimate?chain=&hexes=&badges=&address=` | Estimated USD network fee for a claim of `hexes` hexes and `badges` badges, and `sponsored: true` when the relayer will pay it for `address`. Shown on the claim sheet. |
 
 ### Miscellaneous
 
