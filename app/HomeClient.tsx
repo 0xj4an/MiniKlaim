@@ -291,7 +291,6 @@ function PrimaryCTA({
 
   return (
     <div className="flex w-full max-w-xs flex-col items-center gap-3">
-      <ReturnNote lastRunAt={lastRunAt} hasActiveRun={hasActiveRun} />
       <p className="text-sm text-zinc-600">
         {t("home.hey")}{" "}
         <span className="font-semibold text-zinc-900">@{username}</span>
@@ -307,6 +306,7 @@ function PrimaryCTA({
         {hasActiveRun ? t("home.cta.continue") : t("home.cta.start")}
       </Link>
       <MovementModes />
+      <ReturnNote lastRunAt={lastRunAt} hasActiveRun={hasActiveRun} />
     </div>
   );
 }

@@ -32,11 +32,12 @@ export function ReturnNote({
   if (dismissed) return null;
 
   return (
-    <div className="w-full max-w-xs rounded-2xl bg-zinc-900 px-4 py-3 text-center text-sm leading-snug text-white">
-      <p>{t("home.return.body")}</p>
+    <p className="flex max-w-xs items-start justify-center gap-2 text-center text-xs leading-snug text-zinc-500">
+      <span>{t("home.return.body")}</span>
       <button
         type="button"
-        className="mt-2 text-xs font-medium text-zinc-300"
+        aria-label={t("home.return.dismiss")}
+        className="shrink-0 leading-none text-zinc-400"
         onClick={() => {
           try {
             localStorage.setItem(KEY, lastRunAt);
@@ -46,8 +47,8 @@ export function ReturnNote({
           setClosed(true);
         }}
       >
-        {t("home.return.dismiss")}
+        ×
       </button>
-    </div>
+    </p>
   );
 }
