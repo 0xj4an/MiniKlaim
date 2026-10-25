@@ -41,6 +41,8 @@ export async function PATCH(
       startedAt: runs.startedAt,
       endedAt: runs.endedAt,
       hexesClaimed: runs.hexesClaimed,
+      hexesReinforced: runs.hexesReinforced,
+      hexesDamaged: runs.hexesDamaged,
       distanceMeters: runs.distanceMeters,
       serverDistanceMeters: runs.serverDistanceMeters,
       declaredMode: runs.declaredMode,

@@ -6,6 +6,8 @@ import { cityForHex } from "@/lib/geo/city";
 import { countryForHex } from "@/lib/geo/country";
 import { createLogger } from "@/lib/logger";
 import { hexClaimAction } from "@/lib/runs/claimDecision";
+import { isHexStrengthEnabled } from "@/lib/runs/hexStrength";
+import { applyStrengthBatch } from "@/lib/runs/strengthClaim";
 import { addressesForPlayer } from "@/lib/players";
 import { validateClaim } from "@/lib/runs/validation";
 import {
@@ -28,7 +30,10 @@ export const dynamic = "force-dynamic";
  *     span 5-40 hexes).
  *
  * Response for batch:
- *   { ok: true, results: [{ h3, alreadyOwned?, rejected?: { reason, detail } }, ...] }
+ *   { ok: true, results: [{ h3, alreadyOwned?, rejected?: { reason, detail },
+ *     action?, strength? }, ...] }
+ * `action` and `strength` come with hex strength on (NEXT_PUBLIC_HEX_STRENGTH):
+ * new | capture | reinforce | attack | repeat, and the level after the pass.
  * Response for legacy: preserved as { ok: true, alreadyOwned }.
  */
 export async function POST(
@@ -205,7 +210,15 @@ export async function POST(
     h3: string;
     alreadyOwned?: boolean;
     rejected?: { reason: string; detail?: string };
+    action?: string;
+    strength?: number;
   }> = [];
+  // Hex strength: every accepted block goes to applyStrengthBatch after the
+  // loop, and its result row is filled in there.
+  const strengthOn = isHexStrengthEnabled();
+  const strengthRows: Array<{ h3: string; row: (typeof results)[number] }> = [];
+  let reinforcedDelta = 0;
+  let damagedDelta = 0;
   let newlyCaptured = 0;
   let distanceDelta = 0;
   let conquestDelta = 0;
@@ -252,6 +265,14 @@ export async function POST(
       continue;
     }
 
+    if (strengthOn) {
+      distanceDelta += distanceMeters;
+      const row = { h3 } as (typeof results)[number];
+      results.push(row);
+      strengthRows.push({ h3, row });
+      continue;
+    }
+
     const existing = existingByH3.get(h3);
     const action = hexClaimAction(existing, playerAddresses);
 
@@ -286,6 +307,44 @@ export async function POST(
     distanceDelta += distanceMeters;
     if (action === "take") conquestDelta += 1;
     results.push({ h3, alreadyOwned: false });
+  }
+
+  if (strengthRows.length > 0) {
+    const [actor] = await db
+      .select({ timeZone: users.timeZone })
+      .from(users)
+      .where(eq(users.address, run.userAddress))
+      .limit(1);
+    const applied = await applyStrengthBatch(db, {
+      runId: id,
+      actor: run.userAddress,
+      playerAddresses,
+      timeZone: actor?.timeZone ?? null,
+      h3Ids: strengthRows.map((r) => r.h3),
+      geo: (h3) => {
+        const country = countryForHex(h3);
+        return { country, city: country ? cityForHex(h3, country) : null };
+      },
+      now,
+    });
+    const answered = new Set<string>();
+    for (const { h3, row } of strengthRows) {
+      const first = applied.byH3.get(h3);
+      if (!first) continue;
+      // The same h3 twice in one batch acts once.
+      const outcome = answered.has(h3) ? { ...first, action: "repeat" as const } : first;
+      answered.add(h3);
+      row.action = outcome.action;
+      row.strength = outcome.strength;
+      // Old clients read only this flag: true keeps a pass over their own
+      // block out of their "new blocks" count.
+      row.alreadyOwned =
+        outcome.ownedByActor && (outcome.action === "reinforce" || outcome.action === "repeat");
+    }
+    newlyCaptured += applied.captured;
+    conquestDelta += applied.conquests;
+    reinforcedDelta = applied.reinforced;
+    damagedDelta = applied.damaged;
   }
 
   if (toWrite.length > 0) {
@@ -354,12 +413,18 @@ export async function POST(
     })
     .where(eq(runs.id, id));
 
-  if (newlyCaptured > 0 || distanceDelta > 0) {
+  if (newlyCaptured > 0 || distanceDelta > 0 || reinforcedDelta > 0 || damagedDelta > 0) {
     await db
       .update(runs)
       .set({
         ...(newlyCaptured > 0
           ? { hexesClaimed: sql`${runs.hexesClaimed} + ${newlyCaptured}` }
+          : {}),
+        ...(reinforcedDelta > 0
+          ? { hexesReinforced: sql`${runs.hexesReinforced} + ${reinforcedDelta}` }
+          : {}),
+        ...(damagedDelta > 0
+          ? { hexesDamaged: sql`${runs.hexesDamaged} + ${damagedDelta}` }
           : {}),
         ...(distanceDelta > 0
           ? { distanceMeters: sql`${runs.distanceMeters} + ${distanceDelta}` }
@@ -374,6 +439,7 @@ export async function POST(
     newlyCaptured,
     distanceDelta,
     conquestDelta,
+    ...(strengthOn ? { reinforced: reinforcedDelta, damaged: damagedDelta } : {}),
   });
 
   // Legacy single-hex response shape preserved so old clients don't break
