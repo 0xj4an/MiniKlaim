@@ -17,6 +17,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { hexes } from "../lib/db/schema";
 import { createLogger } from "../lib/logger";
+import { ATTRIBUTION_SUFFIX } from "../lib/onchain/attribution";
 
 const log = createLogger("script:migrate-hexes");
 
@@ -88,6 +89,8 @@ async function main() {
       args: [players, tokenIds],
       chain: celo,
       account,
+      // ERC-8021 attribution, same as every other MiniKlaim write.
+      ...(ATTRIBUTION_SUFFIX ? { dataSuffix: ATTRIBUTION_SUFFIX } : {}),
     });
     await publicClient.waitForTransactionReceipt({ hash: txHash });
 
