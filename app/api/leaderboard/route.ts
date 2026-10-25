@@ -120,8 +120,9 @@ export async function GET(request: Request) {
   const addresses = (rows as unknown as Array<{ address: string }>).map(r => r.address);
   const addressesLower = addresses.map(a => a.toLowerCase());
   
-  // Get run counts - one query for all players
-  const runCountsRaw = await db.execute(sql`
+  // The three per-page lookups do not depend on each other: run them together
+  // so the request costs the slowest one, not the sum (~1.0 s to ~0.5 s).
+  const runCountsQ = db.execute(sql`
     SELECT 
       user_address AS address, 
       COUNT(*)::int AS count
@@ -130,10 +131,6 @@ export async function GET(request: Request) {
     GROUP BY user_address
   `);
   
-  const runCounts = new Map<string, number>();
-  for (const row of runCountsRaw as unknown as Array<{ address: string; count: number }>) {
-    runCounts.set(row.address.toLowerCase(), row.count);
-  }
 
   // Every country the player holds, fullest first. Linked wallets count
   // toward the same player. The list shows three flags; the open row uses the rest.
@@ -144,7 +141,7 @@ export async function GET(request: Request) {
   // 224M-row join and sort the whole hexes table (~600 ms, ~1.5 s per request
   // end to end). Addresses are stored lowercase, so the hexes owner index
   // applies without LOWER().
-  const countriesRaw = await db.execute(sql`
+  const countriesQ = db.execute(sql`
     WITH page AS (
       SELECT u.address AS display_address
       FROM users u
@@ -178,16 +175,9 @@ export async function GET(request: Request) {
     ORDER BY display_address, n DESC, country ASC
   `);
   
-  const countriesMap = new Map<string, string[]>();
-  for (const row of countriesRaw as unknown as Array<{ address: string; country: string }>) {
-    const addr = row.address.toLowerCase();
-    const list = countriesMap.get(addr) ?? [];
-    list.push(row.country);
-    countriesMap.set(addr, list);
-  }
 
   // Get badge stats for all players - simplified without heavy city calculation
-  const badgeStatsRaw = await db.execute(sql`
+  const badgeStatsQ = db.execute(sql`
     WITH player_stats AS (
       SELECT 
         h.owner_address,
@@ -228,6 +218,24 @@ export async function GET(request: Request) {
     LEFT JOIN run_stats rs ON LOWER(rs.user_address) = LOWER(ps.owner_address)
     LEFT JOIN user_stats us ON LOWER(us.address) = LOWER(ps.owner_address)
   `);
+
+  const [runCountsRaw, countriesRaw, badgeStatsRaw] = await Promise.all([
+    runCountsQ,
+    countriesQ,
+    badgeStatsQ,
+  ]);
+  const runCounts = new Map<string, number>();
+  for (const row of runCountsRaw as unknown as Array<{ address: string; count: number }>) {
+    runCounts.set(row.address.toLowerCase(), row.count);
+  }
+
+  const countriesMap = new Map<string, string[]>();
+  for (const row of countriesRaw as unknown as Array<{ address: string; country: string }>) {
+    const addr = row.address.toLowerCase();
+    const list = countriesMap.get(addr) ?? [];
+    list.push(row.country);
+    countriesMap.set(addr, list);
+  }
 
   type StatsRow = {
     address: string;
