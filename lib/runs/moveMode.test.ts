@@ -6,6 +6,8 @@ import {
   moveModeIcon,
   runMoveMode,
   tooFastOnFoot,
+  tooFastForMode,
+  DECLARED_MAX_KMH,
 } from "./moveMode";
 
 describe("move mode", () => {
@@ -113,5 +115,38 @@ describe("finalMoveMode", () => {
   });
   it("ignores an unknown pick", () => {
     expect(finalMoveMode({ declared: "rocket", distanceMeters: 1000, durationSec: 600, maxSustainedKmh: null }).mode).toBe("foot");
+  });
+});
+
+describe("tooFastForMode", () => {
+  it("lets realistic vehicle speeds through", () => {
+    expect(tooFastForMode("car", 120)).toBe(false);
+    expect(tooFastForMode("car", DECLARED_MAX_KMH.car)).toBe(false);
+    expect(tooFastForMode("bus", 101)).toBe(false);
+    expect(tooFastForMode("moto", 75)).toBe(false);
+    expect(tooFastForMode("bike", 39)).toBe(false);
+    expect(tooFastForMode(null, 107)).toBe(false);
+  });
+  it("stops the GPS jumps seen in motor runs to 25 Oct", () => {
+    // famoh, car, 299 km/h window inside a 96.8 km drive at 40 km/h.
+    expect(tooFastForMode("car", 299)).toBe(true);
+    // dilly, car, 269; duinsxl, bus, 324; dynamic and chief, moto, 266 and 259.
+    expect(tooFastForMode("car", 269)).toBe(true);
+    expect(tooFastForMode("bus", 324)).toBe(true);
+    expect(tooFastForMode("moto", 266)).toBe(true);
+    expect(tooFastForMode("moto", 259)).toBe(true);
+    // No pick: the car ceiling applies.
+    expect(tooFastForMode(null, 161)).toBe(true);
+    expect(tooFastForMode(undefined, 150)).toBe(false);
+  });
+  it("leaves trains and planes to the airborne check", () => {
+    expect(tooFastForMode("train", 240)).toBe(false);
+    expect(tooFastForMode("train", 400)).toBe(false);
+    expect(tooFastForMode("plane", 900)).toBe(false);
+  });
+  it("keeps the on-foot rule", () => {
+    expect(tooFastForMode("foot", 25)).toBe(false);
+    expect(tooFastForMode("foot", 26)).toBe(true);
+    expect(tooFastOnFoot("car", 300)).toBe(false);
   });
 });
