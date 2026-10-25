@@ -66,6 +66,43 @@ export function modeForKmh(kmh: number): MoveMode {
 export const MOTOR_SUSTAINED_KMH = 45;
 
 /**
+ * Fastest believable sustained speed (30 s or longer window) for each
+ * declared mode, km/h. Realistic, not legal: what the vehicle does on a good
+ * day on the roads where MiniKlaim is played, with room on top.
+ *
+ * - foot 25: elite marathon pace is ~21; see FOOT_MAX_SUSTAINED_KMH.
+ * - bike 60: a long descent; nobody pedals 60 on the flat for 30 s.
+ * - horse 70: a racehorse gallop.
+ * - bus 150: an intercity coach flat out on a toll road.
+ * - car 220: a fast car on an empty expressway, well past any legal limit
+ *   (80-120 where MiniKlaim is played). Of 265 motor runs to 25 Oct the
+ *   fastest real 30 s window was 156 km/h; the 5 above 220 (259-324) were GPS
+ *   jumps.
+ * - moto 250: a sport bike; the same as a fast train, so the airborne check
+ *   (CAPTURE_MAX_KMH) is what stops it in practice.
+ * - boat 120: a speedboat.
+ * - train 250: a fast train; above that is a plane (CAPTURE_MAX_KMH).
+ *
+ * Above its ceiling a run keeps moving but its blocks are not captured
+ * (claim route, tooFastForMode), and at finish it is relabelled by speed
+ * (finalMoveMode). A run with no pick gets the car ceiling.
+ */
+export const DECLARED_MAX_KMH: Record<MoveMode, number> = {
+  foot: 25,
+  horse: 70,
+  bike: 60,
+  moto: 250,
+  car: 220,
+  bus: 150,
+  boat: 120,
+  train: 250,
+  plane: Number.POSITIVE_INFINITY,
+};
+
+/** Ceiling applied while capturing when the player picked nothing. */
+export const UNDECLARED_MAX_KMH = DECLARED_MAX_KMH.car;
+
+/**
  * Sustained speed (a 30 s or longer window, along the server hex path) no
  * walker or runner holds. An elite marathon pace is about 21 km/h, and the
  * hex path reads a little longer than the real walk. Over 14 days of runs
@@ -74,36 +111,30 @@ export const MOTOR_SUSTAINED_KMH = 45;
  * Above this a run declared on foot keeps moving, but its blocks are not
  * captured (claim route).
  */
-export const FOOT_MAX_SUSTAINED_KMH = 25;
+export const FOOT_MAX_SUSTAINED_KMH = DECLARED_MAX_KMH.foot;
 
 /**
- * True when a run declared on foot moves faster than anyone on foot can over
- * the measured window. Null means no measurement yet.
+ * True when a run moves faster over the measured window than its declared
+ * mode can (DECLARED_MAX_KMH; UNDECLARED_MAX_KMH with no pick). Trains and
+ * planes are left to the airborne check. Null speed means no measurement yet.
  */
+export function tooFastForMode(
+  declared: string | null | undefined,
+  sustainedKmh: number | null | undefined,
+): boolean {
+  if (typeof sustainedKmh !== "number" || !Number.isFinite(sustainedKmh)) return false;
+  if (declared === "train" || declared === "plane") return false;
+  const ceiling = isMoveMode(declared) ? DECLARED_MAX_KMH[declared] : UNDECLARED_MAX_KMH;
+  return sustainedKmh > ceiling;
+}
+
+/** Kept for callers that only ask about runs declared on foot. */
 export function tooFastOnFoot(
   declared: string | null | undefined,
   sustainedKmh: number | null | undefined,
 ): boolean {
-  return (
-    declared === "foot" &&
-    typeof sustainedKmh === "number" &&
-    Number.isFinite(sustainedKmh) &&
-    sustainedKmh > FOOT_MAX_SUSTAINED_KMH
-  );
+  return declared === "foot" && tooFastForMode(declared, sustainedKmh);
 }
-
-/** Fastest believable sustained speed for each declared mode, km/h. */
-const DECLARED_MAX_KMH: Record<MoveMode, number> = {
-  foot: FOOT_MAX_SUSTAINED_KMH,
-  horse: 70,
-  bike: 60,
-  moto: 180,
-  car: 180,
-  bus: 140,
-  boat: 120,
-  train: 350,
-  plane: Number.POSITIVE_INFINITY,
-};
 
 /**
  * The run's label. The player's own pick wins when speed can believe it.

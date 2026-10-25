@@ -7,7 +7,7 @@ import { countryForHex } from "@/lib/geo/country";
 import { createLogger } from "@/lib/logger";
 import { hexClaimAction } from "@/lib/runs/claimDecision";
 import { isHexStrengthEnabled } from "@/lib/runs/hexStrength";
-import { tooFastOnFoot } from "@/lib/runs/moveMode";
+import { tooFastForMode } from "@/lib/runs/moveMode";
 import { applyStrengthBatch } from "@/lib/runs/strengthClaim";
 import { addressesForPlayer } from "@/lib/players";
 import { validateClaim } from "@/lib/runs/validation";
@@ -209,16 +209,19 @@ export async function POST(
     });
   }
 
-  // Declared on foot, moving at vehicle speed over the same 30 s+ window
-  // the air check uses: the position moves on, the blocks are not captured.
-  // Between measurements the last decision holds (the window restarts every
-  // 90 s, and a bus must not keep a third of its blocks). The run is
-  // relabelled by its speed at finish (finalMoveMode).
+  // Faster than the declared mode can go (a car at 200, a walk at 60) over
+  // the same 30 s+ window the air check uses: the position moves on, the
+  // blocks are not captured. Between measurements the last decision holds
+  // (the window restarts every 90 s, and a bus must not keep a third of its
+  // blocks). Trains and planes are the air check's business. The run is
+  // relabelled by its speed at finish (finalMoveMode). The flag keeps its
+  // historical column name, foot_too_fast.
   const footMeasured = !airborne && air !== null && air.pathKmh !== null;
   const footTooFast =
-    run.declaredMode === "foot" &&
     !airborne &&
-    (footMeasured ? tooFastOnFoot(run.declaredMode, air?.pathKmh) : run.footTooFast);
+    run.declaredMode !== "train" &&
+    run.declaredMode !== "plane" &&
+    (footMeasured ? tooFastForMode(run.declaredMode, air?.pathKmh) : run.footTooFast);
   const overFoot = new Set(footTooFast ? chain.accepted : []);
   let rejectedOnFoot = 0;
 
@@ -263,7 +266,13 @@ export async function POST(
 
     if (overFoot.has(h3)) {
       rejectedOnFoot += 1;
-      results.push({ h3, rejected: { reason: "too-fast-on-foot" } });
+      results.push({
+        h3,
+        rejected: {
+          reason: run.declaredMode === "foot" ? "too-fast-on-foot" : "too-fast-for-mode",
+          detail: run.declaredMode ?? undefined,
+        },
+      });
       continue;
     }
 
@@ -408,7 +417,8 @@ export async function POST(
     });
   }
   if (rejectedOnFoot > 0) {
-    log.warn("movement guard: too fast for a run on foot", {
+    log.warn("movement guard: too fast for the declared mode", {
+      declared: run.declaredMode ?? "none",
       runId: id,
       player: run.userAddress,
       rejected: rejectedOnFoot,
@@ -442,7 +452,9 @@ export async function POST(
           }
         : {}),
       rejectedHexes: sql`${runs.rejectedHexes} + ${rejectedByGuard + rejectedOnFoot}`,
-      ...(footMeasured && run.declaredMode === "foot" ? { footTooFast } : {}),
+      ...(footMeasured && run.declaredMode !== "train" && run.declaredMode !== "plane"
+        ? { footTooFast }
+        : {}),
     })
     .where(eq(runs.id, id));
 
