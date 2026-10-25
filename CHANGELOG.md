@@ -4,6 +4,10 @@ All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Ch
 
 ## 2026-10-25
 
+### Added
+
+- **Home shows the badges a player still has to mint.** Badges are earned off-chain and only minted on the next claim, and the claim pop-up only appeared on /me and right after a run. In the last 7 days 509 players had earned badges waiting, and 49 started a claim. Opening the app now shows a card under the Start button with the pending badges, a "Mint badges" button (one signature; MiniKlaim pays the fee when the player cannot), a link to /me, and "Later", which hides it for the session until a new badge is earned. Events `badge_claim_offered` and `badge_claim_later`, and every claim event now carries `surface` (home, me, run).
+
 ### Fixed
 
 - **Streak days end at the player's local midnight, not UTC.** A run at 8 pm in Mexico was dated the next day in UTC, which left a hole and reset real streaks (erikvalle played 19–24 Oct every day and was shown a 1-day streak). The run start now sends the phone's time zone, saved on the player as `users.time_zone`; streak days and "today" are taken in that zone. Players who have not started a run since are given the main zone of the country where they hold most blocks (countries with several zones, like the USA, stay on UTC until their next run). In the top 100 this restores erikvalle's 6-day streak and the best streak, and so the streak badges, of rushdee, pae, noelgray and korex.

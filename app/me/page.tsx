@@ -142,6 +142,7 @@ export default function MePage() {
               <Achievements stats={stats} />
               <BadgeClaimPrompt
                 address={address ?? null}
+                surface="me"
                 enabled={isConnected && !isWrongChain}
               />
               <RewardsSection address={address ?? null} />

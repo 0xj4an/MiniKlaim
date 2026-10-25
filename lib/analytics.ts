@@ -75,10 +75,13 @@ type EventMap = {
 
   // Badges.
   badge_unlocked: { badge_id: number; badge_name: string };
-  badge_claim_started: { count: number };
-  badge_claim_confirmed: { count: number; tx_hash: string };
-  badge_claim_rejected: { count: number; reason: string };
-  badge_claim_failed: { count: number; reason: string };
+  // Pending badges shown to the player; `surface` is home | me | run.
+  badge_claim_offered: { count: number; surface: string };
+  badge_claim_later: { count: number; surface: string };
+  badge_claim_started: { count: number; surface?: string };
+  badge_claim_confirmed: { count: number; tx_hash: string; surface?: string };
+  badge_claim_rejected: { count: number; reason: string; surface?: string };
+  badge_claim_failed: { count: number; reason: string; surface?: string };
 
   // Network & error tracking.
   app_crash: { error: string; digest: string; stack: string };

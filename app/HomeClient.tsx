@@ -13,6 +13,7 @@ import {
   useWalletEnvironment,
 } from "@/lib/wallet/environment";
 import { LinkExisting } from "@/app/LinkExisting";
+import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
 import { ReturnNote } from "@/app/ReturnNote";
 import { useUser } from "@/lib/wallet/useUser";
@@ -100,6 +101,15 @@ export function HomeClient() {
         />
       ) : (
         <WelcomePlaceholder />
+      )}
+
+      {mounted && (
+        <BadgeClaimPrompt
+          address={address ?? null}
+          enabled={isConnected && !isWrongChain && !!user?.username}
+          variant="card"
+          surface="home"
+        />
       )}
 
       {mounted && (
