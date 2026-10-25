@@ -5,7 +5,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { track } from "@/lib/analytics";
+import { track, trackLimited } from "@/lib/analytics";
 import { isMoveMode, type MoveMode, moveMode } from "@/lib/runs/moveMode";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
@@ -442,7 +442,7 @@ export default function RunPage() {
         log.error("failed to refresh claimed hexes", {
           message: e instanceof Error ? e.message : String(e),
         });
-        track("hexes_refresh_network_error", {
+        trackLimited("hexes_refresh_network_error", {
           error: e instanceof Error ? e.message : String(e),
         });
         return null;
@@ -581,7 +581,7 @@ export default function RunPage() {
         count: batch.length,
         message: e instanceof Error ? e.message : String(e),
       });
-      track("batch_claim_network_error", {
+      trackLimited("batch_claim_network_error", {
         count: batch.length,
         error: e instanceof Error ? e.message : String(e),
       });
@@ -784,7 +784,7 @@ export default function RunPage() {
       log.error("start run network error", {
         message: e instanceof Error ? e.message : String(e),
       });
-      track("run_start_network_error", {
+      trackLimited("run_start_network_error", {
         error: e instanceof Error ? e.message : String(e),
       });
     } finally {
@@ -879,7 +879,7 @@ export default function RunPage() {
       log.error("finish run network error", {
         message: e instanceof Error ? e.message : String(e),
       });
-      track("run_finish_network_error", {
+      trackLimited("run_finish_network_error", {
         error: e instanceof Error ? e.message : String(e),
       });
     } finally {

@@ -16,8 +16,16 @@ type Capture = (
   },
 ) => void;
 
+/**
+ * Sent as an Error named "ClientReport" rather than a message: with
+ * attachStacktrace on, captureMessage titled the issue after the minified
+ * caller ("e"), which hid what the report was about in the Sentry list.
+ * Grouping does not depend on the stack because every report sets a fingerprint.
+ */
 const sentryCapture: Capture = (message, context) => {
-  Sentry.captureMessage(message, context);
+  const err = new Error(message);
+  err.name = "ClientReport";
+  Sentry.captureException(err, context);
 };
 
 /** Reports per key and page session; the rest are dropped. */

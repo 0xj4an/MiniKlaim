@@ -27,12 +27,18 @@ npm run dev
 
 ## Pull-request flow
 
-1. Fork the repo and create a feature branch off `main`:
+1. Fork the repo and create a feature branch off `dev`:
 
    ```bash
-   git checkout main && git pull
+   git checkout dev && git pull
    git checkout -b feat/short-description
    ```
+
+   Branch flow: feature branches merge into `dev`; only `dev` merges into
+   `main`, and every push to `main` is a production deploy. A GitHub check
+   (`.github/workflows/branch-flow.yml`) fails any PR into `main` whose head
+   is not `dev`, and `main` itself only accepts pull requests. `dev` is the
+   default branch, so new PRs target it unless you change the base.
 
 2. Make your changes. Keep commits focused (one concern per commit) and use [Conventional Commits](https://www.conventionalcommits.org/) syntax:
 
@@ -56,7 +62,9 @@ npm run dev
    CI is [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and runs these
    on every pull request. If you change the commands there, change them here.
 
-4. Open the PR against `main` and fill in the [PR template](.github/pull_request_template.md). Merging a PR deploys: Railway builds `main` on every push and the app is live a few minutes later, so a merge is a release.
+4. Open the PR against `dev` and fill in the [PR template](.github/pull_request_template.md). Merged head branches are deleted automatically.
+
+5. To ship, open a PR from `dev` into `main` (title it `release: <date or summary>`) and merge it once CI is green. Railway builds `main` on every push and the app is live a few minutes later, so that merge is a release.
 
 ## Style + conventions
 

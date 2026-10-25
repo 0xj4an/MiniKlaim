@@ -63,8 +63,18 @@ describe("finalMoveMode", () => {
     expect(finalMoveMode({ declared: "car", distanceMeters: 1802, durationSec: 441, maxSustainedKmh: 30 })).toEqual({ mode: "car", mismatch: false });
     expect(finalMoveMode({ declared: "horse", distanceMeters: 5000, durationSec: 1800, maxSustainedKmh: 20 })).toEqual({ mode: "horse", mismatch: false });
   });
-  it("flags a pick speed cannot believe", () => {
-    expect(finalMoveMode({ declared: "foot", distanceMeters: 20000, durationSec: 1200, maxSustainedKmh: 70 }).mismatch).toBe(true);
+  it("relabels a pick speed cannot believe by its speed, and flags it", () => {
+    // 60 km/h average "on foot": a car, logged for review.
+    expect(finalMoveMode({ declared: "foot", distanceMeters: 20000, durationSec: 1200, maxSustainedKmh: 70 })).toEqual({ mode: "car", mismatch: true });
+    // kandie, 25 Oct: 3.9 km in one minute declared as a walk (229 km/h) reads as a train.
+    expect(finalMoveMode({ declared: "foot", distanceMeters: 3866, durationSec: 61, maxSustainedKmh: 0 })).toEqual({ mode: "train", mismatch: true });
+    // A flight declared as a walk still reaches the fast-travel watch.
+    expect(finalMoveMode({ declared: "foot", distanceMeters: 400000, durationSec: 3600, maxSustainedKmh: 0 })).toEqual({ mode: "plane", mismatch: true });
+    // A sustained motor stretch inside a short "walk" is a car, not a walk.
+    expect(finalMoveMode({ declared: "foot", distanceMeters: 1000, durationSec: 600, maxSustainedKmh: 50 })).toEqual({ mode: "car", mismatch: true });
+  });
+  it("keeps a believable pick even when the average is low", () => {
+    expect(finalMoveMode({ declared: "bus", distanceMeters: 7300, durationSec: 4440, maxSustainedKmh: 38 })).toEqual({ mode: "bus", mismatch: false });
   });
   it("reads a slow city drive with a motor-speed stretch as a car (20 Oct)", () => {
     expect(finalMoveMode({ declared: null, distanceMeters: 1802, durationSec: 441, maxSustainedKmh: 52 }).mode).toBe("car");

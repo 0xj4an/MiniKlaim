@@ -1,0 +1,23 @@
+name: Branch flow
+
+# main only receives dev. Feature branches go to dev; dev goes to main when
+# it is ready to ship (Railway builds main). Fails any PR into main whose
+# head is not dev, so a feature branch cannot skip integration by mistake.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  only-dev-into-main:
+    name: main accepts only dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check head branch
+        env:
+          HEAD: ${{ github.head_ref }}
+        run: |
+          if [ "$HEAD" != "dev" ]; then
+            echo "::error::Pull requests into main must come from dev (got '$HEAD'). Open this PR against dev instead."
+            exit 1
+          fi
+          echo "head is dev, ok"
