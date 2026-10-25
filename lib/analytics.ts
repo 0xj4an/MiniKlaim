@@ -94,13 +94,13 @@ type EventMap = {
   // (MINIKLAIM-T) and the page reloaded itself.
   head_detach_reload: { path: string };
   hexes_refresh_error: { status: number };
-  hexes_refresh_network_error: { error: string };
+  hexes_refresh_network_error: { error: string; capped?: boolean };
   batch_claim_error: { status: number; count: number };
-  batch_claim_network_error: { count: number; error: string };
+  batch_claim_network_error: { count: number; error: string; capped?: boolean };
   run_start_error: { status: number };
-  run_start_network_error: { error: string };
+  run_start_network_error: { error: string; capped?: boolean };
   run_finish_error: { status: number };
-  run_finish_network_error: { error: string };
+  run_finish_network_error: { error: string; capped?: boolean };
   blocks_captured: { count: number };
 
   // Rewards.
@@ -282,6 +282,47 @@ export function track<E extends EventName>(
 ): void {
   if (!initialized) return;
   posthog.capture(event, properties);
+}
+
+/** Events sent per key by trackLimited in this page session; the rest are dropped. */
+export const LIMITED_EVENTS_PER_SESSION = 5;
+const limitedCounts = new Map<string, number>();
+
+/**
+ * Take one of the `limit` slots for `key`. `send` is false once they are used
+ * up; `capped` marks the last one so the receiver knows more were dropped.
+ */
+export function takeLimitedSlot(
+  key: string,
+  limit = LIMITED_EVENTS_PER_SESSION,
+): { send: boolean; capped: boolean } {
+  const n = (limitedCounts.get(key) ?? 0) + 1;
+  if (n > limit) return { send: false, capped: false };
+  limitedCounts.set(key, n);
+  return { send: true, capped: n === limit };
+}
+
+/**
+ * Like track(), but at most LIMITED_EVENTS_PER_SESSION times per event name
+ * in a page session, and the last one carries `capped: true`. For retry-loop
+ * errors (a player without signal during a long run fires hundreds of
+ * identical "Failed to fetch" events) a handful says as much as all of them,
+ * and the per-day totals stop depending on one phone's coverage.
+ */
+export function trackLimited<E extends EventName>(
+  event: E,
+  properties: EventMap[E],
+  limit = LIMITED_EVENTS_PER_SESSION,
+): boolean {
+  const slot = takeLimitedSlot(event, limit);
+  if (!slot.send) return false;
+  track(event, slot.capped ? { ...properties, capped: true } : properties);
+  return true;
+}
+
+/** Test hook: forget the per-session counts. */
+export function resetLimitedEvents(): void {
+  limitedCounts.clear();
 }
 
 /**
