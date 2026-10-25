@@ -120,6 +120,13 @@
       "when": 1792962802630,
       "tag": "0016_hex_strength",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792966758536,
+      "tag": "0017_foot_too_fast",
+      "breakpoints": true
     }
   ]
 }

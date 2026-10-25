@@ -7,6 +7,7 @@ import { countryForHex } from "@/lib/geo/country";
 import { createLogger } from "@/lib/logger";
 import { hexClaimAction } from "@/lib/runs/claimDecision";
 import { isHexStrengthEnabled } from "@/lib/runs/hexStrength";
+import { tooFastOnFoot } from "@/lib/runs/moveMode";
 import { applyStrengthBatch } from "@/lib/runs/strengthClaim";
 import { addressesForPlayer } from "@/lib/players";
 import { validateClaim } from "@/lib/runs/validation";
@@ -73,6 +74,8 @@ export async function POST(
       airborne: runs.airborne,
       airAnchorMeters: runs.airAnchorMeters,
       maxSustainedKmh: runs.maxSustainedKmh,
+      declaredMode: runs.declaredMode,
+      footTooFast: runs.footTooFast,
     })
     .from(runs)
     .where(eq(runs.id, id))
@@ -206,6 +209,19 @@ export async function POST(
     });
   }
 
+  // Declared on foot, moving at vehicle speed over the same 30 s+ window
+  // the air check uses: the position moves on, the blocks are not captured.
+  // Between measurements the last decision holds (the window restarts every
+  // 90 s, and a bus must not keep a third of its blocks). The run is
+  // relabelled by its speed at finish (finalMoveMode).
+  const footMeasured = !airborne && air !== null && air.pathKmh !== null;
+  const footTooFast =
+    run.declaredMode === "foot" &&
+    !airborne &&
+    (footMeasured ? tooFastOnFoot(run.declaredMode, air?.pathKmh) : run.footTooFast);
+  const overFoot = new Set(footTooFast ? chain.accepted : []);
+  let rejectedOnFoot = 0;
+
   const results: Array<{
     h3: string;
     alreadyOwned?: boolean;
@@ -242,6 +258,12 @@ export async function POST(
 
     if (inFlight.has(h3)) {
       results.push({ h3, rejected: { reason: "in-flight" } });
+      continue;
+    }
+
+    if (overFoot.has(h3)) {
+      rejectedOnFoot += 1;
+      results.push({ h3, rejected: { reason: "too-fast-on-foot" } });
       continue;
     }
 
@@ -385,6 +407,16 @@ export async function POST(
       reportedMeters: Math.round(run.distanceMeters + reportedInBatch),
     });
   }
+  if (rejectedOnFoot > 0) {
+    log.warn("movement guard: too fast for a run on foot", {
+      runId: id,
+      player: run.userAddress,
+      rejected: rejectedOnFoot,
+      submitted: items.length,
+      kmh:
+        air?.pathKmh === null || air?.pathKmh === undefined ? "held" : Math.round(air.pathKmh),
+    });
+  }
   const guardAccepted = pathOk && chain.accepted.length > 0;
   await db
     .update(runs)
@@ -409,7 +441,8 @@ export async function POST(
               : {}),
           }
         : {}),
-      rejectedHexes: sql`${runs.rejectedHexes} + ${rejectedByGuard}`,
+      rejectedHexes: sql`${runs.rejectedHexes} + ${rejectedByGuard + rejectedOnFoot}`,
+      ...(footMeasured && run.declaredMode === "foot" ? { footTooFast } : {}),
     })
     .where(eq(runs.id, id));
 

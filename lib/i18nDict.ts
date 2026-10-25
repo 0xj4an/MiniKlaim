@@ -262,6 +262,8 @@ export const dictionaries = {
     "run.banner.blocks": "blocks",
     "run.banner.reinforced": "{n} reinforced",
     "run.banner.attacked": "{n} attacked",
+    "run.footTooFast":
+      "Too fast to be on foot. Blocks at this speed do not count. Finish and start a new run with the right mode.",
     "run.summary.reinforced": "{n} blocks reinforced",
     "run.summary.attacked": "{n} blocks attacked",
     "run.popup.level": "Level",
@@ -754,6 +756,8 @@ export const dictionaries = {
     "run.banner.blocks": "cuadras",
     "run.banner.reinforced": "{n} reforzadas",
     "run.banner.attacked": "{n} atacadas",
+    "run.footTooFast":
+      "Vas muy rápido para ir a pie. A esta velocidad las cuadras no cuentan. Termina y empieza otro recorrido con el modo correcto.",
     "run.summary.reinforced": "{n} cuadras reforzadas",
     "run.summary.attacked": "{n} cuadras atacadas",
     "run.popup.level": "Nivel",

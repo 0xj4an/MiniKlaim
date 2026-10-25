@@ -65,9 +65,36 @@ export function modeForKmh(kmh: number): MoveMode {
  */
 export const MOTOR_SUSTAINED_KMH = 45;
 
+/**
+ * Sustained speed (a 30 s or longer window, along the server hex path) no
+ * walker or runner holds. An elite marathon pace is about 21 km/h, and the
+ * hex path reads a little longer than the real walk. Over 14 days of runs
+ * declared on foot (to 25 Oct), 135 stayed under 18 km/h, 4 fell between 18
+ * and 25, and 25 went past it (cars, buses and one spoof at 26-440 km/h).
+ * Above this a run declared on foot keeps moving, but its blocks are not
+ * captured (claim route).
+ */
+export const FOOT_MAX_SUSTAINED_KMH = 25;
+
+/**
+ * True when a run declared on foot moves faster than anyone on foot can over
+ * the measured window. Null means no measurement yet.
+ */
+export function tooFastOnFoot(
+  declared: string | null | undefined,
+  sustainedKmh: number | null | undefined,
+): boolean {
+  return (
+    declared === "foot" &&
+    typeof sustainedKmh === "number" &&
+    Number.isFinite(sustainedKmh) &&
+    sustainedKmh > FOOT_MAX_SUSTAINED_KMH
+  );
+}
+
 /** Fastest believable sustained speed for each declared mode, km/h. */
 const DECLARED_MAX_KMH: Record<MoveMode, number> = {
-  foot: 25,
+  foot: FOOT_MAX_SUSTAINED_KMH,
   horse: 70,
   bike: 60,
   moto: 180,
