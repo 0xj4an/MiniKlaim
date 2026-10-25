@@ -349,11 +349,11 @@ export function WorldMap({
       }
     });
     
-    map.on("zoomend", () => {
-      if (cancelled || rowsRef.current.length === 0) return;
-      paintRef.current(map);
-    });
-    
+    // No repaint on zoom. The data does not change with the camera, and a
+    // repaint rebuilds ~250k polygon and point features and re-uploads them
+    // with per-feature colors: on MiniPay's WebView that crashed the tab on
+    // every zoom (25 Oct). Layer minzoom/maxzoom already handle what shows.
+
     map.on("error", (e) =>
       log.error("map error", { message: e.error?.message ?? String(e) }),
     );
