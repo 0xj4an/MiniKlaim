@@ -23,7 +23,6 @@ export const dictionaries = {
     "home.hey": "Hey",
     "home.return.body":
       "It's been a few days. The blocks you cross are still yours.",
-    "home.return.dismiss": "Ok",
     "home.env.minipay.connecting": "Connecting to MiniPay...",
     "home.env.telegram.h": "Open in your browser",
     "home.env.telegram.body":
@@ -504,7 +503,6 @@ export const dictionaries = {
     "home.hey": "Hola",
     "home.return.body":
       "Hace unos días. Las cuadras que cruzas siguen siendo tuyas.",
-    "home.return.dismiss": "Listo",
     "home.env.minipay.connecting": "Conectando a MiniPay...",
     "home.env.telegram.h": "Abre desde tu navegador",
     "home.env.telegram.body":
