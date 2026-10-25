@@ -83,6 +83,8 @@ export default function CommunityPage() {
 }
 
 const PAGE_SIZE = 10;
+/** Flags on a leaderboard row. The rest wait in the opened player. */
+const FLAG_PREVIEW = 3;
 /** Both APIs cap the list at 100 rows. */
 const MAX_ROWS = 100;
 
@@ -184,15 +186,24 @@ function Leaderboard({
                 {e.username ? `@${e.username}` : fallback}
               </button>
 
-              {/* Countries flags */}
               {e.countries.length > 0 && (
-                <div className="flex gap-0.5">
-                  {e.countries.map((country) => (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedPlayer(isExpanded ? null : e.address)
+                  }
+                  className="flex items-center gap-0.5"
+                  aria-expanded={isExpanded}
+                >
+                  {e.countries.slice(0, FLAG_PREVIEW).map((country) => (
                     <span key={country} className="text-sm">
                       {getCountryFlag(country)}
                     </span>
                   ))}
-                </div>
+                  {e.countries.length > FLAG_PREVIEW && (
+                    <span className="text-xs font-semibold text-zinc-500">+</span>
+                  )}
+                </button>
               )}
 
               {/* Badges count */}

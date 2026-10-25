@@ -135,23 +135,46 @@ export async function GET(request: Request) {
     runCounts.set(row.address.toLowerCase(), row.count);
   }
 
-  // Get countries - one query for all players
+  // Every country the player holds, fullest first. Linked wallets count
+  // toward the same player. The list shows three flags; the open row uses the rest.
   const countriesRaw = await db.execute(sql`
-    WITH ranked AS (
-      SELECT 
-        owner_address,
-        country,
-        COUNT(*) as count,
-        ROW_NUMBER() OVER (PARTITION BY owner_address ORDER BY COUNT(*) DESC) as rn
-      FROM hexes
-      WHERE LOWER(owner_address) IN (${sql.join(addressesLower.map(a => sql`${a}`), sql`, `)})
-        AND country IS NOT NULL
-      GROUP BY owner_address, country
+    WITH page_players AS (
+      SELECT
+        u.address AS display_address,
+        COALESCE(
+          (SELECT pw.player_id::text
+           FROM player_wallets pw
+           WHERE pw.address = u.address
+           LIMIT 1),
+          u.address
+        ) AS group_key
+      FROM users u
+      WHERE LOWER(u.address) IN (${sql.join(addressesLower.map((a) => sql`${a}`), sql`, `)})
+    ),
+    owners AS (
+      SELECT pp.display_address, gm.address AS owner_address
+      FROM page_players pp
+      JOIN users gm ON COALESCE(
+        (SELECT pw.player_id::text
+         FROM player_wallets pw
+         WHERE pw.address = gm.address
+         LIMIT 1),
+        gm.address
+      ) = pp.group_key
+    ),
+    counts AS (
+      SELECT
+        o.display_address,
+        h.country,
+        COUNT(*)::int AS n
+      FROM owners o
+      JOIN hexes h ON LOWER(h.owner_address) = LOWER(o.owner_address)
+      WHERE h.country IS NOT NULL
+      GROUP BY o.display_address, h.country
     )
-    SELECT owner_address AS address, country
-    FROM ranked
-    WHERE rn <= 5
-    ORDER BY owner_address, rn
+    SELECT display_address AS address, country
+    FROM counts
+    ORDER BY display_address, n DESC, country ASC
   `);
   
   const countriesMap = new Map<string, string[]>();
