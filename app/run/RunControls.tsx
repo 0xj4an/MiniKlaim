@@ -48,6 +48,9 @@ export function RunControls({
         style={{ bottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
       >
         <div className="flex w-full max-w-sm flex-col items-center gap-3">
+        <p className="max-w-xs rounded-2xl bg-white/90 px-3 py-1.5 text-center text-xs leading-snug text-zinc-700 shadow-sm">
+          {t("run.start.hint")}
+        </p>
         {canStart && (
           <div className="flex w-full flex-col items-center gap-2">
             <p className="rounded-full bg-white/95 px-3 py-1 text-sm font-semibold text-zinc-900 shadow-sm">
