@@ -32,6 +32,8 @@ type EventMap = {
 
   // Run lifecycle.
   run_started: { mode?: MoveMode };
+  // First batch of a run the server refused as too fast for a run on foot.
+  run_foot_too_fast: { rejected: number };
   run_finished: {
     duration_sec: number;
     blocks: number;
