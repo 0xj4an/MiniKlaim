@@ -47,20 +47,14 @@ export function RunControls({
         className="absolute right-4 left-4 z-20 flex justify-center"
         style={{ bottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
       >
-        <div className="flex w-full max-w-sm flex-col items-center gap-2">
-        <p className="rounded-full bg-black/75 px-3 py-1.5 text-center text-xs leading-snug text-white">
-          {t("run.start.hint")}
-        </p>
+        <div className="flex w-full max-w-sm flex-col items-center gap-3">
         {canStart && (
-          <div
-            role="radiogroup"
-            aria-label={t("run.mode.ask")}
-            className="flex w-full flex-col gap-1.5 rounded-2xl bg-white/95 p-2 shadow-lg"
-          >
-            <p className="text-center text-xs font-semibold text-zinc-700">
-              {t("run.mode.ask")}
-            </p>
-            <div className="flex flex-wrap justify-center gap-1.5">
+          <div className="flex w-full flex-col items-center gap-2">
+            <div
+              role="radiogroup"
+              aria-label={t("run.mode.ask")}
+              className="grid w-full grid-cols-9 gap-1"
+            >
               {MOVE_MODES.map((m) => {
                 const label = t(moveModeLabelKey(m));
                 const on = m === mode;
@@ -73,10 +67,10 @@ export function RunControls({
                     aria-label={label}
                     title={label}
                     onClick={() => onModeChange(m)}
-                    className={`flex h-10 min-w-10 items-center justify-center rounded-full border px-2 text-lg leading-none ${
+                    className={`flex aspect-square items-center justify-center rounded-full border text-lg leading-none shadow-sm ${
                       on
                         ? "border-orange-700 bg-orange-100"
-                        : "border-zinc-200 bg-white"
+                        : "border-white/80 bg-white/90"
                     }`}
                   >
                     <span aria-hidden>{moveModeIcon(m)}</span>
@@ -84,11 +78,9 @@ export function RunControls({
                 );
               })}
             </div>
-            {mode && (
-              <p className="text-center text-[11px] text-zinc-600">
-                {t(moveModeLabelKey(mode))}
-              </p>
-            )}
+            <p className="text-center text-xs font-medium text-zinc-800 [text-shadow:0_0_6px_white,0_0_6px_white]">
+              {mode ? t(moveModeLabelKey(mode)) : t("run.mode.ask")}
+            </p>
           </div>
         )}
         <button
