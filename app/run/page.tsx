@@ -232,6 +232,11 @@ export default function RunPage() {
   const [hexCount, setHexCount] = useState(0);
   const [reinforcedCount, setReinforcedCount] = useState(0);
   const [attackedCount, setAttackedCount] = useState(0);
+  // The server stopped capturing because this "on foot" run moves at vehicle
+  // speed (too-fast-on-foot). Shown until 45 s pass without another one.
+  const [footTooFast, setFootTooFast] = useState(false);
+  const footTooFastTimer = useRef<number | null>(null);
+  const footWarnedRef = useRef(false);
   const [distanceMeters, setDistanceMeters] = useState(0);
   const [runStartTime, setRunStartTime] = useState<number | null>(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -562,9 +567,11 @@ export default function RunPage() {
       } else {
         const data = (await res.json()) as { results: ClaimResultRow[] };
         outcome = { kind: "ok", results: data.results ?? [] };
+        let footRejected = 0;
         for (const row of outcome.results) {
           if (!row.h3) continue;
           if (row.rejected) {
+            if (row.rejected.reason === "too-fast-on-foot") footRejected += 1;
             // Not counted: crossing it again later this run may still count.
             passedH3Ref.current.delete(row.h3);
             continue;
@@ -573,6 +580,15 @@ export default function RunPage() {
           if (view.ownedAfter) mineH3Ref.current.add(row.h3);
           else mineH3Ref.current.delete(row.h3);
           if (view.captured) runH3Ref.current.add(row.h3);
+        }
+        if (footRejected > 0) {
+          setFootTooFast(true);
+          if (footTooFastTimer.current !== null) window.clearTimeout(footTooFastTimer.current);
+          footTooFastTimer.current = window.setTimeout(() => setFootTooFast(false), 45_000);
+          if (!footWarnedRef.current) {
+            footWarnedRef.current = true;
+            track("run_foot_too_fast", { rejected: footRejected });
+          }
         }
       }
     } catch (e) {
@@ -770,6 +786,8 @@ export default function RunPage() {
       setAttackedCount(0);
       setDistanceMeters(0);
       setRunStartTime(Date.now());
+      setFootTooFast(false);
+      footWarnedRef.current = false;
       lastPosRef.current = null;
       distAnchorRef.current = null;
       lastPosTsRef.current = 0;
@@ -1502,6 +1520,14 @@ export default function RunPage() {
           <line x1="19" y1="12" x2="22" y2="12" />
         </svg>
       </button>
+      {runId && footTooFast && (
+        <div
+          role="status"
+          className="absolute top-16 right-4 left-4 z-20 rounded-md border border-red-300 bg-red-50 p-3 text-center text-xs font-medium text-red-900 shadow-md"
+        >
+          {t("run.footTooFast")}
+        </div>
+      )}
       <RunControls
         canStart={!!canStart}
         locationReady={geoStatus === "granted"}

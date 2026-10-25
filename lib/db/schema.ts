@@ -114,6 +114,9 @@ export const runs = pgTable(
     maxSustainedKmh: integer("max_sustained_kmh"),
     // How the player said they would travel, picked before Start.
     declaredMode: text("declared_mode"),
+    // Last decision of the on-foot speed check (tooFastOnFoot). Holds between
+    // measurements, like `airborne`.
+    footTooFast: boolean("foot_too_fast").notNull().default(false),
     // Hex strength (lib/runs/hexStrength.ts): own blocks this run raised a
     // level, and other players' blocks it lowered without taking them.
     hexesReinforced: integer("hexes_reinforced").notNull().default(0),

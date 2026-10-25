@@ -1,5 +1,12 @@
 import { describe, expect, it, test } from "vitest";
-import { finalMoveMode, moveMode, moveModeIcon, runMoveMode } from "./moveMode";
+import {
+  FOOT_MAX_SUSTAINED_KMH,
+  finalMoveMode,
+  moveMode,
+  moveModeIcon,
+  runMoveMode,
+  tooFastOnFoot,
+} from "./moveMode";
 
 describe("move mode", () => {
   test("a tap is not a trip", () => {
@@ -55,6 +62,28 @@ describe("runMoveMode", () => {
     expect(moveModeIcon("foot")).toBe("🚶");
     expect(moveModeIcon("car")).toBe("🚗");
     expect(moveModeIcon("train")).toBe("🚆");
+  });
+});
+
+describe("tooFastOnFoot", () => {
+  it("lets a fast runner through", () => {
+    expect(tooFastOnFoot("foot", 7)).toBe(false);
+    expect(tooFastOnFoot("foot", 21)).toBe(false);
+    expect(tooFastOnFoot("foot", FOOT_MAX_SUSTAINED_KMH)).toBe(false);
+  });
+  it("stops a vehicle declared on foot", () => {
+    // tebza, 22 Oct: 715 blocks "on foot" with a 73 km/h stretch.
+    expect(tooFastOnFoot("foot", 73)).toBe(true);
+    // kandie, 25 Oct: 442 km/h over the window.
+    expect(tooFastOnFoot("foot", 442)).toBe(true);
+    expect(tooFastOnFoot("foot", 26)).toBe(true);
+  });
+  it("applies only to foot, and only with a measurement", () => {
+    expect(tooFastOnFoot("bike", 40)).toBe(false);
+    expect(tooFastOnFoot("car", 120)).toBe(false);
+    expect(tooFastOnFoot(null, 80)).toBe(false);
+    expect(tooFastOnFoot("foot", null)).toBe(false);
+    expect(tooFastOnFoot("foot", Number.NaN)).toBe(false);
   });
 });
 

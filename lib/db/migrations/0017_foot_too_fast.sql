@@ -1,0 +1,1 @@
+ALTER TABLE "runs" ADD COLUMN "foot_too_fast" boolean DEFAULT false NOT NULL;
