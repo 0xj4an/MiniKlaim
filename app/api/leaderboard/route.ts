@@ -221,11 +221,29 @@ export async function GET(request: Request) {
     LEFT JOIN user_stats us ON LOWER(us.address) = LOWER(ps.owner_address)
   `);
 
-  const [runCountsRaw, countriesRaw, badgeStatsRaw] = await Promise.all([
+  // Every wallet linked to each listed player, so a map can paint all of a
+  // player's blocks (top-10 colors), not only the display wallet's.
+  const linkedQ = db.execute(sql`
+    SELECT p.address AS display_address, pw2.address AS address
+    FROM player_wallets p
+    JOIN player_wallets pw2 ON pw2.player_id = p.player_id
+    WHERE p.address IN (${sql.join(addressesLower.map((a) => sql`${a}`), sql`, `)})
+      AND pw2.address <> p.address
+  `);
+
+  const [runCountsRaw, countriesRaw, badgeStatsRaw, linkedRaw] = await Promise.all([
     runCountsQ,
     countriesQ,
     badgeStatsQ,
+    linkedQ,
   ]);
+  const linkedMap = new Map<string, string[]>();
+  for (const row of linkedRaw as unknown as Array<{ display_address: string; address: string }>) {
+    const key = row.display_address.toLowerCase();
+    const list = linkedMap.get(key) ?? [];
+    list.push(row.address.toLowerCase());
+    linkedMap.set(key, list);
+  }
   const runCounts = new Map<string, number>();
   for (const row of runCountsRaw as unknown as Array<{ address: string; count: number }>) {
     runCounts.set(row.address.toLowerCase(), row.count);
@@ -293,6 +311,7 @@ export async function GET(request: Request) {
       runCount: runCounts.get(addr) ?? 0,
       countries: countriesMap.get(addr) ?? [],
       badges: badgeStatsMap.get(addr) ?? [],
+      linked: linkedMap.get(addr) ?? [],
     };
   });
 

@@ -17,6 +17,8 @@ export type ClaimedHexProperties = {
   isRun: boolean;
   /** Block level 1-10, or 0 when the row carries none. */
   strength: number;
+  /** Top-10 player color for someone else's block, or "" (see topColors.ts). */
+  topColor: string;
 };
 export type ClaimedHexFeature = Feature<Polygon, ClaimedHexProperties>;
 export type ClaimedHexFeatureCollection = FeatureCollection<
@@ -178,21 +180,27 @@ export function claimedHexesToFeatureCollection(
   myAddresses: ReadonlySet<string>,
   /** Hexes captured in the run in progress. Painted apart from older ones. */
   runHexes: ReadonlySet<string> = new Set(),
+  /** Lowercased owner -> top-10 color. Never applied to the player's own. */
+  topColors: ReadonlyMap<string, string> = new Map(),
 ): ClaimedHexFeatureCollection {
   return {
     type: "FeatureCollection",
-    features: rows.map((row) => ({
-      type: "Feature",
-      properties: {
-        hex: row.h3,
-        owner: row.owner,
-        ownerUsername: row.ownerUsername ?? null,
-        isMine: myAddresses.has(row.owner.toLowerCase()),
-        isRun:
-          runHexes.has(row.h3) && myAddresses.has(row.owner.toLowerCase()),
-        strength: typeof row.strength === "number" ? row.strength : 0,
-      },
-      geometry: { type: "Polygon", coordinates: [hexToPolygon(row.h3)] },
-    })),
+    features: rows.map((row) => {
+      const owner = row.owner.toLowerCase();
+      const isMine = myAddresses.has(owner);
+      return {
+        type: "Feature",
+        properties: {
+          hex: row.h3,
+          owner: row.owner,
+          ownerUsername: row.ownerUsername ?? null,
+          isMine,
+          isRun: runHexes.has(row.h3) && isMine,
+          strength: typeof row.strength === "number" ? row.strength : 0,
+          topColor: isMine ? "" : (topColors.get(owner) ?? ""),
+        },
+        geometry: { type: "Polygon", coordinates: [hexToPolygon(row.h3)] },
+      };
+    }),
   };
 }

@@ -12,6 +12,8 @@ export type LeaderboardEntry = {
   runCount: number;
   countries: string[];
   badges: string[];
+  /** Other wallets linked to this player (lowercase). */
+  linked?: string[];
 };
 
 export type MyRank = {
