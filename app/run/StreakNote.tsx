@@ -8,28 +8,29 @@ import { useUserStats } from "@/lib/wallet/useUserStats";
 
 /**
  * Day streak under the run summary: how many days in a row the player has
- * captured a block, and what tomorrow's run gets them. The streak is the
+ * had a run that counts (a new block, or real movement over their own
+ * blocks), and what tomorrow's run gets them. The streak is the
  * reason to come back on day 2, so it shows where the run ends, not only on
  * the profile.
  */
 export function StreakNote({
   address,
-  capturedThisRun,
+  countedThisRun,
 }: {
   address: string | null;
-  capturedThisRun: boolean;
+  countedThisRun: boolean;
 }) {
   const { t } = useLocale();
   const stats = useUserStats(address);
   const streak = stats?.streak ?? 0;
 
   useEffect(() => {
-    if (stats) track("streak_shown", { streak, captured: capturedThisRun });
-  }, [stats, streak, capturedThisRun]);
+    if (stats) track("streak_shown", { streak, counted: countedThisRun });
+  }, [stats, streak, countedThisRun]);
 
   if (!address || !stats) return null;
 
-  if (!capturedThisRun || streak === 0) {
+  if (!countedThisRun || streak === 0) {
     return (
       <p className="mt-3 text-center text-xs text-zinc-500">{t("run.streak.start")}</p>
     );

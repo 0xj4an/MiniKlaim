@@ -83,6 +83,16 @@ const FAR_CAMERA_METERS = 1500;
 // between good ones is normal; a streak means no GPS lock (indoors, network
 // location only).
 const WEAK_FIX_STREAK = 3;
+
+/** The phone's IANA time zone, or undefined when the runtime cannot tell. */
+function currentTimeZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function placeCamera(
   map: maplibregl.Map,
   lng: number,
@@ -707,6 +717,7 @@ export default function RunPage() {
         body: JSON.stringify({
           address: addr,
           mode: declaredModeRef.current,
+          timeZone: currentTimeZone(),
         }),
       });
       if (!res.ok) {
