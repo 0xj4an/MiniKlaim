@@ -137,30 +137,31 @@ export async function GET(request: Request) {
 
   // Every country the player holds, fullest first. Linked wallets count
   // toward the same player. The list shows three flags; the open row uses the rest.
+  //
+  // Owners are resolved through player_wallets only: the page's addresses plus
+  // every wallet sharing their player_id. Resolving them by scanning all of
+  // `users` with a correlated lookup per row made Postgres expect a
+  // 224M-row join and sort the whole hexes table (~600 ms, ~1.5 s per request
+  // end to end). Addresses are stored lowercase, so the hexes owner index
+  // applies without LOWER().
   const countriesRaw = await db.execute(sql`
-    WITH page_players AS (
-      SELECT
-        u.address AS display_address,
-        COALESCE(
-          (SELECT pw.player_id::text
-           FROM player_wallets pw
-           WHERE pw.address = u.address
-           LIMIT 1),
-          u.address
-        ) AS group_key
+    WITH page AS (
+      SELECT u.address AS display_address
       FROM users u
       WHERE LOWER(u.address) IN (${sql.join(addressesLower.map((a) => sql`${a}`), sql`, `)})
     ),
+    grp AS (
+      SELECT p.display_address, pw.player_id
+      FROM page p
+      JOIN player_wallets pw ON pw.address = p.display_address
+    ),
     owners AS (
-      SELECT pp.display_address, gm.address AS owner_address
-      FROM page_players pp
-      JOIN users gm ON COALESCE(
-        (SELECT pw.player_id::text
-         FROM player_wallets pw
-         WHERE pw.address = gm.address
-         LIMIT 1),
-        gm.address
-      ) = pp.group_key
+      SELECT p.display_address, p.display_address AS owner_address
+      FROM page p
+      UNION
+      SELECT g.display_address, pw2.address AS owner_address
+      FROM grp g
+      JOIN player_wallets pw2 ON pw2.player_id = g.player_id
     ),
     counts AS (
       SELECT
@@ -168,7 +169,7 @@ export async function GET(request: Request) {
         h.country,
         COUNT(*)::int AS n
       FROM owners o
-      JOIN hexes h ON LOWER(h.owner_address) = LOWER(o.owner_address)
+      JOIN hexes h ON h.owner_address = o.owner_address
       WHERE h.country IS NOT NULL
       GROUP BY o.display_address, h.country
     )
