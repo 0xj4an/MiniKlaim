@@ -113,6 +113,13 @@
       "when": 1792960253757,
       "tag": "0015_user_time_zone",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792962802630,
+      "tag": "0016_hex_strength",
+      "breakpoints": true
     }
   ]
 }

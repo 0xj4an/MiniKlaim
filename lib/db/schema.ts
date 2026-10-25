@@ -1,5 +1,8 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
+  date,
   index,
   integer,
   pgTable,
@@ -111,6 +114,10 @@ export const runs = pgTable(
     maxSustainedKmh: integer("max_sustained_kmh"),
     // How the player said they would travel, picked before Start.
     declaredMode: text("declared_mode"),
+    // Hex strength (lib/runs/hexStrength.ts): own blocks this run raised a
+    // level, and other players' blocks it lowered without taking them.
+    hexesReinforced: integer("hexes_reinforced").notNull().default(0),
+    hexesDamaged: integer("hexes_damaged").notNull().default(0),
   },
   (t) => [
     // Per-user run history queries (/me runs list, streak calc).
@@ -153,8 +160,20 @@ export const hexes = pgTable(
     // City name of the hex centroid, resolved at capture. Null when resolution
     // failed, is pending, or the coordinates fall outside a city boundary.
     city: text("city"),
+    // Strength, levels 1-10 (lib/runs/hexStrength.ts). The level after the
+    // owner's last visit, attacks since then, and that visit's time (the
+    // decay clock). Effective level is computed on read; never 0.
+    baseStrength: integer("base_strength").notNull().default(1),
+    damage: integer("damage").notNull().default(0),
+    reinforcedAt: timestamp("reinforced_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [
+    check(
+      "hexes_strength_range",
+      sql`${t.baseStrength} BETWEEN 1 AND 10 AND ${t.damage} >= 0 AND ${t.damage} < ${t.baseStrength}`,
+    ),
     // "hexes owned by X player" queries (badge eligibility, TerritoryMap).
     // Frequent + high cardinality; without this the badge worker scans the
     // whole table per player.
@@ -171,6 +190,30 @@ export const hexes = pgTable(
     // Rate-limit sweep in validateClaim (WHERE run_id = X AND claimed_at > NOW - 60s).
     // Compound with claimedAt for the range scan.
     index("hexes_run_id_claimed_at_idx").on(t.runId, t.claimedAt),
+  ],
+);
+
+/**
+ * One action per block per player per day (hex strength). The insert with
+ * ON CONFLICT DO NOTHING is the daily limit. `player_key` is the lowest
+ * address of the player, so linked wallets share it. `day` is the acting
+ * player's local day. Rows older than a few days are pruned.
+ */
+export const hexActions = pgTable(
+  "hex_actions",
+  {
+    h3Id: text("h3_id").notNull(),
+    playerKey: text("player_key").notNull(),
+    day: date("day").notNull(),
+    // new, capture, reinforce, attack.
+    kind: text("kind").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.h3Id, t.playerKey, t.day] }),
+    index("hex_actions_day_idx").on(t.day),
   ],
 );
 

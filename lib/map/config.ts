@@ -10,8 +10,9 @@ export const FOLLOW_ZOOM = 17; // zoom level when centered on user position
 export const RUN_MIN_ZOOM = 13;
 
 /**
- * H3 resolution for the claimable hex grid. Resolution 12 gives ~50m edge
- * length, the right scale for "claim this block by running through it".
+ * H3 resolution for the claimable hex grid. Resolution 12 is about 9-10 m
+ * edge length (about 300 m2 per hex, centres about 16 m apart), the right
+ * scale for "claim this block by running through it".
  * See https://h3geo.org/docs/core-library/restable.
  */
 export const HEX_RESOLUTION = 12;
