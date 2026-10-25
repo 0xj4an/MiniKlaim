@@ -3,7 +3,7 @@
 import countries from "i18n-iso-countries";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
 import { type ActivityEntry, useActivity } from "@/lib/useActivity";
 import { useGlobalStats } from "@/lib/useGlobalStats";
@@ -16,6 +16,7 @@ import { useWallet } from "@/lib/wallet/useWallet";
 import { LegalFooter } from "@/app/LegalFooter";
 import { MoveModeIcon } from "@/app/MoveModeIcon";
 import { runMoveMode } from "@/lib/runs/moveMode";
+import { topColorForRank, topColorMap } from "@/lib/map/topColors";
 
 const WorldMap = dynamic(() => import("./WorldMap").then((m) => m.WorldMap), {
   ssr: false,
@@ -29,6 +30,11 @@ export default function CommunityPage() {
   const [leaderboardLimit, setLeaderboardLimit] = useState(PAGE_SIZE);
   const [activityLimit, setActivityLimit] = useState(PAGE_SIZE);
   const leaderboard = useLeaderboard(leaderboardLimit, myAddress);
+  // Same colors on the map and next to each top-10 name below.
+  const topColors = useMemo(
+    () => topColorMap(leaderboard?.entries),
+    [leaderboard?.entries],
+  );
   const activity = useActivity(activityLimit);
 
   return (
@@ -61,7 +67,7 @@ export default function CommunityPage() {
         </div>
       )}
 
-      <WorldMap myAddress={isConnected ? address : null} />
+      <WorldMap myAddress={isConnected ? address : null} topColors={topColors} />
 
       <Leaderboard
         entries={leaderboard?.entries ?? null}
@@ -142,8 +148,11 @@ function Leaderboard({
 
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
-      <p className="mb-1 text-center text-xs font-semibold text-zinc-500">
+      <p className="text-center text-xs font-semibold text-zinc-500">
         {t("community.leaderboard.header")}
+      </p>
+      <p className="mb-1 text-center text-[11px] text-zinc-400">
+        {t("community.leaderboard.colors")}
       </p>
       {showPinned && (
         <div className="mb-1 flex flex-col gap-0.5 rounded-md border border-orange-200 bg-orange-50 px-2 py-1.5">
@@ -177,6 +186,7 @@ function Leaderboard({
               className={`flex items-center gap-2 ${isMe ? "font-semibold text-zinc-900" : "text-zinc-700"}`}
             >
               <span className="w-8 text-xs text-zinc-500">#{i + 1}</span>
+              <TopColorDot rank={i + 1} />
 
               {/* Player name - clickable */}
               <button
@@ -384,4 +394,17 @@ function relativeTime(
     value = `${Math.floor(diffSec / 86400)}${t("time.unit.days")}`;
   }
   return `${prefix}${value}${suffix}`;
+}
+
+/** The player's map color, for the top 10 only (lib/map/topColors.ts). */
+function TopColorDot({ rank }: { rank: number }) {
+  const color = topColorForRank(rank);
+  if (!color) return <span aria-hidden className="h-2.5 w-2.5 shrink-0" />;
+  return (
+    <span
+      aria-hidden
+      className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white"
+      style={{ backgroundColor: color }}
+    />
+  );
 }
