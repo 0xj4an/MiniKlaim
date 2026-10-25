@@ -1434,7 +1434,12 @@ export default function RunPage() {
           placeCamera(map, pos.lng, pos.lat, FOLLOW_ZOOM);
         }}
         aria-label="Center on my position"
-        className="absolute right-4 bottom-32 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-zinc-800 shadow-md hover:bg-white"
+        className="absolute right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-zinc-800 shadow-md hover:bg-white"
+        style={
+          isActive
+            ? { bottom: "max(8rem, calc(env(safe-area-inset-bottom) + 6.5rem))" }
+            : { bottom: "calc(env(safe-area-inset-bottom) + 17.25rem)" }
+        }
       >
         <svg
           width="20"
