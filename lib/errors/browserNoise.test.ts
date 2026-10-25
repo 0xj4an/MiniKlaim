@@ -12,6 +12,11 @@ describe("isBrowserNoise", () => {
     ).toBe(true);
   });
 
+  it("drops wallet-extension noise (MINIKLAIM-13, -15, -16)", () => {
+    expect(isBrowserNoise("i: Failed to connect to MetaMask")).toBe(true);
+    expect(isBrowserNoise("TypeError: bridge.event is not a function")).toBe(true);
+  });
+
   it("keeps real crashes", () => {
     expect(isBrowserNoise("Failed to fetch")).toBe(false);
     expect(
