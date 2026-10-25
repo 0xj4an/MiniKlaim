@@ -26,9 +26,10 @@ export type StreakDays = {
 /**
  * Distinct days, in the player's own time zone, on which these wallets
  * finished a run that counts for the streak: it captured at least one new
- * block, or the server measured at least STREAK_MIN_SERVER_METERS of movement
- * (a player walking their own territory captures nothing new). Runs opened
- * and closed without moving still do not count.
+ * block, reinforced or attacked one (hex strength), or the server measured at
+ * least STREAK_MIN_SERVER_METERS of movement (a player walking their own
+ * territory captures nothing new). Runs opened and closed without moving
+ * still do not count.
  *
  * The zone is the one saved on the wallet that ran most recently (sent by the
  * client when a run starts). Days used to be cut at UTC midnight, which split
@@ -65,7 +66,12 @@ export async function streakDays(addressesLower: string[]): Promise<StreakDays> 
     FROM runs r, tz
     WHERE r.user_address IN (${list})
       AND r.ended_at IS NOT NULL
-      AND (r.hexes_claimed > 0 OR r.server_distance_meters >= ${STREAK_MIN_SERVER_METERS})
+      AND (
+        r.hexes_claimed > 0
+        OR r.hexes_reinforced > 0
+        OR r.hexes_damaged > 0
+        OR r.server_distance_meters >= ${STREAK_MIN_SERVER_METERS}
+      )
     ORDER BY day DESC
   `);
   const dayRows = rows as unknown as Array<{ day: string; tz: string }>;
