@@ -26,7 +26,43 @@ export type ClaimResultRow = {
   h3: string;
   alreadyOwned?: boolean;
   rejected?: { reason: string; detail?: string };
+  /** Hex strength: new, capture, reinforce, attack or repeat. */
+  action?: string;
+  /** Block level after this pass, 1-10. */
+  strength?: number;
 };
+
+/**
+ * What one accepted result row means for the run screen. Rows without
+ * `action` come from a server with hex strength off and keep the old rule.
+ */
+export function claimRowView(row: ClaimResultRow): {
+  /** A block this run now owns that it did not before. */
+  captured: boolean;
+  /** The block belongs to the player after this pass. */
+  ownedAfter: boolean;
+  reinforced: boolean;
+  attacked: boolean;
+} {
+  if (!row.action) {
+    return {
+      captured: row.alreadyOwned !== true,
+      ownedAfter: true,
+      reinforced: false,
+      attacked: false,
+    };
+  }
+  const captured = row.action === "new" || row.action === "capture";
+  return {
+    captured,
+    ownedAfter:
+      captured ||
+      row.action === "reinforce" ||
+      (row.action === "repeat" && row.alreadyOwned === true),
+    reinforced: row.action === "reinforce",
+    attacked: row.action === "attack",
+  };
+}
 
 export type ClaimOutcome =
   | { kind: "ok"; results: ClaimResultRow[] }
@@ -79,31 +115,70 @@ export function applyHttp(
   sentIds: string[],
   outcome: ClaimOutcome,
   failures: number,
-): { items: QueuedHex[]; newly: number; retryMs: number | null; failures: number } {
+): {
+  items: QueuedHex[];
+  newly: number;
+  reinforced: number;
+  attacked: number;
+  retryMs: number | null;
+  failures: number;
+} {
+  const none = { newly: 0, reinforced: 0, attacked: 0 };
   if (outcome.kind === "ended") {
-    return { items: [], newly: 0, retryMs: null, failures: 0 };
+    return { items: [], ...none, retryMs: null, failures: 0 };
   }
   if (outcome.kind === "rate") {
     const wait = Number.isFinite(outcome.retryAfterMs) ? outcome.retryAfterMs : 2000;
     const retryMs = Math.min(RATE_MAX_MS, Math.max(1000, wait));
-    return { items, newly: 0, retryMs, failures: failures + 1 };
+    return { items, ...none, retryMs, failures: failures + 1 };
   }
   if (outcome.kind === "retry") {
     const retryMs = Math.min(RETRY_MAX_MS, CLAIM_FLUSH_MS * Math.max(1, failures + 1));
-    return { items, newly: 0, retryMs, failures: failures + 1 };
+    return { items, ...none, retryMs, failures: failures + 1 };
   }
   const answered = new Set(outcome.results.map((row) => row.h3));
   const sent = new Set(sentIds);
   const next = items.filter((item) => !sent.has(item.h3) || !answered.has(item.h3));
-  const newly = outcome.results.filter(
-    (row) => sent.has(row.h3) && !row.rejected && row.alreadyOwned !== true,
-  ).length;
+  let newly = 0;
+  let reinforced = 0;
+  let attacked = 0;
+  for (const row of outcome.results) {
+    if (!sent.has(row.h3) || row.rejected) continue;
+    const view = claimRowView(row);
+    if (view.captured) newly += 1;
+    if (view.reinforced) reinforced += 1;
+    if (view.attacked) attacked += 1;
+  }
   return {
     items: next,
     newly,
+    reinforced,
+    attacked,
     retryMs: next.length > 0 ? CLAIM_FLUSH_MS : null,
     failures: 0,
   };
+}
+
+/**
+ * Which crossed hexes to queue. With hex strength on, own blocks are sent
+ * too (passing them reinforces), once per run; the server applies the
+ * once-a-day rule. Off, own blocks are dropped as before.
+ */
+export function hexesToQueue(
+  ids: string[],
+  owned: ReadonlySet<string>,
+  passedThisRun: ReadonlySet<string>,
+  strengthOn: boolean,
+): string[] {
+  if (!strengthOn) return withoutOwned(ids, owned);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const id of ids) {
+    if (!id || passedThisRun.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
 }
 
 export function parseQueue(raw: string | null): QueuedHex[] {

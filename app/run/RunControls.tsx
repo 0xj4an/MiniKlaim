@@ -20,6 +20,8 @@ export function RunControls({
   isActive,
   isBusy,
   hexCount,
+  reinforcedCount = 0,
+  attackedCount = 0,
   distanceMeters,
   runStartTime,
   onStart,
@@ -32,6 +34,8 @@ export function RunControls({
   isActive: boolean;
   isBusy: boolean;
   hexCount: number;
+  reinforcedCount?: number;
+  attackedCount?: number;
   distanceMeters: number;
   runStartTime: number | null;
   onStart: () => void;
@@ -123,6 +127,8 @@ export function RunControls({
       <ElapsedBanner
         startTime={runStartTime}
         hexCount={hexCount}
+        reinforcedCount={reinforcedCount}
+        attackedCount={attackedCount}
         distanceMeters={distanceMeters}
       />
       <button

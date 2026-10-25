@@ -34,7 +34,7 @@ import {
 import { haversineMeters } from "@/lib/map/geo";
 import { liveGeoSource } from "@/lib/map/liveSource";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
-import { HEX_COLORS } from "@/lib/map/hexColors";
+import { HEX_COLORS, strengthOpacity } from "@/lib/map/hexColors";
 import { useWebglFailure } from "@/lib/map/webglFailure";
 import {
   endpointLabel,
@@ -48,13 +48,16 @@ import {
   addHexes,
   applyHttp,
   flushDelay,
+  claimRowView,
   hexesForSegment,
-  withoutOwned,
+  hexesToQueue,
   parseQueue,
   queueStorageKey,
   takeBatch,
+  type ClaimResultRow,
   type QueuedHex,
 } from "@/lib/runs/claimOutbox";
+import { isHexStrengthEnabled } from "@/lib/runs/hexStrength";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
@@ -74,6 +77,8 @@ import { rowsFromWorldResponse, WORLD_GROUPED_PARAM } from "@/lib/map/worldHexes
 import { RunSummaryModal } from "./RunSummaryModal";
 
 const log = createLogger("page:run");
+// Hex strength switch, inlined at build (NEXT_PUBLIC_HEX_STRENGTH).
+const HEX_STRENGTH = isHexStrengthEnabled();
 
 // A flyTo from the default city to the player downloads every zoom along the
 // path. OpenFreeMap tiles at zoom 2 are about 1.5MB each, so that flight is
@@ -159,11 +164,15 @@ export default function RunPage() {
   const mineH3Ref = useRef<Set<string>>(new Set());
   // Hexes this run captured or stole. Painted red; older ones stay orange.
   const runH3Ref = useRef<Set<string>>(new Set());
+  // Hex strength: every block already queued this run, own ones included,
+  // so a pass is sent once per run (the server allows one action a day).
+  const passedH3Ref = useRef<Set<string>>(new Set());
   useEffect(() => {
     linkedRef.current = linked;
   }, [linked]);
   const [badgeRefresh, setBadgeRefresh] = useState(0);
   const capturedByLabel = t("run.popup.capturedBy");
+  const levelLabel = t("run.popup.level");
   const youLabel = t("run.popup.you");
   const anonymousLabel = t("common.anonymous");
 
@@ -221,6 +230,8 @@ export default function RunPage() {
   const [geoLastError, setGeoLastError] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [hexCount, setHexCount] = useState(0);
+  const [reinforcedCount, setReinforcedCount] = useState(0);
+  const [attackedCount, setAttackedCount] = useState(0);
   const [distanceMeters, setDistanceMeters] = useState(0);
   const [runStartTime, setRunStartTime] = useState<number | null>(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -228,6 +239,8 @@ export default function RunPage() {
     id: string;
     durationMs: number;
     hexesClaimed: number;
+    hexesReinforced: number;
+    hexesDamaged: number;
     distanceMeters: number;
     moveMode: MoveMode | null;
   } | null>(null);
@@ -547,19 +560,19 @@ export default function RunPage() {
         track("batch_claim_error", { status: res.status, count: batch.length });
         reportServerError("/api/runs/:id/claim", res.status);
       } else {
-        const data = (await res.json()) as {
-          results: Array<{
-            h3: string;
-            alreadyOwned?: boolean;
-            rejected?: { reason: string; detail?: string };
-          }>;
-        };
+        const data = (await res.json()) as { results: ClaimResultRow[] };
         outcome = { kind: "ok", results: data.results ?? [] };
         for (const row of outcome.results) {
-          if (row.h3 && !row.rejected) mineH3Ref.current.add(row.h3);
-          if (row.h3 && !row.rejected && row.alreadyOwned !== true) {
-            runH3Ref.current.add(row.h3);
+          if (!row.h3) continue;
+          if (row.rejected) {
+            // Not counted: crossing it again later this run may still count.
+            passedH3Ref.current.delete(row.h3);
+            continue;
           }
+          const view = claimRowView(row);
+          if (view.ownedAfter) mineH3Ref.current.add(row.h3);
+          else mineH3Ref.current.delete(row.h3);
+          if (view.captured) runH3Ref.current.add(row.h3);
         }
       }
     } catch (e) {
@@ -584,10 +597,20 @@ export default function RunPage() {
     claimRetryMsRef.current = applied.retryMs ?? 0;
     writeClaimQueue(id, applied.items);
     claimFlushing.current = false;
-    if (outcome.kind === "ok" && applied.newly > 0) {
-      setHexCount((c) => c + applied.newly);
+    if (applied.reinforced > 0) setReinforcedCount((c) => c + applied.reinforced);
+    if (applied.attacked > 0) setAttackedCount((c) => c + applied.attacked);
+    if (outcome.kind === "ok" && applied.newly > 0) setHexCount((c) => c + applied.newly);
+    if (
+      outcome.kind === "ok" &&
+      (applied.newly > 0 || applied.reinforced > 0 || applied.attacked > 0)
+    ) {
       await refreshClaimed();
-      log.info("batch hexes claimed", { submitted: batch.length, newly: applied.newly });
+      log.info("batch hexes claimed", {
+        submitted: batch.length,
+        newly: applied.newly,
+        reinforced: applied.reinforced,
+        attacked: applied.attacked,
+      });
     }
     if (
       !claimDrainingRef.current &&
@@ -635,7 +658,13 @@ export default function RunPage() {
     async (h3Ids: string[], totalDistance: number, accuracy?: number) => {
       const id = runIdRef.current;
       if (!id || h3Ids.length === 0) return;
-      const fresh = withoutOwned(h3Ids, mineH3Ref.current);
+      const fresh = hexesToQueue(
+        h3Ids,
+        mineH3Ref.current,
+        passedH3Ref.current,
+        HEX_STRENGTH,
+      );
+      for (const h3 of fresh) passedH3Ref.current.add(h3);
       if (fresh.length === 0) {
         if (totalDistance > 0) pendingDistanceRef.current += totalDistance;
         return;
@@ -735,7 +764,10 @@ export default function RunPage() {
       track("run_started", declaredModeRef.current ? { mode: declaredModeRef.current } : {});
       setRunId(data.id);
       runH3Ref.current = new Set();
+      passedH3Ref.current = new Set();
       setHexCount(0);
+      setReinforcedCount(0);
+      setAttackedCount(0);
       setDistanceMeters(0);
       setRunStartTime(Date.now());
       lastPosRef.current = null;
@@ -785,6 +817,8 @@ export default function RunPage() {
       }
       const data = (await res.json()) as {
         hexesClaimed: number;
+        hexesReinforced?: number;
+        hexesDamaged?: number;
         distanceMeters: number;
         startedAt: string;
         endedAt: string;
@@ -809,11 +843,16 @@ export default function RunPage() {
         move_mode:
           (isMoveMode(data.moveMode) ? data.moveMode : moveMode(data.distanceMeters, durationSec)) ??
           "none",
+        ...(HEX_STRENGTH
+          ? { reinforced: data.hexesReinforced ?? 0, damaged: data.hexesDamaged ?? 0 }
+          : {}),
       });
       setLastFinishedRun({
         id,
         durationMs,
         hexesClaimed: data.hexesClaimed,
+        hexesReinforced: data.hexesReinforced ?? 0,
+        hexesDamaged: data.hexesDamaged ?? 0,
         distanceMeters: data.distanceMeters,
         moveMode: isMoveMode(data.moveMode) ? data.moveMode : null,
       });
@@ -824,8 +863,11 @@ export default function RunPage() {
       setDeclaredMode(null);
       // The run's red hexes become ordinary owned (orange) territory.
       runH3Ref.current = new Set();
+      passedH3Ref.current = new Set();
       void refreshClaimed();
       setHexCount(0);
+      setReinforcedCount(0);
+      setAttackedCount(0);
       setDistanceMeters(0);
       setRunStartTime(null);
       lastPosRef.current = null;
@@ -1210,13 +1252,15 @@ export default function RunPage() {
         source: "claimed-hexes",
         paint: {
           "fill-color": ownerColor,
+          // Levels (hex strength): faint at 1, solid at 10. Rows with no
+          // level keep the old flat values.
           "fill-opacity": [
             "case",
             ["get", "isRun"],
             0.5,
             ["get", "isMine"],
-            0.4,
-            0.25,
+            strengthOpacity(0.05, 0.25, 0.4),
+            strengthOpacity(0.035, 0.15, 0.25),
           ],
         },
       });
@@ -1293,6 +1337,7 @@ export default function RunPage() {
           owner: string;
           ownerUsername: string | null;
           isMine: boolean;
+          strength?: number;
         };
         popupRef.current?.remove();
         const el = document.createElement("div");
@@ -1312,6 +1357,9 @@ export default function RunPage() {
         }
         if (props.isMine) {
           el.appendChild(document.createTextNode(` ${youLabel}`));
+        }
+        if (typeof props.strength === "number" && props.strength > 0) {
+          el.appendChild(document.createTextNode(` - ${levelLabel} ${props.strength}`));
         }
         popupRef.current = new maplibregl.Popup({
           closeButton: true,
@@ -1374,6 +1422,7 @@ export default function RunPage() {
     capturedByLabel,
     youLabel,
     anonymousLabel,
+    levelLabel,
   ]);
 
   const canStart = isConnected && !isWrongChain && address && !isActiveLoading;
@@ -1459,6 +1508,8 @@ export default function RunPage() {
         isActive={isActive}
         isBusy={isBusy}
         hexCount={hexCount}
+        reinforcedCount={reinforcedCount}
+        attackedCount={attackedCount}
         distanceMeters={distanceMeters}
         runStartTime={runStartTime}
         onStart={startRun}

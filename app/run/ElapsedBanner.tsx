@@ -17,10 +17,14 @@ import { appendSpeedSample, formatRollingSpeed } from "@/lib/map/geo";
 export function ElapsedBanner({
   startTime,
   hexCount,
+  reinforcedCount = 0,
+  attackedCount = 0,
   distanceMeters,
 }: {
   startTime: number | null;
   hexCount: number;
+  reinforcedCount?: number;
+  attackedCount?: number;
   distanceMeters: number;
 }) {
   const { t } = useLocale();
@@ -65,6 +69,20 @@ export function ElapsedBanner({
         {hexCount === 1 ? t("run.banner.block") : t("run.banner.blocks")} ·{" "}
         {distLabel} · {speedLabel}
       </div>
+      {(reinforcedCount > 0 || attackedCount > 0) && (
+        <div className="text-xs font-semibold text-orange-700">
+          {[
+            reinforcedCount > 0
+              ? t("run.banner.reinforced").replace("{n}", String(reinforcedCount))
+              : null,
+            attackedCount > 0
+              ? t("run.banner.attacked").replace("{n}", String(attackedCount))
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" - ")}
+        </div>
+      )}
     </div>
   );
 }
