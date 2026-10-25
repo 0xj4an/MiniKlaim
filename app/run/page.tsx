@@ -246,6 +246,7 @@ export default function RunPage() {
   // speed (too-fast-on-foot). Shown until 45 s pass without another one.
   const [footTooFast, setFootTooFast] = useState(false);
   const footTooFastTimer = useRef<number | null>(null);
+  const modeWarnedRef = useRef(false);
   const footWarnedRef = useRef(false);
   const [distanceMeters, setDistanceMeters] = useState(0);
   const [runStartTime, setRunStartTime] = useState<number | null>(null);
@@ -583,10 +584,12 @@ export default function RunPage() {
         const data = (await res.json()) as { results: ClaimResultRow[] };
         outcome = { kind: "ok", results: data.results ?? [] };
         let footRejected = 0;
+        let modeRejected = 0;
         for (const row of outcome.results) {
           if (!row.h3) continue;
           if (row.rejected) {
             if (row.rejected.reason === "too-fast-on-foot") footRejected += 1;
+            else if (row.rejected.reason === "too-fast-for-mode") modeRejected += 1;
             // Not counted: crossing it again later this run may still count.
             passedH3Ref.current.delete(row.h3);
             continue;
@@ -595,6 +598,12 @@ export default function RunPage() {
           if (view.ownedAfter) mineH3Ref.current.add(row.h3);
           else mineH3Ref.current.delete(row.h3);
           if (view.captured) runH3Ref.current.add(row.h3);
+        }
+        if (modeRejected > 0 && !modeWarnedRef.current) {
+          // A vehicle over its realistic ceiling is almost always a GPS
+          // jump, so no banner: the blocks come back once the window passes.
+          modeWarnedRef.current = true;
+          track("run_mode_too_fast", { rejected: modeRejected });
         }
         if (footRejected > 0) {
           setFootTooFast(true);
@@ -803,6 +812,7 @@ export default function RunPage() {
       setRunStartTime(Date.now());
       setFootTooFast(false);
       footWarnedRef.current = false;
+      modeWarnedRef.current = false;
       lastPosRef.current = null;
       distAnchorRef.current = null;
       lastPosTsRef.current = 0;
