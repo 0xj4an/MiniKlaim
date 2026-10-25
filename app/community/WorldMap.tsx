@@ -17,6 +17,8 @@ type HexFeatureProps = {
   owner: string;
   ownerUsername: string | null;
   isMine: boolean;
+  /** Top-10 player color, or "" (lib/map/topColors.ts). */
+  topColor: string;
 };
 
 type HexRow = { h3: string; owner: string; ownerUsername: string | null };
@@ -24,6 +26,7 @@ type HexRow = { h3: string; owner: string; ownerUsername: string | null };
 function hexesToPointCollection(
   rows: HexRow[],
   myAddresses: ReadonlySet<string>,
+  topColors: ReadonlyMap<string, string> = new Map(),
 ): GeoJSON.FeatureCollection<GeoJSON.Point, HexFeatureProps> {
   return {
     type: "FeatureCollection",
@@ -36,6 +39,9 @@ function hexesToPointCollection(
           owner: h.owner,
           ownerUsername: h.ownerUsername,
           isMine: myAddresses.has(h.owner.toLowerCase()),
+          topColor: myAddresses.has(h.owner.toLowerCase())
+            ? ""
+            : (topColors.get(h.owner.toLowerCase()) ?? ""),
         },
       };
     }),
@@ -57,7 +63,27 @@ function setGeoSource(
 
 const log = createLogger("page:community:map");
 
-export function WorldMap({ myAddress }: { myAddress: string | null }) {
+// Top-10 player color when the feature has one, else gray.
+const HAS_TOP: maplibregl.ExpressionSpecification = [
+  "!=",
+  ["coalesce", ["get", "topColor"], ""],
+  "",
+];
+const OTHERS_COLOR: maplibregl.ExpressionSpecification = [
+  "case",
+  HAS_TOP,
+  ["get", "topColor"],
+  HEX_COLORS.others,
+];
+
+export function WorldMap({
+  myAddress,
+  topColors,
+}: {
+  myAddress: string | null;
+  /** Lowercased owner -> top-10 color (lib/map/topColors.ts). */
+  topColors?: ReadonlyMap<string, string>;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const rowsRef = useRef<HexRow[]>([]);
@@ -75,6 +101,8 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
 
   linkedRef.current = linked;
   addressRef.current = myAddress;
+  const topColorsRef = useRef<ReadonlyMap<string, string>>(new Map());
+  topColorsRef.current = topColors ?? new Map();
   labelsRef.current = {
     captured: t("community.popup.capturedBy"),
     you: t("community.popup.you"),
@@ -144,7 +172,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
       setGeoSource(
         map,
         "others",
-        claimedHexesToFeatureCollection(others, mineSet),
+        claimedHexesToFeatureCollection(others, mineSet, new Set(), topColorsRef.current),
       );
       if (!map.getLayer("others-fill")) {
         map.addLayer({
@@ -152,7 +180,10 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
           type: "fill",
           source: "others",
           minzoom: 8, // Lower threshold for better visibility
-          paint: { "fill-color": HEX_COLORS.others, "fill-opacity": 0.45 },
+          paint: {
+            "fill-color": OTHERS_COLOR,
+            "fill-opacity": ["case", HAS_TOP, 0.65, 0.45],
+          },
         });
         map.addLayer({
           id: "others-line",
@@ -160,8 +191,8 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
           source: "others",
           minzoom: 8,
           paint: {
-            "line-color": HEX_COLORS.others,
-            "line-width": 1,
+            "line-color": OTHERS_COLOR,
+            "line-width": ["case", HAS_TOP, 1.5, 1],
             "line-opacity": 0.85,
           },
         });
@@ -169,7 +200,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
       setGeoSource(
         map,
         "others-points",
-        hexesToPointCollection(others, mineSet),
+        hexesToPointCollection(others, mineSet, topColorsRef.current),
       );
       if (!map.getLayer("others-points")) {
         map.addLayer({
@@ -178,7 +209,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
           source: "others-points",
           maxzoom: 11,
           paint: {
-            "circle-color": HEX_COLORS.others,
+            "circle-color": OTHERS_COLOR,
             "circle-opacity": 0.85,
             "circle-stroke-color": "#ffffff",
             "circle-stroke-width": [
@@ -369,7 +400,7 @@ export function WorldMap({ myAddress }: { myAddress: string | null }) {
     const map = mapRef.current;
     if (!map?.isStyleLoaded()) return;
     paintRef.current(map);
-  }, [linked, myAddress]);
+  }, [linked, myAddress, topColors]);
 
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">

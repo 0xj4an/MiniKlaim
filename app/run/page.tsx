@@ -34,7 +34,14 @@ import {
 import { haversineMeters } from "@/lib/map/geo";
 import { liveGeoSource } from "@/lib/map/liveSource";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
-import { HEX_COLORS, strengthOpacity } from "@/lib/map/hexColors";
+import {
+  HEX_COLORS,
+  LEVEL_DARK,
+  levelColor,
+  levelLineWidth,
+  levelValue,
+} from "@/lib/map/hexColors";
+import { useTopColors } from "@/lib/useTopColors";
 import { useWebglFailure } from "@/lib/map/webglFailure";
 import {
   endpointLabel,
@@ -170,6 +177,9 @@ export default function RunPage() {
   useEffect(() => {
     linkedRef.current = linked;
   }, [linked]);
+  // Top-10 players' colors on their blocks (lib/map/topColors.ts).
+  const topColors = useTopColors();
+  const topColorsRef = useRef<ReadonlyMap<string, string>>(new Map());
   const [badgeRefresh, setBadgeRefresh] = useState(0);
   const capturedByLabel = t("run.popup.capturedBy");
   const levelLabel = t("run.popup.level");
@@ -424,7 +434,12 @@ export default function RunPage() {
       rememberOwners(mineH3Ref.current, rows, linkedRef.current);
       const source = liveGeoSource(map, "claimed-hexes");
       source?.setData(
-        claimedHexesToFeatureCollection(rows, linkedRef.current, runH3Ref.current),
+        claimedHexesToFeatureCollection(
+          rows,
+          linkedRef.current,
+          runH3Ref.current,
+          topColorsRef.current,
+        ),
       );
       log.debug("claimed-view", { count: rows.length, reason, wide });
     };
@@ -815,6 +830,13 @@ export default function RunPage() {
       void refreshClaimed();
     }
   }, [address, refreshClaimed]);
+
+  useEffect(() => {
+    topColorsRef.current = topColors;
+    if (topColors.size > 0 && mapRef.current?.isStyleLoaded()) {
+      void refreshClaimed();
+    }
+  }, [topColors, refreshClaimed]);
 
   const finishRun = useCallback(async () => {
     const id = runIdRef.current;
@@ -1255,30 +1277,39 @@ export default function RunPage() {
         data: { type: "FeatureCollection", features: [] },
       });
       // Red: captured or stolen in this run. Orange: already yours.
-      // Gray: someone else's, yours to take.
-      const ownerColor = [
+      // A top-10 player's own color, else gray: someone else's, yours to
+      // take. Higher levels (hex strength) are darker and more solid; rows
+      // without a level look like level 1, which is the old look.
+      const hasTopColor: maplibregl.ExpressionSpecification = [
+        "!=",
+        ["coalesce", ["get", "topColor"], ""],
+        "",
+      ];
+      const ownerColor: maplibregl.ExpressionSpecification = [
         "case",
         ["get", "isRun"],
         HEX_COLORS.run,
         ["get", "isMine"],
-        HEX_COLORS.mine,
-        HEX_COLORS.others,
-      ] as maplibregl.ExpressionSpecification;
+        levelColor(HEX_COLORS.mine, LEVEL_DARK.mine),
+        hasTopColor,
+        ["get", "topColor"],
+        levelColor(HEX_COLORS.others, LEVEL_DARK.others),
+      ];
       map.addLayer({
         id: "claimed-hex-fill",
         type: "fill",
         source: "claimed-hexes",
         paint: {
           "fill-color": ownerColor,
-          // Levels (hex strength): faint at 1, solid at 10. Rows with no
-          // level keep the old flat values.
           "fill-opacity": [
             "case",
             ["get", "isRun"],
             0.5,
             ["get", "isMine"],
-            strengthOpacity(0.05, 0.25, 0.4),
-            strengthOpacity(0.035, 0.15, 0.25),
+            levelValue(0.4, 0.85),
+            hasTopColor,
+            levelValue(0.35, 0.8),
+            levelValue(0.25, 0.6),
           ],
         },
       });
@@ -1288,7 +1319,7 @@ export default function RunPage() {
         source: "claimed-hexes",
         paint: {
           "line-color": ownerColor,
-          "line-width": 2,
+          "line-width": levelLineWidth(2, 4),
           "line-opacity": ["case", ["get", "isMine"], 0.9, 0.6],
         },
       });
