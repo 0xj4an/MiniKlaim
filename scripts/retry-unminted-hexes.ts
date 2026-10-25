@@ -52,6 +52,7 @@ async function main() {
   const db = drizzle(client);
 
   await checkRelayerBalance("celo");
+  await pruneHexActions(db);
 
   // ISO string: postgres-js does not bind Date instances in db.execute.
   const cutoff = new Date(Date.now() - MIN_AGE_MIN * 60_000).toISOString();
@@ -140,6 +141,23 @@ async function main() {
   });
   if (failed === 0) await settleOldBacklog(client);
   await client.end();
+}
+
+/**
+ * Hex strength keeps one row per block, player and day to allow one action
+ * a day. Only today matters; three days covers every time zone.
+ */
+async function pruneHexActions(db: ReturnType<typeof drizzle>) {
+  try {
+    const res = await db.execute(
+      sql`DELETE FROM hex_actions WHERE day < (now() - interval '3 days')::date`,
+    );
+    log.info("hex actions pruned", { rows: (res as unknown as { count?: number }).count ?? 0 });
+  } catch (e) {
+    log.warn("hex actions prune failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
 }
 
 const BACKLOG_MIN_AGE = "24 hours";

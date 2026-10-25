@@ -15,6 +15,8 @@ export type ClaimedHexProperties = {
   isMine: boolean;
   /** Captured in the run in progress (only ever true for the player's own). */
   isRun: boolean;
+  /** Block level 1-10, or 0 when the row carries none. */
+  strength: number;
 };
 export type ClaimedHexFeature = Feature<Polygon, ClaimedHexProperties>;
 export type ClaimedHexFeatureCollection = FeatureCollection<
@@ -167,7 +169,12 @@ export function frameForCells(
  * distinction (e.g. rendering a popup for one hex) can pass an empty set.
  */
 export function claimedHexesToFeatureCollection(
-  rows: Array<{ h3: string; owner: string; ownerUsername?: string | null }>,
+  rows: Array<{
+    h3: string;
+    owner: string;
+    ownerUsername?: string | null;
+    strength?: number;
+  }>,
   myAddresses: ReadonlySet<string>,
   /** Hexes captured in the run in progress. Painted apart from older ones. */
   runHexes: ReadonlySet<string> = new Set(),
@@ -183,6 +190,7 @@ export function claimedHexesToFeatureCollection(
         isMine: myAddresses.has(row.owner.toLowerCase()),
         isRun:
           runHexes.has(row.h3) && myAddresses.has(row.owner.toLowerCase()),
+        strength: typeof row.strength === "number" ? row.strength : 0,
       },
       geometry: { type: "Polygon", coordinates: [hexToPolygon(row.h3)] },
     })),

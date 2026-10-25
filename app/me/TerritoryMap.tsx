@@ -8,16 +8,22 @@ import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
 import { claimedHexesToFeatureCollection, frameForCells } from "@/lib/map/hex";
-import { HEX_COLORS } from "@/lib/map/hexColors";
+import { HEX_COLORS, strengthOpacity } from "@/lib/map/hexColors";
 
 const log = createLogger("page:me:map");
 
-type HexRow = { h3: string; owner: string; ownerUsername: string | null };
+type HexRow = {
+  h3: string;
+  owner: string;
+  ownerUsername: string | null;
+  strength?: number;
+};
 
 export function TerritoryMap({ address }: { address: string | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [count, setCount] = useState<number | null>(null);
+  const [maxed, setMaxed] = useState(0);
   const { t } = useLocale();
 
   useEffect(() => {
@@ -40,6 +46,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
         if (cancelled) return;
         const mine = data.hexes;
         setCount(mine.length);
+        setMaxed(mine.filter((h) => h.strength === 10).length);
         if (mine.length === 0) return;
         if (!containerRef.current) {
           await new Promise((resolve) => {
@@ -78,7 +85,10 @@ export function TerritoryMap({ address }: { address: string | null }) {
             type: "fill",
             source: "mine",
             minzoom: 11,
-            paint: { "fill-color": HEX_COLORS.mine, "fill-opacity": 0.55 },
+            paint: {
+              "fill-color": HEX_COLORS.mine,
+              "fill-opacity": strengthOpacity(0.05, 0.3, 0.55),
+            },
           });
           map.addLayer({
             id: "mine-line",
@@ -157,6 +167,11 @@ export function TerritoryMap({ address }: { address: string | null }) {
         {t("me.territory.header")}
         {count !== null ? ` (${count})` : ""}
       </p>
+      {maxed > 0 && (
+        <p className="text-center text-xs font-semibold text-orange-700">
+          {t("me.territory.maxed").replace("{n}", String(maxed))}
+        </p>
+      )}
       {count === 0 ? (
         <p className="py-8 text-center text-xs text-zinc-500">
           {t("me.territory.empty")}

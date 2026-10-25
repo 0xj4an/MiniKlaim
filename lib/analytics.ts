@@ -38,6 +38,9 @@ type EventMap = {
     distance_m: number;
     speed_kmh: number;
     move_mode: MoveMode | "none";
+    // Hex strength only.
+    reinforced?: number;
+    damaged?: number;
   };
   run_capture_milestone: { hex_count: number };
 

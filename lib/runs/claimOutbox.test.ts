@@ -6,6 +6,8 @@ import {
   GPS_GAP_STALE_SECONDS,
   addHexes,
   applyHttp,
+  claimRowView,
+  hexesToQueue,
   flushDelay,
   hexesForSegment,
   parseQueue,
@@ -243,5 +245,64 @@ describe("withoutOwned", () => {
   test("keeps a hex the player does not own and drops their own", () => {
     expect(withoutOwned(["a", "b", "c"], new Set(["b"]))).toEqual(["a", "c"]);
     expect(withoutOwned(["a", "b"], new Set())).toEqual(["a", "b"]);
+  });
+});
+
+describe("hex strength results", () => {
+  test("keeps the old rule when the server sends no action", () => {
+    expect(claimRowView({ h3: "a" })).toMatchObject({ captured: true, ownedAfter: true });
+    expect(claimRowView({ h3: "a", alreadyOwned: true })).toMatchObject({
+      captured: false,
+      ownedAfter: true,
+    });
+  });
+
+  test("reads each action", () => {
+    expect(claimRowView({ h3: "a", action: "new" })).toEqual({
+      captured: true,
+      ownedAfter: true,
+      reinforced: false,
+      attacked: false,
+    });
+    expect(claimRowView({ h3: "a", action: "capture" }).captured).toBe(true);
+    expect(claimRowView({ h3: "a", action: "reinforce", alreadyOwned: true })).toEqual({
+      captured: false,
+      ownedAfter: true,
+      reinforced: true,
+      attacked: false,
+    });
+    expect(claimRowView({ h3: "a", action: "attack" })).toEqual({
+      captured: false,
+      ownedAfter: false,
+      reinforced: false,
+      attacked: true,
+    });
+    expect(claimRowView({ h3: "a", action: "repeat", alreadyOwned: true }).ownedAfter).toBe(true);
+    expect(claimRowView({ h3: "a", action: "repeat" }).ownedAfter).toBe(false);
+  });
+
+  test("counts captures, reinforces and attacks separately", () => {
+    const applied = applyHttp(
+      [hex("a"), hex("b"), hex("c"), hex("d")],
+      ["a", "b", "c", "d"],
+      {
+        kind: "ok",
+        results: [
+          { h3: "a", action: "new" },
+          { h3: "b", action: "reinforce", alreadyOwned: true },
+          { h3: "c", action: "attack" },
+          { h3: "d", action: "repeat", alreadyOwned: true },
+        ],
+      },
+      0,
+    );
+    expect(applied).toMatchObject({ newly: 1, reinforced: 1, attacked: 1, items: [] });
+  });
+
+  test("queues own blocks once per run only when strength is on", () => {
+    const owned = new Set(["a"]);
+    expect(hexesToQueue(["a", "b"], owned, new Set(), false)).toEqual(["b"]);
+    expect(hexesToQueue(["a", "b", "b"], owned, new Set(), true)).toEqual(["a", "b"]);
+    expect(hexesToQueue(["a", "b"], owned, new Set(["a"]), true)).toEqual(["b"]);
   });
 });

@@ -22,6 +22,9 @@ const log = createLogger("ui:runSummary");
 export type RunSummary = {
   durationMs: number;
   hexesClaimed: number;
+  /** Hex strength: own blocks raised a level, others' blocks lowered. */
+  hexesReinforced?: number;
+  hexesDamaged?: number;
   distanceMeters: number;
   /** The run's label from the server (the player's pick when they made one). */
   moveMode?: MoveMode | null;
@@ -64,6 +67,8 @@ export function RunSummaryModal({
   const speedLabel = formatSpeed(summary.durationMs, summary.distanceMeters);
   const mode = summary.moveMode ?? moveMode(summary.distanceMeters, totalSec);
   const hasBadges = (badgeIds?.length ?? 0) > 0;
+  const reinforced = summary.hexesReinforced ?? 0;
+  const damaged = summary.hexesDamaged ?? 0;
   const previewReady = badgeIds !== null;
   const canClaim =
     previewReady &&
@@ -210,10 +215,24 @@ export function RunSummaryModal({
             </div>
           </div>
         )}
+        {(reinforced > 0 || damaged > 0) && (
+          <p className="mt-2 text-center text-sm font-semibold text-orange-700">
+            {[
+              reinforced > 0
+                ? t("run.summary.reinforced").replace("{n}", String(reinforced))
+                : null,
+              damaged > 0 ? t("run.summary.attacked").replace("{n}", String(damaged)) : null,
+            ]
+              .filter(Boolean)
+              .join(" - ")}
+          </p>
+        )}
         <StreakNote
           address={address}
           countedThisRun={
             summary.hexesClaimed > 0 ||
+            reinforced > 0 ||
+            damaged > 0 ||
             summary.distanceMeters >= STREAK_MIN_SERVER_METERS
           }
         />

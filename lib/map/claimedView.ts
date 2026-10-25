@@ -11,6 +11,8 @@ export type ClaimedHexRow = {
   h3: string;
   owner: string;
   ownerUsername: string | null;
+  /** Block level 1-10 (hex strength). Only on the run-map and own lists. */
+  strength?: number;
 };
 
 export type PlacedHex = ClaimedHexRow & { lat: number; lng: number };
