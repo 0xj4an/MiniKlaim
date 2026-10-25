@@ -13,6 +13,12 @@ const NOISE = [
   // A desktop wallet extension refusing a silent account read before the
   // site was approved (MINIKLAIM-Z). The connect button still works.
   "has not been authorized yet",
+  // The MetaMask desktop extension failing its own handshake on /stats and /
+  // (MINIKLAIM-13, -15). MiniKlaim targets MiniPay; nothing to fix here.
+  "Failed to connect to MetaMask",
+  // An injected wallet/WebView bridge script calling its own missing method
+  // (MINIKLAIM-16). Not our code.
+  "bridge.event is not a function",
 ];
 
 export function isBrowserNoise(message: string): boolean {
