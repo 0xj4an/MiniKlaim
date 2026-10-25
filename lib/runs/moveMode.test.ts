@@ -121,9 +121,11 @@ describe("finalMoveMode", () => {
 describe("tooFastForMode", () => {
   it("lets realistic vehicle speeds through", () => {
     expect(tooFastForMode("car", 120)).toBe(false);
+    // celovibe (156) and princessvalue (141), 21 and 25 Oct: fast, kept.
+    expect(tooFastForMode("car", 156)).toBe(false);
     expect(tooFastForMode("car", DECLARED_MAX_KMH.car)).toBe(false);
-    expect(tooFastForMode("bus", 101)).toBe(false);
-    expect(tooFastForMode("moto", 75)).toBe(false);
+    expect(tooFastForMode("bus", 137)).toBe(false);
+    expect(tooFastForMode("moto", 200)).toBe(false);
     expect(tooFastForMode("bike", 39)).toBe(false);
     expect(tooFastForMode(null, 107)).toBe(false);
   });
@@ -136,8 +138,8 @@ describe("tooFastForMode", () => {
     expect(tooFastForMode("moto", 266)).toBe(true);
     expect(tooFastForMode("moto", 259)).toBe(true);
     // No pick: the car ceiling applies.
-    expect(tooFastForMode(null, 161)).toBe(true);
-    expect(tooFastForMode(undefined, 150)).toBe(false);
+    expect(tooFastForMode(null, 221)).toBe(true);
+    expect(tooFastForMode(undefined, 200)).toBe(false);
   });
   it("leaves trains and planes to the airborne check", () => {
     expect(tooFastForMode("train", 240)).toBe(false);

@@ -73,12 +73,13 @@ export const MOTOR_SUSTAINED_KMH = 45;
  * - foot 25: elite marathon pace is ~21; see FOOT_MAX_SUSTAINED_KMH.
  * - bike 60: a long descent; nobody pedals 60 on the flat for 30 s.
  * - horse 70: a racehorse gallop.
- * - bus 140: intercity coaches on a toll road.
- * - moto, car 160: a fast driver on an empty expressway (Lagos-Ibadan,
- *   Jakarta toll roads, Ruta del Sol, Swedish motorways). Legal limits in the
- *   player countries are 80-120. Of 265 motor runs to 25 Oct, 5 went past
- *   160 sustained (259-324 km/h) and every one was a GPS jump; no real drive
- *   averaged more than 123 over a whole run.
+ * - bus 150: an intercity coach flat out on a toll road.
+ * - car 220: a fast car on an empty expressway, well past any legal limit
+ *   (80-120 where MiniKlaim is played). Of 265 motor runs to 25 Oct the
+ *   fastest real 30 s window was 156 km/h; the 5 above 220 (259-324) were GPS
+ *   jumps.
+ * - moto 250: a sport bike; the same as a fast train, so the airborne check
+ *   (CAPTURE_MAX_KMH) is what stops it in practice.
  * - boat 120: a speedboat.
  * - train 250: a fast train; above that is a plane (CAPTURE_MAX_KMH).
  *
@@ -90,9 +91,9 @@ export const DECLARED_MAX_KMH: Record<MoveMode, number> = {
   foot: 25,
   horse: 70,
   bike: 60,
-  moto: 160,
-  car: 160,
-  bus: 140,
+  moto: 250,
+  car: 220,
+  bus: 150,
   boat: 120,
   train: 250,
   plane: Number.POSITIVE_INFINITY,
