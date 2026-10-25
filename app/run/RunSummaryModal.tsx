@@ -13,6 +13,7 @@ import { badgeCopy } from "@/lib/onchain/badgeArt";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { isBadgeClaimPending } from "@/lib/wallet/claimInFlight";
 import { StreakNote } from "./StreakNote";
+import { STREAK_MIN_SERVER_METERS } from "@/lib/runs/streakMath";
 
 const Confetti = dynamic(() => import("react-confetti"), { ssr: false });
 
@@ -209,7 +210,13 @@ export function RunSummaryModal({
             </div>
           </div>
         )}
-        <StreakNote address={address} capturedThisRun={summary.hexesClaimed > 0} />
+        <StreakNote
+          address={address}
+          countedThisRun={
+            summary.hexesClaimed > 0 ||
+            summary.distanceMeters >= STREAK_MIN_SERVER_METERS
+          }
+        />
         {hasBadges && (
           <ul className="mt-4 border-t border-zinc-100">
             {badgeIds?.map((id, index) => (

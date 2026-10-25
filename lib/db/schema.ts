@@ -57,6 +57,9 @@ export const users = pgTable("users", {
   // Lifetime count of hexes captured from a different player (recapture where
   // the prior owner was someone else). Drives the conquest badges.
   conquests: integer("conquests").notNull().default(0),
+  // IANA time zone the phone reported when the player last started a run.
+  // Streak days are cut at local midnight in this zone (UTC when null).
+  timeZone: text("time_zone"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -71,7 +71,7 @@ type EventMap = {
   // Signature requested from the finish card. `auto_finish` is the sheet
   // that opens by itself. `button` is a retry after they declined.
   run_summary_claim_tapped: { blocks: number; via: "auto_finish" | "button" };
-  streak_shown: { streak: number; captured: boolean };
+  streak_shown: { streak: number; counted: boolean };
 
   // Badges.
   badge_unlocked: { badge_id: number; badge_name: string };

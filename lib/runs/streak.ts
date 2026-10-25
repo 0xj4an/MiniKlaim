@@ -1,42 +1,98 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { computeBestStreak, computeStreak } from "@/lib/runs/streakMath";
+import { addressesForPlayer } from "@/lib/players";
+import {
+  STREAK_MIN_SERVER_METERS,
+  computeBestStreak,
+  computeStreak,
+} from "@/lib/runs/streakMath";
 
 export {
   STREAK_BADGE_DAYS,
+  STREAK_MIN_SERVER_METERS,
   computeBestStreak,
   computeStreak,
+  isValidTimeZone,
   nextStreakBadge,
 } from "@/lib/runs/streakMath";
 
+export type StreakDays = {
+  /** Distinct run days, yyyy-mm-dd in `timeZone`, newest first. */
+  days: string[];
+  /** IANA zone the days are in ("UTC" when the player never sent one). */
+  timeZone: string;
+};
+
 /**
- * Distinct UTC days on which these wallets finished a run that captured at
- * least one block. Empty runs do not count: opening a run and closing it
- * without moving used to keep a streak (and earn streak badges) alive.
+ * Distinct days, in the player's own time zone, on which these wallets
+ * finished a run that counts for the streak: it captured at least one new
+ * block, or the server measured at least STREAK_MIN_SERVER_METERS of movement
+ * (a player walking their own territory captures nothing new). Runs opened
+ * and closed without moving still do not count.
+ *
+ * The zone is the one saved on the wallet that ran most recently (sent by the
+ * client when a run starts). Days used to be cut at UTC midnight, which split
+ * an evening run in Mexico onto the next day and broke real streaks.
  */
-export async function streakDays(addressesLower: string[]): Promise<string[]> {
-  if (addressesLower.length === 0) return [];
+export async function streakDays(addressesLower: string[]): Promise<StreakDays> {
+  if (addressesLower.length === 0) return { days: [], timeZone: "UTC" };
   const list = sql.join(
     addressesLower.map((a) => sql`${a}`),
     sql`, `,
   );
   const rows = await db.execute(sql`
-    SELECT DISTINCT DATE(ended_at AT TIME ZONE 'UTC')::text AS day
-    FROM runs
-    WHERE user_address IN (${list})
-      AND ended_at IS NOT NULL
-      AND hexes_claimed > 0
+    WITH tz AS (
+      SELECT COALESCE(
+        (
+          SELECT u.time_zone
+          FROM runs r
+          JOIN users u ON u.address = r.user_address
+          WHERE r.user_address IN (${list}) AND u.time_zone IS NOT NULL
+          ORDER BY r.started_at DESC
+          LIMIT 1
+        ),
+        (
+          SELECT time_zone FROM users
+          WHERE address IN (${list}) AND time_zone IS NOT NULL
+          LIMIT 1
+        ),
+        'UTC'
+      ) AS name
+    )
+    SELECT DISTINCT
+      DATE(r.ended_at AT TIME ZONE tz.name)::text AS day,
+      tz.name AS tz
+    FROM runs r, tz
+    WHERE r.user_address IN (${list})
+      AND r.ended_at IS NOT NULL
+      AND (r.hexes_claimed > 0 OR r.server_distance_meters >= ${STREAK_MIN_SERVER_METERS})
     ORDER BY day DESC
   `);
-  return (rows as unknown as Array<{ day: string }>).map((r) => String(r.day));
+  const dayRows = rows as unknown as Array<{ day: string; tz: string }>;
+  return {
+    days: dayRows.map((r) => String(r.day)),
+    timeZone: dayRows[0]?.tz ?? "UTC",
+  };
 }
 
-/** Current and best day-streak for a player (lowercased address). */
+/** Current and best streak from the days and zone `streakDays` returned. */
+export function streaksFrom(
+  { days, timeZone }: StreakDays,
+  now = Date.now(),
+): { current: number; best: number } {
+  return { current: computeStreak(days, now, timeZone), best: computeBestStreak(days) };
+}
+
+/**
+ * Current and best day-streak for a player (lowercased address), across every
+ * wallet linked to that player, so /me, the public profile and the run
+ * summary agree.
+ */
 export async function getPlayerStreaks(
   addressLower: string,
 ): Promise<{ current: number; best: number }> {
-  const days = await streakDays([addressLower]);
-  return { current: computeStreak(days), best: computeBestStreak(days) };
+  const linked = await addressesForPlayer(addressLower);
+  return streaksFrom(await streakDays(linked));
 }
 
 /** Current day-streak for a player (lowercased address). */

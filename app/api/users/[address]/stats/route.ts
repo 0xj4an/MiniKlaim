@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
 import { addressesForPlayer } from "@/lib/players";
-import { computeBestStreak, computeStreak, streakDays } from "@/lib/runs/streak";
+import { streakDays, streaksFrom } from "@/lib/runs/streak";
 
 export const dynamic = "force-dynamic";
 
@@ -123,8 +123,7 @@ export async function GET(
   ]);
 
   const rank = (rankResult as unknown as Array<{ rank: number }>)[0]?.rank ?? 1;
-  const streak = computeStreak(runDays);
-  const bestStreak = computeBestStreak(runDays);
+  const { current: streak, best: bestStreak } = streaksFrom(runDays);
   const cityCount = new Set(
     ownedHexes.map((h) => cellToParent(h.h3Id, CITY_RESOLUTION)),
   ).size;

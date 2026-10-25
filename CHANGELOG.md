@@ -2,6 +2,14 @@
 
 All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project does not use SemVer tags today, so entries are dated instead.
 
+## 2026-10-25
+
+### Fixed
+
+- **Streak days end at the player's local midnight, not UTC.** A run at 8 pm in Mexico was dated the next day in UTC, which left a hole and reset real streaks (erikvalle played 19–24 Oct every day and was shown a 1-day streak). The run start now sends the phone's time zone, saved on the player as `users.time_zone`; streak days and "today" are taken in that zone. Players who have not started a run since are given the main zone of the country where they hold most blocks (countries with several zones, like the USA, stay on UTC until their next run). In the top 100 this restores erikvalle's 6-day streak and the best streak, and so the streak badges, of rushdee, pae, noelgray and korex.
+- **Walking your own blocks keeps the streak.** Since 23 Oct only runs with a new block counted, so a player covering territory they already own lost the day (bagwell rode 689 m on 24 Oct, pushin_p walked 1.5 km on 18 Oct, both without a new block). A finished run now also counts when the server measured at least 200 m along its hex path. Runs opened and closed without moving still do not count.
+- **The public profile shows the same streak as /me.** The profile and badge checks used a single wallet, /me used every linked wallet; all three now use the linked wallets.
+
 ## 2026-10-23
 
 ### Fixed
