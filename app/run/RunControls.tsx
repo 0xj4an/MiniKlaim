@@ -84,8 +84,12 @@ export function RunControls({
                   );
                 })}
               </div>
-              <p className="mt-2 min-h-4 text-center text-xs font-medium text-orange-800">
-                {mode ? t(moveModeLabelKey(mode)) : "\u00a0"}
+              <p
+                className={`mt-2 min-h-4 text-center text-xs font-medium ${
+                  mode ? "text-orange-800" : "text-zinc-500"
+                }`}
+              >
+                {mode ? t(moveModeLabelKey(mode)) : t("run.mode.pick")}
               </p>
             </>
           ) : (

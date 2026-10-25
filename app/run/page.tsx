@@ -83,8 +83,6 @@ const FAR_CAMERA_METERS = 1500;
 // between good ones is normal; a streak means no GPS lock (indoors, network
 // location only).
 const WEAK_FIX_STREAK = 3;
-const MODE_STORAGE_KEY = "miniklaim.moveMode";
-
 function placeCamera(
   map: maplibregl.Map,
   lng: number,
@@ -689,34 +687,18 @@ export default function RunPage() {
     }
   }, [flushClaimQueue]);
 
-  // How the player says they travel. The last pick is remembered so most
-  // runs start with no extra tap; the first run asks.
+  // Nothing is preselected. Each run starts blank and stays blocked
+  // until the player taps a mode.
   const [declaredMode, setDeclaredMode] = useState<MoveMode | null>(null);
   const declaredModeRef = useRef<MoveMode | null>(null);
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(MODE_STORAGE_KEY);
-      if (isMoveMode(saved)) {
-        declaredModeRef.current = saved;
-        queueMicrotask(() => setDeclaredMode(saved));
-      }
-    } catch {
-      // No storage: the player picks each time.
-    }
-  }, []);
   const pickMode = useCallback((m: MoveMode) => {
     declaredModeRef.current = m;
     setDeclaredMode(m);
-    try {
-      window.localStorage.setItem(MODE_STORAGE_KEY, m);
-    } catch {
-      // Remembering the pick is a convenience only.
-    }
   }, []);
 
   const startRun = useCallback(async () => {
     const addr = addressRef.current;
-    if (!addr) return;
+    if (!addr || !declaredModeRef.current) return;
     setIsBusy(true);
     try {
       const res = await fetch("/api/runs", {
@@ -724,7 +706,7 @@ export default function RunPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           address: addr,
-          mode: declaredModeRef.current ?? undefined,
+          mode: declaredModeRef.current,
         }),
       });
       if (!res.ok) {
@@ -827,6 +809,8 @@ export default function RunPage() {
       // The card lists the blocks and any badges, then the wallet opens
       // on its own. A decline is not sponsored in that moment.
       setRunId(null);
+      declaredModeRef.current = null;
+      setDeclaredMode(null);
       // The run's red hexes become ordinary owned (orange) territory.
       runH3Ref.current = new Set();
       void refreshClaimed();
