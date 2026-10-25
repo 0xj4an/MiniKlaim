@@ -46,7 +46,11 @@ export function moveMode(
   if (!Number.isFinite(distanceMeters) || !Number.isFinite(durationSec))
     return null;
   if (distanceMeters < MIN_METERS || durationSec < MIN_SECONDS) return null;
-  const kmh = (distanceMeters / durationSec) * 3.6;
+  return modeForKmh((distanceMeters / durationSec) * 3.6);
+}
+
+/** The label a speed alone implies, with the thresholds above. */
+export function modeForKmh(kmh: number): MoveMode {
   if (kmh >= 300) return "plane";
   if (kmh >= 130) return "train";
   if (kmh >= 40) return "car";
@@ -75,11 +79,13 @@ const DECLARED_MAX_KMH: Record<MoveMode, number> = {
 };
 
 /**
- * The run's label. The player's own pick wins when there is one; speed only
- * flags a pick it cannot believe (someone "on foot" at 60 km/h), and the
- * finish route logs that for review. With no pick, the session average is
- * refined by the best sustained speed: a slow average with a motor-speed
- * stretch is a car, not a bike.
+ * The run's label. The player's own pick wins when speed can believe it.
+ * When it cannot (someone "on foot" at 60 km/h, or on a plane declared as a
+ * walk) the run is labelled by its speed instead and the finish route logs
+ * the mismatch: the label feeds the public stats and the fast-travel watch,
+ * so a wrong pick must not hide a train or a plane. With no pick, the session
+ * average is refined by the best sustained speed: a slow average with a
+ * motor-speed stretch is a car, not a bike.
  */
 export function finalMoveMode(params: {
   declared: string | null | undefined;
@@ -93,7 +99,9 @@ export function finalMoveMode(params: {
     const avg =
       params.durationSec > 0 ? (params.distanceMeters / params.durationSec) * 3.6 : 0;
     const ceiling = DECLARED_MAX_KMH[params.declared];
-    return { mode: params.declared, mismatch: Math.max(avg, sustained) > ceiling };
+    const peak = Math.max(avg, sustained);
+    if (peak <= ceiling) return { mode: params.declared, mismatch: false };
+    return { mode: modeForKmh(peak), mismatch: true };
   }
   if ((computed === "foot" || computed === "bike") && sustained >= MOTOR_SUSTAINED_KMH) {
     return { mode: "car", mismatch: false };
