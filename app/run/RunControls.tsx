@@ -50,6 +50,9 @@ export function RunControls({
         <div className="flex w-full max-w-sm flex-col items-center gap-3">
         {canStart && (
           <div className="flex w-full flex-col items-center gap-2">
+            <p className="rounded-full bg-white/95 px-3 py-1 text-sm font-semibold text-zinc-900 shadow-sm">
+              {t("run.mode.ask")}
+            </p>
             <div
               role="radiogroup"
               aria-label={t("run.mode.ask")}
@@ -78,9 +81,11 @@ export function RunControls({
                 );
               })}
             </div>
-            <p className="text-center text-xs font-medium text-zinc-800 [text-shadow:0_0_6px_white,0_0_6px_white]">
-              {mode ? t(moveModeLabelKey(mode)) : t("run.mode.ask")}
-            </p>
+            {mode && (
+              <p className="text-center text-xs font-medium text-zinc-800 [text-shadow:0_0_6px_white,0_0_6px_white]">
+                {t(moveModeLabelKey(mode))}
+              </p>
+            )}
           </div>
         )}
         <button
