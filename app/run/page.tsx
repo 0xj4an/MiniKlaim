@@ -1492,6 +1492,7 @@ export default function RunPage() {
       )}
       <BadgeClaimPrompt
         address={address ?? null}
+        surface="run"
         // Never a modal in the middle of a run.
         enabled={isConnected && !isWrongChain && !lastFinishedRun && !runId}
         refreshKey={badgeRefresh}
