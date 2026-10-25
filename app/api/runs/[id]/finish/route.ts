@@ -68,6 +68,7 @@ export async function PATCH(
       id,
       player: updated.userAddress,
       declared: updated.declaredMode,
+      labelled: mode,
       maxSustainedKmh: updated.maxSustainedKmh,
       avgKmh: durationSec > 0 ? Math.round((updated.serverDistanceMeters / durationSec) * 3.6) : 0,
     });
