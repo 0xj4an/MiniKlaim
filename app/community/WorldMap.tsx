@@ -63,17 +63,31 @@ function setGeoSource(
 
 const log = createLogger("page:community:map");
 
-// Top-10 player color when the feature has one, else gray.
-const HAS_TOP: maplibregl.ExpressionSpecification = [
-  "!=",
-  ["coalesce", ["get", "topColor"], ""],
-  "",
-];
-const OTHERS_COLOR: maplibregl.ExpressionSpecification = [
-  "case",
-  HAS_TOP,
+// Color of a top-10 player's block; the "top" source only holds those.
+const TOP_COLOR: maplibregl.ExpressionSpecification = [
+  "coalesce",
   ["get", "topColor"],
   HEX_COLORS.others,
+];
+const CIRCLE_STROKE: maplibregl.ExpressionSpecification = [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  0, 0.5,
+  4, 1,
+  8, 1.5,
+];
+const CIRCLE_RADIUS: maplibregl.ExpressionSpecification = [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  -2, 2,
+  0, 3,
+  2, 4,
+  4, 5,
+  6, 6,
+  8, 7,
+  11, 4,
 ];
 
 export function WorldMap({
@@ -165,25 +179,29 @@ export function WorldMap({
       const mine = hasMe
         ? rows.filter((h) => mineSet.has(h.owner.toLowerCase()))
         : [];
-      const others = hasMe
+      const notMine = hasMe
         ? rows.filter((h) => !mineSet.has(h.owner.toLowerCase()))
         : rows;
+      // Top-10 players get their own small source. The big one (everyone
+      // else, ~250k hexes) keeps constant paint: a data-driven color on it
+      // means a per-feature paint buffer for every polygon, point and line,
+      // which is what MiniPay's WebView could not take (25 Oct).
+      const topColors = topColorsRef.current;
+      const top = topColors.size > 0
+        ? notMine.filter((h) => topColors.has(h.owner.toLowerCase()))
+        : [];
+      const others = topColors.size > 0
+        ? notMine.filter((h) => !topColors.has(h.owner.toLowerCase()))
+        : notMine;
 
-      setGeoSource(
-        map,
-        "others",
-        claimedHexesToFeatureCollection(others, mineSet, new Set(), topColorsRef.current),
-      );
+      setGeoSource(map, "others", claimedHexesToFeatureCollection(others, mineSet));
       if (!map.getLayer("others-fill")) {
         map.addLayer({
           id: "others-fill",
           type: "fill",
           source: "others",
           minzoom: 8, // Lower threshold for better visibility
-          paint: {
-            "fill-color": OTHERS_COLOR,
-            "fill-opacity": ["case", HAS_TOP, 0.65, 0.45],
-          },
+          paint: { "fill-color": HEX_COLORS.others, "fill-opacity": 0.45 },
         });
         map.addLayer({
           id: "others-line",
@@ -191,17 +209,13 @@ export function WorldMap({
           source: "others",
           minzoom: 8,
           paint: {
-            "line-color": OTHERS_COLOR,
-            "line-width": ["case", HAS_TOP, 1.5, 1],
+            "line-color": HEX_COLORS.others,
+            "line-width": 1,
             "line-opacity": 0.85,
           },
         });
       }
-      setGeoSource(
-        map,
-        "others-points",
-        hexesToPointCollection(others, mineSet, topColorsRef.current),
-      );
+      setGeoSource(map, "others-points", hexesToPointCollection(others, mineSet));
       if (!map.getLayer("others-points")) {
         map.addLayer({
           id: "others-points",
@@ -209,34 +223,56 @@ export function WorldMap({
           source: "others-points",
           maxzoom: 11,
           paint: {
-            "circle-color": OTHERS_COLOR,
+            "circle-color": HEX_COLORS.others,
             "circle-opacity": 0.85,
             "circle-stroke-color": "#ffffff",
-            "circle-stroke-width": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              0, 0.5,
-              4, 1,
-              8, 1.5,
-            ],
-            "circle-radius": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              -2, 2,
-              0, 3,
-              2, 4,
-              4, 5,
-              6, 6,
-              8, 7,
-              11, 4,
-            ],
+            "circle-stroke-width": CIRCLE_STROKE,
+            "circle-radius": CIRCLE_RADIUS,
           },
         });
       }
       bindLayer(map, "others-fill");
       bindLayer(map, "others-points");
+
+      setGeoSource(
+        map,
+        "top",
+        claimedHexesToFeatureCollection(top, mineSet, new Set(), topColors),
+      );
+      if (!map.getLayer("top-fill")) {
+        map.addLayer({
+          id: "top-fill",
+          type: "fill",
+          source: "top",
+          minzoom: 8,
+          paint: { "fill-color": TOP_COLOR, "fill-opacity": 0.65 },
+        });
+        map.addLayer({
+          id: "top-line",
+          type: "line",
+          source: "top",
+          minzoom: 8,
+          paint: { "line-color": TOP_COLOR, "line-width": 1.5, "line-opacity": 0.85 },
+        });
+      }
+      setGeoSource(map, "top-points", hexesToPointCollection(top, mineSet, topColors));
+      if (!map.getLayer("top-points")) {
+        map.addLayer({
+          id: "top-points",
+          type: "circle",
+          source: "top-points",
+          maxzoom: 11,
+          paint: {
+            "circle-color": TOP_COLOR,
+            "circle-opacity": 0.85,
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": CIRCLE_STROKE,
+            "circle-radius": CIRCLE_RADIUS,
+          },
+        });
+      }
+      bindLayer(map, "top-fill");
+      bindLayer(map, "top-points");
 
       if (mine.length === 0) return;
 
