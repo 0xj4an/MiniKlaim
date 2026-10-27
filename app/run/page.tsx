@@ -75,7 +75,7 @@ import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { GeoStatusBanner, type GeoStatus } from "./GeoStatusBanner";
 import { GpsExplainer } from "./GpsExplainer";
-import { markGpsAsked, shouldExplainGps } from "./gpsPrimer";
+import { geoStatusForError, markGpsAsked, shouldExplainGps } from "./gpsPrimer";
 import { NeedNameOverlay } from "./NeedNameOverlay";
 import { OnboardingTooltip } from "./OnboardingTooltip";
 import { readCachedPosition, writeCachedPosition } from "./positionCache";
@@ -986,8 +986,8 @@ export default function RunPage() {
         });
         queueMicrotask(() => {
           setGeoLastError(`${label}: ${err.message}`);
-          if (err.code === err.PERMISSION_DENIED) setGeoStatus("denied");
-          else if (err.code === err.TIMEOUT) setGeoStatus("timeout");
+          const next = geoStatusForError(err.code, true);
+          if (next) setGeoStatus(next);
         });
       },
       { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 },
@@ -1221,15 +1221,16 @@ export default function RunPage() {
           queueMicrotask(() =>
             setGeoLastError(`watch ${label}: ${err.message}`),
           );
+          const next = geoStatusForError(err.code, firstFix);
+          if (next) setGeoStatus(next);
           if (err.code === err.PERMISSION_DENIED) {
-            setGeoStatus("denied");
             log.warn("geolocation denied");
             return;
           }
-          if (err.code === err.TIMEOUT && firstFix) setGeoStatus("timeout");
-          // POSITION_UNAVAILABLE (2) and TIMEOUT (3) are typically transient
-          // on macOS / mobile. The watch keeps running and recovers on its
-          // own. Don't downgrade the UI to a permanent "unavailable" state.
+          // Once a first fix has arrived, POSITION_UNAVAILABLE (2) and
+          // TIMEOUT (3) are typically transient on macOS / mobile. The watch
+          // keeps running and recovers on its own, so geoStatusForError
+          // returns null and the UI keeps what it was showing.
           log.warn("transient geolocation error", {
             code: err.code,
             message: err.message,

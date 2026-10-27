@@ -89,7 +89,10 @@ export function GeoStatusBanner({
     >
       <div className="flex flex-1 flex-col items-center gap-2 text-center">
         <span>{message}</span>
-        {onRetry && (status === "denied" || status === "timeout") && (
+        {onRetry &&
+          (status === "denied" ||
+            status === "timeout" ||
+            status === "unavailable") && (
           <button
             type="button"
             onClick={onRetry}
