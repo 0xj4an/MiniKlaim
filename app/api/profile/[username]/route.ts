@@ -1,8 +1,9 @@
 import { cellToParent } from "h3-js";
-import { and, count, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
+import { addressesForPlayer } from "@/lib/players";
 import { getPlayerStreaks } from "@/lib/runs/streak";
 
 export const dynamic = "force-dynamic";
@@ -36,38 +37,53 @@ export async function GET(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  const [runResult, bestRun, bestRunDist, lifetimeRow, ownedHexes, countryRows, streaks] =
-    await Promise.all([
-      db
-        .select({ count: count() })
-        .from(runs)
-        .where(eq(runs.userAddress, user.address)),
-      db
-        .select({ hexesClaimed: runs.hexesClaimed })
-        .from(runs)
-        .where(eq(runs.userAddress, user.address))
-        .orderBy(desc(runs.hexesClaimed))
-        .limit(1),
-      db
-        .select({ distanceMeters: runs.distanceMeters })
-        .from(runs)
-        .where(eq(runs.userAddress, user.address))
-        .orderBy(desc(runs.distanceMeters))
-        .limit(1),
-      db
-        .select({ total: sql<number>`coalesce(sum(${runs.distanceMeters}), 0)` })
-        .from(runs)
-        .where(eq(runs.userAddress, user.address)),
-      db
-        .select({ h3Id: hexes.h3Id })
-        .from(hexes)
-        .where(eq(hexes.ownerAddress, user.address)),
-      db
-        .selectDistinct({ country: hexes.country })
-        .from(hexes)
-        .where(and(eq(hexes.ownerAddress, user.address), isNotNull(hexes.country))),
-      getPlayerStreaks(user.address),
-    ]);
+  // Every wallet linked to this player, like /api/users/<address>/stats and
+  // the leaderboard. Counting one wallet made the public profile and the
+  // shared preview card disagree with /me and the ranking for anyone who
+  // linked a second wallet (7,122 blocks against 11,926 on 27 Oct).
+  const linked = await addressesForPlayer(user.address.toLowerCase());
+
+  const [
+    runResult,
+    bestRun,
+    bestRunDist,
+    lifetimeRow,
+    ownedHexes,
+    countryRows,
+    streaks,
+  ] = await Promise.all([
+    db
+      .select({ count: count() })
+      .from(runs)
+      .where(inArray(runs.userAddress, linked)),
+    db
+      .select({ hexesClaimed: runs.hexesClaimed })
+      .from(runs)
+      .where(inArray(runs.userAddress, linked))
+      .orderBy(desc(runs.hexesClaimed))
+      .limit(1),
+    db
+      .select({ distanceMeters: runs.distanceMeters })
+      .from(runs)
+      .where(inArray(runs.userAddress, linked))
+      .orderBy(desc(runs.distanceMeters))
+      .limit(1),
+    db
+      .select({ total: sql<number>`coalesce(sum(${runs.distanceMeters}), 0)` })
+      .from(runs)
+      .where(inArray(runs.userAddress, linked)),
+    db
+      .select({ h3Id: hexes.h3Id })
+      .from(hexes)
+      .where(inArray(hexes.ownerAddress, linked)),
+    db
+      .selectDistinct({ country: hexes.country })
+      .from(hexes)
+      .where(
+        and(inArray(hexes.ownerAddress, linked), isNotNull(hexes.country)),
+      ),
+    getPlayerStreaks(user.address),
+  ]);
 
   const cityCount = new Set(
     ownedHexes.map((h) => cellToParent(h.h3Id, CITY_RESOLUTION)),
