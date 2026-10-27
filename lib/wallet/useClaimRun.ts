@@ -19,6 +19,7 @@ import {
 import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { reportDeclined, runTokenHeaders } from "@/lib/wallet/runTokens";
+import { sponsorRefusalFor } from "@/lib/wallet/sponsorOutcome";
 
 const log = createLogger("wallet:claimRun");
 
@@ -69,9 +70,10 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
           log.info("sponsor already in progress", { runId });
           return "sponsored";
         }
-        if (res.status === 402 || res.status === 429 || res.status === 403) {
+        const refusal = sponsorRefusalFor(res.status);
+        if (refusal) {
           log.warn("sponsor refused", { runId, status: res.status });
-          return res.status === 402 ? "refused" : "failed";
+          return refusal;
         }
         if (!res.ok) {
           log.error("sponsor fallback failed", { runId, status: res.status });

@@ -32,6 +32,7 @@ import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { useClaimRun } from "@/lib/wallet/useClaimRun";
 import { reportDeclined, runTokenHeaders } from "@/lib/wallet/runTokens";
+import { sponsorRefusalFor } from "@/lib/wallet/sponsorOutcome";
 
 const log = createLogger("wallet:claimAll");
 
@@ -94,15 +95,17 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           track("run_claim_sponsored", { had_badges: hadBadges, trigger });
           return "sponsored";
         }
-        if (res.status === 402 || res.status === 429) {
-          // The server refused: the player can pay their own fee, or this
-          // wallet used today's sponsored allowance. Not an error on our side.
+        const refusal = sponsorRefusalFor(res.status);
+        if (refusal) {
+          // The server decided: the player can pay their own fee, this wallet
+          // used today's allowance, or this client does not hold the run
+          // token. Not an error on our side.
           const body = (await res.json().catch(() => ({}))) as { reason?: string };
           log.warn("sponsor refused", { runId, status: res.status, reason: body.reason });
           track("run_claim_failed", {
             trigger: `sponsor_refused:${body.reason ?? res.status}`,
           });
-          return res.status === 402 ? "refused" : "failed";
+          return refusal;
         }
         if (!res.ok) {
           let detail = "";
