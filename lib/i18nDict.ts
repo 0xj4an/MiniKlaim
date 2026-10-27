@@ -217,7 +217,8 @@ export const dictionaries = {
     "run.gps.explain.allow": "Allow location",
     "run.gps.timeout":
       "GPS didn't arrive. Close the app, open it again, and allow location. You can't play without it.",
-    "run.gps.unavailable": "Location unavailable on this device.",
+    "run.gps.unavailable":
+      "We can't read your location. Turn Location on in your phone settings, allow it for this app, and try again.",
     "map.webglFailed":
       "This phone can't draw the map. Your run still records: blocks, distance and time show below. Updating Android System WebView in the Play Store may bring the map back.",
     "map.unavailable":
@@ -711,7 +712,8 @@ export const dictionaries = {
     "run.gps.explain.allow": "Permitir ubicación",
     "run.gps.timeout":
       "El GPS no llegó. Cierra la app, vuélvela a abrir y permite la ubicación. Sin eso no puedes jugar.",
-    "run.gps.unavailable": "Ubicación no disponible en este dispositivo.",
+    "run.gps.unavailable":
+      "No podemos leer tu ubicación. Activa la Ubicación en los ajustes del teléfono, permítela para esta app y vuelve a intentar.",
     "map.webglFailed":
       "Este teléfono no puede dibujar el mapa. Tu corrida igual se registra: las cuadras, la distancia y el tiempo aparecen abajo. Actualizar Android System WebView en Play Store puede traer el mapa de vuelta.",
     "map.unavailable":
