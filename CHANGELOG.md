@@ -2,6 +2,16 @@
 
 All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project does not use SemVer tags today, so entries are dated instead.
 
+## 2026-10-27
+
+### Fixed
+
+- **A phone with location switched off left /run stuck with no message.** When the browser answered POSITION_UNAVAILABLE (what Android reports when location is off at the system level), the run page kept its "requesting" state: no banner, no retry button, no event, and no way to start. A player wrote in on 26 Oct ("Can't start a run") after allowing the prompt and seeing nothing happen; PostHog shows their session ending right there. The banner now appears with a Try again button, and the text says what to change ("Turn Location on in your phone settings, allow it for this app, and try again"). The same applies when a run's first fix never arrives; once a run has a position, these errors stay transient as before. The mapping moved into `geoStatusForError` with tests.
+
+- **Shared profile links previewed as "Player not found".** `app/p/[username]/opengraph-image.tsx` typed the route params as a plain object and read `params.username` without awaiting; Next hands them as a promise, so the name was undefined and every preview image fetched `/api/profile/undefined`. WhatsApp, X and Telegram showed an orange "Player not found" card for every player who shared their profile, and the endpoint took 129 calls in 14 minutes on 27 Oct (57 rate-limited). The route awaits its params now, and `app/routeParams.test.ts` fails CI if a dynamic route types them without a promise.
+
+- **/me threw a hydration error on every load.** The page rendered its wallet-dependent tree during SSR. The server has no wallet of its own and the wagmi config lives at module scope, so anonymous requests came back with the "pick a name" form: React found different HTML on the client and regenerated the tree (minified error #418, 14 players on 26-27 Oct, plus two page crashes on the same screen). Nothing wallet-dependent renders until mount, the same gate the home screen already used.
+
 ## 2026-10-25
 
 ### Added

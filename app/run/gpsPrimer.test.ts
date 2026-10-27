@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { markGpsAsked, shouldExplainGps } from "./gpsPrimer";
+import { GEO_ERROR, geoStatusForError, markGpsAsked, shouldExplainGps } from "./gpsPrimer";
 import { writeCachedPosition } from "./positionCache";
 
 beforeEach(() => {
@@ -41,5 +41,29 @@ describe("shouldExplainGps", () => {
       },
     });
     expect(shouldExplainGps()).toBe(true);
+  });
+});
+
+describe("geoStatusForError", () => {
+  it("always blames a denial, fix or no fix", () => {
+    expect(geoStatusForError(GEO_ERROR.permissionDenied, true)).toBe("denied");
+    expect(geoStatusForError(GEO_ERROR.permissionDenied, false)).toBe("denied");
+  });
+
+  it("shows the unavailable banner when the first fix never arrives", () => {
+    // kamari, 26 Oct: allowed the prompt, the phone answered
+    // POSITION_UNAVAILABLE, the page stayed on "requesting" with no banner
+    // and no retry, and the ticket read "Can't start a run".
+    expect(geoStatusForError(GEO_ERROR.positionUnavailable, true)).toBe("unavailable");
+    expect(geoStatusForError(GEO_ERROR.timeout, true)).toBe("timeout");
+  });
+
+  it("keeps quiet once the run has a position", () => {
+    expect(geoStatusForError(GEO_ERROR.positionUnavailable, false)).toBeNull();
+    expect(geoStatusForError(GEO_ERROR.timeout, false)).toBeNull();
+  });
+
+  it("ignores codes it does not know", () => {
+    expect(geoStatusForError(99, true)).toBeNull();
   });
 });

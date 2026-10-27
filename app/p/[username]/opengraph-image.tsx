@@ -28,9 +28,15 @@ async function fetchProfile(username: string): Promise<PublicProfile | null> {
 export default async function OgImage({
   params,
 }: {
-  params: { username: string };
+  // Next 15+ hands route params as a promise. Typed as a plain object and
+  // read without awaiting, `params.username` was undefined, so every shared
+  // profile link fetched /api/profile/undefined and previewed as "Player not
+  // found" (and hammered the endpoint: 129 calls in 14 minutes on 27 Oct,
+  // 57 of them rate-limited).
+  params: Promise<{ username: string }>;
 }) {
-  const profile = await fetchProfile(params.username);
+  const { username } = await params;
+  const profile = await fetchProfile(username);
   const { t } = await serverT();
 
   if (!profile) {
