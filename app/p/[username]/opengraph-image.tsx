@@ -25,6 +25,28 @@ async function fetchProfile(username: string): Promise<PublicProfile | null> {
   return (await res.json()) as PublicProfile;
 }
 
+/** The card itself, exported so a test can render it (see the .test file). */
+export function notFoundCard(label: string) {
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        background: "#FF6B35",
+        color: "white",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "sans-serif",
+        fontSize: 72,
+        fontWeight: 800,
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
 export default async function OgImage({
   params,
 }: {
@@ -40,28 +62,25 @@ export default async function OgImage({
   const { t } = await serverT();
 
   if (!profile) {
-    return new ImageResponse(
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          background: "#FF6B35",
-          color: "white",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "sans-serif",
-          fontSize: 72,
-          fontWeight: 800,
-        }}
-      >
-        {t("p.notFound")}
-      </div>,
-      { ...size },
-    );
+    return new ImageResponse(notFoundCard(t("p.notFound")), { ...size });
   }
 
   return new ImageResponse(
+    profileCard(profile, {
+      blocks: t("p.stat.blocks"),
+      runs: t("p.stat.runs"),
+      streak:
+        profile.streak === 1 ? t("p.stat.dayStreak") : t("p.stat.daysStreak"),
+    }),
+    { ...size },
+  );
+}
+
+type CardLabels = { blocks: string; runs: string; streak: string };
+
+/** Exported so the renderer itself is covered by a test. */
+export function profileCard(profile: PublicProfile, labels: CardLabels) {
+  return (
     <div
       style={{
         width: "100%",
@@ -88,6 +107,11 @@ export default async function OgImage({
       </div>
       <div
         style={{
+          // Satori counts "@" and the name as two children and refuses a
+          // plain div with more than one, so the display is explicit. The
+          // card had never rendered before: the username was undefined, so
+          // every preview took the not-found branch above.
+          display: "flex",
           fontSize: 96,
           fontWeight: 800,
           letterSpacing: -2,
@@ -104,14 +128,9 @@ export default async function OgImage({
           marginTop: 16,
         }}
       >
-        <Stat label={t("p.stat.blocks")} value={profile.hexesOwned} />
-        <Stat label={t("p.stat.runs")} value={profile.totalRuns} />
-        <Stat
-          label={
-            profile.streak === 1 ? t("p.stat.dayStreak") : t("p.stat.daysStreak")
-          }
-          value={profile.streak}
-        />
+        <Stat label={labels.blocks} value={profile.hexesOwned} />
+        <Stat label={labels.runs} value={profile.totalRuns} />
+        <Stat label={labels.streak} value={profile.streak} />
       </div>
       <div
         style={{
@@ -123,8 +142,7 @@ export default async function OgImage({
       >
         Walk, bike, or drive. Klaim it.
       </div>
-    </div>,
-    { ...size },
+    </div>
   );
 }
 
@@ -137,8 +155,11 @@ function Stat({ label, value }: { label: string; value: number }) {
         alignItems: "center",
       }}
     >
+      {/* A number child makes Satori reject the div ("more than one child
+          node"), which answered 502 for every shared link. A formatted
+          string also reads better: 29,064 instead of 29064. */}
       <div style={{ fontSize: 120, fontWeight: 800, lineHeight: 1 }}>
-        {value}
+        {value.toLocaleString("en-US")}
       </div>
       <div style={{ fontSize: 28, opacity: 0.9, marginTop: 8 }}>{label}</div>
     </div>
