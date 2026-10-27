@@ -36,6 +36,16 @@ const TerritoryMap = dynamic(
 export default function MePage() {
   const { address, isConnected, isWrongChain, disconnect, isMiniPay } =
     useWallet();
+  // The wallet is only known in the browser. The server has no connection of
+  // its own, and wagmi's config lives at module scope, so one visitor's
+  // connected state could be rendered into another visitor's HTML: /me came
+  // back with the "pick a name" form for anonymous requests and React threw
+  // a hydration error (#418) on every load, 14 players on 26-27 Oct. Nothing
+  // wallet-dependent renders until mount, the same gate the home screen uses.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    queueMicrotask(() => setMounted(true));
+  }, []);
   const { t } = useLocale();
   const userInfo = useUser(isConnected ? address : null);
   const stats = useUserStats(isConnected && !isWrongChain ? address : null);
@@ -79,7 +89,7 @@ export default function MePage() {
         </button>
       </header>
 
-      {!isConnected && (
+      {mounted && !isConnected && (
         <p className="text-center text-sm text-zinc-500">
           {t("me.signInPrompt.before")}{" "}
           <Link href="/" className="text-blue-600 underline">
@@ -89,7 +99,7 @@ export default function MePage() {
         </p>
       )}
 
-      {isConnected && (
+      {mounted && isConnected && (
         <>
           <div className="flex flex-col items-center gap-1">
             <UsernameBlock userInfo={userInfo} />
