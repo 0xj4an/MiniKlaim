@@ -36,6 +36,14 @@ export function TerritoryMap({ address }: { address: string | null }) {
   const [mapFailed, setMapFailed] = useState(false);
   const { t } = useLocale();
 
+  // Measured on mount, not where the map is built: on /me the map only
+  // exists once the player owns blocks, and on /run only once a container
+  // is ready, which would have hidden exactly the new players on weak
+  // phones this is meant to count.
+  useEffect(() => {
+    reportGpuSupport("/me");
+  }, []);
+
   useEffect(() => {
     if (!address) return;
     const container = containerRef.current;
@@ -76,7 +84,6 @@ export function TerritoryMap({ address }: { address: string | null }) {
         // is missing, the way /run and /community already guard against. This
         // page did not, so a phone without WebGL2 took the whole of /me down
         // with it instead of just losing the thumbnail.
-        reportGpuSupport("/me");
         let map: maplibregl.Map;
         try {
           map = new maplibregl.Map({
