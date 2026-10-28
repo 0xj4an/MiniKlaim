@@ -1,4 +1,4 @@
-import type { ExpressionSpecification } from "@maplibre/maplibre-gl-style-spec";
+import type { ExpressionSpecification } from "maplibre-gl";
 
 /**
  * One palette for every map so a color means the same thing everywhere.

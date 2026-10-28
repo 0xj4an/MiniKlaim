@@ -128,6 +128,17 @@ type EventMap = {
   gps_retry: { from: string };
   // The device GPU cannot draw the map. Sentry drops these; this counts them.
   map_webgl_failed: { path: string };
+  // What the GPU supports, recorded once per page load before the first map.
+  // MapLibre 6 requires WebGL2 and refuses to build a map without it, so
+  // `webgl2` is the share of players who would keep their map on an upgrade.
+  // `renderer` is null wherever the browser treats it as fingerprinting.
+  map_gpu_support: {
+    webgl: number;
+    webgl2: boolean;
+    renderer: string | null;
+    max_texture_size: number | null;
+    path: string;
+  };
   // MiniPay iOS rejects a postMessage in its own bridge (not app code).
   wallet_bridge_rejected: Record<string, never>;
   gps_unavailable: Record<string, never>;
