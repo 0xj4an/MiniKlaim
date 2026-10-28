@@ -1,13 +1,14 @@
 "use client";
 
 import { cellToLatLng } from "h3-js";
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
+import { ensureMapWorker } from "@/lib/map/worker";
 import { claimedHexesToFeatureCollection } from "@/lib/map/hex";
 import { HEX_COLORS } from "@/lib/map/hexColors";
 import { rowsFromWorldResponse, WORLD_GROUPED_PARAM } from "@/lib/map/worldHexes";
@@ -354,6 +355,7 @@ export function WorldMap({
       container.clientHeight || 320,
     );
     const zoom = span >= 64 ? Math.min(0, Math.log2(span / 512)) : 0;
+    ensureMapWorker();
     let map: maplibregl.Map;
     try {
       map = new maplibregl.Map({
