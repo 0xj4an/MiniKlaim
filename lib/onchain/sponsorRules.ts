@@ -70,6 +70,27 @@ export function estimateClaimGas(
  */
 export const MINT_TOKENS_MAX = 700;
 
+/**
+ * The smaller batch offered beside "mint everything". The fee is the player's
+ * own and grows with the count, so a wallet that cannot afford 700 can still
+ * mint something: 100 costs roughly a seventh.
+ */
+export const MINT_TOKENS_SMALL_BATCH = 100;
+
+/**
+ * Batch size asked for by the client, clamped. The player picks between the
+ * whole lot and a smaller one, so a bad or missing value must mean "the
+ * maximum" rather than a zero-length voucher or a tx the contract refuses.
+ */
+export function parseMintLimit(body: unknown): number | null {
+  if (!body || typeof body !== "object") return null;
+  const raw = (body as { limit?: unknown }).limit;
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return null;
+  const n = Math.floor(raw);
+  if (n < 1) return null;
+  return Math.min(n, MINT_TOKENS_MAX);
+}
+
 /** Gas for one `mintTokens` tx of `count` hexes. */
 export function estimateMintTokensGas(count: number): bigint {
   return GAS_BASE + 30_000n * BigInt(Math.max(0, count));

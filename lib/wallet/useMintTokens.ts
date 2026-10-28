@@ -21,12 +21,18 @@ import { useBalances } from "@/lib/wallet/useBalances";
 
 const log = createLogger("wallet:mintTokens");
 
+export type MintQuote = { count: number; usd: number | null };
+
 export type TokenStatus = {
   enabled: boolean;
   recorded: number;
   tokens: number;
   maxPerTx: number;
   nextBatch: number;
+  /** The smaller batch offered beside the whole lot, when there is one. */
+  smallBatch: number | null;
+  /** What each offered batch costs the player, in dollars. */
+  quotes: MintQuote[];
 };
 
 type Voucher = {
@@ -77,14 +83,19 @@ export function useMintTokens(address: Address | null) {
     };
   }, [address, chainKey, refresh]);
 
-  const mint = useCallback(async () => {
+  /** `limit` mints a slice instead of everything; the fee grows with it. */
+  const mint = useCallback(async (limit?: number) => {
     if (!walletClient || !address) return;
     setState("fetching-voucher");
     let voucher: Voucher;
     try {
       const res = await fetch(
         `/api/users/${address}/tokens/voucher?chain=${chainKey}`,
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(limit ? { limit } : {}),
+        },
       );
       if (res.status === 409) {
         setState("idle");
