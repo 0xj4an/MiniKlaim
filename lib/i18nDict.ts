@@ -109,7 +109,6 @@ export const dictionaries = {
     "me.nfts.allMinted": "All your blocks are NFTs.",
     "me.nfts.more": "Up to {max} per transaction.",
     "me.nfts.error": "Could not mint. Please try again.",
-    "me.nfts.minipay": "Minting NFTs isn't available inside MiniPay yet. Your blocks are already saved on-chain and stay yours; we'll let you know when you can mint them here.",
     "me.nfts.noFee": "Not enough balance to pay the network fee. Add a little USDT or CELO to your wallet and try again.",
     "me.link.title": "🔗 Link another wallet",
     "me.link.desc":
@@ -604,7 +603,6 @@ export const dictionaries = {
     "me.nfts.allMinted": "Todos tus bloques son NFTs.",
     "me.nfts.more": "Hasta {max} por transacción.",
     "me.nfts.error": "No se pudo mintear. Intenta de nuevo.",
-    "me.nfts.minipay": "Mintear NFTs todavía no está disponible dentro de MiniPay. Tus bloques ya están guardados on-chain y siguen siendo tuyos; te avisaremos cuando puedas mintearlos aquí.",
     "me.nfts.noFee": "No tienes saldo suficiente para la comisión de red. Agrega un poco de USDT o CELO a tu wallet e intenta de nuevo.",
     "me.link.title": "🔗 Vincular otra wallet",
     "me.link.desc":
