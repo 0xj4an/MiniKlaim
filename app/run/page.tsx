@@ -150,6 +150,14 @@ export default function RunPage() {
   const { address, isConnected, isWrongChain } = useWallet();
   const { user } = useUser(isConnected ? address : null);
   const { t } = useLocale();
+
+  // Measured on mount, not where the map is built: on /me the map only
+  // exists once the player owns blocks, and on /run only once a container
+  // is ready, which would have hidden exactly the new players on weak
+  // phones this is meant to count.
+  useEffect(() => {
+    reportGpuSupport("/run");
+  }, []);
   const mapFailed = useWebglFailure(() => {
     track("map_webgl_failed", { path: "/run" });
     reportWebglFailure("/run");
@@ -1241,7 +1249,6 @@ export default function RunPage() {
       );
     };
 
-    reportGpuSupport("/run");
     let map: maplibregl.Map;
     try {
       map = new maplibregl.Map({

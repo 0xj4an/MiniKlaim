@@ -112,6 +112,14 @@ export function WorldMap({
   // the error page (31 crashes from 14 players up to 23 Oct).
   const [mapUnavailable, setMapUnavailable] = useState(false);
   const { t } = useLocale();
+
+  // Measured on mount, not where the map is built: on /me the map only
+  // exists once the player owns blocks, and on /run only once a container
+  // is ready, which would have hidden exactly the new players on weak
+  // phones this is meant to count.
+  useEffect(() => {
+    reportGpuSupport("/community");
+  }, []);
   const linked = useLinkedAddresses(myAddress, myAddress !== null);
 
   linkedRef.current = linked;
@@ -355,7 +363,6 @@ export function WorldMap({
       container.clientHeight || 320,
     );
     const zoom = span >= 64 ? Math.min(0, Math.log2(span / 512)) : 0;
-    reportGpuSupport("/community");
     let map: maplibregl.Map;
     try {
       map = new maplibregl.Map({
