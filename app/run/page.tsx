@@ -1,7 +1,7 @@
 "use client";
 
 import { latLngToCell } from "h3-js";
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -18,6 +18,7 @@ import {
   HEX_RESOLUTION,
   RUN_MIN_ZOOM,
 } from "@/lib/map/config";
+import { ensureMapWorker } from "@/lib/map/worker";
 import {
   diskCoversView,
   diskKForRadius,
@@ -1240,6 +1241,7 @@ export default function RunPage() {
       );
     };
 
+    ensureMapWorker();
     let map: maplibregl.Map;
     try {
       map = new maplibregl.Map({

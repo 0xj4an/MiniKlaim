@@ -1,12 +1,15 @@
 "use client";
 
 import { cellToLatLng } from "h3-js";
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
+import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
+import { isWebglFailure } from "@/lib/map/isWebglFailure";
 import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
+import { ensureMapWorker } from "@/lib/map/worker";
 import { claimedHexesToFeatureCollection, frameForCells } from "@/lib/map/hex";
 import {
   HEX_COLORS,
@@ -30,6 +33,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [count, setCount] = useState<number | null>(null);
   const [maxed, setMaxed] = useState(0);
+  const [mapFailed, setMapFailed] = useState(false);
   const { t } = useLocale();
 
   useEffect(() => {
@@ -68,15 +72,29 @@ export function TerritoryMap({ address }: { address: string | null }) {
         );
         if (!frame) return;
 
-        const map = new maplibregl.Map({
-          container: containerRef.current,
-          style: DEFAULT_MAP_STYLE,
-          ...lightMapOptions(),
-          center: frame.center,
-          zoom: frame.zoom,
-          attributionControl: { compact: true },
-          interactive: true,
-        });
+        // MapLibre 6 requires WebGL2 and throws from the constructor when it
+        // is missing, the way /run and /community already guard against. This
+        // page did not, so a phone without WebGL2 took the whole of /me down
+        // with it instead of just losing the thumbnail.
+        ensureMapWorker();
+        let map: maplibregl.Map;
+        try {
+          map = new maplibregl.Map({
+            container: containerRef.current,
+            style: DEFAULT_MAP_STYLE,
+            ...lightMapOptions(),
+            center: frame.center,
+            zoom: frame.zoom,
+            attributionControl: { compact: true },
+            interactive: true,
+          });
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          log.warn("territory map unavailable", { message });
+          if (!cancelled) setMapFailed(true);
+          if (isWebglFailure(message)) track("map_webgl_failed", { path: "/me" });
+          return;
+        }
         mapRef.current = map;
 
         map.on("load", () => {
@@ -181,6 +199,10 @@ export function TerritoryMap({ address }: { address: string | null }) {
       {count === 0 ? (
         <p className="py-8 text-center text-xs text-zinc-500">
           {t("me.territory.empty")}
+        </p>
+      ) : mapFailed ? (
+        <p className="py-8 text-center text-xs text-zinc-500">
+          {t("map.unavailable")}
         </p>
       ) : (
         <div

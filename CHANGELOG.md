@@ -4,7 +4,13 @@ All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Ch
 
 ## 2026-10-27
 
+### Changed
+
+- **maplibre-gl 5.24 → 6.16, which closes a critical advisory and raises the floor to WebGL2.** GHSA-jrc7-96c5-q579 (sanitizer bypass in `DOM.sanitize()`) affects everything up to 6.4; it was never reachable here, because both popups build their nodes with `createTextNode`/`textContent` and nothing calls `setHTML()`, but the dependency is clean now. v6 is ESM-only so the three maps import the namespace, `ExpressionSpecification` moved to `@maplibre/maplibre-gl-style-spec`, and the tile worker has to be pointed at explicitly behind a bundler — without that the canvas paints and no tile ever loads. The real cost is WebGL1: v6 drops it, so a phone with WebGL1 only now gets the "map unavailable" message instead of a map. 6 of 7,083 players lost the map to WebGL in the last week, and that number is expected to rise.
+
 ### Fixed
+
+- **/me crashed instead of hiding the map when the phone had no WebGL.** `/run` and `/community` have guarded the MapLibre constructor since 23 Oct; the territory thumbnail on /me never did, so the throw took the whole page to the error screen. It now catches, shows the same "map unavailable" line the other two use, and reports `map_webgl_failed` with `path: /me`. The matcher also learns MapLibre 6's wording ("WebGL2 is required to display this map"), which none of the old patterns caught, so these keep landing as map failures rather than unexplained crashes.
 
 - **A lost run token was reported as a failed sponsored mint.** When the relayer refuses a claim with 403 — this browser does not hold the token issued when the run started, because the run was played elsewhere or local storage was cleared — `useClaimRun` already treated it as a refusal while `useClaimAll` raised it as an error. Nothing is wrong on our side and nothing in the report is actionable, so one such claim on 27 Oct paged as a production regression. Both paths now share `sponsorRefusalFor`, which classifies 402, 429 and 403 together; the refusal is still tracked (`sponsor_refused:403`) and the retry cron still picks the run up. No change for players.
 
