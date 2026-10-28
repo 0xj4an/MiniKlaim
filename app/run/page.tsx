@@ -76,7 +76,12 @@ import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { GeoStatusBanner, type GeoStatus } from "./GeoStatusBanner";
 import { GpsExplainer } from "./GpsExplainer";
-import { geoStatusForError, markGpsAsked, shouldExplainGps } from "./gpsPrimer";
+import {
+  geoStatusForError,
+  markGpsAsked,
+  readGeolocationPermission,
+  shouldExplainGps,
+} from "./gpsPrimer";
 import { NeedNameOverlay } from "./NeedNameOverlay";
 import { OnboardingTooltip } from "./OnboardingTooltip";
 import { readCachedPosition, writeCachedPosition } from "./positionCache";
@@ -1004,13 +1009,33 @@ export default function RunPage() {
   }, []);
 
   useEffect(() => {
-    if (shouldExplainGps()) {
-      gpsExplainOpenRef.current = true;
-      queueMicrotask(() => setGpsExplain(true));
-      track("gps_prompt_shown");
-      return;
-    }
-    requestLocation();
+    let cancelled = false;
+    void (async () => {
+      // The explainer prepares a player for the browser's prompt, so ask the
+      // browser first whether there will be one. Already granted and we are
+      // explaining nothing; already denied and the explainer is a dead end,
+      // because its button calls geolocation and the browser refuses without
+      // a word. Both go straight to requestLocation, which either gets a fix
+      // or raises the banner that says how to fix it in phone settings.
+      const permission = await readGeolocationPermission();
+      if (cancelled) return;
+      if (permission === "prompt" || permission === "unknown") {
+        if (shouldExplainGps()) {
+          gpsExplainOpenRef.current = true;
+          setGpsExplain(true);
+          track("gps_prompt_shown", { permission });
+          return;
+        }
+      } else {
+        // The browser has an answer, so our own flag is redundant from here.
+        markGpsAsked();
+      }
+      track("gps_permission_known", { permission });
+      requestLocation();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [requestLocation]);
 
   // Runs inside the button's click, so the permission prompt keeps the user

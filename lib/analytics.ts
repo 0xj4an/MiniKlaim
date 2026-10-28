@@ -122,7 +122,13 @@ type EventMap = {
   // Friction / errors that gate the golden path.
   gps_denied: Record<string, never>;
   /** First-run location explainer shown before the browser prompt. */
-  gps_prompt_shown: Record<string, never>;
+  gps_prompt_shown: { permission: string };
+  /**
+   * What the browser already decided about location, read without prompting.
+   * Tells us how many players are stuck on a denial they cannot see, and how
+   * often MiniPay drops a permission it had already been given.
+   */
+  gps_permission_known: { permission: string };
   gps_prompt_accepted: Record<string, never>;
   /** "Try again" on the blocked-location banner. */
   gps_retry: { from: string };

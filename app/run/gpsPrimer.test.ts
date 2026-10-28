@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GEO_ERROR, geoStatusForError, markGpsAsked, shouldExplainGps } from "./gpsPrimer";
+import {
+  GEO_ERROR,
+  geoStatusForError,
+  markGpsAsked,
+  shouldExplainGps,
+  readGeolocationPermission,
+} from "./gpsPrimer";
 import { writeCachedPosition } from "./positionCache";
 
 beforeEach(() => {
@@ -54,7 +60,9 @@ describe("geoStatusForError", () => {
     // kamari, 26 Oct: allowed the prompt, the phone answered
     // POSITION_UNAVAILABLE, the page stayed on "requesting" with no banner
     // and no retry, and the ticket read "Can't start a run".
-    expect(geoStatusForError(GEO_ERROR.positionUnavailable, true)).toBe("unavailable");
+    expect(geoStatusForError(GEO_ERROR.positionUnavailable, true)).toBe(
+      "unavailable",
+    );
     expect(geoStatusForError(GEO_ERROR.timeout, true)).toBe("timeout");
   });
 
@@ -65,5 +73,39 @@ describe("geoStatusForError", () => {
 
   it("ignores codes it does not know", () => {
     expect(geoStatusForError(99, true)).toBeNull();
+  });
+});
+
+describe("readGeolocationPermission", () => {
+  const api = (state: string) => ({ query: async () => ({ state }) });
+
+  it("reports what the browser already decided", async () => {
+    expect(await readGeolocationPermission(api("granted"))).toBe("granted");
+    expect(await readGeolocationPermission(api("denied"))).toBe("denied");
+    expect(await readGeolocationPermission(api("prompt"))).toBe("prompt");
+  });
+
+  it("is unknown when the WebView has no Permissions API", async () => {
+    expect(await readGeolocationPermission(null)).toBe("unknown");
+    expect(
+      await readGeolocationPermission(
+        {} as unknown as Parameters<typeof readGeolocationPermission>[0],
+      ),
+    ).toBe("unknown");
+  });
+
+  it("is unknown when the query throws or answers something odd", async () => {
+    // Some WebViews throw on the descriptor instead of rejecting.
+    const throwing = {
+      query: () => {
+        throw new Error("unsupported descriptor");
+      },
+    } as unknown as Parameters<typeof readGeolocationPermission>[0];
+    expect(await readGeolocationPermission(throwing)).toBe("unknown");
+    const rejecting = { query: async () => Promise.reject(new Error("nope")) };
+    expect(await readGeolocationPermission(rejecting)).toBe("unknown");
+    expect(await readGeolocationPermission(api("something-else"))).toBe(
+      "unknown",
+    );
   });
 });

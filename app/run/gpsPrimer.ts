@@ -25,6 +25,47 @@ export function shouldExplainGps(): boolean {
   }
 }
 
+/**
+ * What the browser already decided about location, without asking. The
+ * explainer exists to prepare a player for the prompt, so it is only worth
+ * showing to someone who will actually see one.
+ *
+ * - `granted`: MiniPay cleared our flag but not the permission; explaining
+ *   again is noise.
+ * - `denied`: there is no prompt left to prepare for. The explainer's button
+ *   calls geolocation, the browser refuses silently, and the player is stuck
+ *   on a screen that looks like it should work. Going straight to the banner
+ *   tells them to fix it in the phone's settings, which is the only way back.
+ *
+ * Not every WebView implements this, and some throw on the descriptor rather
+ * than rejecting, so anything unexpected reads as "unknown" and the old
+ * behaviour stands.
+ */
+export type GeoPermission = "granted" | "denied" | "prompt" | "unknown";
+
+type PermissionsLike = {
+  query: (d: { name: "geolocation" }) => Promise<{ state: string }>;
+};
+
+export async function readGeolocationPermission(
+  permissions?: PermissionsLike | null,
+): Promise<GeoPermission> {
+  const api =
+    permissions ??
+    (typeof navigator !== "undefined"
+      ? (navigator as unknown as { permissions?: PermissionsLike }).permissions
+      : null);
+  if (!api || typeof api.query !== "function") return "unknown";
+  try {
+    const { state } = await api.query({ name: "geolocation" });
+    return state === "granted" || state === "denied" || state === "prompt"
+      ? state
+      : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 export function markGpsAsked(): void {
   if (typeof window === "undefined") return;
   try {
