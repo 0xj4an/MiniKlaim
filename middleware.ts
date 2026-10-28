@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { MAINTENANCE } from "@/lib/maintenance";
 
 const rateLimits = new Map<
   string,
@@ -24,6 +25,14 @@ export function middleware(request: NextRequest) {
     pathname === "/api/health"
   ) {
     return NextResponse.next();
+  }
+
+  if (
+    MAINTENANCE &&
+    request.method !== "GET" &&
+    request.method !== "HEAD"
+  ) {
+    return NextResponse.json({ error: "maintenance" }, { status: 503 });
   }
 
   const ip =
