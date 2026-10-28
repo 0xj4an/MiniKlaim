@@ -497,6 +497,9 @@ export const dictionaries = {
     "onboarding.skip": "Skip",
     "onboarding.next": "Next",
     "onboarding.gotit": "Got it!",
+    "maintenance.title": "Under maintenance",
+    "maintenance.body":
+      "MiniKlaim is under maintenance. You can't play or do anything else right now.",
   },
   es: {
     "home.tagline": "Captura la ciudad. Las cuadras que cruzas son tuyas.",
@@ -993,6 +996,9 @@ export const dictionaries = {
     "onboarding.skip": "Saltar",
     "onboarding.next": "Siguiente",
     "onboarding.gotit": "¡Entendido!",
+    "maintenance.title": "En mantenimiento",
+    "maintenance.body":
+      "MiniKlaim está en mantenimiento. Por ahora no se puede jugar ni hacer nada más.",
   },
 } as const;
 

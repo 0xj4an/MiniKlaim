@@ -5,6 +5,9 @@ import "./globals.css";
 import { wagmiConfig } from "@/lib/wallet/config";
 import dynamic from "next/dynamic";
 import { Providers } from "./providers";
+import { LogoMark } from "./Logo";
+import { serverT } from "@/lib/i18nServer";
+import { MAINTENANCE } from "@/lib/maintenance";
 
 // Non-critical client UI split into its own chunk so it doesn't sit on the
 // home critical-path bundle. Each component is "use client" already so no
@@ -59,6 +62,25 @@ export default async function RootLayout({
     wagmiConfig,
     (await headers()).get("cookie"),
   );
+
+  if (MAINTENANCE) {
+    const { t } = await serverT();
+    return (
+      <html lang="en" style={{ colorScheme: "light" }}>
+        <body className="bg-white text-zinc-900">
+          <main className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
+            <LogoMark size={72} />
+            <h1 className="text-2xl font-bold text-zinc-900">
+              {t("maintenance.title")}
+            </h1>
+            <p className="max-w-xs text-sm leading-relaxed text-zinc-600">
+              {t("maintenance.body")}
+            </p>
+          </main>
+        </body>
+      </html>
+    );
+  }
 
   return (
     <html lang="en" style={{ colorScheme: "light" }}>
