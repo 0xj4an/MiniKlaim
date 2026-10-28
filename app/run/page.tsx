@@ -1,7 +1,7 @@
 "use client";
 
 import { latLngToCell } from "h3-js";
-import * as maplibregl from "maplibre-gl";
+import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -18,7 +18,7 @@ import {
   HEX_RESOLUTION,
   RUN_MIN_ZOOM,
 } from "@/lib/map/config";
-import { ensureMapWorker } from "@/lib/map/worker";
+import { reportGpuSupport } from "@/lib/map/gpuSupport";
 import {
   diskCoversView,
   diskKForRadius,
@@ -1241,7 +1241,7 @@ export default function RunPage() {
       );
     };
 
-    ensureMapWorker();
+    reportGpuSupport("/run");
     let map: maplibregl.Map;
     try {
       map = new maplibregl.Map({

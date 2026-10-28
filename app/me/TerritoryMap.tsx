@@ -1,7 +1,7 @@
 "use client";
 
 import { cellToLatLng } from "h3-js";
-import * as maplibregl from "maplibre-gl";
+import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
@@ -9,7 +9,7 @@ import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { isWebglFailure } from "@/lib/map/isWebglFailure";
 import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
-import { ensureMapWorker } from "@/lib/map/worker";
+import { reportGpuSupport } from "@/lib/map/gpuSupport";
 import { claimedHexesToFeatureCollection, frameForCells } from "@/lib/map/hex";
 import {
   HEX_COLORS,
@@ -76,7 +76,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
         // is missing, the way /run and /community already guard against. This
         // page did not, so a phone without WebGL2 took the whole of /me down
         // with it instead of just losing the thumbnail.
-        ensureMapWorker();
+        reportGpuSupport("/me");
         let map: maplibregl.Map;
         try {
           map = new maplibregl.Map({
