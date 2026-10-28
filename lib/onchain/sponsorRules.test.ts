@@ -4,6 +4,7 @@ import {
   estimateClaimGas,
   estimateMintTokensGas,
   MINT_TOKENS_MAX,
+  parseMintLimit,
   playerTxMaxHexes,
   feeInToken,
   feeWithBuffer,
@@ -98,5 +99,31 @@ describe("run tokens", () => {
     expect(runTokenMatches(stored, newRunToken())).toBe(false);
     expect(runTokenMatches(stored, null)).toBe(false);
     expect(runTokenMatches(null, token)).toBe(false);
+  });
+});
+
+describe("parseMintLimit", () => {
+  it("takes a sensible batch and floors a fractional one", () => {
+    expect(parseMintLimit({ limit: 100 })).toBe(100);
+    expect(parseMintLimit({ limit: 100.9 })).toBe(100);
+  });
+
+  it("clamps above the per-tx maximum", () => {
+    expect(parseMintLimit({ limit: 5000 })).toBe(MINT_TOKENS_MAX);
+  });
+
+  it("falls back to the maximum for anything else", () => {
+    for (const body of [
+      null,
+      {},
+      { limit: 0 },
+      { limit: -5 },
+      { limit: "100" },
+      { limit: Number.NaN },
+      { limit: Number.POSITIVE_INFINITY },
+      "not an object",
+    ]) {
+      expect(parseMintLimit(body)).toBeNull();
+    }
   });
 });

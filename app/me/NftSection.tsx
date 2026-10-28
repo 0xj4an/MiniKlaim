@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale } from "@/lib/i18n";
-import { useMintTokens } from "@/lib/wallet/useMintTokens";
+import { type TokenStatus, useMintTokens } from "@/lib/wallet/useMintTokens";
 
 /**
  * Runs settle on-chain as records in one approval (Hexes v2). Here the player
@@ -16,6 +16,22 @@ import { useMintTokens } from "@/lib/wallet/useMintTokens";
  * the allowlist while the note was up, so the first real mint is the proof —
  * watch `nft_mint_confirmed` against `nft_mint_failed`.
  */
+/** The quoted dollar cost for a batch, or null when the chain was unreadable. */
+function priceOf(status: TokenStatus, count: number): number | null {
+  return status.quotes.find((q) => q.count === count)?.usd ?? null;
+}
+
+/**
+ * "Mint 586 blocks as NFTs · about $0.31". The price is appended rather than
+ * baked into the string so a failed quote simply leaves the old wording,
+ * instead of a button that says "about $null".
+ */
+function label(template: string, count: number, usd: number | null): string {
+  const base = template.replace("{count}", count.toLocaleString());
+  if (usd === null) return base;
+  return `${base} · ~$${usd.toFixed(2)}`;
+}
+
 export function NftSection({ address }: { address: `0x${string}` | null }) {
   const { t } = useLocale();
   const { status, state, mint, lastMinted } = useMintTokens(address);
@@ -48,8 +64,21 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
               ? t("me.nfts.minting")
               : state === "confirming"
                 ? t("me.nfts.confirming")
-                : t("me.nfts.mint").replace("{count}", status.nextBatch.toLocaleString())}
+                : label(t("me.nfts.mint"), status.nextBatch, priceOf(status, status.nextBatch))}
           </button>
+          {status.smallBatch !== null && (
+            <button
+              onClick={() => void mint(status.smallBatch ?? undefined)}
+              disabled={busy}
+              className="mx-auto text-xs text-zinc-600 underline underline-offset-2 disabled:opacity-60"
+            >
+              {label(
+                t("me.nfts.mintSmall"),
+                status.smallBatch,
+                priceOf(status, status.smallBatch),
+              )}
+            </button>
+          )}
           {status.recorded > status.maxPerTx && (
             <p className="text-center text-[11px] text-zinc-400">
               {t("me.nfts.more").replace("{max}", status.maxPerTx.toLocaleString())}

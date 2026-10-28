@@ -3,7 +3,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes } from "@/lib/db/schema";
 import { getChain, parseChainKey } from "@/lib/onchain/chains";
-import { estimateMintTokensGas, MINT_TOKENS_MAX } from "@/lib/onchain/sponsorRules";
+import { quoteMint } from "@/lib/onchain/mintFee";
+import {
+  estimateMintTokensGas,
+  MINT_TOKENS_MAX,
+  MINT_TOKENS_SMALL_BATCH as SMALL_BATCH,
+} from "@/lib/onchain/sponsorRules";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +40,10 @@ export async function GET(
 
   const recorded = row?.recorded ?? 0;
   const nextBatch = Math.min(recorded, MINT_TOKENS_MAX);
+  // The player pays this fee, so quote it before they tap. The small batch is
+  // only offered when it is actually smaller than the whole lot.
+  const counts = nextBatch > SMALL_BATCH ? [nextBatch, SMALL_BATCH] : [nextBatch];
+  const quotes = nextBatch > 0 ? await quoteMint(chainKey, counts) : [];
   return NextResponse.json({
     enabled,
     recorded,
@@ -42,5 +51,7 @@ export async function GET(
     maxPerTx: MINT_TOKENS_MAX,
     nextBatch,
     nextBatchGas: estimateMintTokensGas(nextBatch).toString(),
+    smallBatch: nextBatch > SMALL_BATCH ? SMALL_BATCH : null,
+    quotes,
   });
 }

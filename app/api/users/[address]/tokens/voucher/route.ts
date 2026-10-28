@@ -11,7 +11,7 @@ import {
   splitByToken,
   tokenlessOwnedWhere,
 } from "@/lib/onchain/mintTokens";
-import { MINT_TOKENS_MAX } from "@/lib/onchain/sponsorRules";
+import { MINT_TOKENS_MAX, parseMintLimit } from "@/lib/onchain/sponsorRules";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +39,8 @@ export async function POST(
   if (!getChain(chainKey).hexesRecords) {
     return NextResponse.json({ error: "not available on this chain" }, { status: 409 });
   }
+
+  const limit = parseMintLimit(await request.json().catch(() => null));
 
   const rows = await db
     .select({ h3Id: hexes.h3Id })
@@ -89,7 +91,10 @@ export async function POST(
     }
   }
 
-  const batch = split.tokenless.slice(0, MINT_TOKENS_MAX);
+  // The client may ask for a smaller batch: the player pays the fee and it
+  // grows with the count, so a wallet that cannot afford everything mints a
+  // slice instead. Anything outside 1..MINT_TOKENS_MAX falls back to the max.
+  const batch = split.tokenless.slice(0, limit ?? MINT_TOKENS_MAX);
   if (batch.length === 0) {
     return NextResponse.json({ error: "nothing to mint" }, { status: 409 });
   }

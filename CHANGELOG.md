@@ -6,6 +6,10 @@ All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Ch
 
 ### Changed
 
+- **A player who already denied location no longer gets a modal that cannot help them.** /run showed its "why we need location" explainer to anyone whose device had not been through it, without asking the browser what it had already decided. For a player who denied once, that modal is a dead end: its button calls geolocation, the browser refuses without a word, and the screen looks like it should have worked. They now go straight to the banner that says how to re-enable it in the phone's settings, which is the only way back in MiniPay. The explainer is also skipped when permission is already granted, so a player whose stored flag was cleared is not asked to read it twice. Where the WebView has no Permissions API, nothing changes.
+
+- **The profile says what minting costs, and offers a smaller batch.** The player pays the network fee for turning blocks into NFTs, and it grows with the batch: a full 700 comes to about $0.45 at today's gas price, while the screen promised "a few cents". One player on 28 Oct needed $0.37 and had $0.001. Each button now carries its own price ("Mint 586 blocks as NFTs · ~$0.38"), and anyone with more than 100 blocks gets a second option to mint just 100 for about a seventh of that. The quote is read from the chain with the same 30% buffer the affordability check uses; when the chain cannot be read the buttons simply show no price rather than a wrong one.
+
 - **Minting blocks as NFTs works inside MiniPay again.** MiniPay refused `mintTokens` with "Permission denied" on 22 Oct — all 37 attempts from 14 players, at every batch size from 1 to 700 blocks, while `claimRun` on the same contract went through — so the button was replaced by a note there. MiniPay allowlisted the function on 28 Oct and the note is gone, so every wallet gets the button back. Nothing exercised the allowlist while the note was up (zero mint attempts between 23 and 28 Oct, because there was nothing to tap), so the first real mint is the proof.
 
 ## 2026-10-27
