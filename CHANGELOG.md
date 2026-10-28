@@ -2,6 +2,12 @@
 
 All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project does not use SemVer tags today, so entries are dated instead.
 
+## 2026-10-28
+
+### Changed
+
+- **Minting blocks as NFTs works inside MiniPay again.** MiniPay refused `mintTokens` with "Permission denied" on 22 Oct — all 37 attempts from 14 players, at every batch size from 1 to 700 blocks, while `claimRun` on the same contract went through — so the button was replaced by a note there. MiniPay allowlisted the function on 28 Oct and the note is gone, so every wallet gets the button back. Nothing exercised the allowlist while the note was up (zero mint attempts between 23 and 28 Oct, because there was nothing to tap), so the first real mint is the proof.
+
 ## 2026-10-27
 
 ### Changed
