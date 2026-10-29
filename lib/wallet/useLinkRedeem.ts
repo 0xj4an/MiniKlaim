@@ -11,12 +11,17 @@ import {
 import { useWalletClient } from "wagmi";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
-import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
+import { getChain } from "@/lib/onchain/chains";
+import { heldFeeAdaptersForWallet } from "@/lib/wallet/feeSupport";
 import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { useBalances } from "@/lib/wallet/useBalances";
 
 const log = createLogger("wallet:linkRedeem");
+
+/** How long to keep asking while the backend cannot see the receipt yet. */
+const PENDING_RETRIES = 5;
+const PENDING_DELAY_MS = 2000;
 
 export type LinkRedeemState =
   | "idle"
@@ -50,7 +55,7 @@ export function useLinkRedeem(address: `0x${string}` | null) {
       }
       const chain = getChain(chainKey);
       const codeHash = keccak256(toBytes(code));
-      const held = heldFeeAdapters(chain.feeCurrencies, balances);
+      const held = heldFeeAdaptersForWallet(chain.feeCurrencies, balances);
 
       setState("sending");
       let txHash: Hex;
@@ -92,19 +97,32 @@ export function useLinkRedeem(address: `0x${string}` | null) {
       }
 
       try {
-        const res = await fetch(`/api/link/redeem?chain=${chainKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, txHash }),
-        });
-        if (res.ok) {
-          setState("linked");
-          return true;
+        // 202 means the backend cannot see the receipt yet, which `res.ok`
+        // reports as success: the player was told "linked" while nothing had
+        // been linked. Retry a few times instead, then give up honestly.
+        for (let attempt = 0; attempt < PENDING_RETRIES; attempt++) {
+          const res = await fetch(`/api/link/redeem?chain=${chainKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code, txHash }),
+          });
+          if (res.status === 202) {
+            log.info("redeem pending, tx not visible yet", { txHash, attempt });
+            await new Promise((r) => setTimeout(r, PENDING_DELAY_MS));
+            continue;
+          }
+          if (res.ok) {
+            setState("linked");
+            return true;
+          }
+          log.warn("redeem POST failed", {
+            status: res.status,
+            txHash,
+          });
+          setState("error");
+          return false;
         }
-        log.warn("redeem POST failed", {
-          status: res.status,
-          txHash,
-        });
+        log.warn("redeem still pending after retries", { txHash });
         setState("error");
         return false;
       } catch (e) {

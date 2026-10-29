@@ -6,7 +6,8 @@ import { useWalletClient } from "wagmi";
 import { track } from "@/lib/analytics";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
-import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
+import { getChain } from "@/lib/onchain/chains";
+import { heldFeeAdaptersForWallet } from "@/lib/wallet/feeSupport";
 import { HEXES_MINT_TOKENS_ABI } from "@/lib/onchain/hexesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import * as Sentry from "@sentry/nextjs";
@@ -118,7 +119,7 @@ export function useMintTokens(address: Address | null) {
     let txHash: Hex;
     try {
       const chain = getChain(chainKey);
-      const held = heldFeeAdapters(chain.feeCurrencies, balances);
+      const held = heldFeeAdaptersForWallet(chain.feeCurrencies, balances);
       const data = encodeFunctionData({
         abi: HEXES_MINT_TOKENS_ABI,
         functionName: "mintTokens",

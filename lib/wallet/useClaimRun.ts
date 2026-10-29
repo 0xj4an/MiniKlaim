@@ -7,7 +7,8 @@ import { useWalletClient } from "wagmi";
 import * as Sentry from "@sentry/nextjs";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
-import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
+import { getChain } from "@/lib/onchain/chains";
+import { heldFeeAdaptersForWallet } from "@/lib/wallet/feeSupport";
 import { HEXES_CLAIM_ABI, hexesAddress } from "@/lib/onchain/hexesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { clearRunClaiming, markRunClaiming } from "@/lib/wallet/claimInFlight";
@@ -134,7 +135,7 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
 
       // Fee abstraction only where supported (Celo CIP-64). No held stable
       // means the relayer pays. A decline does not.
-      const held = heldFeeAdapters(chain.feeCurrencies, balances);
+      const held = heldFeeAdaptersForWallet(chain.feeCurrencies, balances);
       if (playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)) {
         log.info("no fee stablecoin; asking the relayer", { runId });
         const outcome = await sponsorFallback(runId);

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { erc20Abi, formatUnits } from "viem";
-import { useReadContracts } from "wagmi";
+import { useBalance, useReadContracts } from "wagmi";
 import { celo } from "wagmi/chains";
 import { createLogger } from "@/lib/logger";
 import { TOKENS, type TokenSymbol } from "@/lib/tokens";
@@ -20,6 +20,13 @@ export type UseBalances = {
   USDm: Balance | null;
   USDC: Balance | null;
   USDT: Balance | null;
+  /**
+   * Native CELO, in wei. Null while unread. Needed because a wallet that
+   * cannot pay gas in a token has to pay it in CELO, and a player holding
+   * only stablecoins then cannot act at all: worth telling them before they
+   * try rather than after the transaction fails.
+   */
+  celo: bigint | null;
   isLoading: boolean;
   isError: boolean;
 };
@@ -67,6 +74,14 @@ export function useBalances(
     allowFailure: true,
   });
 
+  // Native CELO is a separate call: it is not an ERC-20, so it cannot ride
+  // along in the multicall above.
+  const native = useBalance({
+    address: address ?? undefined,
+    chainId: celo.id,
+    query: { enabled: queryEnabled },
+  });
+
   const USDm = useMemo(
     () => buildBalance("USDm", pick(q.data, 0)),
     [q.data],
@@ -100,6 +115,7 @@ export function useBalances(
     USDm,
     USDC,
     USDT,
+    celo: native.data?.value ?? null,
     isLoading: q.isLoading,
     isError: q.isError,
   };

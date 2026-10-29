@@ -47,6 +47,42 @@ export function isUnpayableFee(e: unknown): boolean {
 }
 
 /**
+ * The wallet cannot send a CIP-64 fee-currency transaction at all.
+ *
+ * MiniPay and the other Celo-native wallets accept `feeCurrency`; MetaMask,
+ * Rabby and most browser wallets reject the field outright. That is a wallet
+ * error, not a fee shortfall, so without this the fee fallback stopped on its
+ * first attempt and the action could never go through. Every player holding
+ * any Celo stablecoin in a browser wallet was blocked from claiming a run,
+ * minting, claiming badges or rewards, and linking a wallet (found 29 Oct
+ * 2026 from a MetaMask link that could not be completed).
+ *
+ * A decline is never this: the player closing the sheet must not be retried
+ * with the next fee option, or they get asked twice for one action.
+ */
+export function isUnsupportedFeeCurrency(e: unknown): boolean {
+  if (isUserRejection(e)) return false;
+  const text = errorText(e).toLowerCase();
+  // The wallet named the field it choked on.
+  if (text.includes("feecurrency") || text.includes("fee currency")) return true;
+  // JSON-RPC "invalid params", which is what a wallet returns for a field it
+  // does not know.
+  if (e && typeof e === "object" && "code" in e) {
+    if ((e as { code?: unknown }).code === -32602) return true;
+  }
+  return (
+    text.includes("unsupported transaction type") ||
+    text.includes("invalid params") ||
+    text.includes("invalid argument") ||
+    text.includes("unknown property") ||
+    text.includes("unknown field") ||
+    text.includes("unrecognized") ||
+    text.includes("not supported") ||
+    text.includes("does not support")
+  );
+}
+
+/**
  * Balances have loaded and the player holds none of this chain's fee tokens.
  * A still-loading read is not "no balance": sponsoring then would pay for
  * everyone whose multicall has not returned yet.

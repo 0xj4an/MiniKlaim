@@ -8,7 +8,8 @@ import { useWalletClient } from "wagmi";
 import { track } from "@/lib/analytics";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
-import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
+import { getChain } from "@/lib/onchain/chains";
+import { heldFeeAdaptersForWallet } from "@/lib/wallet/feeSupport";
 import {
   CLAIM_ROUTER_ABI,
   claimRouterAddress,
@@ -240,7 +241,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
 
         const badgeIds = voucher.badgeIds.map(Number);
         const chain = getChain(chainKey);
-        const held = heldFeeAdapters(chain.feeCurrencies, balances);
+        const held = heldFeeAdaptersForWallet(chain.feeCurrencies, balances);
         const sponsorWithBadges = async (
           trigger: "no_balance" | "fee_shortfall" | "tx_error",
         ): Promise<ClaimAllOutcome | "refused"> => {

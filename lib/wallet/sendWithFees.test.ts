@@ -42,4 +42,45 @@ describe("sendWithFeeFallback", () => {
     await expect(sendWithFeeFallback([USDT], send)).rejects.toBe(short);
     expect(send).toHaveBeenCalledTimes(2);
   });
+
+  // 29 Oct 2026: a MetaMask wallet holding Celo stablecoins could not link,
+  // claim a run, mint or claim badges. The wallet rejects `feeCurrency`, which
+  // is not a shortfall, so the fallback stopped on the first attempt.
+  it("falls back to CELO when the wallet cannot do fee abstraction", async () => {
+    const unsupported = Object.assign(new Error("Invalid params"), {
+      code: -32602,
+      details: "Unrecognized field 'feeCurrency'",
+    });
+    const send = vi.fn(async (fee: FeeCurrency | undefined) => {
+      if (fee) throw unsupported;
+      return "0xhash";
+    });
+    const out = await sendWithFeeFallback([USDT, USDM], send);
+    expect(out).toEqual({ result: "0xhash", fee: undefined });
+    // Both stablecoins refused, then native CELO went through.
+    expect(send).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not report a shortfall when the wallet simply cannot pay in token", async () => {
+    const unsupported = new Error("unsupported transaction type");
+    const onShort = vi.fn();
+    const send = vi.fn(async (fee: FeeCurrency | undefined) => {
+      if (fee) throw unsupported;
+      return "0xhash";
+    });
+    await sendWithFeeFallback([USDM], send, onShort);
+    expect(onShort).not.toHaveBeenCalled();
+  });
+
+  it("still stops at once on a decline that mentions an unsupported field", async () => {
+    const decline = Object.assign(new Error("User rejected the request"), {
+      code: 4001,
+      details: "User rejected the request. Method not supported",
+    });
+    const send = vi.fn(async () => {
+      throw decline;
+    });
+    await expect(sendWithFeeFallback([USDT, USDM], send)).rejects.toBe(decline);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
 });

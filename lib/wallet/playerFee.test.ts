@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isUnpayableFee,
+  isUnsupportedFeeCurrency,
   isUserRejection,
   playerHasNoFeeBalance,
 } from "@/lib/wallet/playerFee";
@@ -71,5 +72,42 @@ describe("playerHasNoFeeBalance", () => {
     expect(playerHasNoFeeBalance(3, 0, { isLoading: false, isError: true })).toBe(
       false,
     );
+  });
+});
+
+describe("isUnsupportedFeeCurrency", () => {
+  it("catches a wallet that rejects the feeCurrency field", () => {
+    expect(
+      isUnsupportedFeeCurrency(
+        Object.assign(new Error("Invalid params"), {
+          code: -32602,
+          details: "Unrecognized field 'feeCurrency'",
+        }),
+      ),
+    ).toBe(true);
+    expect(isUnsupportedFeeCurrency(new Error("unsupported transaction type"))).toBe(
+      true,
+    );
+    expect(isUnsupportedFeeCurrency(new Error("eth_sendTransaction is not supported"))).toBe(
+      true,
+    );
+  });
+
+  it("is not a decline, so the player is never asked twice", () => {
+    expect(
+      isUnsupportedFeeCurrency(
+        Object.assign(new Error("User rejected the request"), { code: 4001 }),
+      ),
+    ).toBe(false);
+    expect(
+      isUnsupportedFeeCurrency(new Error("User denied transaction signature")),
+    ).toBe(false);
+  });
+
+  it("leaves an ordinary revert alone", () => {
+    expect(
+      isUnsupportedFeeCurrency(new Error("execution reverted: bad voucher")),
+    ).toBe(false);
+    expect(isUnsupportedFeeCurrency(new Error("nonce too low"))).toBe(false);
   });
 });
