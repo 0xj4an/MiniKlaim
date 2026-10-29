@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FeeCurrency } from "@/lib/onchain/chains";
 import {
   heldFeeAdaptersForWallet,
+  needsCeloForGas,
   walletPaysGasInToken,
 } from "@/lib/wallet/feeSupport";
 
@@ -34,5 +35,66 @@ describe("heldFeeAdaptersForWallet", () => {
   it("offers nothing in a browser wallet, however much it holds", () => {
     vi.mocked(isMiniPay).mockReturnValue(false);
     expect(heldFeeAdaptersForWallet([USDT, USDM], balances)).toEqual([]);
+  });
+});
+
+describe("needsCeloForGas", () => {
+  const loaded = { isLoading: false, isError: false };
+
+  it("warns a browser wallet holding stablecoins and no CELO", () => {
+    vi.mocked(isMiniPay).mockReturnValue(false);
+    expect(
+      needsCeloForGas([USDT, USDM], { ...balances, celo: 0n, ...loaded }),
+    ).toBe(true);
+  });
+
+  it("stays quiet when they have CELO to pay with", () => {
+    vi.mocked(isMiniPay).mockReturnValue(false);
+    expect(
+      needsCeloForGas([USDT, USDM], { ...balances, celo: 1n, ...loaded }),
+    ).toBe(false);
+  });
+
+  it("stays quiet in MiniPay, which pays the fee from the stablecoin", () => {
+    vi.mocked(isMiniPay).mockReturnValue(true);
+    expect(
+      needsCeloForGas([USDT, USDM], { ...balances, celo: 0n, ...loaded }),
+    ).toBe(false);
+  });
+
+  it("stays quiet when there is no stablecoin either: that is the relayer's case", () => {
+    vi.mocked(isMiniPay).mockReturnValue(false);
+    expect(
+      needsCeloForGas([USDT, USDM], {
+        USDT: null,
+        USDm: null,
+        celo: 0n,
+        ...loaded,
+      }),
+    ).toBe(false);
+  });
+
+  // Never flash the warning at a player whose reads have not come back.
+  it("stays quiet while the balances are unread", () => {
+    vi.mocked(isMiniPay).mockReturnValue(false);
+    expect(
+      needsCeloForGas([USDT], { ...balances, celo: null, ...loaded }),
+    ).toBe(false);
+    expect(
+      needsCeloForGas([USDT], {
+        ...balances,
+        celo: 0n,
+        isLoading: true,
+        isError: false,
+      }),
+    ).toBe(false);
+    expect(
+      needsCeloForGas([USDT], {
+        ...balances,
+        celo: 0n,
+        isLoading: false,
+        isError: true,
+      }),
+    ).toBe(false);
   });
 });
