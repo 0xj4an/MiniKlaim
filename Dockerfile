@@ -75,6 +75,13 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/next.config.ts ./next.config.ts
 COPY --from=builder /app/lib ./lib
 COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
+# The maintenance jobs (settle the backlog, finalize orphan runs, retry
+# unminted hexes) and the migration step run from here. They used to be
+# Railway cron services against the Railway database; that database is gone
+# and those services are asleep, so without the scripts in the image there
+# is nowhere left to run them. tsx and drizzle-kit are already present as
+# non-dev dependencies.
+COPY --from=builder /app/scripts ./scripts
 
 EXPOSE 3000
 CMD ["npm", "start"]

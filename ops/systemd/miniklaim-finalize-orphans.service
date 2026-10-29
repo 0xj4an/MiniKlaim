@@ -1,0 +1,9 @@
+[Unit]
+Description=MiniKlaim: close runs left open by a dropped session
+
+[Service]
+Type=oneshot
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/docker exec miniklaim npm run runs:finalize-orphans
+StandardOutput=journal
+StandardError=journal
