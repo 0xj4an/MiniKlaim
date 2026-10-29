@@ -100,13 +100,17 @@ containers sit at 512 so a settlement never competes with a live request.
 an error at server start for any of them that disagree between the build and
 the runtime environment — check for that line after a deploy.
 
-The ones with a default in the `Dockerfile` need nothing. The compose file
-passes the other two, so the only thing a deploy has to supply is the commit:
+The ones with a default in the `Dockerfile` need nothing, the compose file
+passes the other two, and `ops/deploy.sh` supplies the commit. The whole
+deploy is one command:
 
 ```sh
-cd /home/0xj4an/docker/0xj4an-personal
-BUILD_COMMIT_SHA=$(git -C <clone> rev-parse HEAD) docker compose build miniklaim
+ops/deploy.sh          # or: ops/deploy.sh dev
 ```
+
+It fetches the ref, builds both images with `BUILD_COMMIT_SHA`, migrates,
+restarts the app and both cron loops, and then greps the startup log for an
+env-skew line.
 
 `BUILD_COMMIT_SHA` is what Railway gave for free as
 `RAILWAY_GIT_COMMIT_SHA`. Without it `next.config.ts` has no `deploymentId`,
@@ -117,13 +121,13 @@ report `App: dev`.
 ## Migrations
 
 Railway ran `npm run db:migrate` as its `preDeployCommand` (see
-`railway.json`). The compose deploy on the VPS has no equivalent, so a
-schema change would ship without its migration and the app would run
-against an older database than it expects. Until that is wired into the
-deploy, run it by hand after any deploy that adds a migration:
+`railway.json`). Compose has no equivalent, so a schema change could ship
+without its migration and the app would run against an older database than
+it expects. `ops/deploy.sh` is that hook now — it migrates between the build
+and the restart, which is the order Railway gave us. By hand:
 
 ```sh
-docker exec miniklaim npm run db:migrate
+docker compose run --rm --no-deps miniklaim npm run db:migrate
 ```
 
 Migration `0018` adds `hexes(owner_address, country, city)`. Applying it
