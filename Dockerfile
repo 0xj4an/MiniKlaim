@@ -62,6 +62,15 @@ ARG NEXT_PUBLIC_SONEIUM_HEXES_RECORDS
 # Source maps upload; blank just skips it.
 ARG SENTRY_AUTH_TOKEN
 
+# The commit this image is built from. Railway supplied this for free as
+# RAILWAY_GIT_COMMIT_SHA; here the build has to pass it. Blank is not
+# harmless: next.config.ts then has no `deploymentId`, so a tab left open on
+# the old build calls Server Actions and chunks this build no longer has
+# instead of doing a clean hard navigation, and every support email reports
+# "App: dev" with no way to tell which build a player was on.
+#   docker compose build --build-arg BUILD_COMMIT_SHA=$(git rev-parse HEAD)
+ARG BUILD_COMMIT_SHA
+
 # prebuild extracts the cities JSON, then next build
 RUN npm run build
 
