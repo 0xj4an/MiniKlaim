@@ -41,6 +41,16 @@ export const dictionaries = {
     "nav.community": "Community",
     "nav.help": "Help",
     "nav.stats": "Stats",
+    "fee.needCelo.title": "You have balance, but not for the network fee",
+    "fee.needCelo.body":
+      "This wallet pays the network fee in CELO, not in stablecoins. Send yourself a little CELO, or open MiniKlaim in MiniPay, which can pay the fee with the balance you already have.",
+    "recovery.title": "Your blocks are back",
+    "recovery.body":
+      "On 29 October we had an outage and lost part of the database. We rebuilt your blocks, your runs and your badges from the blockchain, so your territory is where you left it.",
+    "recovery.name":
+      "The one thing we could not get back is usernames. Pick yours again and you are set. Nobody got into your account.",
+    "recovery.cta": "Pick my name",
+    "recovery.later": "Later",
     "onboarding.title": "Welcome to MiniKlaim",
     "onboarding.step1.title": "🗺️ Move anywhere",
     "onboarding.step1.body":
@@ -539,6 +549,16 @@ export const dictionaries = {
     "nav.community": "Comunidad",
     "nav.help": "Ayuda",
     "nav.stats": "Estadísticas",
+    "fee.needCelo.title": "Tienes saldo, pero no para la comisión de red",
+    "fee.needCelo.body":
+      "Esta wallet paga la comisión de red en CELO, no en stablecoins. Mándate un poco de CELO, o abre MiniKlaim en MiniPay, que sí puede pagar la comisión con el saldo que ya tienes.",
+    "recovery.title": "Tus bloques ya volvieron",
+    "recovery.body":
+      "El 29 de octubre tuvimos una caída y se perdió parte de la base de datos. Reconstruimos tus bloques, tus carreras y tus insignias desde la blockchain, así que tu territorio está donde lo dejaste.",
+    "recovery.name":
+      "Lo único que no pudimos recuperar son los nombres de usuario. Vuelve a elegir el tuyo y listo. Nadie entró a tu cuenta.",
+    "recovery.cta": "Elegir mi nombre",
+    "recovery.later": "Después",
     "onboarding.title": "Bienvenido a MiniKlaim",
     "onboarding.step1.title": "🗺️ Muévete donde sea",
     "onboarding.step1.body":

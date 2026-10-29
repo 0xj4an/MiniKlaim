@@ -29,6 +29,8 @@ type EventMap = {
   // through. Only fire on dismiss with the exit path so we can tell engaged
   // users (tapped the CTA) from disengaged (clicked the backdrop).
   onboarding_completed: { via: "cta" | "backdrop" };
+  /** The 29 Oct 2026 outage notice: how the player closed it. */
+  recovery_notice_dismissed: { via: "cta" | "later" | "backdrop" };
 
   // Run lifecycle.
   run_started: { mode?: MoveMode };

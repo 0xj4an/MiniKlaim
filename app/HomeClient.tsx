@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
 import { useFirstVisit } from "@/lib/useFirstVisit";
 import { useGlobalStats } from "@/lib/useGlobalStats";
+import { useRecoveryNotice } from "@/lib/useRecoveryNotice";
+import { RecoveryNotice } from "@/app/RecoveryNotice";
 import { useLocale } from "@/lib/i18n";
 import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import {
@@ -15,6 +17,7 @@ import {
 import { LinkExisting } from "@/app/LinkExisting";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
+import { NeedCeloNote } from "@/app/NeedCeloNote";
 import { ReturnNote } from "@/app/ReturnNote";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -37,6 +40,9 @@ export function HomeClient() {
   );
   const globalStats = useGlobalStats();
   const { showOnboarding, dismiss } = useFirstVisit();
+  const { showRecovery, dismiss: dismissRecovery } = useRecoveryNotice(
+    user ?? null,
+  );
   const { t } = useLocale();
   const env = useWalletEnvironment();
   const router = useRouter();
@@ -65,7 +71,13 @@ export function HomeClient() {
 
   return (
     <>
-      {showOnboarding && <OnboardingModal onClose={dismiss} />}
+      {/* The outage notice comes first: a returning player whose name is
+          gone needs that explained before anything else on the screen. */}
+      {showRecovery ? (
+        <RecoveryNotice onClose={dismissRecovery} />
+      ) : (
+        showOnboarding && <OnboardingModal onClose={dismiss} />
+      )}
       <p className="text-xs text-zinc-500">
         {globalStats ? (
           <>
@@ -109,6 +121,13 @@ export function HomeClient() {
           enabled={isConnected && !isWrongChain && !!user?.username}
           variant="card"
           surface="home"
+        />
+      )}
+
+      {mounted && (
+        <NeedCeloNote
+          address={address ?? null}
+          enabled={isConnected && !isWrongChain}
         />
       )}
 
