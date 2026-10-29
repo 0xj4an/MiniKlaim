@@ -41,6 +41,9 @@ export const dictionaries = {
     "nav.community": "Community",
     "nav.help": "Help",
     "nav.stats": "Stats",
+    "fee.needCelo.title": "You have balance, but not for the network fee",
+    "fee.needCelo.body":
+      "This wallet pays the network fee in CELO, not in stablecoins. Send yourself a little CELO, or open MiniKlaim in MiniPay, which can pay the fee with the balance you already have.",
     "onboarding.title": "Welcome to MiniKlaim",
     "onboarding.step1.title": "🗺️ Move anywhere",
     "onboarding.step1.body":
@@ -539,6 +542,9 @@ export const dictionaries = {
     "nav.community": "Comunidad",
     "nav.help": "Ayuda",
     "nav.stats": "Estadísticas",
+    "fee.needCelo.title": "Tienes saldo, pero no para la comisión de red",
+    "fee.needCelo.body":
+      "Esta wallet paga la comisión de red en CELO, no en stablecoins. Mándate un poco de CELO, o abre MiniKlaim en MiniPay, que sí puede pagar la comisión con el saldo que ya tienes.",
     "onboarding.title": "Bienvenido a MiniKlaim",
     "onboarding.step1.title": "🗺️ Muévete donde sea",
     "onboarding.step1.body":

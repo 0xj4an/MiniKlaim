@@ -1,5 +1,8 @@
 import type { FeeCurrency } from "@/lib/onchain/chains";
-import { isUnpayableFee } from "@/lib/wallet/playerFee";
+import {
+  isUnpayableFee,
+  isUnsupportedFeeCurrency,
+} from "@/lib/wallet/playerFee";
 
 /**
  * Fee options in the order we try them: each held stablecoin, then native
@@ -13,9 +16,11 @@ export function feeAttempts(held: FeeCurrency[]): (FeeCurrency | undefined)[] {
 }
 
 /**
- * Send with the first fee option that works. Moves on only when the node
- * refuses the fee; any other error (a decline, a wallet error) stops at once
- * so the player is never asked twice for one claim.
+ * Send with the first fee option that works. Moves on when the node refuses
+ * the fee, and when the wallet cannot do fee abstraction at all — a browser
+ * wallet rejects `feeCurrency` outright, and stopping there left every such
+ * player unable to act. A decline still stops at once, so the player is
+ * never asked twice for one claim.
  */
 export async function sendWithFeeFallback<T>(
   held: FeeCurrency[],
@@ -30,9 +35,14 @@ export async function sendWithFeeFallback<T>(
       return { result: await send(fee), fee };
     } catch (e) {
       lastError = e;
-      if (i + 1 < attempts.length && isUnpayableFee(e)) {
-        onShort?.(fee, attempts[i + 1]);
-        continue;
+      if (i + 1 < attempts.length) {
+        if (isUnpayableFee(e)) {
+          onShort?.(fee, attempts[i + 1]);
+          continue;
+        }
+        // Not a shortfall, so `onShort` stays quiet: the player holds enough,
+        // the wallet simply cannot spend it on gas.
+        if (isUnsupportedFeeCurrency(e)) continue;
       }
       throw e;
     }

@@ -5,7 +5,8 @@ import { encodeFunctionData, type Address, type Hex } from "viem";
 import { useWalletClient } from "wagmi";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
-import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
+import { getChain } from "@/lib/onchain/chains";
+import { heldFeeAdaptersForWallet } from "@/lib/wallet/feeSupport";
 import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { REWARDS_ABI } from "@/lib/onchain/rewardsAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
@@ -85,7 +86,7 @@ export function useClaimRewards(address: `0x${string}` | null) {
     setState("sending");
     try {
       const chain = getChain(chainKey);
-      const held = heldFeeAdapters(chain.feeCurrencies, balances);
+      const held = heldFeeAdaptersForWallet(chain.feeCurrencies, balances);
       const data = encodeFunctionData({
         abi: REWARDS_ABI,
         functionName: "claimRewards",

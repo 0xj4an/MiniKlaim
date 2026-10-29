@@ -15,6 +15,7 @@ import {
 import { LinkExisting } from "@/app/LinkExisting";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
+import { NeedCeloNote } from "@/app/NeedCeloNote";
 import { ReturnNote } from "@/app/ReturnNote";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -109,6 +110,13 @@ export function HomeClient() {
           enabled={isConnected && !isWrongChain && !!user?.username}
           variant="card"
           surface="home"
+        />
+      )}
+
+      {mounted && (
+        <NeedCeloNote
+          address={address ?? null}
+          enabled={isConnected && !isWrongChain}
         />
       )}
 
