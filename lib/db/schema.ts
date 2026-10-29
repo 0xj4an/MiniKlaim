@@ -187,9 +187,17 @@ export const hexes = pgTable(
     // /stats On-chain counters).
     index("hexes_minted_at_idx").on(t.mintedAt),
     // "hexes in country X" queries (country badges + per-country leaderboard
-    // when we add it). Partial (WHERE country IS NOT NULL) since most rows
-    // have it and unresolved rows shouldn't clutter the index.
+    // when we add it). Not partial, despite what this comment said until
+    // 29 Oct 2026: migration 0005 creates a plain btree over every row,
+    // NULLs included.
     index("hexes_country_idx").on(t.country),
+    // A player's geography without touching the heap: /me, the public
+    // profile and the leaderboard all group a player's blocks by country
+    // and city, and with only `owner_address` indexed each row needed a
+    // heap fetch for the other two columns. Covers geo-summary's two
+    // GROUP BYs, the leaderboard's country and badge counts, and the
+    // per-player city count.
+    index("hexes_owner_country_city_idx").on(t.ownerAddress, t.country, t.city),
     // Rate-limit sweep in validateClaim (WHERE run_id = X AND claimed_at > NOW - 60s).
     // Compound with claimedAt for the range scan.
     index("hexes_run_id_claimed_at_idx").on(t.runId, t.claimedAt),

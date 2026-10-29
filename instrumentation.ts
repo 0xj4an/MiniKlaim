@@ -20,6 +20,17 @@ export async function register() {
     const http = await import("node:http");
     http.ServerResponse.prototype.setMaxListeners(20);
     await import("./sentry.server.config");
+    // A NEXT_PUBLIC_* set only in the container environment changes nothing
+    // the client does, because the bundles have the build-time value baked
+    // in. That is silent, and on 29 Oct 2026 it cost a day: the server was
+    // ready to reinforce blocks while the client dropped the player's own
+    // blocks from the claim. Logged at error level so it survives the
+    // production log floor and reaches Sentry.
+    const [{ reportEnvSkew }, { createLogger }] = await Promise.all([
+      import("./lib/envSkew"),
+      import("./lib/logger"),
+    ]);
+    reportEnvSkew(createLogger("env:skew"));
   }
   if (process.env.NEXT_RUNTIME === "edge") {
     await import("./sentry.edge.config");

@@ -1,0 +1,1 @@
+CREATE INDEX "hexes_owner_country_city_idx" ON "hexes" USING btree ("owner_address","country","city");
