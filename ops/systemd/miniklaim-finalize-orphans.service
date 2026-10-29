@@ -4,6 +4,6 @@ Description=MiniKlaim: close runs left open by a dropped session
 [Service]
 Type=oneshot
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
-ExecStart=/usr/bin/docker exec miniklaim npm run runs:finalize-orphans
+ExecStart=/usr/bin/docker compose -f /home/0xj4an/docker/0xj4an-personal/docker-compose.yml --profile cron run --rm miniklaim-finalize-orphans
 StandardOutput=journal
 StandardError=journal

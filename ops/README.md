@@ -4,10 +4,23 @@ The three maintenance jobs used to be Railway cron services. The app and the
 database now live on the VPS, Railway's services are asleep, and their
 `DATABASE_URL` points at a database that is gone, so nothing was running them.
 
-Everything they need is already inside the `miniklaim` container: the
-database URL, the relayer signing key, `tsx` and `drizzle-kit` (both non-dev
-dependencies), the migrations under `lib/db/migrations`, and `scripts/`.
-So each job is a `docker exec` away and needs no secrets of its own.
+Everything they need is now inside the `miniklaim` container: the database
+URL, the relayer signing key, `tsx` and `drizzle-kit` (both non-dev
+dependencies), the migrations under `lib/db/migrations`, `scripts/`, and
+`tsconfig.json` — `tsx` resolves the `@/...` imports through tsconfig paths,
+and the files under `lib/` import each other that way, so without it
+`settle-backlog` dies in `resolveTsPathsSync`. Each job needs no secrets of
+its own.
+
+Either invocation works, both verified on the VPS:
+
+```sh
+docker exec miniklaim npm run runs:finalize-orphans
+docker compose -f <compose> --profile cron run --rm miniklaim-finalize-orphans
+```
+
+The compose services give each job its own memory limit, which is worth
+having for the settlement, so the timers use those.
 
 ## The jobs
 
