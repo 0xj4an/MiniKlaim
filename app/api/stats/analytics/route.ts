@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { createSharedCache } from "@/lib/sharedCache";
 import { db } from "@/lib/db";
 import { badgesContractAddress } from "@/lib/onchain/badges";
 import { hexesContractAddress } from "@/lib/onchain/hexes";
@@ -21,7 +22,7 @@ type Row<T> = T;
  *   plus contract addresses for Celoscan linkage.
  * - Country distribution (top 10 by hex count) for geography charts.
  */
-export async function GET() {
+async function computeAnalytics() {
   const queries = await Promise.all([
     // Lifetime.
     db.execute(sql`SELECT COUNT(*)::int AS c FROM users`),
@@ -279,7 +280,7 @@ export async function GET() {
   const cohortSize = (q: unknown) =>
     (q as unknown as Row<Array<{ n: number }>>)[0]?.n ?? 0;
 
-  return NextResponse.json({
+  return {
     totalPlayers: scalar(users),
     totalBlocks: scalar(hexes),
     runsLifetime: scalar(runsLifetime),
@@ -344,5 +345,24 @@ export async function GET() {
     conquests: scalar(conquestsTotal),
     chain: "celo",
     chainId: 42220,
+  };
+}
+
+/**
+ * Twenty-two aggregates over `hexes` and `runs`, several of them full scans
+ * of a table that now holds ~275k rows, and `/stats` recomputed every one of
+ * them on every page load. One shared copy for a minute instead: nothing
+ * here needs to be fresher than that, and the same shape already serves the
+ * world-hex route.
+ */
+const ANALYTICS_TTL_MS = 60_000;
+const analyticsCache = createSharedCache<Awaited<ReturnType<typeof computeAnalytics>>>(
+  ANALYTICS_TTL_MS,
+);
+
+export async function GET() {
+  const payload = await analyticsCache.get("all", computeAnalytics);
+  return NextResponse.json(payload, {
+    headers: { "cache-control": "public, max-age=60" },
   });
 }

@@ -29,9 +29,17 @@ ARG NEXT_PUBLIC_SENTRY_DSN=https://632fb1ef18a8c06c5173be4ee4fa3b4e@o45120632611
 # dropped it and all three went quiet (29 Oct 2026).
 ARG NEXT_PUBLIC_CELO_HEXES_RECORDS=1
 
-# Hex strength (lib/runs/hexStrength.ts) reads "on". Declared so a build can
-# turn it on; blank leaves it off, which is the current intent.
-ARG NEXT_PUBLIC_HEX_STRENGTH
+# Hex strength (lib/runs/hexStrength.ts) reads "on", and it has to be ON HERE,
+# at build time, not only in the runtime env.
+#
+# The client inlines it (app/run/page.tsx: `const HEX_STRENGTH =
+# isHexStrengthEnabled()`), and with it false `hexesToQueue` strips the blocks
+# the player already owns before they are ever sent. So a runtime-only
+# NEXT_PUBLIC_HEX_STRENGTH=on left the server ready to reinforce and the client
+# never sending anything to reinforce: a player running over their own route
+# saw the new blocks painted and the ones they already held ignored, with no
+# error anywhere (reported 29 Oct 2026).
+ARG NEXT_PUBLIC_HEX_STRENGTH=on
 
 # Must be passed with --build-arg (or compose `build.args`) from the
 # environment: the attribution tag is the one Celo asks stay private, so it
