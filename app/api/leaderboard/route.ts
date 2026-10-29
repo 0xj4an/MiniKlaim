@@ -77,27 +77,23 @@ export async function GET(request: Request) {
     )
   `;
 
-  const rows = await db.execute(sql`
-    ${ranked}
-    SELECT
-      address AS "address",
-      username AS "username",
-      hex_count AS "hexCount"
-    FROM ranked
-    ORDER BY rank
-    LIMIT ${limit}
-  `);
-
-  let mine: {
+  type Ranked = {
+    kind: "top" | "me";
     rank: number;
     address: string;
     username: string | null;
     hexCount: number;
-  } | null = null;
-  if (me) {
-    const [row] = (await db.execute(sql`
-      ${ranked}
-      SELECT
+  };
+
+  // The page and the pinned row read the same `ranked` CTE, so they go in one
+  // statement. Interpolating the CTE into two `db.execute` calls ran the
+  // per-owner aggregate over every row of `hexes` twice for one request, and
+  // at ~275k rows that was the whole cost of this endpoint.
+  const mePin = me
+    ? sql`
+      UNION ALL
+      (SELECT
+        'me' AS "kind",
         r.rank AS "rank",
         r.address AS "address",
         r.username AS "username",
@@ -108,9 +104,38 @@ export async function GET(request: Request) {
          WHERE LOWER(pw.address) = ${me} LIMIT 1),
         (SELECT u.address FROM users u WHERE LOWER(u.address) = ${me} LIMIT 1)
       )
-      LIMIT 1
-    `)) as unknown as Array<NonNullable<typeof mine>>;
-    if (row && row.hexCount > 0) mine = row;
+      LIMIT 1)
+    `
+    : sql``;
+
+  const ranksAll = (await db.execute(sql`
+    ${ranked}
+    (SELECT
+      'top' AS "kind",
+      rank AS "rank",
+      address AS "address",
+      username AS "username",
+      hex_count AS "hexCount"
+    FROM ranked
+    ORDER BY rank
+    LIMIT ${limit})
+    ${mePin}
+  `)) as unknown as Ranked[];
+
+  // UNION ALL does not promise the branch's ORDER BY survives into the
+  // result, so the page order is re-established here rather than trusted.
+  const rows = ranksAll
+    .filter((r) => r.kind === "top")
+    .sort((a, b) => a.rank - b.rank);
+  let mine: Omit<Ranked, "kind"> | null = null;
+  const pinned = ranksAll.find((r) => r.kind === "me");
+  if (pinned && pinned.hexCount > 0) {
+    mine = {
+      rank: pinned.rank,
+      address: pinned.address,
+      username: pinned.username,
+      hexCount: pinned.hexCount,
+    };
   }
 
   if (rows.length === 0) {
