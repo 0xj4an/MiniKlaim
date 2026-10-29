@@ -7,7 +7,8 @@ import { encodeFunctionData, type Address, type Hex } from "viem";
 import { useWalletClient } from "wagmi";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
-import { getChain, heldFeeAdapters } from "@/lib/onchain/chains";
+import { getChain } from "@/lib/onchain/chains";
+import { heldFeeAdaptersForWallet } from "@/lib/wallet/feeSupport";
 import { BADGES_CLAIM_ABI, badgesAddress } from "@/lib/onchain/badgesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { shortfallHeaders } from "@/lib/onchain/sponsorHeaders";
@@ -117,7 +118,7 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
       return sponsorFallback(address);
     }
 
-    const held = heldFeeAdapters(chain.feeCurrencies, balances);
+    const held = heldFeeAdaptersForWallet(chain.feeCurrencies, balances);
     if (
       playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)
     ) {
