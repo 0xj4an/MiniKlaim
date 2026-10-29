@@ -8,8 +8,28 @@ const LEVELS: Record<Level, number> = {
   error: 40,
 };
 
-const minLevel =
-  process.env.NODE_ENV === "production" ? LEVELS.warn : LEVELS.debug;
+/**
+ * Lowest level that gets through, from `LOG_LEVEL` when it names one.
+ *
+ * The default stays as it was: warn in production, debug everywhere else.
+ * The override exists for the scheduled maintenance jobs, which run with
+ * NODE_ENV=production and report only through `log.info` — so they ran
+ * completely silently, and a job you cannot verify from its logs is a job
+ * you cannot trust (found 29 Oct 2026, when `settle-backlog` exited 0 and
+ * said nothing at all).
+ */
+export function resolveMinLevel(
+  logLevel: string | undefined,
+  nodeEnv: string | undefined,
+): number {
+  const named = (logLevel ?? "").trim().toLowerCase();
+  // hasOwn, not `in`: `in` walks the prototype, so LOG_LEVEL=constructor
+  // would set the threshold to a function and compare NaN forever after.
+  if (Object.hasOwn(LEVELS, named)) return LEVELS[named as Level];
+  return nodeEnv === "production" ? LEVELS.warn : LEVELS.debug;
+}
+
+const minLevel = resolveMinLevel(process.env.LOG_LEVEL, process.env.NODE_ENV);
 
 export type Logger = Record<Level, LogFn>;
 

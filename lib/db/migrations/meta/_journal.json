@@ -127,6 +127,13 @@
       "when": 1792966758536,
       "tag": "0017_foot_too_fast",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793298157282,
+      "tag": "0018_supreme_madame_web",
+      "breakpoints": true
     }
   ]
 }
