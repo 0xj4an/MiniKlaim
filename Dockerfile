@@ -82,6 +82,11 @@ COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
 # is nowhere left to run them. tsx and drizzle-kit are already present as
 # non-dev dependencies.
 COPY --from=builder /app/scripts ./scripts
+# tsx resolves the `@/...` imports through tsconfig paths, and the files
+# under lib/ import each other that way. Without it `runs:settle-backlog`
+# dies in resolveTsPathsSync while `runs:finalize-orphans`, which only
+# uses relative imports, runs fine. Verified on the VPS, 29 Oct 2026.
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 EXPOSE 3000
 CMD ["npm", "start"]
