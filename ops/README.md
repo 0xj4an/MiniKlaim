@@ -54,6 +54,26 @@ docker exec miniklaim npm run runs:settle-backlog          # plan only
 docker exec miniklaim npm run runs:settle-backlog -- --send
 ```
 
+## Why the jobs set LOG_LEVEL
+
+The scripts report only through `log.info`, and `lib/logger.ts` silences
+anything below `warn` when `NODE_ENV=production` — which is how the image
+runs. So a job would do its work and print nothing, and a job you cannot
+verify from its logs is a job you cannot trust.
+
+`LOG_LEVEL=info` on the cron services fixes that without touching how the
+app itself logs. Add it beside the other variables:
+
+```yaml
+  miniklaim-retry-unminted:
+    env_file: .env.miniklaim
+    environment:
+      LOG_LEVEL: info
+```
+
+Then `journalctl --user -u miniklaim-retry-unminted -n 50` shows what it
+settled, instead of nothing.
+
 ## Migrations
 
 Railway ran `npm run db:migrate` as its `preDeployCommand` (see
