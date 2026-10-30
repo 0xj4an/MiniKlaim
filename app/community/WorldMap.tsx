@@ -11,7 +11,11 @@ import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
 import { reportGpuSupport } from "@/lib/map/gpuSupport";
 import { claimedHexesToFeatureCollection } from "@/lib/map/hex";
 import { HEX_COLORS } from "@/lib/map/hexColors";
-import { rowsFromWorldResponse, WORLD_GROUPED_PARAM } from "@/lib/map/worldHexes";
+import {
+  fetchWorldRows,
+  parseWorldBody,
+  readCachedWorld,
+} from "@/lib/map/worldCache";
 import { useLinkedAddresses } from "@/lib/wallet/useLinkedAddresses";
 
 type HexFeatureProps = {
@@ -403,27 +407,24 @@ export function WorldMap({
       log.error("map error", { message: e.error?.message ?? String(e) }),
     );
 
+    const paintRows = (rows: HexRow[]) => {
+      if (cancelled) return;
+      rowsRef.current = rows;
+      setCount(rows.length);
+      if (map.isStyleLoaded()) paintRef.current(map);
+      else map.once("load", () => {
+        if (!cancelled) paintRef.current(map);
+      });
+    };
+
     void (async () => {
       try {
-        const res = await fetch(`/api/hexes?${WORLD_GROUPED_PARAM}`);
-        if (!res.ok) {
-          log.warn("world hexes failed", { status: res.status });
-          return;
-        }
-        const rows: HexRow[] = rowsFromWorldResponse(await res.json());
-        if (cancelled) return;
-        rowsRef.current = rows;
-        setCount(rows.length);
-        
-        // Paint immediately if map is ready, otherwise wait for load event
-        if (map.isStyleLoaded()) {
-          paintRef.current(map);
-        } else {
-          const onLoad = () => {
-            if (!cancelled) paintRef.current(map);
-          };
-          map.once("load", onLoad);
-        }
+        const cached = await readCachedWorld();
+        const cachedRows = cached ? parseWorldBody(cached.body) : null;
+        if (cachedRows) paintRows(cachedRows);
+        const result = await fetchWorldRows(cached);
+        if (!result || !result.changed) return;
+        paintRows(result.rows);
       } catch (e) {
         log.error("world map load failed", {
           message: e instanceof Error ? e.message : String(e),

@@ -20,9 +20,11 @@ const MAX_DISK = 60;
 // hexes; `?fmt=owners` groups it by owner (~4 MB, ~0.8 MB gzipped), which is
 // what the app asks for. The flat shape stays for old clients. Pages are
 // compressed by Next; this route handler is not, so the body is packed here.
-// One shared copy for a minute: community can lag a fresh claim by that long.
-const WORLD_TTL_MS = 60_000;
-const WORLD_CACHE = "public, max-age=60";
+// One shared copy for five minutes. Rebuilding it blocks the process, and
+// that is what turned claim requests into 502s. A fresh claim can lag the
+// world map by this long; the player's own blocks are merged on the run map.
+const WORLD_TTL_MS = 5 * 60_000;
+const WORLD_CACHE = "public, max-age=300";
 const SCOPED_CACHE = "private, no-cache";
 
 type WorldShape = "flat" | "owners";
