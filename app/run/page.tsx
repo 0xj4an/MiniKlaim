@@ -86,7 +86,12 @@ import { NeedNameOverlay } from "./NeedNameOverlay";
 import { OnboardingTooltip } from "./OnboardingTooltip";
 import { readCachedPosition, writeCachedPosition } from "./positionCache";
 import { RunControls } from "./RunControls";
-import { rowsFromWorldResponse, WORLD_GROUPED_PARAM } from "@/lib/map/worldHexes";
+import { rowsFromWorldResponse } from "@/lib/map/worldHexes";
+import {
+  fetchWorldRows,
+  parseWorldBody,
+  readCachedWorld,
+} from "@/lib/map/worldCache";
 import { RunSummaryModal } from "./RunSummaryModal";
 
 const log = createLogger("page:run");
@@ -515,11 +520,29 @@ export default function RunPage() {
     }
 
     diskCoverRef.current = null;
+    const cached = await readCachedWorld();
+    if (stale()) return;
+    const cachedRows = cached ? parseWorldBody(cached.body) : null;
+    if (cachedRows) {
+      worldRef.current = { rows: placeHexes(cachedRows), at: cached.savedAt };
+      paint(hexesInBounds(worldRef.current.rows, bounds));
+    } else {
+      // Cold phone: show the blocks around the player while the world list
+      // downloads, instead of a blank map.
+      const near = latLngToCell(centerLat, centerLng, HEX_RESOLUTION);
+      const nearby = await fetchRows(
+        `/api/hexes?near=${near}&k=${diskKForRadius(radius)}`,
+      );
+      if (stale()) return;
+      if (nearby && !worldRef.current) paint(nearby);
+    }
     const worldStale =
-      !worldRef.current || Date.now() - worldRef.current.at > 60_000;
+      !worldRef.current || Date.now() - worldRef.current.at > 10 * 60_000;
     if (worldStale) {
       if (!worldInflight.current) {
-        const pending = fetchRows(`/api/hexes?${WORLD_GROUPED_PARAM}`);
+        const pending = fetchWorldRows(cached).then((result) =>
+          result?.rows ?? null,
+        );
         worldInflight.current = pending;
         void pending.finally(() => {
           if (worldInflight.current === pending) worldInflight.current = null;
