@@ -28,7 +28,8 @@ describe("orderHeldByBalance", () => {
 
 describe("sendWithFeeFallback", () => {
   it("skips native when the caller will ask the relayer instead", async () => {
-    const send = vi.fn(async () => {
+    const send = vi.fn(async (fee: FeeCurrency | undefined) => {
+      expect(fee).toBeDefined();
       throw short;
     });
     await expect(
