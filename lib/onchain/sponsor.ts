@@ -48,12 +48,20 @@ export type PayCheck = {
  * `badgeCount` badges, in CELO or any one fee currency. Read failures count
  * as "cannot pay" so an RPC hiccup does not block a player who needs help;
  * the daily cap still bounds the cost.
+ *
+ * `nativeOnly` means the asking wallet can only pay gas in CELO, so a
+ * stablecoin balance is not money it can spend on a fee. Every wallet but
+ * MiniPay is in that position — CIP-64's `feeCurrency` is what makes a
+ * stablecoin payable and the others reject the field — and checking their
+ * stablecoins anyway answered "you can pay" to players who could not,
+ * leaving the claim with nowhere to go.
  */
 export async function playerCanPay(
   player: Address,
   hexCount: number,
   badgeCount: number,
   chainKey: ChainKey,
+  { nativeOnly = false }: { nativeOnly?: boolean } = {},
 ): Promise<PayCheck> {
   const recorded = getChain(chainKey).hexesRecords;
   const gas = estimateClaimGas(hexCount, badgeCount, recorded);
@@ -67,6 +75,7 @@ export async function playerCanPay(
     const feeWei = feeWithBuffer(gas, gasPrice);
     const native = await client.getBalance({ address: player });
     if (native >= feeWei) return { canPay: true, via: "CELO", feeWei };
+    if (nativeOnly) return { canPay: false, feeWei };
 
     const directory = FEE_CURRENCY_DIRECTORY[chainKey];
     const { feeCurrencies } = getChain(chainKey);
