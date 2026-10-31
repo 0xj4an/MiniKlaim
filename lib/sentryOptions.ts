@@ -10,11 +10,22 @@ type SentryInitOptions = {
   dsn: string | undefined;
   enabled: boolean;
   environment: string | undefined;
+  release: string | undefined;
   tracesSampleRate: number;
   sendDefaultPii: false;
   ignoreErrors: string[];
   beforeSend: (event: ErrorEvent) => ErrorEvent | null;
 };
+
+/**
+ * Tracing is tree-shaken out of the client bundle (`removeTracing` in
+ * next.config.ts, for bundle size), so a sample rate there is a number that
+ * does nothing. Saying 0 keeps the config honest about what actually runs.
+ */
+function tracesSampleRate(): number {
+  if (typeof window !== "undefined") return 0;
+  return process.env.NODE_ENV === "production" ? 0.1 : 1.0;
+}
 
 export function sentryInitOptions(): SentryInitOptions {
   const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
@@ -22,7 +33,13 @@ export function sentryInitOptions(): SentryInitOptions {
     dsn,
     enabled: Boolean(dsn),
     environment: process.env.NODE_ENV,
-    tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
+    // Which build an error came from. Nothing set this after the move off
+    // Railway, so every event since carried no release: "regressed" meant
+    // nothing, and telling a fixed issue from a live one meant comparing
+    // commit timestamps by hand (31 Oct, MINIKLAIM-Q). Empty string on a
+    // local build, which Sentry should read as absent, not as "".
+    release: process.env.NEXT_PUBLIC_SENTRY_RELEASE || undefined,
+    tracesSampleRate: tracesSampleRate(),
     sendDefaultPii: false,
     ignoreErrors: [
       "Connection closed",
