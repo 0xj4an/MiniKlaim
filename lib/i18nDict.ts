@@ -120,7 +120,7 @@ export const dictionaries = {
     "me.nfts.allMinted": "All your blocks are NFTs.",
     "me.nfts.more": "Up to {max} per transaction.",
     "me.nfts.error": "Could not mint. Please try again.",
-    "me.nfts.noFee": "Not enough balance to pay the network fee. Add a little USDT or CELO to your wallet and try again.",
+    "me.nfts.noFee": "Not enough balance to pay the network fee. Add a little USDT, USDC, or USDm and try again.",
     "me.link.title": "🔗 Link another wallet",
     "me.link.desc":
       "Use the same MiniKlaim identity (name, profile) across chains.",
@@ -628,7 +628,7 @@ export const dictionaries = {
     "me.nfts.allMinted": "Todos tus bloques son NFTs.",
     "me.nfts.more": "Hasta {max} por transacción.",
     "me.nfts.error": "No se pudo mintear. Intenta de nuevo.",
-    "me.nfts.noFee": "No tienes saldo suficiente para la comisión de red. Agrega un poco de USDT o CELO a tu wallet e intenta de nuevo.",
+    "me.nfts.noFee": "No tienes saldo suficiente para la tarifa de red. Agrega un poco de USDT, USDC o USDm e intenta de nuevo.",
     "me.link.title": "🔗 Vincular otra wallet",
     "me.link.desc":
       "Usa la misma identidad MiniKlaim (nombre, perfil) en todas las chains.",

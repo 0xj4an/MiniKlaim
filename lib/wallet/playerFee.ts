@@ -28,12 +28,18 @@ export function isWalletInternalError(e: unknown): boolean {
  * not a decline.
  */
 export function isUserRejection(e: unknown): boolean {
-  if (isUnpayableFee(e) || isWalletInternalError(e)) return false;
+  if (isUnpayableFee(e)) return false;
+  const text = errorText(e).toLowerCase();
+  // A real decline MiniPay wraps as an internal error. The fake one puts
+  // "user rejected" in front of "an internal error" and has no Details line.
+  if (/details:\s*user rejected/.test(text) || /details:\s*user denied/.test(text)) {
+    return true;
+  }
+  if (isWalletInternalError(e)) return false;
   if (e && typeof e === "object" && "code" in e) {
     const code = (e as { code?: unknown }).code;
     if (code === 4001 || code === "ACTION_REJECTED") return true;
   }
-  const text = errorText(e).toLowerCase();
   return text.includes("user rejected") || text.includes("user denied");
 }
 
