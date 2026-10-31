@@ -34,6 +34,16 @@ export type StreakDays = {
  * The zone is the one saved on the wallet that ran most recently (sent by the
  * client when a run starts). Days used to be cut at UTC midnight, which split
  * an evening run in Mexico onto the next day and broke real streaks.
+ *
+ * The zone is resolved against `pg_timezone_names` before it reaches
+ * `AT TIME ZONE`, and falls back to UTC when this server does not know it.
+ * The write path validates the client's string with `Intl`, but Node's ICU
+ * and Postgres's tz database are two different catalogs: a zone Node accepts
+ * can still make `AT TIME ZONE` raise `time zone "X" not recognized`, and
+ * that error aborts the whole statement. On 30 Oct 2026 that took
+ * /api/profile/[username], /api/users/[address]/stats and the streak on /me
+ * to a 500 for four players, who then had no profile at all rather than a
+ * streak cut at the wrong midnight. Degrading to UTC is the lesser error.
  */
 export async function streakDays(addressesLower: string[]): Promise<StreakDays> {
   if (addressesLower.length === 0) return { days: [], timeZone: "UTC" };
@@ -42,7 +52,7 @@ export async function streakDays(addressesLower: string[]): Promise<StreakDays> 
     sql`, `,
   );
   const rows = await db.execute(sql`
-    WITH tz AS (
+    WITH claimed AS (
       SELECT COALESCE(
         (
           SELECT u.time_zone
@@ -57,6 +67,11 @@ export async function streakDays(addressesLower: string[]): Promise<StreakDays> 
           WHERE address IN (${list}) AND time_zone IS NOT NULL
           LIMIT 1
         ),
+        'UTC'
+      ) AS name
+    ), tz AS (
+      SELECT COALESCE(
+        (SELECT z.name FROM pg_timezone_names z, claimed c WHERE z.name = c.name),
         'UTC'
       ) AS name
     )
