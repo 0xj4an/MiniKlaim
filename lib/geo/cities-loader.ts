@@ -1,49 +1,47 @@
-/**
- * LIGHTWEIGHT cities loader using JSON instead of PBF
- * Top 5000 cities (~418KB) instead of 138k cities (6.2MB)
- */
 import { readFileSync } from "fs";
 import { join } from "path";
+import { createLogger } from "@/lib/logger";
+import { type CityTable, decodeCities } from "@/lib/geo/citiesBinary";
 
-type City = {
-  name: string;
-  country: string;
-  lat: number;
-  lon: number;
-  population: number;
-};
+const log = createLogger("geo:cities");
 
-let citiesCache: City[] | null = null;
+let cache: CityTable | null = null;
+let tried = false;
 
-function loadCitiesFromPbf(): City[] {
-  if (citiesCache) return citiesCache;
+const PATHS = [
+  join(process.cwd(), "public", "data", "cities.bin"),
+  join(process.cwd(), ".next", "server", "data", "cities.bin"),
+];
 
-  try {
-    const jsonPaths = [
-      join(process.cwd(), "public", "data", "cities.json"),
-      join(process.cwd(), ".next", "server", "data", "cities.json"),
-    ];
-
-    for (const path of jsonPaths) {
-      try {
-        const data = readFileSync(path, "utf-8");
-        const cities = JSON.parse(data) as City[];
-        console.log(
-          `[cities-loader] Loaded ${cities.length} cities from: ${path}`,
-        );
-        citiesCache = cities;
-        return cities;
-      } catch {
-        continue;
+/**
+ * The city table, read once per process. `npm run prebuild` writes the file;
+ * when it is missing, city resolution degrades to null rather than failing,
+ * which is how it has always behaved — a block with no city still counts.
+ */
+export function loadCities(): CityTable | null {
+  if (cache || tried) return cache;
+  tried = true;
+  for (const path of PATHS) {
+    try {
+      const table = decodeCities(readFileSync(path));
+      log.info("cities loaded", { cities: table.cityCount, path });
+      cache = table;
+      return cache;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException)?.code !== "ENOENT") {
+        log.error("cities file unreadable", {
+          path,
+          message: e instanceof Error ? e.message : String(e),
+        });
       }
     }
-
-    console.log("[cities-loader] Cities database not found");
-    return [];
-  } catch (error) {
-    console.error("[cities-loader] Failed to load cities:", error);
-    return [];
   }
+  log.warn("no cities file; city names will be null", { looked: PATHS });
+  return null;
 }
 
-export { loadCitiesFromPbf, type City };
+/** Test seam: drop the cached table so the next call reads again. */
+export function resetCitiesCache(): void {
+  cache = null;
+  tried = false;
+}

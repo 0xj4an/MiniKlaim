@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const paths = {
       cwd,
       publicData: join(cwd, "public", "data"),
-      publicDataCitiesPbf: join(cwd, "public", "data", "cities.pbf"),
+      publicDataCitiesBin: join(cwd, "public", "data", "cities.bin"),
       public: join(cwd, "public"),
     };
 

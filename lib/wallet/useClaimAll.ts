@@ -1,6 +1,10 @@
 "use client";
 
-import { fetchWithRetry, isNetworkError, isSponsorInProgress } from "@/lib/client/netRetry";
+import {
+  fetchWithRetry,
+  isNetworkError,
+  isSponsorInProgress,
+} from "@/lib/client/netRetry";
 import * as Sentry from "@sentry/nextjs";
 import { useCallback } from "react";
 import { encodeFunctionData, type Hex } from "viem";
@@ -31,8 +35,14 @@ import {
   isWalletInternalError,
   playerHasNoFeeBalance,
 } from "@/lib/wallet/playerFee";
-import { shortfallHeaders } from "@/lib/onchain/sponsorHeaders";
-import { orderHeldByBalance, sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
+import {
+  nativeOnlyHeaders,
+  shortfallHeaders,
+} from "@/lib/onchain/sponsorHeaders";
+import {
+  orderHeldByBalance,
+  sendWithFeeFallback,
+} from "@/lib/wallet/sendWithFees";
 import { TOKENS } from "@/lib/tokens";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { useClaimRun } from "@/lib/wallet/useClaimRun";
@@ -95,6 +105,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
                   trigger === "fee_shortfall" ||
                   trigger === "tx_error",
               ),
+              ...nativeOnlyHeaders(!walletPaysGasInToken()),
             },
           },
         );
@@ -109,8 +120,14 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           // The server decided: the player can pay their own fee, this wallet
           // used today's allowance, or this client does not hold the run
           // token. Not an error on our side.
-          const body = (await res.json().catch(() => ({}))) as { reason?: string };
-          log.warn("sponsor refused", { runId, status: res.status, reason: body.reason });
+          const body = (await res.json().catch(() => ({}))) as {
+            reason?: string;
+          };
+          log.warn("sponsor refused", {
+            runId,
+            status: res.status,
+            reason: body.reason,
+          });
           track("run_claim_failed", {
             trigger: `sponsor_refused:${body.reason ?? res.status}`,
           });
@@ -120,11 +137,16 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           let detail = "";
           try {
             const body = (await res.json()) as { reason?: unknown };
-            if (typeof body.reason === "string") detail = body.reason.slice(0, 120);
+            if (typeof body.reason === "string")
+              detail = body.reason.slice(0, 120);
           } catch {
             detail = "";
           }
-          log.error("sponsor fallback failed", { runId, status: res.status, detail });
+          log.error("sponsor fallback failed", {
+            runId,
+            status: res.status,
+            detail,
+          });
           track("run_claim_failed", {
             trigger: detail
               ? `sponsor_http_${res.status}:${detail}`
@@ -145,10 +167,11 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
               headers: {
                 ...runTokenHeaders(runId),
                 ...shortfallHeaders(
-                trigger === "no_balance" ||
-                  trigger === "fee_shortfall" ||
-                  trigger === "tx_error",
-              ),
+                  trigger === "no_balance" ||
+                    trigger === "fee_shortfall" ||
+                    trigger === "tx_error",
+                ),
+                ...nativeOnlyHeaders(!walletPaysGasInToken()),
               },
             },
           );
@@ -286,7 +309,11 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
         const minipay = walletPaysGasInToken();
         if (
           minipay &&
-          playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)
+          playerHasNoFeeBalance(
+            chain.feeCurrencies.length,
+            held.length,
+            balances,
+          )
         ) {
           // Nothing in USDT, USDC, or USDm. The relayer pays. A CELO balance
           // does not open a signature sheet.

@@ -93,6 +93,33 @@ The hard `cpus` ceiling leaves four cores no model can take, and the shares
 decide who wins the rest: the app outranks the model 8:1, and the cron
 containers sit at 512 so a settlement never competes with a live request.
 
+## A deploy no longer 502s whoever is mid-request
+
+Recreating the container leaves Caddy with no upstream for the seconds it
+takes to come back, and anyone mid-request got a 502. The access log showed
+them in bursts at the exact minute of each deploy — 11 on 30 Oct, 16 on
+31 Oct — not scattered.
+
+The proxy now retries the dial instead of answering. This lives in the
+shared Caddyfile on the VPS (`/home/0xj4an/docker/infra/caddy/Caddyfile`,
+not in this repo), in the MiniKlaim block only:
+
+```
+miniklaim.fun, www.miniklaim.fun {
+    reverse_proxy miniklaim:3000 {
+        lb_try_duration 20s
+        lb_try_interval 250ms
+    }
+}
+```
+
+Only a *failed connection* is retried, so nothing was sent and replaying is
+safe even for a POST. Measured by hammering `/api/health` four times a
+second through a full `docker compose restart`: **239 of 240 requests
+returned 200**, and the one failure was a 503 after the retry window, not a
+502. Validate with `caddy validate` and reload with `caddy reload` before
+trusting any edit to that file — it fronts every site on the box.
+
 ## Build arguments the VPS has to pass
 
 `NEXT_PUBLIC_*` is inlined into the bundles at build time, so setting one in
