@@ -115,8 +115,15 @@ env-skew line.
 `BUILD_COMMIT_SHA` is what Railway gave for free as
 `RAILWAY_GIT_COMMIT_SHA`. Without it `next.config.ts` has no `deploymentId`,
 so a tab left open on the old build hits "Failed to find Server Action" and
-`ChunkLoadError` instead of a clean hard navigation, and support emails
-report `App: dev`.
+`ChunkLoadError` instead of a clean hard navigation, support emails report
+`App: dev`, and Sentry tags no release on anything.
+
+`SENTRY_AUTH_TOKEN` is the other one. It sits in `.env.miniklaim`, which
+compose reads as `env_file` — runtime only, so the build never saw it and
+the Sentry plugin created no release and uploaded nothing. `ops/deploy.sh`
+reads it out of that file and exports it before building, and says so
+loudly when it is missing. The plugin runs with `silent: true`, so a build
+without the token reports success and quietly does nothing.
 
 ## Migrations
 

@@ -24,6 +24,10 @@ const nextConfig: NextConfig = {
   // ticket can be tied to a build.
   env: {
     NEXT_PUBLIC_APP_VERSION: (BUILD_SHA || "dev").slice(0, 7),
+    // The release Sentry tags events with. Full sha, matching the releases
+    // Railway used to create, so the history lines up. Empty on a local
+    // build, which `sentryInitOptions` reads as "no release".
+    NEXT_PUBLIC_SENTRY_RELEASE: BUILD_SHA,
   },
   // Version skew: a tab on an old build calls Server Actions and chunks the
   // new build no longer has ("Failed to find Server Action", ChunkLoadError).
@@ -79,6 +83,9 @@ export default withSentryConfig(withBundleAnalyzer(nextConfig), {
   org: "0xj4an",
   project: "miniklaim",
   authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Name the release explicitly instead of letting the plugin guess from
+  // git: the Docker build has no .git, so the guess was nothing.
+  release: BUILD_SHA ? { name: BUILD_SHA } : undefined,
   // Same-origin tunnel. MiniPay's WebView drops calls to ingest.sentry.io.
   tunnelRoute: "/monitoring",
   silent: true,

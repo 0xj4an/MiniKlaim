@@ -30,6 +30,16 @@ echo "==> deploying $REF at $SHA"
 cd "$COMPOSE_DIR"
 export BUILD_COMMIT_SHA="$SHA"
 
+# SENTRY_AUTH_TOKEN lives in .env.miniklaim, which compose reads as env_file —
+# runtime only. Build args come from the shell, so without this the Sentry
+# plugin builds with no token: no release created, no artifacts uploaded, and
+# `silent: true` means the build says nothing about it.
+if [ -f .env.miniklaim ]; then
+  SENTRY_AUTH_TOKEN="$(sed -n 's/^SENTRY_AUTH_TOKEN=//p' .env.miniklaim | tr -d '"'"'"'"' | head -1)"
+  export SENTRY_AUTH_TOKEN
+fi
+[ -n "${SENTRY_AUTH_TOKEN:-}" ] || echo "!! SENTRY_AUTH_TOKEN missing: this build uploads nothing to Sentry"
+
 # The app image and the cron image are the same Dockerfile; building the
 # retry service is what produces the `miniklaim-cron:latest` tag the other
 # cron service uses.
