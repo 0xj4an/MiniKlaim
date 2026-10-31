@@ -1,4 +1,7 @@
-import { FEE_SHORTFALL_HEADER } from "@/lib/onchain/sponsorHeaders";
+import {
+  FEE_NATIVE_ONLY_HEADER,
+  FEE_SHORTFALL_HEADER,
+} from "@/lib/onchain/sponsorHeaders";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
@@ -76,9 +79,12 @@ export async function POST(
     }
 
     const shortfall = request.headers.get(FEE_SHORTFALL_HEADER) === "1";
+  // Outside MiniPay a stablecoin balance cannot pay a fee, so it must
+  // not count as the player being able to pay.
+  const nativeOnly = request.headers.get(FEE_NATIVE_ONLY_HEADER) === "1";
     const pay = shortfall
       ? { canPay: false as const }
-      : await playerCanPay(player, pending, 0, chainKey);
+      : await playerCanPay(player, pending, 0, chainKey, { nativeOnly });
     if (shortfall) {
       log.info("sponsoring after the player's own tx failed", {
         runId: id,

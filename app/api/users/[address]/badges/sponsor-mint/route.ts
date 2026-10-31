@@ -1,4 +1,7 @@
-import { FEE_SHORTFALL_HEADER } from "@/lib/onchain/sponsorHeaders";
+import {
+  FEE_NATIVE_ONLY_HEADER,
+  FEE_SHORTFALL_HEADER,
+} from "@/lib/onchain/sponsorHeaders";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
@@ -72,9 +75,14 @@ export async function POST(
   }
 
   const shortfall = request.headers.get(FEE_SHORTFALL_HEADER) === "1";
+  // Outside MiniPay a stablecoin balance cannot pay a fee, so it must
+  // not count as the player being able to pay.
+  const nativeOnly = request.headers.get(FEE_NATIVE_ONLY_HEADER) === "1";
   const pay = shortfall
     ? { canPay: false as const, via: undefined }
-    : await playerCanPay(lower as Address, 0, candidates.length, chainKey);
+    : await playerCanPay(lower as Address, 0, candidates.length, chainKey, {
+        nativeOnly,
+      });
   if (pay.canPay) {
     log.warn("badge sponsor refused: player can pay", {
       player: lower,
