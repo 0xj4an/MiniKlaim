@@ -31,6 +31,10 @@ type EventMap = {
   onboarding_completed: { via: "cta" | "backdrop" };
   /** The 29 Oct 2026 outage notice: how the player closed it. */
   recovery_notice_dismissed: { via: "cta" | "later" | "backdrop" };
+  // Home-screen campaign banner. Both events carry the campaign so the next
+  // one is measurable on its own instead of being pooled with this one.
+  campaign_banner_clicked: { campaign: string };
+  campaign_banner_dismissed: { campaign: string };
 
   // Run lifecycle.
   run_started: { mode?: MoveMode };
