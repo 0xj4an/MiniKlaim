@@ -31,9 +31,9 @@ export type RunSummary = {
 };
 
 /**
- * Post-finish modal. Shows the blocks and any badges this claim will
- * include, then opens the wallet on its own. Share stays behind success.
- * A decline leaves Reclamar so they can retry.
+ * Post-finish modal. Shows the blocks, and badges once they are known.
+ * The wallet opens as soon as there are blocks. Share stays behind
+ * success. A decline leaves Reclamar so they can retry.
  */
 export function RunSummaryModal({
   summary,
@@ -70,10 +70,11 @@ export function RunSummaryModal({
   const reinforced = summary.hexesReinforced ?? 0;
   const damaged = summary.hexesDamaged ?? 0;
   const previewReady = badgeIds !== null;
+  // Blocks are already known. Waiting on the badge list held the wallet
+  // sheet behind a second copy of the same eligibility query.
   const canClaim =
-    previewReady &&
-    (summary.hexesClaimed > 0 || hasBadges) &&
-    !!onClaim;
+    !!onClaim &&
+    (summary.hexesClaimed > 0 || (previewReady && hasBadges));
 
   useEffect(() => {
     if (!address) {

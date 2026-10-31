@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { FeeCurrency } from "@/lib/onchain/chains";
-import { feeAttempts, sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
+import { feeAttempts, orderHeldByBalance, sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 
 const USDT = { symbol: "USDT", adapter: "0x1", token: "0x2" } as unknown as FeeCurrency;
 const USDM = { symbol: "USDm", adapter: "0x3", token: "0x3" } as unknown as FeeCurrency;
@@ -15,7 +15,28 @@ describe("feeAttempts", () => {
   });
 });
 
+describe("orderHeldByBalance", () => {
+  it("puts the larger human balance first, whatever the decimals", () => {
+    const ordered = orderHeldByBalance([USDT, USDM], (symbol) =>
+      symbol === "USDT"
+        ? { value: 1_000n, decimals: 6 }
+        : { value: 2n * 10n ** 18n, decimals: 18 },
+    );
+    expect(ordered.map((f) => f.symbol)).toEqual(["USDm", "USDT"]);
+  });
+});
+
 describe("sendWithFeeFallback", () => {
+  it("skips native when the caller will ask the relayer instead", async () => {
+    const send = vi.fn(async () => {
+      throw short;
+    });
+    await expect(
+      sendWithFeeFallback([USDT, USDM], send, undefined, { native: false }),
+    ).rejects.toBe(short);
+    expect(send.mock.calls.map((c) => c[0])).toEqual([USDT, USDM]);
+  });
+
   it("falls back to CELO when the only stablecoin is short", async () => {
     const send = vi.fn(async (fee: FeeCurrency | undefined) => {
       if (fee) throw short;
