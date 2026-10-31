@@ -12,11 +12,12 @@ import { heldFeeAdaptersForWallet } from "@/lib/wallet/feeSupport";
 import { HEXES_CLAIM_ABI, hexesAddress } from "@/lib/onchain/hexesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { clearRunClaiming, markRunClaiming } from "@/lib/wallet/claimInFlight";
-import { shortfallHeaders } from "@/lib/onchain/sponsorHeaders";
 import {
-  isUserRejection,
-  playerHasNoFeeBalance,
-} from "@/lib/wallet/playerFee";
+  nativeOnlyHeaders,
+  shortfallHeaders,
+} from "@/lib/onchain/sponsorHeaders";
+import { walletPaysGasInToken } from "@/lib/wallet/feeSupport";
+import { isUserRejection, playerHasNoFeeBalance } from "@/lib/wallet/playerFee";
 import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { reportDeclined, runTokenHeaders } from "@/lib/wallet/runTokens";
@@ -64,6 +65,7 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
             headers: {
               ...runTokenHeaders(runId),
               ...shortfallHeaders(shortfall),
+              ...nativeOnlyHeaders(!walletPaysGasInToken()),
             },
           },
         );
@@ -136,7 +138,9 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
       // Fee abstraction only where supported (Celo CIP-64). No held stable
       // means the relayer pays. A decline does not.
       const held = heldFeeAdaptersForWallet(chain.feeCurrencies, balances);
-      if (playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)) {
+      if (
+        playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)
+      ) {
         log.info("no fee stablecoin; asking the relayer", { runId });
         const outcome = await sponsorFallback(runId);
         // The server saw enough to pay (usually CELO, which the client does
