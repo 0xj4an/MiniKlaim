@@ -20,6 +20,18 @@ REF="${1:-main}"
 CLONE="/home/0xj4an/Workspaces/0xj4an/personal/code/MiniKlaim"
 COMPOSE_DIR="/home/0xj4an/docker/0xj4an-personal"
 
+# This script lives in the clone it is about to `git reset --hard`, so a
+# deploy that changes the script overwrites the file bash is still reading.
+# Bash reads a script incrementally, by byte offset, so it can resume in the
+# middle of a line that is no longer the line it was running. Run from a copy
+# instead, and the deploy that updates this file is the one that uses it.
+if [ "${DEPLOY_REEXEC:-}" != "1" ]; then
+  COPY="$(mktemp /tmp/miniklaim-deploy.XXXXXX.sh)"
+  cat "$0" > "$COPY"
+  trap 'rm -f "$COPY"' EXIT
+  DEPLOY_REEXEC=1 exec bash "$COPY" "$@"
+fi
+
 cd "$CLONE"
 git fetch origin
 git checkout "$REF"
