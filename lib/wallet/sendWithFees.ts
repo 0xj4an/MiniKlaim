@@ -16,6 +16,26 @@ export function feeAttempts(held: FeeCurrency[]): (FeeCurrency | undefined)[] {
 }
 
 /**
+ * Largest stablecoin balance first. A dust balance still counts as held, and
+ * each failed estimate is a round trip before the wallet sheet. Trying the
+ * one that can pay opens the sheet on the first attempt.
+ */
+export function orderHeldByBalance(
+  held: FeeCurrency[],
+  amount: (symbol: FeeCurrency["symbol"]) => { value: bigint; decimals: number } | null,
+): FeeCurrency[] {
+  return [...held].sort((a, b) => {
+    const av = amount(a.symbol);
+    const bv = amount(b.symbol);
+    if (!av || !bv) return 0;
+    const left = av.value * 10n ** BigInt(bv.decimals);
+    const right = bv.value * 10n ** BigInt(av.decimals);
+    if (left === right) return 0;
+    return left > right ? -1 : 1;
+  });
+}
+
+/**
  * Send with the first fee option that works. Moves on when the node refuses
  * the fee, and when the wallet cannot do fee abstraction at all — a browser
  * wallet rejects `feeCurrency` outright, and stopping there left every such
@@ -26,8 +46,9 @@ export async function sendWithFeeFallback<T>(
   held: FeeCurrency[],
   send: (fee: FeeCurrency | undefined) => Promise<T>,
   onShort?: (fee: FeeCurrency | undefined, next: FeeCurrency | undefined) => void,
+  opts?: { native?: boolean },
 ): Promise<{ result: T; fee: FeeCurrency | undefined }> {
-  const attempts = feeAttempts(held);
+  const attempts = opts?.native === false ? held : feeAttempts(held);
   let lastError: unknown;
   for (let i = 0; i < attempts.length; i++) {
     const fee = attempts[i];

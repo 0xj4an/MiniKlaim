@@ -9,8 +9,15 @@ import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
 import { reportGpuSupport } from "@/lib/map/gpuSupport";
+import { hexesInBounds, placeHexes, type PlacedHex } from "@/lib/map/claimedView";
 import { claimedHexesToFeatureCollection } from "@/lib/map/hex";
 import { HEX_COLORS } from "@/lib/map/hexColors";
+import {
+  thinWorldRows,
+  WORLD_FILL_ZOOM,
+  WORLD_POLYGON_CAP,
+  worldPointParentRes,
+} from "@/lib/map/worldPaint";
 import {
   fetchWorldRows,
   parseWorldBody,
@@ -68,6 +75,8 @@ function setGeoSource(
 
 const log = createLogger("page:community:map");
 
+const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+
 // Color of a top-10 player's block; the "top" source only holds those.
 const TOP_COLOR: maplibregl.ExpressionSpecification = [
   "coalesce",
@@ -106,6 +115,9 @@ export function WorldMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const rowsRef = useRef<HexRow[]>([]);
+  const placedRef = useRef<PlacedHex[] | null>(null);
+  const placedForRef = useRef<HexRow[] | null>(null);
+  const paintedResRef = useRef<number | null | undefined>(undefined);
   const linkedRef = useRef<ReadonlySet<string>>(new Set());
   const addressRef = useRef(myAddress);
   const labelsRef = useRef({ captured: "", you: "", anon: "" });
@@ -186,8 +198,37 @@ export function WorldMap({
   const paintRef = useRef<(map: maplibregl.Map) => void>(() => {});
   paintRef.current = (map) => {
     try {
-      const rows = rowsRef.current;
+      const all = rowsRef.current;
       const mineSet = linkedRef.current;
+      const topColors = topColorsRef.current;
+      const parentRes = worldPointParentRes(map.getZoom());
+      let rows: HexRow[];
+      if (parentRes !== null) {
+        rows = thinWorldRows(all, parentRes, (owner) => {
+          const key = owner.toLowerCase();
+          if (mineSet.has(key)) return 2;
+          if (topColors.has(key)) return 1;
+          return 0;
+        });
+      } else {
+        if (placedForRef.current !== all) {
+          placedRef.current = placeHexes(all);
+          placedForRef.current = all;
+        }
+        const bounds = map.getBounds();
+        const inView = hexesInBounds(placedRef.current ?? [], {
+          west: bounds.getWest(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          north: bounds.getNorth(),
+        });
+        rows =
+          inView.length > WORLD_POLYGON_CAP
+            ? inView.slice(0, WORLD_POLYGON_CAP)
+            : inView;
+      }
+      paintedResRef.current = parentRes;
+      const showFill = parentRes === null;
       const hasMe = addressRef.current !== null && mineSet.size > 0;
       const mine = hasMe
         ? rows.filter((h) => mineSet.has(h.owner.toLowerCase()))
@@ -195,11 +236,9 @@ export function WorldMap({
       const notMine = hasMe
         ? rows.filter((h) => !mineSet.has(h.owner.toLowerCase()))
         : rows;
-      // Top-10 players get their own small source. The big one (everyone
-      // else, ~250k hexes) keeps constant paint: a data-driven color on it
-      // means a per-feature paint buffer for every polygon, point and line,
-      // which is what MiniPay's WebView could not take (25 Oct).
-      const topColors = topColorsRef.current;
+      // Top-10 players get their own small source. Everyone else stays one
+      // color. The full block list is never uploaded: at world zoom these
+      // rows are parent cells, and past zoom 8 they are only what is on screen.
       const top = topColors.size > 0
         ? notMine.filter((h) => topColors.has(h.owner.toLowerCase()))
         : [];
@@ -207,20 +246,24 @@ export function WorldMap({
         ? notMine.filter((h) => !topColors.has(h.owner.toLowerCase()))
         : notMine;
 
-      setGeoSource(map, "others", claimedHexesToFeatureCollection(others, mineSet));
+      setGeoSource(
+        map,
+        "others",
+        showFill ? claimedHexesToFeatureCollection(others, mineSet) : EMPTY,
+      );
       if (!map.getLayer("others-fill")) {
         map.addLayer({
           id: "others-fill",
           type: "fill",
           source: "others",
-          minzoom: 8, // Lower threshold for better visibility
+          minzoom: WORLD_FILL_ZOOM,
           paint: { "fill-color": HEX_COLORS.others, "fill-opacity": 0.45 },
         });
         map.addLayer({
           id: "others-line",
           type: "line",
           source: "others",
-          minzoom: 8,
+          minzoom: WORLD_FILL_ZOOM,
           paint: {
             "line-color": HEX_COLORS.others,
             "line-width": 1,
@@ -250,21 +293,23 @@ export function WorldMap({
       setGeoSource(
         map,
         "top",
-        claimedHexesToFeatureCollection(top, mineSet, new Set(), topColors),
+        showFill
+          ? claimedHexesToFeatureCollection(top, mineSet, new Set(), topColors)
+          : EMPTY,
       );
       if (!map.getLayer("top-fill")) {
         map.addLayer({
           id: "top-fill",
           type: "fill",
           source: "top",
-          minzoom: 8,
+          minzoom: WORLD_FILL_ZOOM,
           paint: { "fill-color": TOP_COLOR, "fill-opacity": 0.65 },
         });
         map.addLayer({
           id: "top-line",
           type: "line",
           source: "top",
-          minzoom: 8,
+          minzoom: WORLD_FILL_ZOOM,
           paint: { "line-color": TOP_COLOR, "line-width": 1.5, "line-opacity": 0.85 },
         });
       }
@@ -287,22 +332,32 @@ export function WorldMap({
       bindLayer(map, "top-fill");
       bindLayer(map, "top-points");
 
-      if (mine.length === 0) return;
+      if (mine.length === 0) {
+        for (const id of ["mine", "mine-points"]) {
+          const src = map.getSource(id) as maplibregl.GeoJSONSource | undefined;
+          src?.setData(EMPTY);
+        }
+        return;
+      }
 
-      setGeoSource(map, "mine", claimedHexesToFeatureCollection(mine, mineSet));
+      setGeoSource(
+        map,
+        "mine",
+        showFill ? claimedHexesToFeatureCollection(mine, mineSet) : EMPTY,
+      );
       if (!map.getLayer("mine-fill")) {
         map.addLayer({
           id: "mine-fill",
           type: "fill",
           source: "mine",
-          minzoom: 9,
+          minzoom: WORLD_FILL_ZOOM,
           paint: { "fill-color": HEX_COLORS.mine, "fill-opacity": 0.6 },
         });
         map.addLayer({
           id: "mine-line",
           type: "line",
           source: "mine",
-          minzoom: 9,
+          minzoom: WORLD_FILL_ZOOM,
           paint: {
             "line-color": HEX_COLORS.mine,
             "line-width": 1.5,
@@ -392,16 +447,31 @@ export function WorldMap({
     map.on("load", () => {
       if (cancelled) return;
       map.resize();
-      // Only paint if we already have data
-      if (rowsRef.current.length > 0) {
-        paintRef.current(map);
-      }
+      if (rowsRef.current.length > 0) paintRef.current(map);
     });
-    
-    // No repaint on zoom. The data does not change with the camera, and a
-    // repaint rebuilds ~250k polygon and point features and re-uploads them
-    // with per-feature colors: on MiniPay's WebView that crashed the tab on
-    // every zoom (25 Oct). Layer minzoom/maxzoom already handle what shows.
+
+    // Zoom changes which cells are drawn. The set is parent cells, or the
+    // blocks on screen, so this is not the full-world upload that crashed
+    // the tab on 25 Oct.
+    let paintTimer: number | null = null;
+    map.on("moveend", () => {
+      if (cancelled || rowsRef.current.length === 0) return;
+      const next = worldPointParentRes(map.getZoom());
+      if (next !== null && next === paintedResRef.current) return;
+      if (paintTimer !== null) window.clearTimeout(paintTimer);
+      paintTimer = window.setTimeout(() => {
+        paintTimer = null;
+        if (!cancelled) paintRef.current(map);
+      }, 200);
+    });
+
+    map.on("webglcontextlost", (event) => {
+      event.originalEvent.preventDefault();
+      log.error("webgl context lost");
+      cancelled = true;
+      if (paintTimer !== null) window.clearTimeout(paintTimer);
+      queueMicrotask(() => setMapUnavailable(true));
+    });
 
     map.on("error", (e) =>
       log.error("map error", { message: e.error?.message ?? String(e) }),
@@ -411,10 +481,11 @@ export function WorldMap({
       if (cancelled) return;
       rowsRef.current = rows;
       setCount(rows.length);
-      if (map.isStyleLoaded()) paintRef.current(map);
-      else map.once("load", () => {
+      const draw = () => {
         if (!cancelled) paintRef.current(map);
-      });
+      };
+      if (map.isStyleLoaded()) requestAnimationFrame(draw);
+      else map.once("load", draw);
     };
 
     void (async () => {
@@ -435,6 +506,7 @@ export function WorldMap({
     const layers = boundLayers.current;
     return () => {
       cancelled = true;
+      if (paintTimer !== null) window.clearTimeout(paintTimer);
       layers.clear();
       popupRef.current?.remove();
       mapRef.current?.remove();

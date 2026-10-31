@@ -34,6 +34,13 @@ describe("isUserRejection", () => {
     expect(isUserRejection({ code: 4001, message: "denied" })).toBe(true);
   });
 
+  it("matches a real decline MiniPay wraps as an internal error", () => {
+    const e = new Error(
+      'An internal error was received.\n\nRequest Arguments:\n  from: 0x95753CD1Ed8E3B92E25609447DDA326fA3c06179\n\nDetails: User rejected transaction\nVersion: viem@2.57.10',
+    );
+    expect(isUserRejection(e)).toBe(true);
+  });
+
   it("does not match MiniPay's internal error dressed as a rejection", () => {
     const e = Object.assign(
       new Error(

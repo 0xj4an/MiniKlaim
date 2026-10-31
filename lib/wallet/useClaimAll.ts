@@ -9,7 +9,10 @@ import { track } from "@/lib/analytics";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
 import { getChain } from "@/lib/onchain/chains";
-import { heldFeeAdaptersForWallet } from "@/lib/wallet/feeSupport";
+import {
+  heldFeeAdaptersForWallet,
+  walletPaysGasInToken,
+} from "@/lib/wallet/feeSupport";
 import {
   CLAIM_ROUTER_ABI,
   claimRouterAddress,
@@ -29,7 +32,8 @@ import {
   playerHasNoFeeBalance,
 } from "@/lib/wallet/playerFee";
 import { shortfallHeaders } from "@/lib/onchain/sponsorHeaders";
-import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
+import { orderHeldByBalance, sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
+import { TOKENS } from "@/lib/tokens";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { useClaimRun } from "@/lib/wallet/useClaimRun";
 import { reportDeclined, runTokenHeaders } from "@/lib/wallet/runTokens";
@@ -86,7 +90,11 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
             method: "POST",
             headers: {
               ...runTokenHeaders(runId),
-              ...shortfallHeaders(trigger === "fee_shortfall" || trigger === "tx_error"),
+              ...shortfallHeaders(
+                trigger === "no_balance" ||
+                  trigger === "fee_shortfall" ||
+                  trigger === "tx_error",
+              ),
             },
           },
         );
@@ -136,7 +144,11 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
               method: "POST",
               headers: {
                 ...runTokenHeaders(runId),
-                ...shortfallHeaders(trigger === "fee_shortfall" || trigger === "tx_error"),
+                ...shortfallHeaders(
+                trigger === "no_balance" ||
+                  trigger === "fee_shortfall" ||
+                  trigger === "tx_error",
+              ),
               },
             },
           );
@@ -241,7 +253,15 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
 
         const badgeIds = voucher.badgeIds.map(Number);
         const chain = getChain(chainKey);
-        const held = heldFeeAdaptersForWallet(chain.feeCurrencies, balances);
+        const held = orderHeldByBalance(
+          heldFeeAdaptersForWallet(chain.feeCurrencies, balances),
+          (symbol) => {
+            const bal = balances[symbol];
+            return bal
+              ? { value: bal.value, decimals: TOKENS[symbol].decimals }
+              : null;
+          },
+        );
         const sponsorWithBadges = async (
           trigger: "no_balance" | "fee_shortfall" | "tx_error",
         ): Promise<ClaimAllOutcome | "refused"> => {
@@ -263,16 +283,19 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           return outcome === "badges_failed" ? "sponsored" : outcome;
         };
 
-        if (playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)) {
+        const minipay = walletPaysGasInToken();
+        if (
+          minipay &&
+          playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)
+        ) {
+          // Nothing in USDT, USDC, or USDm. The relayer pays. A CELO balance
+          // does not open a signature sheet.
           log.info("no fee stablecoin; asking the relayer", { runId });
           const outcome = await sponsorWithBadges("no_balance");
-          // The server saw enough to pay (usually CELO, which the client does
-          // not read). Fall through and let the player pay in CELO.
-          if (outcome !== "refused") return outcome;
-          log.info("server says the player can pay; sending natively", { runId });
+          return outcome === "refused" ? "failed" : outcome;
         }
-        // USDT first, then the other held stablecoins, then CELO. A short
-        // balance moves on to the next option, still as one confirmation.
+        // One stablecoin, the largest balance. If it cannot cover the fee the
+        // relayer pays. A dust token is not another sheet, and neither is CELO.
         const data = encodeFunctionData({
           abi: CLAIM_ROUTER_ABI,
           functionName: "claimAll",
@@ -286,7 +309,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
         let lastError: unknown;
         try {
           const { result: txHash, fee } = await sendWithFeeFallback(
-            held,
+            minipay ? held.slice(0, 1) : held,
             (fee) =>
               walletClient.sendTransaction({
                 to: contract,
@@ -302,6 +325,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
                 fee: fee?.symbol ?? "CELO",
                 next: next?.symbol ?? "CELO",
               }),
+            { native: !minipay },
           );
           log.info("claimAll submitted by player", {
             runId,
