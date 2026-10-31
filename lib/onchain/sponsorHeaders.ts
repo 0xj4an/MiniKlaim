@@ -13,3 +13,20 @@ export const FEE_SHORTFALL_HEADER = "x-fee-shortfall";
 export function shortfallHeaders(shortfall: boolean): Record<string, string> {
   return shortfall ? { [FEE_SHORTFALL_HEADER]: "1" } : {};
 }
+
+/**
+ * Sent when this wallet can only pay gas in CELO, which is every wallet
+ * except MiniPay: CIP-64's `feeCurrency` is what lets a stablecoin pay a
+ * fee, and MetaMask and the rest reject the field outright.
+ *
+ * Without it the server answered "you can pay" to a player holding USDT and
+ * no CELO — true of the balance, false of the wallet — and the claim died
+ * there. The server cannot see which wallet is asking, so the client has to
+ * say. Same trust as the shortfall header above, and bounded the same way:
+ * the run token proves the run is theirs and the daily cap bounds the spend.
+ */
+export const FEE_NATIVE_ONLY_HEADER = "x-fee-native-only";
+
+export function nativeOnlyHeaders(nativeOnly: boolean): Record<string, string> {
+  return nativeOnly ? { [FEE_NATIVE_ONLY_HEADER]: "1" } : {};
+}

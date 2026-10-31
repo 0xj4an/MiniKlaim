@@ -1,50 +1,29 @@
 import { cellToLatLng } from "h3-js";
 import countries from "i18n-iso-countries";
 import { createLogger } from "@/lib/logger";
-import { loadCitiesFromPbf, type City } from "./cities-loader";
+import { cityName, countryRange } from "@/lib/geo/citiesBinary";
+import { loadCities } from "@/lib/geo/cities-loader";
 
 const log = createLogger("geo:city");
 
-let citiesByCountry: Map<string, City[]> | null = null;
+/** A city further than this from the block's centre is not its city. */
+const MAX_DISTANCE_KM = 100;
 
-function loadCities(): City[] {
-  return loadCitiesFromPbf();
-}
+const R_KM = 6371;
+const RAD = Math.PI / 180;
 
-function getCitiesByCountry(): Map<string, City[]> {
-  if (citiesByCountry) return citiesByCountry;
-  
-  const cities = loadCities();
-  citiesByCountry = new Map();
-  
-  for (const city of cities) {
-    const iso2 = city.country;
-    if (!citiesByCountry.has(iso2)) {
-      citiesByCountry.set(iso2, []);
-    }
-    citiesByCountry.get(iso2)!.push(city);
-  }
-  
-  return citiesByCountry;
-}
-
-function haversineDistance(
+function haversineKm(
   lat1: number,
   lon1: number,
   lat2: number,
   lon2: number,
 ): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const dLat = (lat2 - lat1) * RAD;
+  const dLon = (lon2 - lon1) * RAD;
   const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * RAD) * Math.cos(lat2 * RAD) * Math.sin(dLon / 2) ** 2;
+  return R_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function iso3ToIso2(iso3: string): string | null {
@@ -56,78 +35,54 @@ function iso3ToIso2(iso3: string): string | null {
 }
 
 /**
- * City name for an H3 cell's centroid, or null when it cannot be resolved.
- * 
- * OPTIONAL ENHANCEMENT: Returns null if cities database unavailable.
- * Does not block on missing cities.pbf file - just returns null silently.
- * 
- * When available: searches 138k+ cities, returns nearest within 100km.
- * Accepts optional country ISO3 code for faster lookup.
+ * The name of the city nearest an H3 cell's centre, within 100 km, or null.
+ *
+ * City is a nice-to-have on a captured block: a block with no city still
+ * counts, so every failure here returns null instead of throwing.
+ *
+ * `countryIso3` narrows the scan to that country's cities, which is the only
+ * reason this is fast enough to run per block during a claim. The table is
+ * sorted by country, so that is a contiguous range and nothing is indexed at
+ * runtime.
  */
 export function cityForHex(h3Id: string, countryIso3?: string): string | null {
   try {
+    const table = loadCities();
+    if (!table || table.cityCount === 0) return null;
     const [lat, lng] = cellToLatLng(h3Id);
-    
-    let citiesToSearch: City[];
+
+    let from = 0;
+    let to = table.cityCount;
     if (countryIso3) {
-      const countryIso2 = iso3ToIso2(countryIso3);
-      if (!countryIso2) {
-        log.debug("could not convert ISO3 to ISO2", { countryIso3 });
+      const iso2 = iso3ToIso2(countryIso3);
+      if (!iso2) {
+        log.debug("no ISO2 for country", { countryIso3 });
         return null;
       }
-      const countryMap = getCitiesByCountry();
-      citiesToSearch = countryMap.get(countryIso2) ?? [];
-      if (citiesToSearch.length === 0) {
-        log.debug("no cities found for country", { countryIso2, countryIso3 });
+      const range = countryRange(table, iso2);
+      if (!range) {
+        log.debug("country not in the city table", { iso2, countryIso3 });
         return null;
       }
-    } else {
-      citiesToSearch = loadCities();
-      if (citiesToSearch.length === 0) {
-        log.warn("cities database not loaded");
-        return null;
-      }
+      [from, to] = range;
     }
 
-    let closestCity: City | null = null;
-    let minDistance = Infinity;
-    const MAX_DISTANCE_KM = 100; // Increased from 50km to 100km
-
-    for (const city of citiesToSearch) {
-      const distance = haversineDistance(lat, lng, city.lat, city.lon);
-      
-      if (distance > MAX_DISTANCE_KM) continue;
-      
-      if (distance < minDistance || 
-          (distance === minDistance && city.population > (closestCity?.population ?? 0))) {
-        minDistance = distance;
-        closestCity = city;
-      }
+    let best = -1;
+    let bestKm = Infinity;
+    for (let i = from; i < to; i++) {
+      const km = haversineKm(lat, lng, table.lat[i], table.lon[i]);
+      if (km > MAX_DISTANCE_KM || km >= bestKm) continue;
+      bestKm = km;
+      best = i;
     }
-
-    if (closestCity) {
-      log.debug("city resolved", { 
-        h3Id, 
-        city: closestCity.name, 
-        distance: minDistance.toFixed(2),
-        countryIso3 
-      });
-    } else {
-      log.debug("no city found", { 
-        h3Id, 
-        countryIso3, 
-        searchSize: citiesToSearch.length,
-        maxDistance: MAX_DISTANCE_KM 
-      });
-    }
-    
-    return closestCity?.name ?? null;
+    // Ties keep the first match, and the table is ordered by population
+    // within a country, so the bigger city wins — same rule as before.
+    return best === -1 ? null : cityName(table, best);
   } catch (e) {
     log.error("city resolution failed", {
       h3Id,
       countryIso3,
       message: e instanceof Error ? e.message : String(e),
-      stack: e instanceof Error ? e.stack : undefined,
     });
     return null;
   }

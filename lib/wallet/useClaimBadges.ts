@@ -11,11 +11,12 @@ import { getChain } from "@/lib/onchain/chains";
 import { heldFeeAdaptersForWallet } from "@/lib/wallet/feeSupport";
 import { BADGES_CLAIM_ABI, badgesAddress } from "@/lib/onchain/badgesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
-import { shortfallHeaders } from "@/lib/onchain/sponsorHeaders";
 import {
-  isUserRejection,
-  playerHasNoFeeBalance,
-} from "@/lib/wallet/playerFee";
+  nativeOnlyHeaders,
+  shortfallHeaders,
+} from "@/lib/onchain/sponsorHeaders";
+import { walletPaysGasInToken } from "@/lib/wallet/feeSupport";
+import { isUserRejection, playerHasNoFeeBalance } from "@/lib/wallet/playerFee";
 import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { latestRunTokenFor, RUN_TOKEN_HEADER } from "@/lib/wallet/runTokens";
@@ -65,6 +66,7 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
             headers: {
               [RUN_TOKEN_HEADER]: proof.token,
               ...shortfallHeaders(shortfall),
+              ...nativeOnlyHeaders(!walletPaysGasInToken()),
             },
           },
         );
