@@ -19,6 +19,7 @@ import {
 import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { latestRunTokenFor, RUN_TOKEN_HEADER } from "@/lib/wallet/runTokens";
+import { sponsorRefusalFor } from "@/lib/wallet/sponsorOutcome";
 
 const log = createLogger("wallet:claimBadges");
 
@@ -69,7 +70,7 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
         );
         if (!res.ok) {
           log.error("badge sponsor fallback failed", { status: res.status });
-          if (res.status !== 402 && res.status !== 429)
+          if (!sponsorRefusalFor(res.status))
             Sentry.captureMessage("badge sponsor mint failed", {
               level: "warning",
               tags: { claim: "badge-sponsor" },
