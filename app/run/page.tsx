@@ -951,6 +951,8 @@ export default function RunPage() {
       // The run's red hexes become ordinary owned (orange) territory.
       runH3Ref.current = new Set();
       passedH3Ref.current = new Set();
+      // Do not await this. The world list is megabytes, and waiting on it
+      // kept the wallet sheet from opening.
       void refreshClaimed();
       setHexCount(0);
       setReinforcedCount(0);
@@ -961,7 +963,6 @@ export default function RunPage() {
       distAnchorRef.current = null;
       lastPosTsRef.current = 0;
       pendingDistanceRef.current = 0;
-      await refreshClaimed();
     } catch (e) {
       log.error("finish run network error", {
         message: e instanceof Error ? e.message : String(e),
