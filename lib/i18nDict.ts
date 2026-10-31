@@ -51,6 +51,10 @@ export const dictionaries = {
       "The one thing we could not get back is usernames. Pick yours again and you are set. Nobody got into your account.",
     "recovery.cta": "Pick my name",
     "recovery.later": "Later",
+    "campaign.tag": "Contest · 1000 CELO",
+    "campaign.title": "Show how you use MiniPay",
+    "campaign.until": "#MiniPayInMyDay · until 24 Nov",
+    "campaign.close": "Close",
     "onboarding.title": "Welcome to MiniKlaim",
     "onboarding.step1.title": "🗺️ Move anywhere",
     "onboarding.step1.body":
@@ -559,6 +563,10 @@ export const dictionaries = {
       "Lo único que no pudimos recuperar son los nombres de usuario. Vuelve a elegir el tuyo y listo. Nadie entró a tu cuenta.",
     "recovery.cta": "Elegir mi nombre",
     "recovery.later": "Después",
+    "campaign.tag": "Concurso · 1000 CELO",
+    "campaign.title": "Muestra cómo usas MiniPay",
+    "campaign.until": "#MiniPayInMyDay · hasta el 24 de nov",
+    "campaign.close": "Cerrar",
     "onboarding.title": "Bienvenido a MiniKlaim",
     "onboarding.step1.title": "🗺️ Muévete donde sea",
     "onboarding.step1.body":
