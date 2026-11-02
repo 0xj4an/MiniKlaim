@@ -1,4 +1,4 @@
-import type maplibregl from "maplibre-gl";
+import type * as maplibregl from "maplibre-gl";
 
 // MapLibre nulls `style` inside remove(). getSource/getLayer then throw
 // "Cannot read properties of null". A GPS callback can still be queued.

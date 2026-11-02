@@ -1,7 +1,9 @@
 "use client";
 
 import { cellToLatLng } from "h3-js";
-import maplibregl from "maplibre-gl";
+// Types only. The module itself is loaded per tier (v6 for gl2, 5.24
+// for gl1), so this import must never pull a bundle at module scope.
+import type * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
@@ -12,6 +14,7 @@ import { reportGpuSupport } from "@/lib/map/gpuSupport";
 import GridMap from "@/app/GridMap";
 import { mapRenderStarted } from "@/lib/map/mapTelemetry";
 import { useMapTier } from "@/lib/map/useMapTier";
+import { useMaplibre } from "@/lib/map/useMaplibre";
 import { zoomForSpan, type LngLat } from "@/lib/map/mercator";
 import type { ClaimedHexFeatureCollection } from "@/lib/map/hex";
 import {
@@ -160,6 +163,9 @@ export function WorldMap({
   const { t } = useLocale();
   const mapTier = useMapTier();
   const isGrid = mapTier === "grid";
+  const gl = useMaplibre(mapTier);
+  const glRef = useRef<ReturnType<typeof useMaplibre>>(null);
+  glRef.current = gl;
 
   // Measured on mount, not where the map is built: on /me the map only
   // exists once the player owns blocks, and on /run only once a container
@@ -211,7 +217,7 @@ export function WorldMap({
         el.appendChild(document.createTextNode(` ${labels.you}`));
       }
       popupRef.current?.remove();
-      popupRef.current = new maplibregl.Popup({
+      popupRef.current = new glRef.current!.Popup({
         closeButton: true,
         closeOnClick: false,
       })
@@ -469,6 +475,7 @@ export function WorldMap({
     // mount effect, so building first is what let a phone with no WebGL
     // reach the constructor and crash this page (31 crashes, 14 players).
     if (mapTier === null) return;
+    if (!isGrid && !gl) return;
     const container = containerRef.current;
     if (!container) return;
     let cancelled = false;
@@ -535,9 +542,10 @@ export function WorldMap({
       container.clientHeight || 320,
     );
     const zoom = span >= 64 ? Math.min(0, Math.log2(span / 512)) : 0;
+    if (!gl) return;
     let map: maplibregl.Map;
     try {
-      map = new maplibregl.Map({
+      map = new gl.Map({
         container,
         style: DEFAULT_MAP_STYLE,
         ...lightMapOptions(),
@@ -625,7 +633,7 @@ export function WorldMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [mapTier, isGrid]);
+  }, [mapTier, isGrid, gl]);
 
   useEffect(() => {
     const map = mapRef.current;

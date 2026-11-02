@@ -1,7 +1,9 @@
 "use client";
 
 import { cellToLatLng } from "h3-js";
-import maplibregl from "maplibre-gl";
+// Types only. The module itself is loaded per tier (v6 for gl2, 5.24
+// for gl1), so this import must never pull a bundle at module scope.
+import type * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
@@ -18,6 +20,7 @@ import {
 import GridMap from "@/app/GridMap";
 import { mapRenderStarted } from "@/lib/map/mapTelemetry";
 import { useMapTier } from "@/lib/map/useMapTier";
+import { useMaplibre } from "@/lib/map/useMaplibre";
 import type { LngLat } from "@/lib/map/mercator";
 import {
   HEX_COLORS,
@@ -53,6 +56,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
   const { t } = useLocale();
   const mapTier = useMapTier();
   const isGrid = mapTier === "grid";
+  const gl = useMaplibre(mapTier);
 
   // Measured on mount, not where the map is built: on /me the map only
   // exists once the player owns blocks, and on /run only once a container
@@ -68,7 +72,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
     // building MapLibre before the tier is known is how a phone with no
     // WebGL reached the constructor at all.
     if (mapTier === null) return;
-    if (!isGrid && !containerRef.current) return;
+    if (!isGrid && (!gl || !containerRef.current)) return;
 
     let cancelled = false;
 
@@ -113,7 +117,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
           });
           return;
         }
-        if (!containerRef.current) return;
+        if (!containerRef.current || !gl) return;
 
         // MapLibre 6 requires WebGL2 and throws from the constructor when it
         // is missing, the way /run and /community already guard against. This
@@ -121,7 +125,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
         // with it instead of just losing the thumbnail.
         let map: maplibregl.Map;
         try {
-          map = new maplibregl.Map({
+          map = new gl.Map({
             container: containerRef.current,
             style: DEFAULT_MAP_STYLE,
             ...lightMapOptions(),
@@ -226,7 +230,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [address, mapTier, isGrid]);
+  }, [address, mapTier, isGrid, gl]);
 
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
