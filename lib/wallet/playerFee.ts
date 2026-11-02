@@ -32,7 +32,10 @@ export function isUserRejection(e: unknown): boolean {
   const text = errorText(e).toLowerCase();
   // A real decline MiniPay wraps as an internal error. The fake one puts
   // "user rejected" in front of "an internal error" and has no Details line.
-  if (/details:\s*user rejected/.test(text) || /details:\s*user denied/.test(text)) {
+  if (
+    /details:\s*user rejected/.test(text) ||
+    /details:\s*user denied/.test(text)
+  ) {
     return true;
   }
   if (isWalletInternalError(e)) return false;
@@ -41,6 +44,24 @@ export function isUserRejection(e: unknown): boolean {
     if (code === 4001 || code === "ACTION_REJECTED") return true;
   }
   return text.includes("user rejected") || text.includes("user denied");
+}
+
+/**
+ * MiniPay's RPC refused the send outright: "Permission denied An unknown RPC
+ * error occurred".
+ *
+ * Eleven of these across nine different wallets between 20 and 31 Oct, every
+ * one of them on Celo and against the hexes contract, all pooled under the
+ * generic `tx` bucket with 57 older failures that carry no message at all.
+ * Whether it is the wallet refusing a dapp or a player dismissing something,
+ * it is not the same event as a transaction that reverted, and counting them
+ * together is why nobody could tell what the bucket meant.
+ *
+ * Giving it a name does not fix it. It makes the next one legible, and none
+ * has arrived since 31 Oct.
+ */
+export function isPermissionDenied(e: unknown): boolean {
+  return errorText(e).toLowerCase().includes("permission denied");
 }
 
 /** The node refused the fee token, or the wallet has nothing to pay with. */
@@ -70,7 +91,8 @@ export function isUnsupportedFeeCurrency(e: unknown): boolean {
   if (isUserRejection(e)) return false;
   const text = errorText(e).toLowerCase();
   // The wallet named the field it choked on.
-  if (text.includes("feecurrency") || text.includes("fee currency")) return true;
+  if (text.includes("feecurrency") || text.includes("fee currency"))
+    return true;
   // JSON-RPC "invalid params", which is what a wallet returns for a field it
   // does not know.
   if (e && typeof e === "object" && "code" in e) {
