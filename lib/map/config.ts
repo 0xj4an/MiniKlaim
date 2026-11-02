@@ -4,10 +4,26 @@ export const DEFAULT_CENTER: [number, number] = [0, 0];
 export const DEFAULT_ZOOM = 14;
 export const FOLLOW_ZOOM = 17; // zoom level when centered on user position
 
-// The run map stays at city zoom. OpenFreeMap zoom-2 tiles are about 1.5MB
-// each, so a pinch-out to the world (or a flyTo that dips through it) is
-// hundreds of MB on a phone. 13 is still a few kilometers of city.
-export const RUN_MIN_ZOOM = 13;
+/**
+ * How far out the run map lets a player pinch.
+ *
+ * This was 13, on the grounds that low-zoom tiles are enormous. Measured
+ * against the real tile host over Medellin, one tile:
+ *
+ *   z14 261 KB · z13 163 KB · z12 172 KB · z11 76 KB · z10 77 KB
+ *   z9 127 KB · z8 111 KB · z6 183 KB · z4 315 KB · z2 1,267 KB
+ *
+ * So the expensive tiles are not where the limit was put. Zooming out to 10
+ * or 11 is *cheaper* per tile than the zoom players were locked at, and a
+ * screen holds roughly the same number of tiles at any zoom, so the bytes
+ * per screen go down too. The real cliff is below 6, and z2 at 1.2 MB is
+ * the one worth refusing: a pinch to the whole world, or a camera animation
+ * that dips through it, is what costs a phone real data.
+ *
+ * 10 is about 40 km across on a phone, which is the city and the way out of
+ * it. The floor stays, so the cliff is still out of reach.
+ */
+export const RUN_MIN_ZOOM = 10;
 
 /**
  * H3 resolution for the claimable hex grid. Resolution 12 is about 9-10 m
