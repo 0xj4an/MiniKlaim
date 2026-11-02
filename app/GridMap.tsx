@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { createLogger } from "@/lib/logger";
 import { drawGrid } from "@/lib/map/gridDraw";
+import { paintBox } from "@/lib/map/gridPaintGate";
 import {
   getGridData,
   setGridData,
@@ -125,22 +126,18 @@ export default function GridMap({
     const paint = () => {
       frameRef.current = null;
       const parent = canvas.parentElement;
-      const width = Math.max(
-        1,
-        Math.round(parent?.clientWidth || canvas.clientWidth || 1),
-      );
-      const height = Math.max(
-        1,
-        Math.round(parent?.clientHeight || canvas.clientHeight || 1),
-      );
-      // Cap the backing store at 2x: filling a 3x buffer in software on a
-      // phone with no GPU costs real time for no visible gain.
-      const ratio = Math.min(
-        2,
+      // A container with no size yet is a layout that has not happened,
+      // not a small map: painting it would stamp a tiny canvas and report
+      // the map ready. The ResizeObserver below brings us back once the box
+      // has a width.
+      const box = paintBox(
+        parent?.clientWidth || canvas.clientWidth || 0,
+        parent?.clientHeight || canvas.clientHeight || 0,
         typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
       );
-      const backingW = Math.round(width * ratio);
-      const backingH = Math.round(height * ratio);
+      if (!box) return;
+      const { width, height, backingW, backingH } = box;
+      const ratio = backingW / width;
 
       if (canvas.width !== backingW || canvas.height !== backingH) {
         canvas.width = backingW;
@@ -184,20 +181,44 @@ export default function GridMap({
 
     const schedule = () => {
       if (frameRef.current !== null) return;
-      frameRef.current =
-        typeof requestAnimationFrame === "function"
-          ? requestAnimationFrame(paint)
-          : (setTimeout(paint, 16) as unknown as number);
+      // A hidden or backgrounded page gets no animation frames, so one that
+      // is not visible falls back to a timer. Without it a tab opened in the
+      // background never paints, and coming back to it never recovers,
+      // because nothing is left to schedule another frame.
+      const canAnimate =
+        typeof requestAnimationFrame === "function" &&
+        (typeof document === "undefined" || !document.hidden);
+      frameRef.current = canAnimate
+        ? requestAnimationFrame(paint)
+        : (setTimeout(paint, 32) as unknown as number);
     };
 
     scheduleRef.current = schedule;
+    // Draw the first frame now rather than on an animation frame, so a page
+    // that never gets one still gets a map.
+    paint();
     schedule();
+
     window.addEventListener("resize", schedule);
     window.addEventListener("orientationchange", schedule);
+    document.addEventListener("visibilitychange", schedule);
+
+    // The container, not the window, is what actually changes size here: a
+    // panel opening, a banner closing, the first layout after fonts load.
+    // Listening only to the window left the canvas at whatever size it had
+    // when it first painted, or unpainted if it had none.
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver === "function" && canvas.parentElement) {
+      observer = new ResizeObserver(() => schedule());
+      observer.observe(canvas.parentElement);
+    }
+
     return () => {
       scheduleRef.current = null;
+      observer?.disconnect();
       window.removeEventListener("resize", schedule);
       window.removeEventListener("orientationchange", schedule);
+      document.removeEventListener("visibilitychange", schedule);
       if (
         frameRef.current !== null &&
         typeof cancelAnimationFrame === "function"
