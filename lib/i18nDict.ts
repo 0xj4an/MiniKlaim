@@ -242,6 +242,7 @@ export const dictionaries = {
       "This phone can't draw the map. Updating Android System WebView in the Play Store may fix it.",
     "map.gridNote":
       "This phone can't draw the full map, so you get your blocks and your position without the streets. Capturing, distance and time work exactly the same.",
+    "map.gridShort": "Simplified map: your blocks, without the streets.",
     "run.start.signIn": "Sign in first",
     "run.start.starting": "Starting...",
     "run.start.button": "Start",
@@ -761,6 +762,7 @@ export const dictionaries = {
       "Este teléfono no puede dibujar el mapa. Actualizar Android System WebView en Play Store puede arreglarlo.",
     "map.gridNote":
       "Este teléfono no puede dibujar el mapa completo, así que ves tus cuadras y tu posición sin las calles. Capturar, la distancia y el tiempo funcionan igual.",
+    "map.gridShort": "Mapa simplificado: tus cuadras, sin las calles.",
     "run.start.signIn": "Entra primero",
     "run.start.starting": "Empezando...",
     "run.start.button": "Empezar",

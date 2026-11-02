@@ -32,7 +32,8 @@ export function toWorld([lng, lat]: LngLat, zoom: number): Point {
   const size = worldSize(zoom);
   const x = ((lng + 180) / 360) * size;
   const phi = (clampLatitude(lat) * Math.PI) / 180;
-  const y = ((1 - Math.log(Math.tan(phi) + 1 / Math.cos(phi)) / Math.PI) / 2) * size;
+  const y =
+    ((1 - Math.log(Math.tan(phi) + 1 / Math.cos(phi)) / Math.PI) / 2) * size;
   return { x, y };
 }
 
@@ -80,7 +81,9 @@ export function zoomForSpan(
   // rather than stepping zoom levels until one fits.
   const earthCircumference = 40075016.686;
   const wanted =
-    (earthCircumference * Math.cos((clampLatitude(lat) * Math.PI) / 180) * shorter) /
+    (earthCircumference *
+      Math.cos((clampLatitude(lat) * Math.PI) / 180) *
+      shorter) /
     (spanMeters * 512);
   const zoom = Math.log2(wanted);
   return Math.min(bounds.max, Math.max(bounds.min, zoom));

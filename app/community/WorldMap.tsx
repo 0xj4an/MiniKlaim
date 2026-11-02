@@ -9,7 +9,16 @@ import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
 import { reportGpuSupport } from "@/lib/map/gpuSupport";
-import { hexesInBounds, placeHexes, type PlacedHex } from "@/lib/map/claimedView";
+import GridMap from "@/app/GridMap";
+import { mapRenderStarted } from "@/lib/map/mapTelemetry";
+import { useMapTier } from "@/lib/map/useMapTier";
+import { zoomForSpan, type LngLat } from "@/lib/map/mercator";
+import type { ClaimedHexFeatureCollection } from "@/lib/map/hex";
+import {
+  hexesInBounds,
+  placeHexes,
+  type PlacedHex,
+} from "@/lib/map/claimedView";
 import { claimedHexesToFeatureCollection } from "@/lib/map/hex";
 import { HEX_COLORS } from "@/lib/map/hexColors";
 import {
@@ -75,7 +84,10 @@ function setGeoSource(
 
 const log = createLogger("page:community:map");
 
-const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+const EMPTY: GeoJSON.FeatureCollection = {
+  type: "FeatureCollection",
+  features: [],
+};
 
 // Color of a top-10 player's block; the "top" source only holds those.
 const TOP_COLOR: maplibregl.ExpressionSpecification = [
@@ -87,21 +99,31 @@ const CIRCLE_STROKE: maplibregl.ExpressionSpecification = [
   "interpolate",
   ["linear"],
   ["zoom"],
-  0, 0.5,
-  4, 1,
-  8, 1.5,
+  0,
+  0.5,
+  4,
+  1,
+  8,
+  1.5,
 ];
 const CIRCLE_RADIUS: maplibregl.ExpressionSpecification = [
   "interpolate",
   ["linear"],
   ["zoom"],
-  -2, 2,
-  0, 3,
-  2, 4,
-  4, 5,
-  6, 6,
-  8, 7,
-  11, 4,
+  -2,
+  2,
+  0,
+  3,
+  2,
+  4,
+  4,
+  5,
+  6,
+  6,
+  8,
+  7,
+  11,
+  4,
 ];
 
 export function WorldMap({
@@ -127,7 +149,17 @@ export function WorldMap({
   // No WebGL: the constructor throws, which used to crash /community into
   // the error page (31 crashes from 14 players up to 23 Oct).
   const [mapUnavailable, setMapUnavailable] = useState(false);
+  // The grid tier's world: one block per parent cell, the same thinning the
+  // WebGL path uses at world zoom. Drawing every claimed block on a 2D canvas
+  // is what would lock up the phones this tier exists for.
+  const [grid, setGrid] = useState<{
+    hexes: ClaimedHexFeatureCollection;
+    center: LngLat;
+    zoom: number;
+  } | null>(null);
   const { t } = useLocale();
+  const mapTier = useMapTier();
+  const isGrid = mapTier === "grid";
 
   // Measured on mount, not where the map is built: on /me the map only
   // exists once the player owns blocks, and on /run only once a container
@@ -239,12 +271,14 @@ export function WorldMap({
       // Top-10 players get their own small source. Everyone else stays one
       // color. The full block list is never uploaded: at world zoom these
       // rows are parent cells, and past zoom 8 they are only what is on screen.
-      const top = topColors.size > 0
-        ? notMine.filter((h) => topColors.has(h.owner.toLowerCase()))
-        : [];
-      const others = topColors.size > 0
-        ? notMine.filter((h) => !topColors.has(h.owner.toLowerCase()))
-        : notMine;
+      const top =
+        topColors.size > 0
+          ? notMine.filter((h) => topColors.has(h.owner.toLowerCase()))
+          : [];
+      const others =
+        topColors.size > 0
+          ? notMine.filter((h) => !topColors.has(h.owner.toLowerCase()))
+          : notMine;
 
       setGeoSource(
         map,
@@ -271,7 +305,11 @@ export function WorldMap({
           },
         });
       }
-      setGeoSource(map, "others-points", hexesToPointCollection(others, mineSet));
+      setGeoSource(
+        map,
+        "others-points",
+        hexesToPointCollection(others, mineSet),
+      );
       if (!map.getLayer("others-points")) {
         map.addLayer({
           id: "others-points",
@@ -310,10 +348,18 @@ export function WorldMap({
           type: "line",
           source: "top",
           minzoom: WORLD_FILL_ZOOM,
-          paint: { "line-color": TOP_COLOR, "line-width": 1.5, "line-opacity": 0.85 },
+          paint: {
+            "line-color": TOP_COLOR,
+            "line-width": 1.5,
+            "line-opacity": 0.85,
+          },
         });
       }
-      setGeoSource(map, "top-points", hexesToPointCollection(top, mineSet, topColors));
+      setGeoSource(
+        map,
+        "top-points",
+        hexesToPointCollection(top, mineSet, topColors),
+      );
       if (!map.getLayer("top-points")) {
         map.addLayer({
           id: "top-points",
@@ -380,21 +426,31 @@ export function WorldMap({
               "interpolate",
               ["linear"],
               ["zoom"],
-              0, 0.5,
-              4, 1.5,
-              8, 2,
+              0,
+              0.5,
+              4,
+              1.5,
+              8,
+              2,
             ],
             "circle-radius": [
               "interpolate",
               ["linear"],
               ["zoom"],
-              -2, 2.5,
-              0, 4,
-              2, 5,
-              4, 6,
-              6, 7,
-              8, 8,
-              11, 5,
+              -2,
+              2.5,
+              0,
+              4,
+              2,
+              5,
+              4,
+              6,
+              6,
+              7,
+              8,
+              8,
+              11,
+              5,
             ],
           },
         });
@@ -409,9 +465,66 @@ export function WorldMap({
   };
 
   useEffect(() => {
+    // Wait for the tier before touching MapLibre: the probe resolves in a
+    // mount effect, so building first is what let a phone with no WebGL
+    // reach the constructor and crash this page (31 crashes, 14 players).
+    if (mapTier === null) return;
     const container = containerRef.current;
     if (!container) return;
     let cancelled = false;
+
+    if (isGrid) {
+      // No GPU: the same world, thinned to one block per parent cell and
+      // drawn on a 2D canvas. Fixed view, since there is no camera to pan.
+      mapRenderStarted("grid", "grid", "/community");
+      const size = {
+        width: container.clientWidth || 320,
+        height: container.clientHeight || 320,
+      };
+      const paintGrid = (rows: HexRow[]) => {
+        if (cancelled) return;
+        setCount(rows.length);
+        const mineSet = linkedRef.current;
+        const colors = topColorsRef.current;
+        const thinned = thinWorldRows(rows, 2, (owner) => {
+          const key = owner.toLowerCase();
+          if (mineSet.has(key)) return 2;
+          if (colors.has(key)) return 1;
+          return 0;
+        });
+        setGrid({
+          hexes: claimedHexesToFeatureCollection(
+            thinned,
+            mineSet,
+            new Set(),
+            colors,
+          ),
+          center: [0, 0],
+          // The whole planet across the shorter side, the same intent as the
+          // WebGL path's slightly negative zoom.
+          zoom: zoomForSpan(40_075_017, 0, size, { min: -2, max: 4 }),
+        });
+      };
+
+      void (async () => {
+        try {
+          const cached = await readCachedWorld();
+          const cachedRows = cached ? parseWorldBody(cached.body) : null;
+          if (cachedRows) paintGrid(cachedRows);
+          const result = await fetchWorldRows(cached);
+          if (!result || !result.changed) return;
+          paintGrid(result.rows);
+        } catch (e) {
+          log.error("world grid load failed", {
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }
 
     // Stay on the whole planet. Fitting the camera to claims would hide
     // every empty continent. Zoom 0 is a 512px world; the panel is smaller,
@@ -512,7 +625,7 @@ export function WorldMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [mapTier, isGrid]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -543,7 +656,22 @@ export function WorldMap({
           overflow: "hidden",
           backgroundColor: "#f4f4f5",
         }}
-      />
+      >
+        {isGrid && grid && (
+          <GridMap
+            path="/community"
+            hexes={grid.hexes}
+            center={grid.center}
+            zoom={grid.zoom}
+            className="block h-full w-full"
+          />
+        )}
+      </div>
+      {isGrid && (
+        <p className="text-center text-[11px] text-zinc-400">
+          {t("map.gridShort")}
+        </p>
+      )}
     </div>
   );
 }

@@ -57,7 +57,8 @@ const GRIDLINE = { light: "#E4E4E7", dark: "#27272A" } as const;
 
 /** A block's level, 1 to 10, the same floor the WebGL style applies. */
 export function levelOf(strength: unknown): number {
-  const n = typeof strength === "number" && Number.isFinite(strength) ? strength : 1;
+  const n =
+    typeof strength === "number" && Number.isFinite(strength) ? strength : 1;
   return Math.min(10, Math.max(1, n));
 }
 
@@ -134,7 +135,12 @@ export function drawGrid(ctx: DrawContext, scene: GridScene): number {
     ctx.beginPath();
     let visible = false;
     for (let i = 0; i < ring.length; i++) {
-      const point = project(ring[i] as LngLat, scene.center, scene.zoom, scene.size);
+      const point = project(
+        ring[i] as LngLat,
+        scene.center,
+        scene.zoom,
+        scene.size,
+      );
       if (i === 0) ctx.moveTo(point.x, point.y);
       else ctx.lineTo(point.x, point.y);
       if (
@@ -191,7 +197,11 @@ export function drawGrid(ctx: DrawContext, scene: GridScene): number {
  * be either invisible or the whole screen, and the point is only to give the
  * eye something that moves when the player moves.
  */
-function drawReference(ctx: DrawContext, scene: GridScene, color: string): void {
+function drawReference(
+  ctx: DrawContext,
+  scene: GridScene,
+  color: string,
+): void {
   const { width, height } = scene.size;
   const step = 100;
   ctx.strokeStyle = color;

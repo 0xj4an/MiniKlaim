@@ -24,7 +24,11 @@ export type Viewport = {
  * integrated properly up the meridian. Over a phone screen at run zoom the
  * difference is metres, and the result only has to bound a fetch.
  */
-export function viewportFromCenter(center: LngLat, zoom: number, size: Size): Viewport {
+export function viewportFromCenter(
+  center: LngLat,
+  zoom: number,
+  size: Size,
+): Viewport {
   const [centerLng, centerLat] = center;
   const mpp = metersPerPixel(centerLat, zoom);
   const halfWidthM = (size.width / 2) * mpp;

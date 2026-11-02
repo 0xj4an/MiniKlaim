@@ -69,7 +69,11 @@ export function initMapTelemetry(): MapTier {
   return decision.tier;
 }
 
-export function mapRenderStarted(tier: MapTier, engine: MapEngine, path: string): void {
+export function mapRenderStarted(
+  tier: MapTier,
+  engine: MapEngine,
+  path: string,
+): void {
   Sentry.addBreadcrumb({
     category: "map",
     level: "info",
@@ -109,7 +113,13 @@ export function mapRenderFailed(
   const message = messageOf(error);
   log.error("map render failed", { tier, engine, path, stage, message });
 
-  track("map_render_failed", { tier, engine, path, stage, message: message.slice(0, 200) });
+  track("map_render_failed", {
+    tier,
+    engine,
+    path,
+    stage,
+    message: message.slice(0, 200),
+  });
 
   Sentry.withScope((scope) => {
     scope.setTag("map.stage", stage);
@@ -118,7 +128,9 @@ export function mapRenderFailed(
     // with maplibre's and the tier the fix belongs to is lost in the mix.
     scope.setFingerprint(["map-render-failed", tier, engine, stage]);
     scope.setContext("mapFailure", { tier, engine, path, stage, message });
-    Sentry.captureException(error instanceof Error ? error : new Error(message));
+    Sentry.captureException(
+      error instanceof Error ? error : new Error(message),
+    );
   });
 
   // A GPU that refused to build the map contradicts the tier it was given.

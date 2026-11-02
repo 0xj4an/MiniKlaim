@@ -1,6 +1,10 @@
 "use client";
 
-import { probeGpuSupport, type GpuSupport, type WebglLevel } from "@/lib/map/gpuSupport";
+import {
+  probeGpuSupport,
+  type GpuSupport,
+  type WebglLevel,
+} from "@/lib/map/gpuSupport";
 
 /**
  * Which renderer a phone gets, decided once and remembered.
@@ -57,7 +61,10 @@ type Stored = {
   build: string;
 };
 
-export function tierForSupport(support: GpuSupport): { tier: MapTier; reason: string } {
+export function tierForSupport(support: GpuSupport): {
+  tier: MapTier;
+  reason: string;
+} {
   if (support.webgl === 2) return { tier: "gl2", reason: "webgl2" };
   if (support.webgl === 1) return { tier: "gl1", reason: "webgl1-only" };
   return { tier: "grid", reason: "no-webgl" };
@@ -89,7 +96,8 @@ function readStored(now: number, build: string): Stored | null {
 
   const s = parsed as Partial<Stored>;
   if (s.tier !== "gl2" && s.tier !== "gl1" && s.tier !== "grid") return null;
-  if (typeof s.decidedAt !== "number" || !Number.isFinite(s.decidedAt)) return null;
+  if (typeof s.decidedAt !== "number" || !Number.isFinite(s.decidedAt))
+    return null;
   // A clock that moved backwards would otherwise pin a stale decision for a
   // week of wall time that never passes.
   if (s.decidedAt > now) return null;
@@ -100,7 +108,8 @@ function readStored(now: number, build: string): Stored | null {
     tier: s.tier,
     webgl: s.webgl === 2 || s.webgl === 1 ? s.webgl : 0,
     renderer: typeof s.renderer === "string" ? s.renderer : null,
-    maxTextureSize: typeof s.maxTextureSize === "number" ? s.maxTextureSize : null,
+    maxTextureSize:
+      typeof s.maxTextureSize === "number" ? s.maxTextureSize : null,
     reason: typeof s.reason === "string" ? s.reason : "cached",
     decidedAt: s.decidedAt,
     build,
@@ -141,11 +150,15 @@ let decided: TierDecision | null = null;
  * The tier for this page load. Resolved once per process and then returned
  * from memory, so every map on the page agrees with every other.
  */
-export function resolveMapTier(options: { now?: number; search?: string } = {}): TierDecision {
+export function resolveMapTier(
+  options: { now?: number; search?: string } = {},
+): TierDecision {
   if (decided) return decided;
 
   const now = options.now ?? Date.now();
-  const search = options.search ?? (typeof window === "undefined" ? "" : window.location.search);
+  const search =
+    options.search ??
+    (typeof window === "undefined" ? "" : window.location.search);
 
   const override = overrideFromSearch(search);
   if (override) {

@@ -1,17 +1,42 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { createLogger } from "@/lib/logger";
 import { drawGrid } from "@/lib/map/gridDraw";
-import { getGridData, setGridData, subscribeGrid, type GridData } from "@/lib/map/gridStore";
-import { mapRenderFailed, mapRenderReady, mapRenderStarted } from "@/lib/map/mapTelemetry";
+import {
+  getGridData,
+  setGridData,
+  subscribeGrid,
+  type GridData,
+} from "@/lib/map/gridStore";
+import {
+  mapRenderFailed,
+  mapRenderReady,
+  mapRenderStarted,
+} from "@/lib/map/mapTelemetry";
 
 const log = createLogger("gridmap");
 
+/**
+ * Fixed scenes are passed field by field rather than as one object, so a
+ * caller does not have to memoize a literal: an object spread on every render
+ * would make the repaint effect fire on every render, since it compares by
+ * identity.
+ */
 type Props = {
   /** Which surface this is, for the telemetry that watches the tier. */
   path: string;
   className?: string;
+  /**
+   * A fixed scene, for a surface that draws once and does not follow the
+   * player. Passing it keeps that surface out of the shared store, so a
+   * static thumbnail cannot be moved by a run that is still pushing fixes.
+   * Omit all three to read the store instead.
+   */
+  hexes?: GridData["hexes"];
+  center?: GridData["center"];
+  zoom?: number;
+  position?: GridData["position"];
 };
 
 /**
@@ -25,22 +50,49 @@ type Props = {
  * one repaint, and the canvas is built once: new data must never tear it down
  * and probe the context again.
  */
-export default function GridMap({ path, className }: Props) {
-  const data = useSyncExternalStore(subscribeGrid, getGridData, () => getGridData());
+export default function GridMap({
+  path,
+  className,
+  hexes,
+  center,
+  zoom,
+  position = null,
+}: Props) {
+  const stored = useSyncExternalStore(subscribeGrid, getGridData, () =>
+    getGridData(),
+  );
+  const isFixed =
+    hexes !== undefined && center !== undefined && zoom !== undefined;
+  const data: GridData = useMemo(
+    () =>
+      isFixed
+        ? {
+            size: stored.size,
+            hexes: hexes!,
+            center: center!,
+            zoom: zoom!,
+            position,
+          }
+        : stored,
+    [isFixed, stored, hexes, center, zoom, position],
+  );
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameRef = useRef<number | null>(null);
   const dataRef = useRef<GridData>(data);
   const reportedRef = useRef(false);
   const scheduleRef = useRef<(() => void) | null>(null);
+  const fixedRef = useRef(false);
 
   dataRef.current = data;
+  fixedRef.current = isFixed;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     mapRenderStarted("grid", "grid", path);
-    const startedAt = typeof performance === "undefined" ? Date.now() : performance.now();
+    const startedAt =
+      typeof performance === "undefined" ? Date.now() : performance.now();
 
     let ctx: CanvasRenderingContext2D | null = null;
     try {
@@ -52,7 +104,13 @@ export default function GridMap({ path, className }: Props) {
     if (!ctx) {
       // No 2D context either. There is no tier below this one, so the player
       // keeps the numbers and we need to know that it happened at all.
-      mapRenderFailed("grid", "grid", path, "construct", new Error("no 2d context"));
+      mapRenderFailed(
+        "grid",
+        "grid",
+        path,
+        "construct",
+        new Error("no 2d context"),
+      );
       return;
     }
     const context = ctx;
@@ -67,11 +125,20 @@ export default function GridMap({ path, className }: Props) {
     const paint = () => {
       frameRef.current = null;
       const parent = canvas.parentElement;
-      const width = Math.max(1, Math.round(parent?.clientWidth || canvas.clientWidth || 1));
-      const height = Math.max(1, Math.round(parent?.clientHeight || canvas.clientHeight || 1));
+      const width = Math.max(
+        1,
+        Math.round(parent?.clientWidth || canvas.clientWidth || 1),
+      );
+      const height = Math.max(
+        1,
+        Math.round(parent?.clientHeight || canvas.clientHeight || 1),
+      );
       // Cap the backing store at 2x: filling a 3x buffer in software on a
       // phone with no GPU costs real time for no visible gain.
-      const ratio = Math.min(2, typeof window === "undefined" ? 1 : window.devicePixelRatio || 1);
+      const ratio = Math.min(
+        2,
+        typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
+      );
       const backingW = Math.round(width * ratio);
       const backingH = Math.round(height * ratio);
 
@@ -84,9 +151,13 @@ export default function GridMap({ path, className }: Props) {
 
       // Publish the size so the claimed-block fetch knows what the view
       // covers. Only on a change, or writing it would schedule another frame
-      // from inside this one, forever.
+      // from inside this one, forever. A surface with fixed data fetches
+      // nothing, so it has nothing to publish.
       const known = dataRef.current.size;
-      if (known.width !== width || known.height !== height) {
+      if (
+        !fixedRef.current &&
+        (known.width !== width || known.height !== height)
+      ) {
         setGridData({ size: { width, height } });
       }
 
@@ -99,7 +170,8 @@ export default function GridMap({ path, className }: Props) {
         });
         if (!reportedRef.current) {
           reportedRef.current = true;
-          const now = typeof performance === "undefined" ? Date.now() : performance.now();
+          const now =
+            typeof performance === "undefined" ? Date.now() : performance.now();
           mapRenderReady("grid", "grid", path, now - startedAt);
           log.info("grid map drawn", { drawn, width, height, ratio });
         }
@@ -126,7 +198,10 @@ export default function GridMap({ path, className }: Props) {
       scheduleRef.current = null;
       window.removeEventListener("resize", schedule);
       window.removeEventListener("orientationchange", schedule);
-      if (frameRef.current !== null && typeof cancelAnimationFrame === "function") {
+      if (
+        frameRef.current !== null &&
+        typeof cancelAnimationFrame === "function"
+      ) {
         cancelAnimationFrame(frameRef.current);
       }
       frameRef.current = null;
