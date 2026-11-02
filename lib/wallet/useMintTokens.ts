@@ -160,7 +160,7 @@ export function useMintTokens(address: Address | null) {
       // shown on the button before they tap, the screen says the balance is
       // short, and PostHog counts it. Paging on it is the same mistake as
       // reporting a refused run token as a failed mint (MINIKLAIM-N, 27 Oct)
-      // — it buried the real failures. Of 14 days of nft_mint_failed, 69 are
+      //: it buried the real failures. Of 14 days of nft_mint_failed, 69 are
       // `tx` and all of them predate #127; the last three days are 8 no_fee,
       // 3 wallet_internal and 2 rejected, so what Sentry has been showing
       // since is noise.

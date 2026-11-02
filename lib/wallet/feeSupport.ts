@@ -23,7 +23,7 @@ export function walletPaysGasInToken(): boolean {
 /**
  * The stablecoins worth offering as gas, given both the balances and the
  * wallet. Empty outside MiniPay, which leaves `feeAttempts` with native CELO
- * alone — one prompt, the one that can succeed.
+ * alone: one prompt, the one that can succeed.
  */
 export function heldFeeAdaptersForWallet(
   feeCurrencies: FeeCurrency[],

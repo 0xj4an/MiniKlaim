@@ -76,7 +76,7 @@ export function cityForHex(h3Id: string, countryIso3?: string): string | null {
       best = i;
     }
     // Ties keep the first match, and the table is ordered by population
-    // within a country, so the bigger city wins — same rule as before.
+    // within a country, so the bigger city wins: same rule as before.
     return best === -1 ? null : cityName(table, best);
   } catch (e) {
     log.error("city resolution failed", {

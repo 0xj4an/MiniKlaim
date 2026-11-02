@@ -20,7 +20,7 @@ export function shortfallHeaders(shortfall: boolean): Record<string, string> {
  * fee, and MetaMask and the rest reject the field outright.
  *
  * Without it the server answered "you can pay" to a player holding USDT and
- * no CELO — true of the balance, false of the wallet — and the claim died
+ * no CELO, true of the balance, false of the wallet, and the claim died
  * there. The server cannot see which wallet is asking, so the client has to
  * say. Same trust as the shortfall header above, and bounded the same way:
  * the run token proves the run is theirs and the daily cap bounds the spend.

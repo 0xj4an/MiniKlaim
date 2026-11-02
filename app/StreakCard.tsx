@@ -15,7 +15,7 @@ import { useUserStats } from "@/lib/wallet/useUserStats";
  * before they choose.
  *
  * It also stops the streak from looking lost. A run that captures nothing
- * — no GPS fix, a couple of minutes on a plane — does not break a streak
+ * (no GPS fix, a couple of minutes on a plane) does not break a streak
  * that is alive, but the run summary used to say "start a streak" anyway
  * (2 Nov 2026: `streak_shown` with streak 7 and counted false, twice).
  * Here the streak is simply always shown while it exists.

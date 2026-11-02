@@ -2,7 +2,7 @@
 /**
  * Writes `public/data/cities.bin`, the table `lib/geo/city.ts` reads.
  *
- * Runs as `prebuild`. It used to emit JSON — one object per city, 11 MB on
+ * Runs as `prebuild`. It used to emit JSON: one object per city, 11 MB on
  * disk and ~46 MB of heap once parsed, with a per-country Map built on top
  * at runtime. The binary table is typed arrays plus one names blob, so the
  * same 135k cities cost a handful of allocations. Nothing is trimmed: the

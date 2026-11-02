@@ -6,7 +6,7 @@
  *
  * MapLibre 6 dropped WebGL1 and throws a `GPUInitializationError` from the
  * Map constructor instead, whose message is "WebGL2 is required to display
- * this map..." — none of the older patterns match it, so a device without
+ * this map...": none of the older patterns match it, so a device without
  * WebGL2 would be reported as an ordinary crash and /me would fall over
  * instead of hiding the map. Both the message and the error name are matched
  * because callers pass whichever they have.

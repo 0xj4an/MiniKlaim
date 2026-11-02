@@ -23,7 +23,7 @@ describe("interpolateHexIds", () => {
   });
 
   test("returns empty for sub-step movement inside the same cell", () => {
-    // ~1m north — well below the 5m default step, stays in the same cell.
+    // ~1m north: well below the 5m default step, stays in the same cell.
     const tinyLat = MDE_LAT + 0.000009;
     expect(interpolateHexIds(MDE_LAT, MDE_LNG, tinyLat, MDE_LNG, RES)).toEqual(
       [],
