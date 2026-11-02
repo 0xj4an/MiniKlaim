@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getRanking, groupKeyFor } from "@/lib/leaderboardRanking";
 import { evaluateBadges, type BadgeStats } from "@/lib/onchain/badgeCatalog";
 
 export const dynamic = "force-dynamic";
@@ -23,112 +24,24 @@ export async function GET(request: Request) {
   const meParam = url.searchParams.get("me")?.toLowerCase() ?? null;
   const me = meParam && /^0x[0-9a-f]{40}$/.test(meParam) ? meParam : null;
 
-  // Same grouping and order as the list, so a pinned rank matches the row
-  // the player would reach by paging.
-  const ranked = sql`
-    WITH group_map AS (
-      SELECT
-        u.address,
-        u.username,
-        COALESCE(
-          (SELECT pw.player_id::text
-           FROM player_wallets pw
-           WHERE pw.address = u.address
-           LIMIT 1),
-          u.address
-        ) AS group_key
-      FROM users u
-    ),
-    per_address AS (
-      SELECT owner_address AS address, COUNT(*) AS n
-      FROM hexes
-      GROUP BY owner_address
-    ),
-    group_hex_counts AS (
-      SELECT
-        gm.group_key,
-        COALESCE(SUM(pa.n), 0) AS hex_count
-      FROM group_map gm
-      LEFT JOIN per_address pa ON pa.address = gm.address
-      GROUP BY gm.group_key
-    ),
-    group_display AS (
-      SELECT DISTINCT ON (gm.group_key)
-        gm.group_key,
-        gm.address,
-        gm.username
-      FROM group_map gm
-      LEFT JOIN player_wallets pw ON pw.address = gm.address
-      ORDER BY
-        gm.group_key,
-        (gm.username IS NOT NULL) DESC,
-        COALESCE(pw.is_primary, false) DESC,
-        gm.address ASC
-    ),
-    ranked AS (
-      SELECT
-        gd.group_key,
-        gd.address,
-        gd.username,
-        ghc.hex_count::int AS hex_count,
-        ROW_NUMBER() OVER (ORDER BY ghc.hex_count DESC, gd.address ASC)::int AS rank
-      FROM group_hex_counts ghc
-      INNER JOIN group_display gd ON gd.group_key = ghc.group_key
-    )
-  `;
+  // The ranking is built once per TTL and shared, so a page and a pinned row
+  // are reads from memory rather than another pass over the table. The query
+  // itself is unchanged: see lib/leaderboardRanking.ts for why it is cached
+  // instead of rewritten.
+  const [ranking, myGroup] = await Promise.all([
+    getRanking(),
+    me ? groupKeyFor(me) : Promise.resolve(null),
+  ]);
 
-  type Ranked = {
-    kind: "top" | "me";
+  const rows = ranking.rows.slice(0, limit);
+
+  let mine: {
     rank: number;
     address: string;
     username: string | null;
     hexCount: number;
-  };
-
-  // The page and the pinned row read the same `ranked` CTE, so they go in one
-  // statement. Interpolating the CTE into two `db.execute` calls ran the
-  // per-owner aggregate over every row of `hexes` twice for one request, and
-  // at ~275k rows that was the whole cost of this endpoint.
-  const mePin = me
-    ? sql`
-      UNION ALL
-      (SELECT
-        'me' AS "kind",
-        r.rank AS "rank",
-        r.address AS "address",
-        r.username AS "username",
-        r.hex_count AS "hexCount"
-      FROM ranked r
-      WHERE r.group_key = COALESCE(
-        (SELECT pw.player_id::text FROM player_wallets pw
-         WHERE LOWER(pw.address) = ${me} LIMIT 1),
-        (SELECT u.address FROM users u WHERE LOWER(u.address) = ${me} LIMIT 1)
-      )
-      LIMIT 1)
-    `
-    : sql``;
-
-  const ranksAll = (await db.execute(sql`
-    ${ranked}
-    (SELECT
-      'top' AS "kind",
-      rank AS "rank",
-      address AS "address",
-      username AS "username",
-      hex_count AS "hexCount"
-    FROM ranked
-    ORDER BY rank
-    LIMIT ${limit})
-    ${mePin}
-  `)) as unknown as Ranked[];
-
-  // UNION ALL does not promise the branch's ORDER BY survives into the
-  // result, so the page order is re-established here rather than trusted.
-  const rows = ranksAll
-    .filter((r) => r.kind === "top")
-    .sort((a, b) => a.rank - b.rank);
-  let mine: Omit<Ranked, "kind"> | null = null;
-  const pinned = ranksAll.find((r) => r.kind === "me");
+  } | null = null;
+  const pinned = myGroup ? ranking.byGroup.get(myGroup) : undefined;
   if (pinned && pinned.hexCount > 0) {
     mine = {
       rank: pinned.rank,
