@@ -3,6 +3,10 @@
 import * as Sentry from "@sentry/nextjs";
 import { track } from "@/lib/analytics";
 import { createLogger } from "@/lib/logger";
+import {
+  shouldRaiseToSentry,
+  type FailureStage,
+} from "@/lib/map/mapFailureKind";
 import { forgetMapTier, resolveMapTier, type MapTier } from "@/lib/map/tier";
 
 const log = createLogger("map");
@@ -25,7 +29,7 @@ const log = createLogger("map");
  */
 
 export type MapEngine = "maplibre" | "grid";
-export type FailureStage = "import" | "construct" | "style" | "draw";
+export type { FailureStage };
 
 let tagged = false;
 
@@ -121,17 +125,29 @@ export function mapRenderFailed(
     message: message.slice(0, 200),
   });
 
-  Sentry.withScope((scope) => {
-    scope.setTag("map.stage", stage);
-    scope.setTag("map.engine", engine);
-    // One issue per tier and stage. Without this the grid's failures group
-    // with maplibre's and the tier the fix belongs to is lost in the mix.
-    scope.setFingerprint(["map-render-failed", tier, engine, stage]);
-    scope.setContext("mapFailure", { tier, engine, path, stage, message });
-    Sentry.captureException(
-      error instanceof Error ? error : new Error(message),
-    );
-  });
+  // A phone that lost signal mid-run is not a bug anyone can fix, and it
+  // would arrive for every player who runs through a tunnel. It stays a
+  // count. See lib/map/mapFailureKind.ts.
+  if (shouldRaiseToSentry(stage, message)) {
+    Sentry.withScope((scope) => {
+      scope.setTag("map.stage", stage);
+      scope.setTag("map.engine", engine);
+      // One issue per tier and stage. Without this the grid's failures group
+      // with maplibre's and the tier the fix belongs to is lost in the mix.
+      scope.setFingerprint(["map-render-failed", tier, engine, stage]);
+      scope.setContext("mapFailure", { tier, engine, path, stage, message });
+      Sentry.captureException(
+        error instanceof Error ? error : new Error(message),
+      );
+    });
+  } else {
+    Sentry.addBreadcrumb({
+      category: "map",
+      level: "warning",
+      message: `style request did not complete: ${message.slice(0, 120)}`,
+      data: { tier, engine, path },
+    });
+  }
 
   // A GPU that refused to build the map contradicts the tier it was given.
   // Keeping that answer for a week would repeat the failure on every load,
