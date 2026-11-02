@@ -259,8 +259,15 @@ export function RunSummaryModal({
                       "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
                   }}
                 />
-                <span className="text-sm font-semibold text-zinc-900">
-                  {badgeCopy(id, locale).name}
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-sm font-semibold text-zinc-900">
+                    {badgeCopy(id, locale).name}
+                  </span>
+                  {badgeCopy(id, locale).description && (
+                    <span className="text-xs text-zinc-500">
+                      {badgeCopy(id, locale).description}
+                    </span>
+                  )}
                 </span>
               </li>
             ))}
