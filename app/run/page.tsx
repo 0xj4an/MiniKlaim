@@ -35,6 +35,11 @@ import {
 import { haversineMeters } from "@/lib/map/geo";
 import { liveGeoSource } from "@/lib/map/liveSource";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
+import { getGridData, resetGridData, setGridData } from "@/lib/map/gridStore";
+import { viewportFromCenter } from "@/lib/map/viewport";
+import { useMapTier } from "@/lib/map/useMapTier";
+import { mapNoticeDismissed } from "@/lib/map/mapTelemetry";
+import GridMap from "@/app/GridMap";
 import {
   HEX_COLORS,
   LEVEL_DARK,
@@ -168,6 +173,14 @@ export default function RunPage() {
   useEffect(() => {
     reportGpuSupport("/run");
   }, []);
+  // Which renderer this phone gets. Null for the first render, since probing
+  // a GPU needs a browser and rendering one map on the server and another on
+  // the client is a hydration mismatch.
+  const mapTier = useMapTier();
+  const isGrid = mapTier === "grid";
+  // Read inside callbacks that must not be rebuilt when the tier arrives.
+  const isGridRef = useRef(false);
+  isGridRef.current = isGrid;
   const mapFailed = useWebglFailure(() => {
     track("map_webgl_failed", { path: "/run" });
     reportWebglFailure("/run");
@@ -417,34 +430,49 @@ export default function RunPage() {
 
   const refreshClaimed = useCallback(async (reason: "move" | "fresh" = "fresh") => {
     const map = mapRef.current;
-    if (!map) return;
+    // The grid tier has no map object, so the view comes from the canvas
+    // instead. Without this the fetch returned early and the phones that
+    // most need their blocks drawn were the ones that never got them.
+    const grid = isGridRef.current;
+    if (!map && !grid) return;
     const gen = ++paintGen.current;
     let centerLat: number;
     let centerLng: number;
     let radius: number;
     let bounds: LngLatBounds;
     try {
-      const center = map.getCenter();
-      const box = map.getBounds();
-      centerLat = center.lat;
-      centerLng = center.lng;
-      radius = 0;
-      const corners: Array<[number, number]> = [
-        [box.getNorth(), box.getEast()],
-        [box.getNorth(), box.getWest()],
-        [box.getSouth(), box.getEast()],
-        [box.getSouth(), box.getWest()],
-      ];
-      for (const [lat, lng] of corners) {
-        const dist = haversineMeters(centerLat, centerLng, lat, lng);
-        if (dist > radius) radius = dist;
+      if (map) {
+        const center = map.getCenter();
+        const box = map.getBounds();
+        centerLat = center.lat;
+        centerLng = center.lng;
+        radius = 0;
+        const corners: Array<[number, number]> = [
+          [box.getNorth(), box.getEast()],
+          [box.getNorth(), box.getWest()],
+          [box.getSouth(), box.getEast()],
+          [box.getSouth(), box.getWest()],
+        ];
+        for (const [lat, lng] of corners) {
+          const dist = haversineMeters(centerLat, centerLng, lat, lng);
+          if (dist > radius) radius = dist;
+        }
+        bounds = {
+          west: box.getWest(),
+          south: box.getSouth(),
+          east: box.getEast(),
+          north: box.getNorth(),
+        };
+      } else {
+        const data = getGridData();
+        // Nothing to frame until the first fix; the next one calls again.
+        if (!data.position) return;
+        const view = viewportFromCenter(data.center, data.zoom, data.size);
+        centerLat = view.centerLat;
+        centerLng = view.centerLng;
+        radius = view.radiusM;
+        bounds = view.bounds;
       }
-      bounds = {
-        west: box.getWest(),
-        south: box.getSouth(),
-        east: box.getEast(),
-        north: box.getNorth(),
-      };
     } catch {
       return;
     }
@@ -452,16 +480,15 @@ export default function RunPage() {
     const stale = () => paintGen.current !== gen || mapRef.current !== map;
     const paint = (rows: ClaimedHexRow[]) => {
       rememberOwners(mineH3Ref.current, rows, linkedRef.current);
-      const source = liveGeoSource(map, "claimed-hexes");
-      source?.setData(
-        claimedHexesToFeatureCollection(
-          rows,
-          linkedRef.current,
-          runH3Ref.current,
-          topColorsRef.current,
-        ),
+      const collection = claimedHexesToFeatureCollection(
+        rows,
+        linkedRef.current,
+        runH3Ref.current,
+        topColorsRef.current,
       );
-      log.debug("claimed-view", { count: rows.length, reason, wide });
+      if (map) liveGeoSource(map, "claimed-hexes")?.setData(collection);
+      else setGridData({ hexes: collection });
+      log.debug("claimed-view", { count: rows.length, reason, wide, grid: !map });
     };
     const fetchRows = async (url: string): Promise<ClaimedHexRow[] | null> => {
       try {
@@ -1082,6 +1109,11 @@ export default function RunPage() {
 
   useEffect(() => {
     if (!containerRef.current || !mapBoot) return;
+    // Wait for the tier. Building MapLibre first and discovering the tier
+    // afterwards is how a phone with no WebGL still reached the constructor:
+    // the probe resolves in a mount effect, so its value is only in hand on
+    // the render after this one.
+    if (mapTier === null) return;
 
     const initialCenter = mapBoot.center;
     const initialZoom = mapBoot.zoom;
@@ -1264,8 +1296,16 @@ export default function RunPage() {
               }
             }
           }
-          const source = map ? liveGeoSource(map, "hexes") : null;
-          source?.setData(hexes);
+          if (map) {
+            liveGeoSource(map, "hexes")?.setData(hexes);
+          } else if (isGridRef.current) {
+            // The grid follows the player directly: there is no camera to
+            // animate, so centre and position move together.
+            setGridData({
+              center: [longitude, latitude],
+              position: [longitude, latitude],
+            });
+          }
         },
         (err) => {
           const label =
@@ -1297,6 +1337,21 @@ export default function RunPage() {
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
       );
     };
+
+    // The grid tier never builds a MapLibre map: the canvas is already
+    // mounted and tracking is wired the same way the no-WebGL fallback
+    // below wires it. Reaching the constructor on a phone with no WebGL is
+    // what used to produce the 36 failures those 7 players saw.
+    if (isGridRef.current) {
+      setGridData({ center: initialCenter, zoom: initialZoom });
+      startTracking(null);
+      void refreshClaimed();
+      return () => {
+        alive = false;
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        resetGridData();
+      };
+    }
 
     let map: maplibregl.Map;
     try {
@@ -1535,6 +1590,7 @@ export default function RunPage() {
     };
   }, [
     mapBoot,
+    mapTier,
     claimHexes,
     refreshClaimed,
     capturedByLabel,
@@ -1551,6 +1607,8 @@ export default function RunPage() {
       className="relative h-screen w-screen overflow-hidden"
       style={{ height: "100dvh" }}
     >
+      {/* The same box either way: MapLibre mounts into it, and the grid
+          canvas sizes itself from it. */}
       <div
         ref={containerRef}
         className="z-0 bg-zinc-100"
@@ -1561,11 +1619,32 @@ export default function RunPage() {
           bottom: 0,
           left: 0,
         }}
-      />
-      {mapUnavailable && !mapNoticeClosed && (
+      >
+        {isGrid && <GridMap path="/run" className="block h-full w-full" />}
+      </div>
+      {/* The grid tier draws a map, so it gets an explanation rather than the
+          failure notice: the streets are missing on purpose and the player
+          should not be left wondering whether the app is broken. */}
+      {isGrid && !mapNoticeClosed && (
+        <div className="absolute inset-x-4 top-16 z-20 flex items-start gap-2 rounded-md bg-white/95 p-3 text-sm text-zinc-800 shadow-md">
+          <p className="flex-1">{t("map.gridNote")}</p>
+          <CloseButton
+            onClick={() => {
+              setMapNoticeClosed(true);
+              mapNoticeDismissed("grid", "/run");
+            }}
+          />
+        </div>
+      )}
+      {mapUnavailable && !isGrid && !mapNoticeClosed && (
         <div className="absolute inset-x-4 top-16 z-20 flex items-start gap-2 rounded-md bg-white/95 p-3 text-sm text-zinc-800 shadow-md">
           <p className="flex-1">{t("map.webglFailed")}</p>
-          <CloseButton onClick={() => setMapNoticeClosed(true)} />
+          <CloseButton
+            onClick={() => {
+              setMapNoticeClosed(true);
+              mapNoticeDismissed(mapTier ?? "gl2", "/run");
+            }}
+          />
         </div>
       )}
       <Link

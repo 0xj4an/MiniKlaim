@@ -19,6 +19,12 @@ export type GridData = {
   center: LngLat;
   zoom: number;
   position: LngLat | null;
+  /**
+   * The canvas size in CSS pixels, written by the canvas as it paints. The
+   * claimed-block fetch needs it to work out what the view covers, and on
+   * this tier there is no map object to ask.
+   */
+  size: { width: number; height: number };
 };
 
 const EMPTY: GridData = {
@@ -26,6 +32,7 @@ const EMPTY: GridData = {
   center: [0, 0],
   zoom: 16,
   position: null,
+  size: { width: 360, height: 640 },
 };
 
 let state: GridData = EMPTY;

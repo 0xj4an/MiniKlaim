@@ -3,7 +3,7 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { createLogger } from "@/lib/logger";
 import { drawGrid } from "@/lib/map/gridDraw";
-import { getGridData, subscribeGrid, type GridData } from "@/lib/map/gridStore";
+import { getGridData, setGridData, subscribeGrid, type GridData } from "@/lib/map/gridStore";
 import { mapRenderFailed, mapRenderReady, mapRenderStarted } from "@/lib/map/mapTelemetry";
 
 const log = createLogger("gridmap");
@@ -80,6 +80,14 @@ export default function GridMap({ path, className }: Props) {
         canvas.height = backingH;
         canvas.style.width = `${width}px`;
         canvas.style.height = `${height}px`;
+      }
+
+      // Publish the size so the claimed-block fetch knows what the view
+      // covers. Only on a change, or writing it would schedule another frame
+      // from inside this one, forever.
+      const known = dataRef.current.size;
+      if (known.width !== width || known.height !== height) {
+        setGridData({ size: { width, height } });
       }
 
       try {
