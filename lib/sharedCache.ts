@@ -18,7 +18,20 @@ export type SharedCache<T> = {
   size: () => number;
 };
 
-export function createSharedCache<T>(ttlMs: number): SharedCache<T> {
+export type SharedCacheOptions = {
+  /**
+   * Serve an expired value right away and refresh it in the background, so
+   * one unlucky request per TTL does not pay the whole build. Opt in: it
+   * widens how stale an answer can be to the TTL plus one build, and it only
+   * makes sense where a slightly old value is better than a slow one.
+   */
+  serveStaleWhileRevalidating?: boolean;
+};
+
+export function createSharedCache<T>(
+  ttlMs: number,
+  options: SharedCacheOptions = {},
+): SharedCache<T> {
   const cache = new Map<string, { value: T; at: number }>();
   const inflight = new Map<string, Promise<T>>();
 
@@ -29,7 +42,11 @@ export function createSharedCache<T>(ttlMs: number): SharedCache<T> {
       if (hit && now - hit.at < ttlMs) return hit.value;
 
       const running = inflight.get(key);
-      if (running) return running;
+      if (running) {
+        // A stale value beats waiting for someone else's build.
+        if (hit && options.serveStaleWhileRevalidating) return hit.value;
+        return running;
+      }
 
       const started = load()
         .then((value) => {
@@ -42,6 +59,14 @@ export function createSharedCache<T>(ttlMs: number): SharedCache<T> {
           inflight.delete(key);
         });
       inflight.set(key, started);
+
+      if (hit && options.serveStaleWhileRevalidating) {
+        // Nobody is awaiting `started` in this branch, so a rejection would
+        // otherwise surface as an unhandled rejection and take the process
+        // down. The next caller runs the load again and sees the error then.
+        started.catch(() => {});
+        return hit.value;
+      }
       return started;
     },
     clear(key) {

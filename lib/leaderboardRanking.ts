@@ -15,6 +15,8 @@ export type Ranking = {
   rows: RankedRow[];
   /** group_key to its row, for the pinned "me" line. */
   byGroup: Map<string, RankedRow>;
+  /** Lowercased wallet to its group, so resolving "me" costs no query. */
+  groupOf: Map<string, string>;
   builtAt: number;
 };
 
@@ -37,7 +39,9 @@ export type Ranking = {
  */
 const TTL_MS = 30_000;
 
-const cache = createSharedCache<Ranking>(TTL_MS);
+const cache = createSharedCache<Ranking>(TTL_MS, {
+  serveStaleWhileRevalidating: true,
+});
 
 export function clearRankingCache(): void {
   cache.clear();
@@ -45,7 +49,17 @@ export function clearRankingCache(): void {
 
 export async function getRanking(): Promise<Ranking> {
   return cache.get("all", async () => {
-    const rows = (await db.execute(sql`
+    const [rows, groups] = await Promise.all([buildRanked(), buildGroupOf()]);
+    const byGroup = new Map<string, RankedRow>();
+    for (const r of rows) byGroup.set(r.groupKey, r);
+    const groupOf = new Map<string, string>();
+    for (const g of groups) groupOf.set(g.address.toLowerCase(), g.groupKey);
+    return { rows, byGroup, groupOf, builtAt: Date.now() };
+  });
+}
+
+async function buildRanked(): Promise<RankedRow[]> {
+  return (await db.execute(sql`
       WITH group_map AS (
         SELECT
           u.address,
@@ -91,25 +105,29 @@ export async function getRanking(): Promise<Ranking> {
       INNER JOIN group_display gd ON gd.group_key = ghc.group_key
       ORDER BY "rank"
     `)) as unknown as RankedRow[];
-
-    const byGroup = new Map<string, RankedRow>();
-    for (const r of rows) byGroup.set(r.groupKey, r);
-    return { rows, byGroup, builtAt: Date.now() };
-  });
 }
 
 /**
- * The group a wallet belongs to: its player when linked, else the address
- * itself. One indexed lookup, so it stays per-request and the ranking above
- * stays shared.
+ * Every wallet with the group it ranks under. This used to be one indexed
+ * lookup per request to place the pinned row, which was the last query left
+ * on the hot path. It is the same grouping rule `group_map` uses above, over
+ * the same snapshot, so a pinned rank cannot disagree with the list.
+ *
+ * A wallet that registers after the build is simply absent until the next
+ * one. It would have had no blocks in this snapshot either, and a pinned row
+ * with no blocks was never shown.
  */
-export async function groupKeyFor(addressLower: string): Promise<string | null> {
-  const found = (await db.execute(sql`
-    SELECT COALESCE(
-      (SELECT pw.player_id::text FROM player_wallets pw
-       WHERE LOWER(pw.address) = ${addressLower} LIMIT 1),
-      (SELECT u.address FROM users u WHERE LOWER(u.address) = ${addressLower} LIMIT 1)
-    ) AS "groupKey"
-  `)) as unknown as Array<{ groupKey: string | null }>;
-  return found[0]?.groupKey ?? null;
+async function buildGroupOf(): Promise<Array<{ address: string; groupKey: string }>> {
+  return (await db.execute(sql`
+    SELECT
+      u.address AS "address",
+      COALESCE(
+        (SELECT pw.player_id::text
+         FROM player_wallets pw
+         WHERE pw.address = u.address
+         LIMIT 1),
+        u.address
+      ) AS "groupKey"
+    FROM users u
+  `)) as unknown as Array<{ address: string; groupKey: string }>;
 }
