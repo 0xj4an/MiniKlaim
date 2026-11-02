@@ -5,8 +5,8 @@
  * sponsored allowance) are the server deciding, not a fault. 403 means this
  * client does not hold the run token: the run was played in another browser,
  * or local storage was cleared, so the relayer will not pay for it. None of
- * the three is actionable from an error report — the player is told the claim
- * did not go through and the retry cron picks the run up later — so all three
+ * the three is actionable from an error report: the player is told the claim
+ * did not go through and the retry cron picks the run up later: so all three
  * are tracked and none is raised to Sentry.
  *
  * `useClaimRun` already treated 403 as a refusal while `useClaimAll` reported

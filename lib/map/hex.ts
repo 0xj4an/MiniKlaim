@@ -63,7 +63,7 @@ export function hexesAround(
  * crosses, INCLUDING the endpoint cell but EXCLUDING the start cell (the
  * caller already claimed that one on the previous GPS fix). Used to recover
  * hexes that were physically traversed between two GPS pings when the player
- * moves faster than 1 hex per ping — critical for fast running, biking, cars,
+ * moves faster than 1 hex per ping: critical for fast running, biking, cars,
  * and vehicles in general.
  *
  * Linear interpolation in lat/lng is fine at any realistic per-segment scale

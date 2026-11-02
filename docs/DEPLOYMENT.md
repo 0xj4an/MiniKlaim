@@ -50,7 +50,7 @@ Set via Railway UI or `railway variables --service web --set "KEY=VALUE"`:
 | `NEXT_PUBLIC_POSTHOG_KEY` | PostHog client key (`phc_...`). Public. | `phc_...` |
 | `RESEND_API_KEY` | Resend key for the in-app support form (`/api/support` sends to support@ with reply-to set to the player). Unset: the route returns 503 and the form offers the old mailto fallback. | `re_...` |
 | `SPONSOR_DAILY_HEX_CAP` | Hexes per wallet per day the relayer will settle when the player can't pay. Code default 200; production 10,000 since 2026-10-23 (long runs of 2,000–4,500 hexes were being capped). Set on `web` and `cron-retry-unminted`. | `10000` |
-| `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` | Sentry error reporting and source-map upload at build. | — |
+| `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` | Sentry error reporting and source-map upload at build. |: |
 
 `ETHERSCAN_API_KEY` is deliberately **not** in that table. No application code reads it; only Foundry does, for contract verification, and Foundry never runs on Railway. It belongs in the local `.env.local` and nowhere else. It was set on the production service until 2026-09-23 and was removed as dead config.
 

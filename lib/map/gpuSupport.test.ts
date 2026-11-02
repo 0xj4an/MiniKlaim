@@ -36,7 +36,7 @@ describe("probeGpuSupport", () => {
     expect(got.maxTextureSize).toBe(4096);
   });
 
-  it("falls back to WebGL1 — the phones MapLibre 6 would refuse", () => {
+  it("falls back to WebGL1: the phones MapLibre 6 would refuse", () => {
     const got = probeGpuSupport(canvasWith({ webgl2: null, webgl: glContext("Adreno (TM) 308") }));
     expect(got.webgl).toBe(1);
     expect(got.renderer).toBe("Adreno (TM) 308");

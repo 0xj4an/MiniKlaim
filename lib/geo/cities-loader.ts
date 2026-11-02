@@ -16,7 +16,7 @@ const PATHS = [
 /**
  * The city table, read once per process. `npm run prebuild` writes the file;
  * when it is missing, city resolution degrades to null rather than failing,
- * which is how it has always behaved — a block with no city still counts.
+ * which is how it has always behaved: a block with no city still counts.
  */
 export function loadCities(): CityTable | null {
   if (cache || tried) return cache;

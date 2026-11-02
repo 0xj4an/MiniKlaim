@@ -3,7 +3,7 @@
  *
  * `public/data/cities.json` held one object per city. Parsing it cost ~46 MB
  * of heap and `cityForHex` built a Map of per-country arrays on top, for
- * ~55 MB resident — inside a container that was capped at 512 MB, which is
+ * ~55 MB resident: inside a container that was capped at 512 MB, which is
  * what put MiniKlaim in a crashloop on 29 Oct 2026. Raising the cap to 8 GB
  * stopped the bleeding; this is the actual fix, and it keeps every city
  * rather than trimming the list down to the "top 5000" the old loader's

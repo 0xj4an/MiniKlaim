@@ -51,8 +51,8 @@ export type PayCheck = {
  *
  * `nativeOnly` means the asking wallet can only pay gas in CELO, so a
  * stablecoin balance is not money it can spend on a fee. Every wallet but
- * MiniPay is in that position — CIP-64's `feeCurrency` is what makes a
- * stablecoin payable and the others reject the field — and checking their
+ * MiniPay is in that position: CIP-64's `feeCurrency` is what makes a
+ * stablecoin payable and the others reject the field: and checking their
  * stablecoins anyway answered "you can pay" to players who could not,
  * leaving the claim with nowhere to go.
  */

@@ -13,7 +13,7 @@ import { type TokenStatus, useMintTokens } from "@/lib/wallet/useMintTokens";
  * while `claimRun` on the same contract went through, so the button was
  * replaced by a note there. MiniPay allowlisted the function on 28 Oct and
  * the note is gone: every wallet gets the button again. Nothing had exercised
- * the allowlist while the note was up, so the first real mint is the proof —
+ * the allowlist while the note was up, so the first real mint is the proof:
  * watch `nft_mint_confirmed` against `nft_mint_failed`.
  */
 /** The quoted dollar cost for a batch, or null when the chain was unreadable. */

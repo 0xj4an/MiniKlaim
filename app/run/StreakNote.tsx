@@ -31,7 +31,7 @@ export function StreakNote({
   if (!address || !stats) return null;
 
   // A run that captured nothing does not break a streak that is already
-  // alive — the player still has the rest of the day. Telling them to
+  // alive: the player still has the rest of the day. Telling them to
   // "start a streak" while they are seven days in reads as having lost it,
   // which is exactly what a run with no GPS fix produced on 2 Nov 2026:
   // `streak_shown` fired twice with streak 7 and counted false, and the

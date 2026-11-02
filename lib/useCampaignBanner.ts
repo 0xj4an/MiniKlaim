@@ -34,7 +34,7 @@ export function useCampaignBanner(): {
   dismiss: () => void;
 } {
   // Starts hidden: the server has no localStorage, so rendering the banner
-  // during SSR and then removing it on the client is a hydration mismatch —
+  // during SSR and then removing it on the client is a hydration mismatch,
   // the same bug that cost /me a React #418 on every load (27 Oct 2026).
   const [hidden, setHidden] = useState(true);
 

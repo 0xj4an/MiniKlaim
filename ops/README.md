@@ -7,7 +7,7 @@ database now live on the VPS, Railway's services are asleep, and their
 Everything they need is now inside the `miniklaim` container: the database
 URL, the relayer signing key, `tsx` and `drizzle-kit` (both non-dev
 dependencies), the migrations under `lib/db/migrations`, `scripts/`, and
-`tsconfig.json` — `tsx` resolves the `@/...` imports through tsconfig paths,
+`tsconfig.json`: `tsx` resolves the `@/...` imports through tsconfig paths,
 and the files under `lib/` import each other that way, so without it
 `settle-backlog` dies in `resolveTsPathsSync`. Each job needs no secrets of
 its own.
@@ -28,7 +28,7 @@ So each job is an ordinary always-on service that sleeps between runs:
 ```
 
 `restart: always` is what survives a reboot, the same job a timer's
-`Persistent=true` did. `|| true` keeps a failed run from killing the loop —
+`Persistent=true` did. `|| true` keeps a failed run from killing the loop:
 without it one bad run would stop the schedule until someone noticed.
 
 Both jobs run once at startup. That is fine: `finalize-orphans` is
@@ -67,7 +67,7 @@ docker exec miniklaim npm run runs:settle-backlog -- --send
 ## Why the jobs set LOG_LEVEL
 
 The scripts report only through `log.info`, and `lib/logger.ts` silences
-anything below `warn` when `NODE_ENV=production` — which is how the image
+anything below `warn` when `NODE_ENV=production`: which is how the image
 runs. So a job would do its work and print nothing, and a job you cannot
 verify from its logs is a job you cannot trust.
 
@@ -78,7 +78,7 @@ app itself logs.
 
 Memory was capped on every container; CPU was not. A local model on
 `ollama` took 7 of the 8 cores (710% CPU, load average 11) and MiniKlaim's
-requests went to a crawl — nothing in the app was wrong. The compose files
+requests went to a crawl: nothing in the app was wrong. The compose files
 now carry:
 
 ```yaml
@@ -97,8 +97,8 @@ containers sit at 512 so a settlement never competes with a live request.
 
 Recreating the container leaves Caddy with no upstream for the seconds it
 takes to come back, and anyone mid-request got a 502. The access log showed
-them in bursts at the exact minute of each deploy — 11 on 30 Oct, 16 on
-31 Oct — not scattered.
+them in bursts at the exact minute of each deploy: 11 on 30 Oct, 16 on
+31 Oct: not scattered.
 
 The proxy now retries the dial instead of answering. This lives in the
 shared Caddyfile on the VPS (`/home/0xj4an/docker/infra/caddy/Caddyfile`,
@@ -118,14 +118,14 @@ safe even for a POST. Measured by hammering `/api/health` four times a
 second through a full `docker compose restart`: **239 of 240 requests
 returned 200**, and the one failure was a 503 after the retry window, not a
 502. Validate with `caddy validate` and reload with `caddy reload` before
-trusting any edit to that file — it fronts every site on the box.
+trusting any edit to that file: it fronts every site on the box.
 
 ## Build arguments the VPS has to pass
 
 `NEXT_PUBLIC_*` is inlined into the bundles at build time, so setting one in
 `.env.miniklaim` changes nothing the client does. `lib/envSkew.ts` now logs
 an error at server start for any of them that disagree between the build and
-the runtime environment — check for that line after a deploy.
+the runtime environment: check for that line after a deploy.
 
 The ones with a default in the `Dockerfile` need nothing, the compose file
 passes the other two, and `ops/deploy.sh` supplies the commit. The whole
@@ -146,7 +146,7 @@ so a tab left open on the old build hits "Failed to find Server Action" and
 `App: dev`, and Sentry tags no release on anything.
 
 `SENTRY_AUTH_TOKEN` is the other one. It sits in `.env.miniklaim`, which
-compose reads as `env_file` — runtime only, so the build never saw it and
+compose reads as `env_file`: runtime only, so the build never saw it and
 the Sentry plugin created no release and uploaded nothing. `ops/deploy.sh`
 reads it out of that file and exports it before building, and says so
 loudly when it is missing. The plugin runs with `silent: true`, so a build
@@ -157,7 +157,7 @@ without the token reports success and quietly does nothing.
 Railway ran `npm run db:migrate` as its `preDeployCommand` (see
 `railway.json`). Compose has no equivalent, so a schema change could ship
 without its migration and the app would run against an older database than
-it expects. `ops/deploy.sh` is that hook now — it migrates between the build
+it expects. `ops/deploy.sh` is that hook now: it migrates between the build
 and the restart, which is the order Railway gave us. By hand:
 
 ```sh

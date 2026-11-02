@@ -42,7 +42,7 @@ echo "==> deploying $REF at $SHA"
 cd "$COMPOSE_DIR"
 export BUILD_COMMIT_SHA="$SHA"
 
-# SENTRY_AUTH_TOKEN lives in .env.miniklaim, which compose reads as env_file —
+# SENTRY_AUTH_TOKEN lives in .env.miniklaim, which compose reads as env_file,
 # runtime only. Build args come from the shell, so without this the Sentry
 # plugin builds with no token: no release created, no artifacts uploaded, and
 # `silent: true` means the build says nothing about it.
