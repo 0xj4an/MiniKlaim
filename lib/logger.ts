@@ -13,7 +13,7 @@ const LEVELS: Record<Level, number> = {
  *
  * The default stays as it was: warn in production, debug everywhere else.
  * The override exists for the scheduled maintenance jobs, which run with
- * NODE_ENV=production and report only through `log.info` — so they ran
+ * NODE_ENV=production and report only through `log.info`: so they ran
  * completely silently, and a job you cannot verify from its logs is a job
  * you cannot trust (found 29 Oct 2026, when `settle-backlog` exited 0 and
  * said nothing at all).

@@ -35,7 +35,7 @@ export function formatSpeed(durationMs: number, distanceMeters: number): string 
 /**
  * Rolling-window speed. Takes an ordered buffer of `{ts, cumulativeMeters}`
  * samples and computes the km/h across the samples that fall inside the last
- * `windowMs` milliseconds. This is what the live banner should show — closer
+ * `windowMs` milliseconds. This is what the live banner should show: closer
  * to a car speedometer than to session average. A stopped runner drops toward
  * 0 quickly; a plane sitting at cruise reads cruise, not the ramp-up from
  * takeoff.

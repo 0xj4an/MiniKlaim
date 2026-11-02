@@ -4,7 +4,7 @@
  *
  * The world-hex route has had this shape since the list grew past a few MB;
  * this is the same thing extracted so other heavy reads can use it. It is
- * per-process, so with more than one container each keeps its own copy —
+ * per-process, so with more than one container each keeps its own copy:
  * fine for a value that may lag by its TTL, wrong for anything that must be
  * consistent between replicas.
  *

@@ -7,7 +7,7 @@ export const dictionaries = {
     "home.tagline": "Capture the city. The blocks you cross are yours.",
     "home.welcome.h": "Welcome to MiniKlaim",
     "home.welcome.body":
-      "A territory-capture game on Celo. Every block of your city you cross — on foot, by bike, in a car — becomes yours on a shared map. Compete with your neighbors, defend the blocks you own, and watch your territory grow.",
+      "A territory-capture game on Celo. Every block of your city you cross, on foot, by bike or in a car, becomes yours on a shared map. Compete with your neighbors, defend the blocks you own, and watch your territory grow.",
     "home.stats.blocks": "blocks captured",
     "home.stats.player": "player",
     "home.stats.players": "players",
@@ -61,7 +61,7 @@ export const dictionaries = {
     "onboarding.title": "Welcome to MiniKlaim",
     "onboarding.step1.title": "🗺️ Move anywhere",
     "onboarding.step1.body":
-      "Walk, run, bike, drive, fly — cross a block on the map and it's yours.",
+      "Walk, run, bike, drive or fly. Cross a block on the map and it's yours.",
     "onboarding.step2.title": "👤 Pick your name",
     "onboarding.step2.body":
       "Choose a name so other players see you on the leaderboard.",
@@ -118,7 +118,7 @@ export const dictionaries = {
     "me.rewards.error": "Could not claim. Please try again.",
     "me.nfts.header": "🧩 Your blocks as NFTs",
     "me.nfts.summary": "{recorded} blocks recorded on-chain · {tokens} as NFTs",
-    "me.nfts.explain": "Your runs are saved on-chain when you claim them. Turn your blocks into NFTs whenever you like. You pay the network fee, and it grows with the number of blocks — each button shows what it costs you now.",
+    "me.nfts.explain": "Your runs are saved on-chain when you claim them. Turn your blocks into NFTs whenever you like. You pay the network fee, and it grows with the number of blocks. Each button shows what it costs you now.",
     "me.nfts.mint": "Mint {count} blocks as NFTs",
     "me.nfts.mintSmall": "Or mint just {count}",
     "me.nfts.minting": "Confirm in wallet...",
@@ -578,7 +578,7 @@ export const dictionaries = {
     "onboarding.title": "Bienvenido a MiniKlaim",
     "onboarding.step1.title": "🗺️ Muévete donde sea",
     "onboarding.step1.body":
-      "Camina, corre, monta bici, maneja, vuela — cruza una cuadra del mapa y es tuya.",
+      "Camina, corre, monta bici, maneja o vuela. Cruza una cuadra del mapa y es tuya.",
     "onboarding.step2.title": "👤 Elige tu nombre",
     "onboarding.step2.body":
       "Pon un nombre para que otros jugadores te vean en la tabla.",
@@ -635,7 +635,7 @@ export const dictionaries = {
     "me.rewards.error": "No se pudo reclamar. Intenta de nuevo.",
     "me.nfts.header": "🧩 Tus bloques como NFTs",
     "me.nfts.summary": "{recorded} bloques registrados on-chain · {tokens} como NFTs",
-    "me.nfts.explain": "Tus corridas quedan guardadas on-chain cuando las reclamas. Convierte tus bloques en NFTs cuando quieras. Tú pagas la comisión de red, y sube con la cantidad de bloques — cada botón te muestra cuánto te cuesta ahora.",
+    "me.nfts.explain": "Tus corridas quedan guardadas on-chain cuando las reclamas. Convierte tus bloques en NFTs cuando quieras. Tú pagas la comisión de red, y sube con la cantidad de bloques. Cada botón te muestra cuánto te cuesta ahora.",
     "me.nfts.mint": "Mintear {count} bloques como NFTs",
     "me.nfts.mintSmall": "O mintea solo {count}",
     "me.nfts.minting": "Confirma en tu wallet...",

@@ -37,7 +37,7 @@ export function orderHeldByBalance(
 
 /**
  * Send with the first fee option that works. Moves on when the node refuses
- * the fee, and when the wallet cannot do fee abstraction at all — a browser
+ * the fee, and when the wallet cannot do fee abstraction at all: a browser
  * wallet rejects `feeCurrency` outright, and stopping there left every such
  * player unable to act. A decline still stops at once, so the player is
  * never asked twice for one claim.
