@@ -62,8 +62,15 @@ docker compose build miniklaim miniklaim-retry-unminted
 echo "==> migrating"
 docker compose run --rm --no-deps miniklaim npm run db:migrate
 
+# --no-deps so a deploy can only touch MiniKlaim's own containers. Without
+# it, `up -d` recreates any dependency whose definition has drifted from the
+# running container, and on 2 Nov 2026 that was Postgres: shut down cleanly
+# at 08:20:25 and serving again at 08:20:26, one second in which a claim and
+# a pending-claim both got ECONNREFUSED and a player saw a 500
+# (MINIKLAIM-1Q, 1P, 1N). The database is `restart: always` and is not this
+# script's to recreate; changing it is a deliberate act, by hand.
 echo "==> up"
-docker compose up -d miniklaim miniklaim-retry-unminted miniklaim-finalize-orphans
+docker compose up -d --no-deps miniklaim miniklaim-retry-unminted miniklaim-finalize-orphans
 
 # A NEXT_PUBLIC_* that reached the container but not the build is silent and
 # costs a day (29 Oct 2026, hex strength). lib/envSkew.ts logs it at startup;
