@@ -1,7 +1,9 @@
 "use client";
 
 import { latLngToCell } from "h3-js";
-import maplibregl from "maplibre-gl";
+// Types only. The module itself is loaded per tier (v6 for gl2, 5.24
+// for gl1), so this import must never pull a bundle at module scope.
+import type * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -35,6 +37,12 @@ import {
 import { haversineMeters } from "@/lib/map/geo";
 import { liveGeoSource } from "@/lib/map/liveSource";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
+import { getGridData, resetGridData, setGridData } from "@/lib/map/gridStore";
+import { viewportFromCenter } from "@/lib/map/viewport";
+import { useMapTier } from "@/lib/map/useMapTier";
+import { useMaplibre } from "@/lib/map/useMaplibre";
+import { mapNoticeDismissed } from "@/lib/map/mapTelemetry";
+import GridMap from "@/app/GridMap";
 import {
   HEX_COLORS,
   LEVEL_DARK,
@@ -168,6 +176,17 @@ export default function RunPage() {
   useEffect(() => {
     reportGpuSupport("/run");
   }, []);
+  // Which renderer this phone gets. Null for the first render, since probing
+  // a GPU needs a browser and rendering one map on the server and another on
+  // the client is a hydration mismatch.
+  const mapTier = useMapTier();
+  const isGrid = mapTier === "grid";
+  // The MapLibre this tier uses, once loaded. Null on the grid tier, which
+  // must never download a map bundle.
+  const gl = useMaplibre(mapTier);
+  // Read inside callbacks that must not be rebuilt when the tier arrives.
+  const isGridRef = useRef(false);
+  isGridRef.current = isGrid;
   const mapFailed = useWebglFailure(() => {
     track("map_webgl_failed", { path: "/run" });
     reportWebglFailure("/run");
@@ -415,164 +434,188 @@ export default function RunPage() {
   const paintGen = useRef(0);
   const worldInflight = useRef<Promise<ClaimedHexRow[] | null> | null>(null);
 
-  const refreshClaimed = useCallback(async (reason: "move" | "fresh" = "fresh") => {
-    const map = mapRef.current;
-    if (!map) return;
-    const gen = ++paintGen.current;
-    let centerLat: number;
-    let centerLng: number;
-    let radius: number;
-    let bounds: LngLatBounds;
-    try {
-      const center = map.getCenter();
-      const box = map.getBounds();
-      centerLat = center.lat;
-      centerLng = center.lng;
-      radius = 0;
-      const corners: Array<[number, number]> = [
-        [box.getNorth(), box.getEast()],
-        [box.getNorth(), box.getWest()],
-        [box.getSouth(), box.getEast()],
-        [box.getSouth(), box.getWest()],
-      ];
-      for (const [lat, lng] of corners) {
-        const dist = haversineMeters(centerLat, centerLng, lat, lng);
-        if (dist > radius) radius = dist;
+  const refreshClaimed = useCallback(
+    async (reason: "move" | "fresh" = "fresh") => {
+      const map = mapRef.current;
+      // The grid tier has no map object, so the view comes from the canvas
+      // instead. Without this the fetch returned early and the phones that
+      // most need their blocks drawn were the ones that never got them.
+      const grid = isGridRef.current;
+      if (!map && !grid) return;
+      const gen = ++paintGen.current;
+      let centerLat: number;
+      let centerLng: number;
+      let radius: number;
+      let bounds: LngLatBounds;
+      try {
+        if (map) {
+          const center = map.getCenter();
+          const box = map.getBounds();
+          centerLat = center.lat;
+          centerLng = center.lng;
+          radius = 0;
+          const corners: Array<[number, number]> = [
+            [box.getNorth(), box.getEast()],
+            [box.getNorth(), box.getWest()],
+            [box.getSouth(), box.getEast()],
+            [box.getSouth(), box.getWest()],
+          ];
+          for (const [lat, lng] of corners) {
+            const dist = haversineMeters(centerLat, centerLng, lat, lng);
+            if (dist > radius) radius = dist;
+          }
+          bounds = {
+            west: box.getWest(),
+            south: box.getSouth(),
+            east: box.getEast(),
+            north: box.getNorth(),
+          };
+        } else {
+          const data = getGridData();
+          // Nothing to frame until the first fix; the next one calls again.
+          if (!data.position) return;
+          const view = viewportFromCenter(data.center, data.zoom, data.size);
+          centerLat = view.centerLat;
+          centerLng = view.centerLng;
+          radius = view.radiusM;
+          bounds = view.bounds;
+        }
+      } catch {
+        return;
       }
-      bounds = {
-        west: box.getWest(),
-        south: box.getSouth(),
-        east: box.getEast(),
-        north: box.getNorth(),
-      };
-    } catch {
-      return;
-    }
 
-    const stale = () => paintGen.current !== gen || mapRef.current !== map;
-    const paint = (rows: ClaimedHexRow[]) => {
-      rememberOwners(mineH3Ref.current, rows, linkedRef.current);
-      const source = liveGeoSource(map, "claimed-hexes");
-      source?.setData(
-        claimedHexesToFeatureCollection(
+      const stale = () => paintGen.current !== gen || mapRef.current !== map;
+      const paint = (rows: ClaimedHexRow[]) => {
+        rememberOwners(mineH3Ref.current, rows, linkedRef.current);
+        const collection = claimedHexesToFeatureCollection(
           rows,
           linkedRef.current,
           runH3Ref.current,
           topColorsRef.current,
-        ),
-      );
-      log.debug("claimed-view", { count: rows.length, reason, wide });
-    };
-    const fetchRows = async (url: string): Promise<ClaimedHexRow[] | null> => {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) {
-          const backoff = res.status === 429 || res.status === 504;
-          if (backoff) hexRefreshPauseUntil.current = Date.now() + 20_000;
-          log.warn("claimed hexes refresh failed", {
-            status: res.status,
-            pace: backoff ? "claim-refresh-504-20s" : "claim-refresh-4s",
+        );
+        if (map) liveGeoSource(map, "claimed-hexes")?.setData(collection);
+        else setGridData({ hexes: collection });
+        log.debug("claimed-view", {
+          count: rows.length,
+          reason,
+          wide,
+          grid: !map,
+        });
+      };
+      const fetchRows = async (
+        url: string,
+      ): Promise<ClaimedHexRow[] | null> => {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) {
+            const backoff = res.status === 429 || res.status === 504;
+            if (backoff) hexRefreshPauseUntil.current = Date.now() + 20_000;
+            log.warn("claimed hexes refresh failed", {
+              status: res.status,
+              pace: backoff ? "claim-refresh-504-20s" : "claim-refresh-4s",
+            });
+            track("hexes_refresh_error", { status: res.status });
+            reportServerError(endpointLabel(url), res.status);
+            return null;
+          }
+          return rowsFromWorldResponse(await res.json());
+        } catch (e) {
+          log.error("failed to refresh claimed hexes", {
+            message: e instanceof Error ? e.message : String(e),
           });
-          track("hexes_refresh_error", { status: res.status });
-          reportServerError(endpointLabel(url), res.status);
+          trackLimited("hexes_refresh_network_error", {
+            error: e instanceof Error ? e.message : String(e),
+          });
           return null;
         }
-        return rowsFromWorldResponse(await res.json());
-      } catch (e) {
-        log.error("failed to refresh claimed hexes", {
-          message: e instanceof Error ? e.message : String(e),
-        });
-        trackLimited("hexes_refresh_network_error", {
-          error: e instanceof Error ? e.message : String(e),
-        });
-        return null;
-      }
-    };
-
-    const wide = viewportNeedsWorld(radius);
-    if (!wide) {
-      const cover = diskCoverRef.current;
-      if (
-        reason !== "fresh" &&
-        cover &&
-        diskCoversView(
-          cover.lat,
-          cover.lng,
-          cover.radiusM,
-          centerLat,
-          centerLng,
-          radius,
-        )
-      ) {
-        return;
-      }
-      const k = diskKForRadius(radius);
-      const near = latLngToCell(centerLat, centerLng, HEX_RESOLUTION);
-      const rows = await fetchRows(`/api/hexes?near=${near}&k=${k}`);
-      if (stale() || !rows) return;
-      paint(rows);
-      diskCoverRef.current = {
-        lat: centerLat,
-        lng: centerLng,
-        radiusM: diskRadiusMeters(k),
       };
-      return;
-    }
 
-    diskCoverRef.current = null;
-    const cached = await readCachedWorld();
-    if (stale()) return;
-    const cachedRows = cached ? parseWorldBody(cached.body) : null;
-    if (cachedRows) {
-      worldRef.current = { rows: placeHexes(cachedRows), at: cached.savedAt };
-      paint(hexesInBounds(worldRef.current.rows, bounds));
-    } else {
-      // Cold phone: show the blocks around the player while the world list
-      // downloads, instead of a blank map.
-      const near = latLngToCell(centerLat, centerLng, HEX_RESOLUTION);
-      const nearby = await fetchRows(
-        `/api/hexes?near=${near}&k=${diskKForRadius(radius)}`,
-      );
-      if (stale()) return;
-      if (nearby && !worldRef.current) paint(nearby);
-    }
-    const worldStale =
-      !worldRef.current || Date.now() - worldRef.current.at > 10 * 60_000;
-    if (worldStale) {
-      if (!worldInflight.current) {
-        const pending = fetchWorldRows(cached).then((result) =>
-          result?.rows ?? null,
-        );
-        worldInflight.current = pending;
-        void pending.finally(() => {
-          if (worldInflight.current === pending) worldInflight.current = null;
-        });
-      }
-      const all = await worldInflight.current;
-      if (stale()) return;
-      if (all) worldRef.current = { rows: placeHexes(all), at: Date.now() };
-    }
-    if (reason === "fresh" || worldStale) {
-      const addr = addressRef.current;
-      if (addr) {
-        const mine = await fetchRows(
-          `/api/hexes?owner=${encodeURIComponent(addr)}`,
-        );
-        if (stale()) return;
-        if (mine && worldRef.current) {
-          worldRef.current = {
-            rows: mergeHexes(worldRef.current.rows, placeHexes(mine)),
-            at: worldRef.current.at,
-          };
-        } else if (mine && !worldRef.current) {
-          paint(hexesInBounds(placeHexes(mine), bounds));
+      const wide = viewportNeedsWorld(radius);
+      if (!wide) {
+        const cover = diskCoverRef.current;
+        if (
+          reason !== "fresh" &&
+          cover &&
+          diskCoversView(
+            cover.lat,
+            cover.lng,
+            cover.radiusM,
+            centerLat,
+            centerLng,
+            radius,
+          )
+        ) {
           return;
         }
+        const k = diskKForRadius(radius);
+        const near = latLngToCell(centerLat, centerLng, HEX_RESOLUTION);
+        const rows = await fetchRows(`/api/hexes?near=${near}&k=${k}`);
+        if (stale() || !rows) return;
+        paint(rows);
+        diskCoverRef.current = {
+          lat: centerLat,
+          lng: centerLng,
+          radiusM: diskRadiusMeters(k),
+        };
+        return;
       }
-    }
-    if (!worldRef.current) return;
-    paint(hexesInBounds(worldRef.current.rows, bounds));
-  }, []);
+
+      diskCoverRef.current = null;
+      const cached = await readCachedWorld();
+      if (stale()) return;
+      const cachedRows = cached ? parseWorldBody(cached.body) : null;
+      if (cachedRows) {
+        worldRef.current = { rows: placeHexes(cachedRows), at: cached.savedAt };
+        paint(hexesInBounds(worldRef.current.rows, bounds));
+      } else {
+        // Cold phone: show the blocks around the player while the world list
+        // downloads, instead of a blank map.
+        const near = latLngToCell(centerLat, centerLng, HEX_RESOLUTION);
+        const nearby = await fetchRows(
+          `/api/hexes?near=${near}&k=${diskKForRadius(radius)}`,
+        );
+        if (stale()) return;
+        if (nearby && !worldRef.current) paint(nearby);
+      }
+      const worldStale =
+        !worldRef.current || Date.now() - worldRef.current.at > 10 * 60_000;
+      if (worldStale) {
+        if (!worldInflight.current) {
+          const pending = fetchWorldRows(cached).then(
+            (result) => result?.rows ?? null,
+          );
+          worldInflight.current = pending;
+          void pending.finally(() => {
+            if (worldInflight.current === pending) worldInflight.current = null;
+          });
+        }
+        const all = await worldInflight.current;
+        if (stale()) return;
+        if (all) worldRef.current = { rows: placeHexes(all), at: Date.now() };
+      }
+      if (reason === "fresh" || worldStale) {
+        const addr = addressRef.current;
+        if (addr) {
+          const mine = await fetchRows(
+            `/api/hexes?owner=${encodeURIComponent(addr)}`,
+          );
+          if (stale()) return;
+          if (mine && worldRef.current) {
+            worldRef.current = {
+              rows: mergeHexes(worldRef.current.rows, placeHexes(mine)),
+              at: worldRef.current.at,
+            };
+          } else if (mine && !worldRef.current) {
+            paint(hexesInBounds(placeHexes(mine), bounds));
+            return;
+          }
+        }
+      }
+      if (!worldRef.current) return;
+      paint(hexesInBounds(worldRef.current.rows, bounds));
+    },
+    [],
+  );
 
   /**
    * Upload every hex still waiting. One POST carries the whole queue so a
@@ -588,8 +631,12 @@ export default function RunPage() {
     const payload = {
       hexes: batch.map((item) => ({
         h3: item.h3,
-        ...(item.distanceMeters > 0 ? { distanceMeters: item.distanceMeters } : {}),
-        ...(typeof item.accuracy === "number" ? { accuracy: item.accuracy } : {}),
+        ...(item.distanceMeters > 0
+          ? { distanceMeters: item.distanceMeters }
+          : {}),
+        ...(typeof item.accuracy === "number"
+          ? { accuracy: item.accuracy }
+          : {}),
       })),
     };
     let outcome: Parameters<typeof applyHttp>[2];
@@ -601,7 +648,9 @@ export default function RunPage() {
       });
       if (res.status === 409) outcome = { kind: "ended" };
       else if (res.status === 429) {
-        const body = (await res.json().catch(() => ({}))) as { retryAfter?: number };
+        const body = (await res.json().catch(() => ({}))) as {
+          retryAfter?: number;
+        };
         const wait = Number(body.retryAfter);
         outcome = {
           kind: "rate",
@@ -614,7 +663,10 @@ export default function RunPage() {
         track("batch_claim_error", { status: 429, count: batch.length });
       } else if (!res.ok) {
         outcome = { kind: "retry" };
-        log.warn("batch claim failed", { status: res.status, count: batch.length });
+        log.warn("batch claim failed", {
+          status: res.status,
+          count: batch.length,
+        });
         track("batch_claim_error", { status: res.status, count: batch.length });
         reportServerError("/api/runs/:id/claim", res.status);
       } else {
@@ -626,7 +678,8 @@ export default function RunPage() {
           if (!row.h3) continue;
           if (row.rejected) {
             if (row.rejected.reason === "too-fast-on-foot") footRejected += 1;
-            else if (row.rejected.reason === "too-fast-for-mode") modeRejected += 1;
+            else if (row.rejected.reason === "too-fast-for-mode")
+              modeRejected += 1;
             // Not counted: crossing it again later this run may still count.
             passedH3Ref.current.delete(row.h3);
             continue;
@@ -644,8 +697,12 @@ export default function RunPage() {
         }
         if (footRejected > 0) {
           setFootTooFast(true);
-          if (footTooFastTimer.current !== null) window.clearTimeout(footTooFastTimer.current);
-          footTooFastTimer.current = window.setTimeout(() => setFootTooFast(false), 45_000);
+          if (footTooFastTimer.current !== null)
+            window.clearTimeout(footTooFastTimer.current);
+          footTooFastTimer.current = window.setTimeout(
+            () => setFootTooFast(false),
+            45_000,
+          );
           if (!footWarnedRef.current) {
             footWarnedRef.current = true;
             track("run_foot_too_fast", { rejected: footRejected });
@@ -674,9 +731,11 @@ export default function RunPage() {
     claimRetryMsRef.current = applied.retryMs ?? 0;
     writeClaimQueue(id, applied.items);
     claimFlushing.current = false;
-    if (applied.reinforced > 0) setReinforcedCount((c) => c + applied.reinforced);
+    if (applied.reinforced > 0)
+      setReinforcedCount((c) => c + applied.reinforced);
     if (applied.attacked > 0) setAttackedCount((c) => c + applied.attacked);
-    if (outcome.kind === "ok" && applied.newly > 0) setHexCount((c) => c + applied.newly);
+    if (outcome.kind === "ok" && applied.newly > 0)
+      setHexCount((c) => c + applied.newly);
     if (
       outcome.kind === "ok" &&
       (applied.newly > 0 || applied.reinforced > 0 || applied.attacked > 0)
@@ -712,7 +771,10 @@ export default function RunPage() {
   // data" wipes that too; the retry during the run is what closes the holes.
   useEffect(() => {
     if (!runId) return;
-    claimQueueRef.current = addHexes(claimQueueRef.current, readClaimQueue(runId));
+    claimQueueRef.current = addHexes(
+      claimQueueRef.current,
+      readClaimQueue(runId),
+    );
     if (claimQueueRef.current.length > 0) void flushClaimQueueRef.current();
   }, [runId]);
 
@@ -787,11 +849,14 @@ export default function RunPage() {
     try {
       while (Date.now() < deadline) {
         if (!claimFlushing.current) await flushClaimQueue();
-        if (claimQueueRef.current.length === 0 && !claimFlushing.current) return;
+        if (claimQueueRef.current.length === 0 && !claimFlushing.current)
+          return;
         const wait = Math.max(400, claimRetryMsRef.current);
         const left = deadline - Date.now();
         if (left <= 0) break;
-        await new Promise((resolve) => window.setTimeout(resolve, Math.min(wait, left)));
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, Math.min(wait, left)),
+        );
       }
     } finally {
       claimDrainingRef.current = false;
@@ -838,7 +903,10 @@ export default function RunPage() {
       };
       if (data.claimToken) rememberRunToken(data.id, addr, data.claimToken);
       log.info("run started", { id: data.id });
-      track("run_started", declaredModeRef.current ? { mode: declaredModeRef.current } : {});
+      track(
+        "run_started",
+        declaredModeRef.current ? { mode: declaredModeRef.current } : {},
+      );
       setRunId(data.id);
       runH3Ref.current = new Set();
       passedH3Ref.current = new Set();
@@ -928,10 +996,14 @@ export default function RunPage() {
             ? Math.round((data.distanceMeters / durationSec) * 3.6 * 10) / 10
             : 0,
         move_mode:
-          (isMoveMode(data.moveMode) ? data.moveMode : moveMode(data.distanceMeters, durationSec)) ??
-          "none",
+          (isMoveMode(data.moveMode)
+            ? data.moveMode
+            : moveMode(data.distanceMeters, durationSec)) ?? "none",
         ...(HEX_STRENGTH
-          ? { reinforced: data.hexesReinforced ?? 0, damaged: data.hexesDamaged ?? 0 }
+          ? {
+              reinforced: data.hexesReinforced ?? 0,
+              damaged: data.hexesDamaged ?? 0,
+            }
           : {}),
       });
       setLastFinishedRun({
@@ -1082,6 +1154,13 @@ export default function RunPage() {
 
   useEffect(() => {
     if (!containerRef.current || !mapBoot) return;
+    // Wait for the tier. Building MapLibre first and discovering the tier
+    // afterwards is how a phone with no WebGL still reached the constructor:
+    // the probe resolves in a mount effect, so its value is only in hand on
+    // the render after this one.
+    if (mapTier === null) return;
+    // The grid branch below needs no module; every other tier does.
+    if (!isGrid && !gl) return;
 
     const initialCenter = mapBoot.center;
     const initialZoom = mapBoot.zoom;
@@ -1264,8 +1343,16 @@ export default function RunPage() {
               }
             }
           }
-          const source = map ? liveGeoSource(map, "hexes") : null;
-          source?.setData(hexes);
+          if (map) {
+            liveGeoSource(map, "hexes")?.setData(hexes);
+          } else if (isGridRef.current) {
+            // The grid follows the player directly: there is no camera to
+            // animate, so centre and position move together.
+            setGridData({
+              center: [longitude, latitude],
+              position: [longitude, latitude],
+            });
+          }
         },
         (err) => {
           const label =
@@ -1298,9 +1385,25 @@ export default function RunPage() {
       );
     };
 
+    // The grid tier never builds a MapLibre map: the canvas is already
+    // mounted and tracking is wired the same way the no-WebGL fallback
+    // below wires it. Reaching the constructor on a phone with no WebGL is
+    // what used to produce the 36 failures those 7 players saw.
+    if (isGridRef.current) {
+      setGridData({ center: initialCenter, zoom: initialZoom });
+      startTracking(null);
+      void refreshClaimed();
+      return () => {
+        alive = false;
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        resetGridData();
+      };
+    }
+
+    if (!gl) return;
     let map: maplibregl.Map;
     try {
-      map = new maplibregl.Map({
+      map = new gl.Map({
         container: containerRef.current,
         style: DEFAULT_MAP_STYLE,
         ...lightMapOptions(),
@@ -1477,9 +1580,11 @@ export default function RunPage() {
           el.appendChild(document.createTextNode(` ${youLabel}`));
         }
         if (typeof props.strength === "number" && props.strength > 0) {
-          el.appendChild(document.createTextNode(` - ${levelLabel} ${props.strength}`));
+          el.appendChild(
+            document.createTextNode(` - ${levelLabel} ${props.strength}`),
+          );
         }
-        popupRef.current = new maplibregl.Popup({
+        popupRef.current = new gl.Popup({
           closeButton: true,
           closeOnClick: false,
         })
@@ -1535,6 +1640,9 @@ export default function RunPage() {
     };
   }, [
     mapBoot,
+    mapTier,
+    isGrid,
+    gl,
     claimHexes,
     refreshClaimed,
     capturedByLabel,
@@ -1551,6 +1659,8 @@ export default function RunPage() {
       className="relative h-screen w-screen overflow-hidden"
       style={{ height: "100dvh" }}
     >
+      {/* The same box either way: MapLibre mounts into it, and the grid
+          canvas sizes itself from it. */}
       <div
         ref={containerRef}
         className="z-0 bg-zinc-100"
@@ -1561,11 +1671,32 @@ export default function RunPage() {
           bottom: 0,
           left: 0,
         }}
-      />
-      {mapUnavailable && !mapNoticeClosed && (
+      >
+        {isGrid && <GridMap path="/run" className="block h-full w-full" />}
+      </div>
+      {/* The grid tier draws a map, so it gets an explanation rather than the
+          failure notice: the streets are missing on purpose and the player
+          should not be left wondering whether the app is broken. */}
+      {isGrid && !mapNoticeClosed && (
+        <div className="absolute inset-x-4 top-16 z-20 flex items-start gap-2 rounded-md bg-white/95 p-3 text-sm text-zinc-800 shadow-md">
+          <p className="flex-1">{t("map.gridNote")}</p>
+          <CloseButton
+            onClick={() => {
+              setMapNoticeClosed(true);
+              mapNoticeDismissed("grid", "/run");
+            }}
+          />
+        </div>
+      )}
+      {mapUnavailable && !isGrid && !mapNoticeClosed && (
         <div className="absolute inset-x-4 top-16 z-20 flex items-start gap-2 rounded-md bg-white/95 p-3 text-sm text-zinc-800 shadow-md">
           <p className="flex-1">{t("map.webglFailed")}</p>
-          <CloseButton onClick={() => setMapNoticeClosed(true)} />
+          <CloseButton
+            onClick={() => {
+              setMapNoticeClosed(true);
+              mapNoticeDismissed(mapTier ?? "gl2", "/run");
+            }}
+          />
         </div>
       )}
       <Link
@@ -1599,7 +1730,9 @@ export default function RunPage() {
         className="absolute right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-zinc-800 shadow-md hover:bg-white"
         style={
           isActive
-            ? { bottom: "max(8rem, calc(env(safe-area-inset-bottom) + 6.5rem))" }
+            ? {
+                bottom: "max(8rem, calc(env(safe-area-inset-bottom) + 6.5rem))",
+              }
             : { bottom: "calc(env(safe-area-inset-bottom) + 17.25rem)" }
         }
       >

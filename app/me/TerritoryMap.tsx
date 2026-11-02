@@ -1,7 +1,9 @@
 "use client";
 
 import { cellToLatLng } from "h3-js";
-import maplibregl from "maplibre-gl";
+// Types only. The module itself is loaded per tier (v6 for gl2, 5.24
+// for gl1), so this import must never pull a bundle at module scope.
+import type * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
@@ -10,7 +12,16 @@ import { createLogger } from "@/lib/logger";
 import { isWebglFailure } from "@/lib/map/isWebglFailure";
 import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
 import { reportGpuSupport } from "@/lib/map/gpuSupport";
-import { claimedHexesToFeatureCollection, frameForCells } from "@/lib/map/hex";
+import {
+  claimedHexesToFeatureCollection,
+  frameForCells,
+  type ClaimedHexFeatureCollection,
+} from "@/lib/map/hex";
+import GridMap from "@/app/GridMap";
+import { mapRenderStarted } from "@/lib/map/mapTelemetry";
+import { useMapTier } from "@/lib/map/useMapTier";
+import { useMaplibre } from "@/lib/map/useMaplibre";
+import type { LngLat } from "@/lib/map/mercator";
 import {
   HEX_COLORS,
   LEVEL_DARK,
@@ -34,7 +45,18 @@ export function TerritoryMap({ address }: { address: string | null }) {
   const [count, setCount] = useState<number | null>(null);
   const [maxed, setMaxed] = useState(0);
   const [mapFailed, setMapFailed] = useState(false);
+  // What the grid tier draws here: the thumbnail is static, so it is passed
+  // straight to the canvas rather than through the shared store, where a run
+  // still pushing fixes could move it.
+  const [grid, setGrid] = useState<{
+    hexes: ClaimedHexFeatureCollection;
+    center: LngLat;
+    zoom: number;
+  } | null>(null);
   const { t } = useLocale();
+  const mapTier = useMapTier();
+  const isGrid = mapTier === "grid";
+  const gl = useMaplibre(mapTier);
 
   // Measured on mount, not where the map is built: on /me the map only
   // exists once the player owns blocks, and on /run only once a container
@@ -46,8 +68,11 @@ export function TerritoryMap({ address }: { address: string | null }) {
 
   useEffect(() => {
     if (!address) return;
-    const container = containerRef.current;
-    if (!container) return;
+    // Wait for the tier: the grid has no container to check for, and
+    // building MapLibre before the tier is known is how a phone with no
+    // WebGL reached the constructor at all.
+    if (mapTier === null) return;
+    if (!isGrid && (!gl || !containerRef.current)) return;
 
     let cancelled = false;
 
@@ -71,7 +96,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
             requestAnimationFrame(() => resolve(null));
           });
         }
-        if (cancelled || !containerRef.current) return;
+        if (cancelled) return;
 
         const owners = new Set(mine.map((h) => h.owner.toLowerCase()));
         const frame = frameForCells(
@@ -80,13 +105,27 @@ export function TerritoryMap({ address }: { address: string | null }) {
         );
         if (!frame) return;
 
+        if (isGrid) {
+          // No GPU here. The same blocks, drawn on a 2D canvas: this page is
+          // a picture of the player's territory, which is exactly what the
+          // grid can draw.
+          mapRenderStarted("grid", "grid", "/me");
+          setGrid({
+            hexes: claimedHexesToFeatureCollection(mine, owners),
+            center: frame.center as LngLat,
+            zoom: frame.zoom,
+          });
+          return;
+        }
+        if (!containerRef.current || !gl) return;
+
         // MapLibre 6 requires WebGL2 and throws from the constructor when it
         // is missing, the way /run and /community already guard against. This
         // page did not, so a phone without WebGL2 took the whole of /me down
         // with it instead of just losing the thumbnail.
         let map: maplibregl.Map;
         try {
-          map = new maplibregl.Map({
+          map = new gl.Map({
             container: containerRef.current,
             style: DEFAULT_MAP_STYLE,
             ...lightMapOptions(),
@@ -99,7 +138,8 @@ export function TerritoryMap({ address }: { address: string | null }) {
           const message = e instanceof Error ? e.message : String(e);
           log.warn("territory map unavailable", { message });
           if (!cancelled) setMapFailed(true);
-          if (isWebglFailure(message)) track("map_webgl_failed", { path: "/me" });
+          if (isWebglFailure(message))
+            track("map_webgl_failed", { path: "/me" });
           return;
         }
         mapRef.current = map;
@@ -190,7 +230,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [address]);
+  }, [address, mapTier, isGrid, gl]);
 
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
@@ -221,7 +261,22 @@ export function TerritoryMap({ address }: { address: string | null }) {
             overflow: "hidden",
             backgroundColor: "#f4f4f5",
           }}
-        />
+        >
+          {isGrid && grid && (
+            <GridMap
+              path="/me"
+              hexes={grid.hexes}
+              center={grid.center}
+              zoom={grid.zoom}
+              className="block h-full w-full"
+            />
+          )}
+        </div>
+      )}
+      {isGrid && grid && (
+        <p className="text-center text-[11px] text-zinc-400">
+          {t("map.gridShort")}
+        </p>
       )}
     </div>
   );
