@@ -1,8 +1,6 @@
-import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { getRanking, groupKeyFor } from "@/lib/leaderboardRanking";
-import { evaluateBadges, type BadgeStats } from "@/lib/onchain/badgeCatalog";
+import { getLeaderboardTop, MAX_PAGE } from "@/lib/leaderboardPage";
+import { getRanking } from "@/lib/leaderboardRanking";
 
 export const dynamic = "force-dynamic";
 
@@ -12,28 +10,23 @@ export const dynamic = "force-dynamic";
  * as a fallback. One row per group, using the group's primary wallet
  * address and its username (or any linked wallet's username, primary
  * first). Unlinked users behave exactly as before.
+ *
+ * Both the page and the pinned row are reads from a shared snapshot that is
+ * rebuilt every 30 s in the background, so a request here does no database
+ * work at all. lib/leaderboardPage.ts has the measurements.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const limitParam = Number(url.searchParams.get("limit") ?? "10");
   const limit = Math.min(
     Math.max(Number.isFinite(limitParam) ? limitParam : 10, 1),
-    100,
+    MAX_PAGE,
   );
 
   const meParam = url.searchParams.get("me")?.toLowerCase() ?? null;
   const me = meParam && /^0x[0-9a-f]{40}$/.test(meParam) ? meParam : null;
 
-  // The ranking is built once per TTL and shared, so a page and a pinned row
-  // are reads from memory rather than another pass over the table. The query
-  // itself is unchanged: see lib/leaderboardRanking.ts for why it is cached
-  // instead of rewritten.
-  const [ranking, myGroup] = await Promise.all([
-    getRanking(),
-    me ? groupKeyFor(me) : Promise.resolve(null),
-  ]);
-
-  const rows = ranking.rows.slice(0, limit);
+  const [top, ranking] = await Promise.all([getLeaderboardTop(), getRanking()]);
 
   let mine: {
     rank: number;
@@ -41,6 +34,7 @@ export async function GET(request: Request) {
     username: string | null;
     hexCount: number;
   } | null = null;
+  const myGroup = me ? ranking.groupOf.get(me) : undefined;
   const pinned = myGroup ? ranking.byGroup.get(myGroup) : undefined;
   if (pinned && pinned.hexCount > 0) {
     mine = {
@@ -51,207 +45,5 @@ export async function GET(request: Request) {
     };
   }
 
-  if (rows.length === 0) {
-    return NextResponse.json({ leaderboard: [], me: mine });
-  }
-
-  const addresses = (rows as unknown as Array<{ address: string }>).map(r => r.address);
-  const addressesLower = addresses.map(a => a.toLowerCase());
-  
-  // The three per-page lookups do not depend on each other: run them together
-  // so the request costs the slowest one, not the sum (~1.0 s to ~0.5 s).
-  const runCountsQ = db.execute(sql`
-    SELECT 
-      user_address AS address, 
-      COUNT(*)::int AS count
-    FROM runs
-    WHERE LOWER(user_address) IN (${sql.join(addressesLower.map(a => sql`${a}`), sql`, `)})
-    GROUP BY user_address
-  `);
-  
-
-  // Every country the player holds, fullest first. Linked wallets count
-  // toward the same player. The list shows three flags; the open row uses the rest.
-  //
-  // Owners are resolved through player_wallets only: the page's addresses plus
-  // every wallet sharing their player_id. Resolving them by scanning all of
-  // `users` with a correlated lookup per row made Postgres expect a
-  // 224M-row join and sort the whole hexes table (~600 ms, ~1.5 s per request
-  // end to end). Addresses are stored lowercase, so the hexes owner index
-  // applies without LOWER().
-  const countriesQ = db.execute(sql`
-    WITH page AS (
-      SELECT u.address AS display_address
-      FROM users u
-      WHERE LOWER(u.address) IN (${sql.join(addressesLower.map((a) => sql`${a}`), sql`, `)})
-    ),
-    grp AS (
-      SELECT p.display_address, pw.player_id
-      FROM page p
-      JOIN player_wallets pw ON pw.address = p.display_address
-    ),
-    owners AS (
-      SELECT p.display_address, p.display_address AS owner_address
-      FROM page p
-      UNION
-      SELECT g.display_address, pw2.address AS owner_address
-      FROM grp g
-      JOIN player_wallets pw2 ON pw2.player_id = g.player_id
-    ),
-    counts AS (
-      SELECT
-        o.display_address,
-        h.country,
-        COUNT(*)::int AS n
-      FROM owners o
-      JOIN hexes h ON h.owner_address = o.owner_address
-      WHERE h.country IS NOT NULL
-      GROUP BY o.display_address, h.country
-    )
-    SELECT display_address AS address, country
-    FROM counts
-    ORDER BY display_address, n DESC, country ASC
-  `);
-  
-
-  // Get badge stats for all players - simplified without heavy city calculation
-  const badgeStatsQ = db.execute(sql`
-    WITH player_stats AS (
-      SELECT 
-        h.owner_address,
-        -- h3_id is the primary key, so COUNT(*) is the same number without the
-        -- distinct sort (780 ms to 270 ms for the top-100 page on prod data).
-        COUNT(*)::int AS hex_count,
-        COUNT(DISTINCT h.country)::int AS country_count
-      FROM hexes h
-      WHERE LOWER(h.owner_address) IN (${sql.join(addressesLower.map(a => sql`${a}`), sql`, `)})
-      GROUP BY h.owner_address
-    ),
-    run_stats AS (
-      SELECT
-        r.user_address,
-        COUNT(*)::int AS total_runs,
-        MAX(r.hexes_claimed)::int AS best_run_hexes,
-        MAX(r.distance_meters)::int AS best_distance,
-        SUM(r.distance_meters)::int AS lifetime_distance
-      FROM runs r
-      WHERE LOWER(r.user_address) IN (${sql.join(addressesLower.map(a => sql`${a}`), sql`, `)})
-      GROUP BY r.user_address
-    ),
-    user_stats AS (
-      SELECT
-        u.address,
-        u.conquests
-      FROM users u
-      WHERE LOWER(u.address) IN (${sql.join(addressesLower.map(a => sql`${a}`), sql`, `)})
-    )
-    SELECT
-      ps.owner_address AS address,
-      COALESCE(ps.hex_count, 0) AS hex_count,
-      COALESCE(ps.country_count, 0) AS country_count,
-      COALESCE(rs.total_runs, 0) AS total_runs,
-      COALESCE(rs.best_run_hexes, 0) AS best_run_hexes,
-      COALESCE(rs.best_distance, 0) AS best_distance,
-      COALESCE(rs.lifetime_distance, 0) AS lifetime_distance,
-      COALESCE(us.conquests, 0) AS conquests
-    FROM player_stats ps
-    LEFT JOIN run_stats rs ON LOWER(rs.user_address) = LOWER(ps.owner_address)
-    LEFT JOIN user_stats us ON LOWER(us.address) = LOWER(ps.owner_address)
-  `);
-
-  // Every wallet linked to each listed player, so a map can paint all of a
-  // player's blocks (top-10 colors), not only the display wallet's.
-  const linkedQ = db.execute(sql`
-    SELECT p.address AS display_address, pw2.address AS address
-    FROM player_wallets p
-    JOIN player_wallets pw2 ON pw2.player_id = p.player_id
-    WHERE p.address IN (${sql.join(addressesLower.map((a) => sql`${a}`), sql`, `)})
-      AND pw2.address <> p.address
-  `);
-
-  const [runCountsRaw, countriesRaw, badgeStatsRaw, linkedRaw] = await Promise.all([
-    runCountsQ,
-    countriesQ,
-    badgeStatsQ,
-    linkedQ,
-  ]);
-  const linkedMap = new Map<string, string[]>();
-  for (const row of linkedRaw as unknown as Array<{ display_address: string; address: string }>) {
-    const key = row.display_address.toLowerCase();
-    const list = linkedMap.get(key) ?? [];
-    list.push(row.address.toLowerCase());
-    linkedMap.set(key, list);
-  }
-  const runCounts = new Map<string, number>();
-  for (const row of runCountsRaw as unknown as Array<{ address: string; count: number }>) {
-    runCounts.set(row.address.toLowerCase(), row.count);
-  }
-
-  const countriesMap = new Map<string, string[]>();
-  for (const row of countriesRaw as unknown as Array<{ address: string; country: string }>) {
-    const addr = row.address.toLowerCase();
-    const list = countriesMap.get(addr) ?? [];
-    list.push(row.country);
-    countriesMap.set(addr, list);
-  }
-
-  type StatsRow = {
-    address: string;
-    hex_count: number;
-    country_count: number;
-    total_runs: number;
-    best_run_hexes: number;
-    best_distance: number;
-    lifetime_distance: number;
-    conquests: number;
-  };
-
-  const badgeStatsMap = new Map<string, string[]>();
-  
-  for (const row of badgeStatsRaw as unknown as StatsRow[]) {
-    const addr = row.address.toLowerCase();
-    
-    // Estimate city count as hex_count / 10 (rough approximation)
-    // For leaderboard display, exact city count is not critical
-    const estimatedCityCount = Math.max(1, Math.floor(row.hex_count / 10));
-    
-    const stats: BadgeStats = {
-      hexesOwned: row.hex_count,
-      totalRuns: row.total_runs,
-      bestRunHexes: row.best_run_hexes,
-      bestRunDistanceMeters: row.best_distance,
-      lifetimeDistanceMeters: row.lifetime_distance,
-      cityCount: estimatedCityCount,
-      conquests: row.conquests,
-      countryCount: row.country_count,
-      streak: 0, // Streak calculation is expensive, skip for leaderboard
-    };
-    
-    // Get unlocked badges
-    const allBadges = evaluateBadges(stats, "en");
-    const unlockedBadges = allBadges
-      .filter(b => b.unlocked)
-      .map(b => b.name);
-    
-    badgeStatsMap.set(addr, unlockedBadges);
-  }
-
-  const leaderboard = (rows as unknown as Array<{ 
-    address: string; 
-    username: string | null; 
-    hexCount: number;
-  }>).map(row => {
-    const addr = row.address.toLowerCase();
-    return {
-      address: row.address,
-      username: row.username,
-      hexCount: row.hexCount,
-      runCount: runCounts.get(addr) ?? 0,
-      countries: countriesMap.get(addr) ?? [],
-      badges: badgeStatsMap.get(addr) ?? [],
-      linked: linkedMap.get(addr) ?? [],
-    };
-  });
-
-  return NextResponse.json({ leaderboard, me: mine });
+  return NextResponse.json({ leaderboard: top.slice(0, limit), me: mine });
 }
