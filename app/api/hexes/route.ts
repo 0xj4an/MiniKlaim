@@ -8,6 +8,7 @@ import { createLogger } from "@/lib/logger";
 import { addressesForPlayer } from "@/lib/players";
 import { groupByOwner } from "@/lib/map/worldHexes";
 import { isHexStrengthEnabled, strengthSql } from "@/lib/runs/hexStrength";
+import { createSharedCache } from "@/lib/sharedCache";
 
 const log = createLogger("api:hexes");
 
@@ -28,29 +29,35 @@ const WORLD_CACHE = "public, max-age=300";
 const SCOPED_CACHE = "private, no-cache";
 
 type WorldShape = "flat" | "owners";
-const worldCache = new Map<WorldShape, { packed: PackedJson; at: number }>();
-const worldInflight = new Map<WorldShape, Promise<PackedJson>>();
 
-async function worldPacked(
+/**
+ * One shared copy, served stale while it rebuilds.
+ *
+ * Measured on prod: this list costs 2.60 s to build and 180 ms to serve from
+ * memory, 5.7 MB packed and 999 KB on the wire. Without stale-while-
+ * revalidate, one player every five minutes waited the whole 2.6 s, on the
+ * endpoint whose rebuild blocks the process: that is the shape of the 504s
+ * sitting in Sentry against /api/hexes and against claim (MINIKLAIM-19,
+ * MINIKLAIM-17), since a blocked process makes everything else late too.
+ *
+ * The answer can now be older than the TTL by one rebuild. For a world map
+ * that is five minutes stale by design, and whose own fresh blocks are
+ * merged in on the run map, that is the right trade.
+ *
+ * This replaces a hand-rolled copy of the same cache that lived here. The
+ * shared one also absorbs a failed rebuild, which the copy did not: nobody
+ * awaits the background promise, so its rejection would have taken the
+ * process down.
+ */
+const worldShared = createSharedCache<PackedJson>(WORLD_TTL_MS, {
+  serveStaleWhileRevalidating: true,
+});
+
+function worldPacked(
   shape: WorldShape,
   load: () => Promise<PackedJson>,
 ): Promise<PackedJson> {
-  const now = Date.now();
-  const cached = worldCache.get(shape);
-  if (cached && now - cached.at < WORLD_TTL_MS) return cached.packed;
-  let inflight = worldInflight.get(shape);
-  if (!inflight) {
-    inflight = load()
-      .then((packed) => {
-        worldCache.set(shape, { packed, at: Date.now() });
-        return packed;
-      })
-      .finally(() => {
-        worldInflight.delete(shape);
-      });
-    worldInflight.set(shape, inflight);
-  }
-  return inflight;
+  return worldShared.get(shape, load);
 }
 
 export async function GET(request: Request) {
@@ -78,7 +85,11 @@ export async function GET(request: Request) {
           h3: hexes.h3Id,
           owner: hexes.ownerAddress,
           ownerUsername: users.username,
-          strength: strengthSql(hexes.baseStrength, hexes.damage, hexes.reinforcedAt),
+          strength: strengthSql(
+            hexes.baseStrength,
+            hexes.damage,
+            hexes.reinforcedAt,
+          ),
         })
         .from(hexes)
         .leftJoin(users, eq(hexes.ownerAddress, users.address))
@@ -99,11 +110,14 @@ export async function GET(request: Request) {
   // No `near`: the world map needs every claim. The run screen passes a
   // res-12 cell so a walk does not download the whole table.
   if (!near) {
-    const shape: WorldShape = url.searchParams.get("fmt") === "owners" ? "owners" : "flat";
+    const shape: WorldShape =
+      url.searchParams.get("fmt") === "owners" ? "owners" : "flat";
     const packed = await worldPacked(shape, async () => {
       const rows = await base;
       log.info("hexes fetched", { count: rows.length, scoped: "all", shape });
-      return packJson(shape === "owners" ? { owners: groupByOwner(rows) } : { hexes: rows });
+      return packJson(
+        shape === "owners" ? { owners: groupByOwner(rows) } : { hexes: rows },
+      );
     });
     return jsonBody(request, packed, WORLD_CACHE);
   }
