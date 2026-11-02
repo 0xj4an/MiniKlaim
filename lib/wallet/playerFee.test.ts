@@ -1,42 +1,38 @@
 import { describe, expect, it } from "vitest";
 import {
+  isPermissionDenied,
   isUnpayableFee,
   isUnsupportedFeeCurrency,
   isUserRejection,
+  isWalletInternalError,
   playerHasNoFeeBalance,
 } from "@/lib/wallet/playerFee";
 
 describe("isUnpayableFee", () => {
   it("matches a short fee token", () => {
-    expect(
-      isUnpayableFee(new Error("insufficient fee-currency balance")),
-    ).toBe(true);
-  });
-
-  it("matches a wallet with nothing to pay", () => {
-    expect(isUnpayableFee(new Error("insufficient funds for gas"))).toBe(
+    expect(isUnpayableFee(new Error("insufficient fee-currency balance"))).toBe(
       true,
     );
   });
 
+  it("matches a wallet with nothing to pay", () => {
+    expect(isUnpayableFee(new Error("insufficient funds for gas"))).toBe(true);
+  });
+
   it("does not match a declined signature", () => {
-    expect(isUnpayableFee(new Error("User rejected the request."))).toBe(
-      false,
-    );
+    expect(isUnpayableFee(new Error("User rejected the request."))).toBe(false);
   });
 });
 
 describe("isUserRejection", () => {
   it("matches a closed wallet sheet", () => {
-    expect(isUserRejection(new Error("User rejected the request."))).toBe(
-      true,
-    );
+    expect(isUserRejection(new Error("User rejected the request."))).toBe(true);
     expect(isUserRejection({ code: 4001, message: "denied" })).toBe(true);
   });
 
   it("matches a real decline MiniPay wraps as an internal error", () => {
     const e = new Error(
-      'An internal error was received.\n\nRequest Arguments:\n  from: 0x95753CD1Ed8E3B92E25609447DDA326fA3c06179\n\nDetails: User rejected transaction\nVersion: viem@2.57.10',
+      "An internal error was received.\n\nRequest Arguments:\n  from: 0x95753CD1Ed8E3B92E25609447DDA326fA3c06179\n\nDetails: User rejected transaction\nVersion: viem@2.57.10",
     );
     expect(isUserRejection(e)).toBe(true);
   });
@@ -73,12 +69,12 @@ describe("playerHasNoFeeBalance", () => {
     expect(playerHasNoFeeBalance(3, 0, ready)).toBe(true);
     expect(playerHasNoFeeBalance(3, 1, ready)).toBe(false);
     expect(playerHasNoFeeBalance(0, 0, ready)).toBe(false);
-    expect(playerHasNoFeeBalance(3, 0, { isLoading: true, isError: false })).toBe(
-      false,
-    );
-    expect(playerHasNoFeeBalance(3, 0, { isLoading: false, isError: true })).toBe(
-      false,
-    );
+    expect(
+      playerHasNoFeeBalance(3, 0, { isLoading: true, isError: false }),
+    ).toBe(false);
+    expect(
+      playerHasNoFeeBalance(3, 0, { isLoading: false, isError: true }),
+    ).toBe(false);
   });
 });
 
@@ -92,12 +88,14 @@ describe("isUnsupportedFeeCurrency", () => {
         }),
       ),
     ).toBe(true);
-    expect(isUnsupportedFeeCurrency(new Error("unsupported transaction type"))).toBe(
-      true,
-    );
-    expect(isUnsupportedFeeCurrency(new Error("eth_sendTransaction is not supported"))).toBe(
-      true,
-    );
+    expect(
+      isUnsupportedFeeCurrency(new Error("unsupported transaction type")),
+    ).toBe(true);
+    expect(
+      isUnsupportedFeeCurrency(
+        new Error("eth_sendTransaction is not supported"),
+      ),
+    ).toBe(true);
   });
 
   it("is not a decline, so the player is never asked twice", () => {
@@ -116,5 +114,32 @@ describe("isUnsupportedFeeCurrency", () => {
       isUnsupportedFeeCurrency(new Error("execution reverted: bad voucher")),
     ).toBe(false);
     expect(isUnsupportedFeeCurrency(new Error("nonce too low"))).toBe(false);
+  });
+});
+
+describe("isPermissionDenied", () => {
+  // Verbatim from production: eleven of these across nine wallets between
+  // 20 and 31 Oct, all pooled under the generic `tx` bucket.
+  const REAL =
+    "Permission denied An unknown RPC error occurred.\n\nRequest Arguments:\n  chain:  Celo (id: 42220)\n  from:   0xB18A6EEb1893DFa9d40A04A02e9667C34B8fAac3";
+
+  it("recognises what MiniPay's RPC actually sends", () => {
+    expect(isPermissionDenied(new Error(REAL))).toBe(true);
+  });
+
+  it("does not claim a reverted transaction", () => {
+    expect(isPermissionDenied(new Error("execution reverted: not owner"))).toBe(
+      false,
+    );
+    expect(isPermissionDenied(new Error("nonce too low"))).toBe(false);
+  });
+
+  it("stays separate from the buckets it used to be mixed into", () => {
+    // A refusal is not a fee shortfall and not a player closing the sheet;
+    // counting them together is why the `tx` bucket meant nothing.
+    const e = new Error(REAL);
+    expect(isUnpayableFee(e)).toBe(false);
+    expect(isUserRejection(e)).toBe(false);
+    expect(isWalletInternalError(e)).toBe(false);
   });
 });
