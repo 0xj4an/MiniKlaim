@@ -9,8 +9,8 @@ import { track } from "@/lib/analytics";
  * MapLibre 6 drops WebGL1 and refuses to build a map without WebGL2. We tried
  * it on 27 Oct and rolled back the same night, because the only evidence to
  * hand was that of the players whose Android version we know, nearly all sit
- * on 7.x and 8.x: the generation where WebGL2 is often missing or blacklisted
- *: and `$os_version` is absent for most of the rest. The advisory v6 fixes
+ * on 7.x and 8.x, the generation where WebGL2 is often missing or blacklisted,
+ * and `$os_version` is absent for most of the rest. The advisory v6 fixes
  * (GHSA-jrc7-96c5-q579) is not reachable here, so there was nothing to buy
  * with those players' maps.
  *

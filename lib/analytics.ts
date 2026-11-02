@@ -153,6 +153,46 @@ type EventMap = {
     max_texture_size: number | null;
     path: string;
   };
+  // Which renderer a phone was given, and why. One per page load. `source`
+  // says whether the answer was probed now or remembered, which is the first
+  // thing to ask of a player report: a wrong remembered tier looks exactly
+  // like a wrong probe until you can tell them apart.
+  map_tier_resolved: {
+    tier: "gl2" | "gl1" | "grid";
+    source: "probe" | "cache" | "override";
+    reason: string;
+    webgl: number;
+    renderer: string | null;
+    max_texture_size: number | null;
+  };
+  // The map drew. `ms` is from the build call to the first frame, so a tier
+  // that technically works but takes eight seconds is visible as such.
+  map_render_ready: {
+    tier: "gl2" | "gl1" | "grid";
+    engine: "maplibre" | "grid";
+    path: string;
+    ms: number;
+  };
+  // The map did not draw. `stage` separates a library that would not load
+  // from a constructor that threw from a style that never arrived, because
+  // those have different causes and only one of them is the GPU.
+  map_render_failed: {
+    tier: "gl2" | "gl1" | "grid";
+    engine: "maplibre" | "grid";
+    path: string;
+    stage: "import" | "construct" | "style" | "draw";
+    message: string;
+  };
+  // The GPU took the context back, usually under memory pressure. Distinct
+  // from a failure: the map worked and then stopped.
+  map_context_lost: { tier: "gl2" | "gl1" | "grid"; path: string };
+  // A tier was proven wrong by a failure and thrown away, so the next load
+  // probes again instead of repeating it for a week.
+  map_tier_forgotten: { tier: "gl2" | "gl1" | "grid"; reason: string };
+  // The player closed the "this phone cannot draw the map" notice. How often
+  // this happens on a tier is the closest thing to asking them whether the
+  // fallback is acceptable.
+  map_notice_dismissed: { tier: "gl2" | "gl1" | "grid"; path: string };
   // MiniPay iOS rejects a postMessage in its own bridge (not app code).
   wallet_bridge_rejected: Record<string, never>;
   gps_unavailable: Record<string, never>;
