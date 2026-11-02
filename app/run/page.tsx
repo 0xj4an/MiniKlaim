@@ -41,7 +41,13 @@ import { getGridData, resetGridData, setGridData } from "@/lib/map/gridStore";
 import { viewportFromCenter } from "@/lib/map/viewport";
 import { useMapTier } from "@/lib/map/useMapTier";
 import { useMaplibre } from "@/lib/map/useMaplibre";
-import { mapNoticeDismissed } from "@/lib/map/mapTelemetry";
+import {
+  mapContextLost,
+  mapNoticeDismissed,
+  mapRenderFailed,
+  mapRenderReady,
+  mapRenderStarted,
+} from "@/lib/map/mapTelemetry";
 import GridMap from "@/app/GridMap";
 import {
   HEX_COLORS,
@@ -1401,6 +1407,10 @@ export default function RunPage() {
     }
 
     if (!gl) return;
+    const glTier = mapTier === "gl1" ? "gl1" : "gl2";
+    mapRenderStarted(glTier, "maplibre", "/run");
+    const mapStartedAt =
+      typeof performance === "undefined" ? Date.now() : performance.now();
     let map: maplibregl.Map;
     try {
       map = new gl.Map({
@@ -1419,6 +1429,10 @@ export default function RunPage() {
       });
       track("map_webgl_failed", { path: "/run" });
       reportWebglFailure("/run");
+      // The GPU refused the version this tier was given. Reported as
+      // `construct`, which is also what throws the tier away so the next
+      // load probes again instead of repeating this.
+      mapRenderFailed(glTier, "maplibre", "/run", "construct", e);
       queueMicrotask(() => setMapInitFailed(true));
       startTracking(null);
       return () => {
@@ -1442,6 +1456,9 @@ export default function RunPage() {
 
     map.on("load", () => {
       log.info("map loaded");
+      const now =
+        typeof performance === "undefined" ? Date.now() : performance.now();
+      mapRenderReady(glTier, "maplibre", "/run", now - mapStartedAt);
       map.resize();
 
       map.addSource("claimed-hexes", {
@@ -1610,9 +1627,12 @@ export default function RunPage() {
       startTracking(map);
     });
 
-    map.on("error", (e) =>
-      log.error("map error", { message: e.error?.message ?? String(e) }),
-    );
+    map.on("error", (e) => {
+      log.error("map error", { message: e.error?.message ?? String(e) });
+      // The style or its tiles, not the GPU: the tier stays.
+      mapRenderFailed(glTier, "maplibre", "/run", "style", e.error ?? e);
+    });
+    map.on("webglcontextlost", () => mapContextLost(glTier, "/run"));
 
     const resizeTimer = window.setTimeout(() => map.resize(), 100);
 

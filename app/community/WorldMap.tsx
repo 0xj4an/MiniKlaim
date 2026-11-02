@@ -12,7 +12,12 @@ import { createLogger } from "@/lib/logger";
 import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
 import { reportGpuSupport } from "@/lib/map/gpuSupport";
 import GridMap from "@/app/GridMap";
-import { mapRenderStarted } from "@/lib/map/mapTelemetry";
+import {
+  mapContextLost,
+  mapRenderFailed,
+  mapRenderReady,
+  mapRenderStarted,
+} from "@/lib/map/mapTelemetry";
 import { useMapTier } from "@/lib/map/useMapTier";
 import { useMaplibre } from "@/lib/map/useMaplibre";
 import { zoomForSpan, type LngLat } from "@/lib/map/mercator";
@@ -543,6 +548,10 @@ export function WorldMap({
     );
     const zoom = span >= 64 ? Math.min(0, Math.log2(span / 512)) : 0;
     if (!gl) return;
+    const glTier = mapTier === "gl1" ? "gl1" : "gl2";
+    mapRenderStarted(glTier, "maplibre", "/community");
+    const mapStartedAt =
+      typeof performance === "undefined" ? Date.now() : performance.now();
     let map: maplibregl.Map;
     try {
       map = new gl.Map({
@@ -561,12 +570,16 @@ export function WorldMap({
         message: e instanceof Error ? e.message : String(e),
       });
       track("map_webgl_failed", { path: "/community" });
+      mapRenderFailed(glTier, "maplibre", "/community", "construct", e);
       queueMicrotask(() => setMapUnavailable(true));
       return;
     }
     mapRef.current = map;
     map.on("load", () => {
       if (cancelled) return;
+      const now =
+        typeof performance === "undefined" ? Date.now() : performance.now();
+      mapRenderReady(glTier, "maplibre", "/community", now - mapStartedAt);
       map.resize();
       if (rowsRef.current.length > 0) paintRef.current(map);
     });
@@ -589,14 +602,16 @@ export function WorldMap({
     map.on("webglcontextlost", (event) => {
       event.originalEvent.preventDefault();
       log.error("webgl context lost");
+      mapContextLost(glTier, "/community");
       cancelled = true;
       if (paintTimer !== null) window.clearTimeout(paintTimer);
       queueMicrotask(() => setMapUnavailable(true));
     });
 
-    map.on("error", (e) =>
-      log.error("map error", { message: e.error?.message ?? String(e) }),
-    );
+    map.on("error", (e) => {
+      log.error("map error", { message: e.error?.message ?? String(e) });
+      mapRenderFailed(glTier, "maplibre", "/community", "style", e.error ?? e);
+    });
 
     const paintRows = (rows: HexRow[]) => {
       if (cancelled) return;

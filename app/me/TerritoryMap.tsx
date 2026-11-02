@@ -18,7 +18,11 @@ import {
   type ClaimedHexFeatureCollection,
 } from "@/lib/map/hex";
 import GridMap from "@/app/GridMap";
-import { mapRenderStarted } from "@/lib/map/mapTelemetry";
+import {
+  mapRenderFailed,
+  mapRenderReady,
+  mapRenderStarted,
+} from "@/lib/map/mapTelemetry";
 import { useMapTier } from "@/lib/map/useMapTier";
 import { useMaplibre } from "@/lib/map/useMaplibre";
 import type { LngLat } from "@/lib/map/mercator";
@@ -118,6 +122,10 @@ export function TerritoryMap({ address }: { address: string | null }) {
           return;
         }
         if (!containerRef.current || !gl) return;
+        const glTier = mapTier === "gl1" ? "gl1" : "gl2";
+        mapRenderStarted(glTier, "maplibre", "/me");
+        const mapStartedAt =
+          typeof performance === "undefined" ? Date.now() : performance.now();
 
         // MapLibre 6 requires WebGL2 and throws from the constructor when it
         // is missing, the way /run and /community already guard against. This
@@ -140,12 +148,16 @@ export function TerritoryMap({ address }: { address: string | null }) {
           if (!cancelled) setMapFailed(true);
           if (isWebglFailure(message))
             track("map_webgl_failed", { path: "/me" });
+          mapRenderFailed(glTier, "maplibre", "/me", "construct", e);
           return;
         }
         mapRef.current = map;
 
         map.on("load", () => {
           if (cancelled) return;
+          const now =
+            typeof performance === "undefined" ? Date.now() : performance.now();
+          mapRenderReady(glTier, "maplibre", "/me", now - mapStartedAt);
           map.resize();
           map.addSource("mine", {
             type: "geojson",
@@ -215,9 +227,10 @@ export function TerritoryMap({ address }: { address: string | null }) {
           });
         });
 
-        map.on("error", (e) =>
-          log.error("map error", { message: e.error?.message ?? String(e) }),
-        );
+        map.on("error", (e) => {
+          log.error("map error", { message: e.error?.message ?? String(e) });
+          mapRenderFailed(glTier, "maplibre", "/me", "style", e.error ?? e);
+        });
       } catch (e) {
         log.error("territory load failed", {
           message: e instanceof Error ? e.message : String(e),
