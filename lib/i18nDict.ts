@@ -21,6 +21,9 @@ export const dictionaries = {
     "home.cta.continue": "Keep capturing",
     "home.modes.label": "Run, bicycle, motorcycle, car, or plane",
     "home.hey": "Hey",
+    "home.streak.days": "You are on a {n}-day streak",
+    "home.streak.toBadge": "{d} more to the {m}-day badge.",
+    "home.streak.allBadges": "Every streak badge is yours. Keep it going.",
     "home.return.body":
       "It's been a few days. The blocks you cross are still yours.",
     "home.env.minipay.connecting": "Connecting to MiniPay...",
@@ -265,6 +268,8 @@ export const dictionaries = {
     "run.streak.next": "Play again tomorrow to reach {m} days.",
     "run.streak.nextBadge": "Play again tomorrow to reach {m} days and earn the {m}-day badge.",
     "run.streak.start": "Capture a block or move at least 200 m to start a streak.",
+    "run.streak.keepAlive":
+      "This run did not count. Capture a block or move 200 m today and your streak carries on.",
     "run.summary.dist": "Dist",
     "run.summary.speed": "Speed km/h",
     "run.summary.share": "Share",
@@ -533,6 +538,9 @@ export const dictionaries = {
     "home.cta.continue": "Seguir capturando",
     "home.modes.label": "Correr, bicicleta, moto, carro o avion",
     "home.hey": "Hola",
+    "home.streak.days": "Llevas {n} días seguidos",
+    "home.streak.toBadge": "Te faltan {d} para la insignia de {m} días.",
+    "home.streak.allBadges": "Ya tienes todas las insignias de racha. No la sueltes.",
     "home.return.body":
       "Hace unos días. Las cuadras que cruzas siguen siendo tuyas.",
     "home.env.minipay.connecting": "Conectando a MiniPay...",
@@ -778,6 +786,8 @@ export const dictionaries = {
     "run.streak.next": "Vuelve a jugar mañana para llegar a {m} días.",
     "run.streak.nextBadge": "Vuelve a jugar mañana para llegar a {m} días y ganar la insignia de {m} días.",
     "run.streak.start": "Captura una cuadra o muévete al menos 200 m para empezar una racha.",
+    "run.streak.keepAlive":
+      "Esta corrida no contó. Captura una cuadra o muévete 200 m hoy y tu racha sigue.",
     "run.summary.dist": "Dist",
     "run.summary.speed": "Velocidad km/h",
     "run.summary.share": "Compartir",

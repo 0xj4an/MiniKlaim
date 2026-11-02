@@ -33,6 +33,8 @@ type EventMap = {
   recovery_notice_dismissed: { via: "cta" | "later" | "backdrop" };
   // Home-screen campaign banner. Both events carry the campaign so the next
   // one is measurable on its own instead of being pooled with this one.
+  /** Day streak shown on the home screen, before they choose to play. */
+  home_streak_shown: { streak: number };
   campaign_banner_clicked: { campaign: string };
   campaign_banner_dismissed: { campaign: string };
 

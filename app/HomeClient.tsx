@@ -19,6 +19,7 @@ import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
 import { NeedCeloNote } from "@/app/NeedCeloNote";
 import { ReturnNote } from "@/app/ReturnNote";
+import { StreakCard } from "@/app/StreakCard";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
 
@@ -96,6 +97,13 @@ export function HomeClient() {
           <span className="opacity-0">.</span>
         )}
       </p>
+
+      {mounted && (
+        <StreakCard
+          address={address ?? null}
+          enabled={isConnected && !isWrongChain && !!user?.username}
+        />
+      )}
 
       {mounted ? (
         <PrimaryCTA
