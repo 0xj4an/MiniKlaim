@@ -5,6 +5,14 @@ const DB_NAME = "miniklaim";
 const STORE = "kv";
 const KEY = "world-owners";
 
+/**
+ * The world view draws one dot per parent cell, so it asks the server for
+ * the list already thinned to that resolution: about two thousand rows
+ * instead of 303,000. The full list is a separate cache entry, fetched only
+ * when the player zooms far enough in for real polygons.
+ */
+const THIN_KEY = (res: number) => `world-thin-${res}`;
+
 export type CachedWorld = { etag: string; body: string; savedAt: number };
 
 export function cacheRequestHeaders(etag: string | null): HeadersInit {
@@ -22,6 +30,17 @@ export function storedWorld(
   if (status === 304 && cached) return { ...cached, savedAt: now };
   if (status === 200 && body) return { etag: etag ?? "", body, savedAt: now };
   return cached;
+}
+
+/** Blocks captured in total, which the thinned list carries separately. */
+export function parseWorldTotal(body: string | undefined): number | null {
+  if (!body) return null;
+  try {
+    const n = (JSON.parse(body) as { total?: unknown }).total;
+    return typeof n === "number" && Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
 }
 
 export function parseWorldBody(body: string | undefined): ClaimedHexRow[] | null {
@@ -50,13 +69,15 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
-export async function readCachedWorld(): Promise<CachedWorld | null> {
+export async function readCachedWorld(
+  res: number | null = null,
+): Promise<CachedWorld | null> {
   if (typeof indexedDB === "undefined") return null;
   try {
     const db = await openDb();
     const value = await new Promise<CachedWorld | undefined>((resolve, reject) => {
       const tx = db.transaction(STORE, "readonly");
-      const req = tx.objectStore(STORE).get(KEY);
+      const req = tx.objectStore(STORE).get(res === null ? KEY : THIN_KEY(res));
       req.onsuccess = () => resolve(req.result as CachedWorld | undefined);
       req.onerror = () => reject(req.error);
     });
@@ -68,13 +89,16 @@ export async function readCachedWorld(): Promise<CachedWorld | null> {
   }
 }
 
-export async function writeCachedWorld(entry: CachedWorld): Promise<void> {
+export async function writeCachedWorld(
+  entry: CachedWorld,
+  res: number | null = null,
+): Promise<void> {
   if (typeof indexedDB === "undefined") return;
   try {
     const db = await openDb();
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE, "readwrite");
-      tx.objectStore(STORE).put(entry, KEY);
+      tx.objectStore(STORE).put(entry, res === null ? KEY : THIN_KEY(res));
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
@@ -90,10 +114,16 @@ export async function writeCachedWorld(entry: CachedWorld): Promise<void> {
  */
 export async function fetchWorldRows(
   cached: CachedWorld | null,
-): Promise<{ rows: ClaimedHexRow[]; changed: boolean } | null> {
+  /** Parent resolution to ask the server for, or null for every block. */
+  thinRes: number | null = null,
+): Promise<{ rows: ClaimedHexRow[]; changed: boolean; total: number | null } | null> {
   const previous = parseWorldBody(cached?.body);
+  const url =
+    thinRes === null
+      ? `/api/hexes?${WORLD_GROUPED_PARAM}`
+      : `/api/hexes?res=${thinRes}`;
   try {
-    const res = await fetch(`/api/hexes?${WORLD_GROUPED_PARAM}`, {
+    const res = await fetch(url, {
       headers: cacheRequestHeaders(cached?.etag ?? null),
     });
     const body = res.status === 200 ? await res.text() : "";
@@ -104,13 +134,23 @@ export async function fetchWorldRows(
       body,
       Date.now(),
     );
-    if (!next) return previous ? { rows: previous, changed: false } : null;
-    if (res.status === 200) await writeCachedWorld(next);
-    if (res.status === 304 && previous) return { rows: previous, changed: false };
+    const prevTotal = parseWorldTotal(cached?.body);
+    if (!next)
+      return previous ? { rows: previous, changed: false, total: prevTotal } : null;
+    if (res.status === 200) await writeCachedWorld(next, thinRes);
+    if (res.status === 304 && previous)
+      return { rows: previous, changed: false, total: prevTotal };
     const rows = parseWorldBody(next.body);
-    if (!rows) return previous ? { rows: previous, changed: false } : null;
-    return { rows, changed: res.status === 200 };
+    if (!rows)
+      return previous ? { rows: previous, changed: false, total: prevTotal } : null;
+    return {
+      rows,
+      changed: res.status === 200,
+      total: parseWorldTotal(next.body),
+    };
   } catch {
-    return previous ? { rows: previous, changed: false } : null;
+    return previous
+      ? { rows: previous, changed: false, total: parseWorldTotal(cached?.body) }
+      : null;
   }
 }

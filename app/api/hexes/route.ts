@@ -3,11 +3,16 @@ import { gridDisk, isValidCell } from "h3-js";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, users } from "@/lib/db/schema";
-import { jsonBody, packJson, type PackedJson } from "@/lib/http/json-body";
+import { jsonBody, packJson } from "@/lib/http/json-body";
 import { createLogger } from "@/lib/logger";
 import { addressesForPlayer } from "@/lib/players";
-import { groupByOwner } from "@/lib/map/worldHexes";
 import { isHexStrengthEnabled, strengthSql } from "@/lib/runs/hexStrength";
+import { parseThinRes } from "@/lib/map/worldThin";
+import {
+  thinnedWorldList,
+  worldList,
+  type WorldShape,
+} from "@/lib/map/worldList";
 
 const log = createLogger("api:hexes");
 
@@ -17,41 +22,13 @@ export const dynamic = "force-dynamic";
 const MAX_DISK = 60;
 
 // The world list is ~24 MB of JSON as flat rows (~1.2 MB gzipped) at 230k
-// hexes; `?fmt=owners` groups it by owner (~4 MB, ~0.8 MB gzipped), which is
-// what the app asks for. The flat shape stays for old clients. Pages are
-// compressed by Next; this route handler is not, so the body is packed here.
-// One shared copy for five minutes. Rebuilding it blocks the process, and
-// that is what turned claim requests into 502s. A fresh claim can lag the
-// world map by this long; the player's own blocks are merged on the run map.
-const WORLD_TTL_MS = 5 * 60_000;
+// hexes; `?fmt=owners` groups it by owner (~4 MB, ~0.8 MB gzipped), and
+// `?res=N` thins it to parent cells (~2k rows), which is what the app asks
+// for at world zoom. The flat shape stays for old clients. Pages are
+// compressed by Next; this route handler is not, so the body is packed in
+// lib/map/worldList, which also owns the shared cache and the warm-up.
 const WORLD_CACHE = "public, max-age=300";
 const SCOPED_CACHE = "private, no-cache";
-
-type WorldShape = "flat" | "owners";
-const worldCache = new Map<WorldShape, { packed: PackedJson; at: number }>();
-const worldInflight = new Map<WorldShape, Promise<PackedJson>>();
-
-async function worldPacked(
-  shape: WorldShape,
-  load: () => Promise<PackedJson>,
-): Promise<PackedJson> {
-  const now = Date.now();
-  const cached = worldCache.get(shape);
-  if (cached && now - cached.at < WORLD_TTL_MS) return cached.packed;
-  let inflight = worldInflight.get(shape);
-  if (!inflight) {
-    inflight = load()
-      .then((packed) => {
-        worldCache.set(shape, { packed, at: Date.now() });
-        return packed;
-      })
-      .finally(() => {
-        worldInflight.delete(shape);
-      });
-    worldInflight.set(shape, inflight);
-  }
-  return inflight;
-}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -78,7 +55,11 @@ export async function GET(request: Request) {
           h3: hexes.h3Id,
           owner: hexes.ownerAddress,
           ownerUsername: users.username,
-          strength: strengthSql(hexes.baseStrength, hexes.damage, hexes.reinforcedAt),
+          strength: strengthSql(
+            hexes.baseStrength,
+            hexes.damage,
+            hexes.reinforcedAt,
+          ),
         })
         .from(hexes)
         .leftJoin(users, eq(hexes.ownerAddress, users.address))
@@ -96,16 +77,22 @@ export async function GET(request: Request) {
     return jsonBody(request, packJson({ hexes: rows }), SCOPED_CACHE);
   }
 
+  // The world view at its usual zoom draws one dot per parent cell, so it
+  // asks for the list already thinned: roughly two thousand rows instead of
+  // 303,000. The browser used to download all of them, 5.8 MB raw and about
+  // 1 MB on the wire, and throw almost all of it away. The full list is
+  // still served without `res`, for the zoom where polygons are drawn.
+  const thinRes = parseThinRes(url.searchParams.get("res"));
+  if (!near && thinRes !== null) {
+    return jsonBody(request, await thinnedWorldList(thinRes), WORLD_CACHE);
+  }
+
   // No `near`: the world map needs every claim. The run screen passes a
   // res-12 cell so a walk does not download the whole table.
   if (!near) {
-    const shape: WorldShape = url.searchParams.get("fmt") === "owners" ? "owners" : "flat";
-    const packed = await worldPacked(shape, async () => {
-      const rows = await base;
-      log.info("hexes fetched", { count: rows.length, scoped: "all", shape });
-      return packJson(shape === "owners" ? { owners: groupByOwner(rows) } : { hexes: rows });
-    });
-    return jsonBody(request, packed, WORLD_CACHE);
+    const shape: WorldShape =
+      url.searchParams.get("fmt") === "owners" ? "owners" : "flat";
+    return jsonBody(request, await worldList(shape), WORLD_CACHE);
   }
 
   if (!isValidCell(near)) {

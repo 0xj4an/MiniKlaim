@@ -31,6 +31,14 @@ export async function register() {
       import("./lib/logger"),
     ]);
     reportEnvSkew(createLogger("env:skew"));
+    // The world list takes 2.60 s to build, and a route module is only
+    // evaluated on its first request, so after every deploy one player paid
+    // that 2.6 s on an endpoint whose rebuild blocks the process. Build it
+    // now instead. Not awaited: a slow database should delay the world map,
+    // not the boot, and warmWorldList swallows its own failures.
+    void import("./lib/map/worldList").then(({ warmWorldList }) =>
+      warmWorldList(),
+    );
   }
   if (process.env.NEXT_RUNTIME === "edge") {
     await import("./sentry.edge.config");
