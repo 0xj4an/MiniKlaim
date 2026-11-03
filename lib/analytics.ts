@@ -196,6 +196,13 @@ type EventMap = {
   // MiniPay iOS rejects a postMessage in its own bridge (not app code).
   wallet_bridge_rejected: Record<string, never>;
   gps_unavailable: Record<string, never>;
+  /**
+   * The GPS chip did not answer in time and we asked the network provider
+   * instead, rather than telling the player they cannot play. `code` is the
+   * Geolocation error that triggered it. Count it against gps_retry, the
+   * banner's Try again button: 201 people tapped that in 7 days.
+   */
+  gps_coarse_retry: { code: number };
   gps_minipay_ios_blocked: Record<string, never>;
   // Fired on a 1-in-20 sample when a GPS fix is dropped because accuracy
   // exceeds the capture threshold. Sampled to avoid drowning the event
@@ -325,8 +332,13 @@ export function isConstrainedDevice(
 ): boolean {
   if (!nav) return false;
   if (nav.connection?.saveData === true) return true;
-  if (typeof nav.deviceMemory === "number" && nav.deviceMemory <= 2) return true;
-  if (typeof nav.hardwareConcurrency === "number" && nav.hardwareConcurrency <= 2) return true;
+  if (typeof nav.deviceMemory === "number" && nav.deviceMemory <= 2)
+    return true;
+  if (
+    typeof nav.hardwareConcurrency === "number" &&
+    nav.hardwareConcurrency <= 2
+  )
+    return true;
   return false;
 }
 
