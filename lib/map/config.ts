@@ -26,6 +26,19 @@ export const FOLLOW_ZOOM = 17; // zoom level when centered on user position
 export const RUN_MIN_ZOOM = 10;
 
 /**
+ * The floor on /me, whose map exists to show the player their own blocks.
+ *
+ * /me had no floor at all, so a pinch out reached the whole-world tiles the
+ * comment above calls the cliff: 1.2 MB at z2, on a page nobody opens to
+ * look at the world. 6 is a region or a small country, which is as far out
+ * as a territory still means anything.
+ *
+ * It is a floor, not an override: a player whose blocks span more than that
+ * is fitted below 6, and the frame wins.
+ */
+export const ME_MIN_ZOOM = 6;
+
+/**
  * H3 resolution for the claimable hex grid. Resolution 12 is about 9-10 m
  * edge length (about 300 m2 per hex, centres about 16 m apart), the right
  * scale for "claim this block by running through it".
