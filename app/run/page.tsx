@@ -99,6 +99,7 @@ import {
 import { NeedNameOverlay } from "./NeedNameOverlay";
 import { OnboardingTooltip } from "./OnboardingTooltip";
 import { readCachedPosition, writeCachedPosition } from "./positionCache";
+import { FINE_FIX, nextFixAttempt } from "./gpsAttempts";
 import { RunControls } from "./RunControls";
 import { rowsFromWorldResponse } from "@/lib/map/worldHexes";
 import {
@@ -1053,20 +1054,13 @@ export default function RunPage() {
     }
   }, [drainClaimQueue, refreshClaimed]);
 
-  // Kick the geolocation request as early as possible after mount. Putting it
-  // inside the map.on("load", ...) callback further down loses the iOS user-
-  // gesture context that arrived with the route transition, which makes
-  // WKWebView (MiniPay iOS) silently hang on getCurrentPosition. Calling it
-  // synchronously from this useEffect fires it on the same task as the route
-  // transition, which iOS treats as still-gestured.
-  const requestLocation = useCallback(() => {
-    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
-      queueMicrotask(() => setGeoStatus("unavailable"));
-      return;
-    }
-    geoFailedRef.current = false;
-    queueMicrotask(() => setGeoStatus("requesting"));
-    log.info("eager geolocation primer");
+  /**
+   * Ask for a position, and on a failure the policy says is worth retrying,
+   * ask again with weaker options. See app/run/gpsAttempts.ts: a GPS chip
+   * that cannot answer in ten seconds used to lock the player out of the
+   * game, with Start greyed out, even when a network fix was a second away.
+   */
+  const attemptFix = useCallback((options: PositionOptions) => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
@@ -1095,20 +1089,46 @@ export default function RunPage() {
               : err.code === err.TIMEOUT
                 ? "timeout"
                 : `code ${err.code}`;
-        geoFailedRef.current = true;
+        const retry = nextFixAttempt(err.code, options);
         log.warn("eager primer failed", {
           code: err.code,
           message: err.message,
+          retrying: retry !== null,
         });
+        if (retry) {
+          // Not a failure yet: the chip could not answer, so ask the towers.
+          // The banner stays away, because the player is not stuck.
+          track("gps_coarse_retry", { code: err.code });
+          attemptFix(retry);
+          return;
+        }
+        geoFailedRef.current = true;
         queueMicrotask(() => {
           setGeoLastError(`${label}: ${err.message}`);
           const next = geoStatusForError(err.code, true);
           if (next) setGeoStatus(next);
         });
       },
-      { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 },
+      options,
     );
   }, []);
+
+  // Kick the geolocation request as early as possible after mount. Putting it
+  // inside the map.on("load", ...) callback further down loses the iOS user-
+  // gesture context that arrived with the route transition, which makes
+  // WKWebView (MiniPay iOS) silently hang on getCurrentPosition. Calling it
+  // synchronously from this useEffect fires it on the same task as the route
+  // transition, which iOS treats as still-gestured.
+  const requestLocation = useCallback(() => {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      queueMicrotask(() => setGeoStatus("unavailable"));
+      return;
+    }
+    geoFailedRef.current = false;
+    queueMicrotask(() => setGeoStatus("requesting"));
+    log.info("eager geolocation primer");
+    attemptFix(FINE_FIX);
+  }, [attemptFix]);
 
   useEffect(() => {
     let cancelled = false;
