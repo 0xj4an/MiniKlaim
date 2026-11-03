@@ -38,6 +38,7 @@ import {
 import {
   fetchWorldRows,
   parseWorldBody,
+  parseWorldTotal,
   readCachedWorld,
 } from "@/lib/map/worldCache";
 import { useLinkedAddresses } from "@/lib/wallet/useLinkedAddresses";
@@ -91,6 +92,9 @@ function setGeoSource(
 }
 
 const log = createLogger("page:community:map");
+
+/** The resolution the no-GPU grid draws the world at, and nothing finer. */
+const GRID_RES = 2;
 
 const EMPTY: GeoJSON.FeatureCollection = {
   type: "FeatureCollection",
@@ -148,6 +152,10 @@ export function WorldMap({
   const placedRef = useRef<PlacedHex[] | null>(null);
   const placedForRef = useRef<HexRow[] | null>(null);
   const paintedResRef = useRef<number | null | undefined>(undefined);
+  /** Which list rowsRef holds: a parent resolution, or null for every block. */
+  const loadedResRef = useRef<number | null | undefined>(undefined);
+  const loadingResRef = useRef<number | null | undefined>(undefined);
+  const loadForResRef = useRef<((res: number | null) => Promise<void>) | null>(null);
   const linkedRef = useRef<ReadonlySet<string>>(new Set());
   const addressRef = useRef(myAddress);
   const labelsRef = useRef({ captured: "", you: "", anon: "" });
@@ -493,9 +501,9 @@ export function WorldMap({
         width: container.clientWidth || 320,
         height: container.clientHeight || 320,
       };
-      const paintGrid = (rows: HexRow[]) => {
+      const paintGrid = (rows: HexRow[], total: number | null) => {
         if (cancelled) return;
-        setCount(rows.length);
+        setCount(total ?? rows.length);
         const mineSet = linkedRef.current;
         const colors = topColorsRef.current;
         const thinned = thinWorldRows(rows, 2, (owner) => {
@@ -520,12 +528,14 @@ export function WorldMap({
 
       void (async () => {
         try {
-          const cached = await readCachedWorld();
+          // The grid draws the world at res 2 and nothing finer, so it never
+          // needs the full list.
+          const cached = await readCachedWorld(GRID_RES);
           const cachedRows = cached ? parseWorldBody(cached.body) : null;
-          if (cachedRows) paintGrid(cachedRows);
-          const result = await fetchWorldRows(cached);
+          if (cachedRows) paintGrid(cachedRows, parseWorldTotal(cached?.body));
+          const result = await fetchWorldRows(cached, GRID_RES);
           if (!result || !result.changed) return;
-          paintGrid(result.rows);
+          paintGrid(result.rows, result.total);
         } catch (e) {
           log.error("world grid load failed", {
             message: e instanceof Error ? e.message : String(e),
@@ -589,8 +599,19 @@ export function WorldMap({
     // the tab on 25 Oct.
     let paintTimer: number | null = null;
     map.on("moveend", () => {
-      if (cancelled || rowsRef.current.length === 0) return;
+      if (cancelled) return;
       const next = worldPointParentRes(map.getZoom());
+      // A zoom that crosses into another resolution, or into the polygon
+      // zone, needs a different list from the server, not just a repaint.
+      if (next !== loadedResRef.current) {
+        if (paintTimer !== null) window.clearTimeout(paintTimer);
+        paintTimer = window.setTimeout(() => {
+          paintTimer = null;
+          void loadForResRef.current?.(next);
+        }, 200);
+        return;
+      }
+      if (rowsRef.current.length === 0) return;
       if (next !== null && next === paintedResRef.current) return;
       if (paintTimer !== null) window.clearTimeout(paintTimer);
       paintTimer = window.setTimeout(() => {
@@ -613,10 +634,12 @@ export function WorldMap({
       mapRenderFailed(glTier, "maplibre", "/community", "style", e.error ?? e);
     });
 
-    const paintRows = (rows: HexRow[]) => {
+    const paintRows = (rows: HexRow[], total: number | null) => {
       if (cancelled) return;
       rowsRef.current = rows;
-      setCount(rows.length);
+      // The header counts captured blocks, not the dots drawn. The thinned
+      // list carries the real total; the full list is its own length.
+      setCount(total ?? rows.length);
       const draw = () => {
         if (!cancelled) paintRef.current(map);
       };
@@ -624,20 +647,43 @@ export function WorldMap({
       else map.once("load", draw);
     };
 
-    void (async () => {
+    /**
+     * Load the list this zoom actually draws.
+     *
+     * At world zoom that is one row per parent cell, about two thousand of
+     * them. Downloading all 303,000 blocks to draw those dots is what put
+     * ~1 MB on the wire for every visit, and the proxy logged 12,204
+     * clients dropping mid-download in four days. The full list is fetched
+     * only when the player zooms past WORLD_FILL_ZOOM, where polygons are
+     * drawn and every block matters.
+     */
+    const loadForRes = async (res: number | null) => {
+      if (cancelled || loadingResRef.current === res) return;
+      loadingResRef.current = res;
       try {
-        const cached = await readCachedWorld();
+        const cached = await readCachedWorld(res);
         const cachedRows = cached ? parseWorldBody(cached.body) : null;
-        if (cachedRows) paintRows(cachedRows);
-        const result = await fetchWorldRows(cached);
-        if (!result || !result.changed) return;
-        paintRows(result.rows);
+        if (cachedRows) {
+          loadedResRef.current = res;
+          paintRows(cachedRows, parseWorldTotal(cached?.body));
+        }
+        const result = await fetchWorldRows(cached, res);
+        if (!result) return;
+        loadedResRef.current = res;
+        if (!result.changed && cachedRows) return;
+        paintRows(result.rows, result.total);
       } catch (e) {
         log.error("world map load failed", {
+          res,
           message: e instanceof Error ? e.message : String(e),
         });
+      } finally {
+        if (loadingResRef.current === res) loadingResRef.current = undefined;
       }
-    })();
+    };
+    loadForResRef.current = loadForRes;
+
+    void loadForRes(worldPointParentRes(zoom));
 
     const layers = boundLayers.current;
     return () => {

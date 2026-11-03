@@ -10,7 +10,11 @@ import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { isWebglFailure } from "@/lib/map/isWebglFailure";
-import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
+import {
+  DEFAULT_MAP_STYLE,
+  lightMapOptions,
+  ME_MIN_ZOOM,
+} from "@/lib/map/config";
 import { reportGpuSupport } from "@/lib/map/gpuSupport";
 import {
   claimedHexesToFeatureCollection,
@@ -139,6 +143,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
             ...lightMapOptions(),
             center: frame.center,
             zoom: frame.zoom,
+            minZoom: Math.min(frame.zoom, ME_MIN_ZOOM),
             attributionControl: { compact: true },
             interactive: true,
           });
