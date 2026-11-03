@@ -20,25 +20,6 @@ const BUILD_SHA =
   "";
 
 const nextConfig: NextConfig = {
-  /**
-   * Caddy compresses, not Next.
-   *
-   * Next only speaks gzip. Caddy in front offers zstd as well, but it will
-   * not recompress a response that already carries Content-Encoding, so
-   * while Next compressed, zstd was unreachable. With this off, Caddy's
-   * `encode zstd gzip` picks the best the client announced and anything too
-   * old for zstd still gets gzip.
-   *
-   * It matters because of who plays: the world block list is 5.7 MB raw and
-   * 999 KB gzipped, and in four days Caddy logged 12,204 "aborting with
-   * incomplete response", clients dropping mid-download, mostly on mobile
-   * data. Every kilobyte not sent is a download that finishes.
-   *
-   * This only works behind that proxy. Running `next start` directly, or
-   * putting a proxy with no `encode` in front, serves these responses
-   * uncompressed.
-   */
-  compress: false,
   // Short commit of this build, shown in support emails, so a player's
   // ticket can be tied to a build.
   env: {
