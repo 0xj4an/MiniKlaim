@@ -109,6 +109,12 @@ export function thinnedWorldList(res: WorldThinRes): Promise<PackedJson> {
  *
  * Failures are logged and dropped. A cold cache is the state this is trying
  * to improve on, not a reason to refuse to boot.
+ *
+ * Both outcomes log at `warn`, not `info`, for the reason in lib/logger.ts:
+ * production has no LOG_LEVEL, so the floor is `warn` and an `info` line is
+ * dropped. This is the only evidence that the warm happened at all, and a
+ * startup step you cannot see in the logs is one you cannot trust. It is one
+ * line per boot.
  */
 export async function warmWorldList(): Promise<void> {
   const started = Date.now();
@@ -128,5 +134,5 @@ export async function warmWorldList(): Promise<void> {
     });
     return;
   }
-  log.info("world list warm", { ms: Date.now() - started });
+  log.warn("world list warm", { ms: Date.now() - started });
 }
