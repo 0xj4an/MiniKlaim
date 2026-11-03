@@ -118,6 +118,10 @@ export function thinnedWorldList(res: WorldThinRes): Promise<PackedJson> {
  */
 export async function warmWorldList(): Promise<void> {
   const started = Date.now();
+  // Logged before the work, so the logs tell "never started" apart from
+  // "started and failed". Without this line the only evidence of a failed
+  // warm is a slow first request, which is what it is meant to prevent.
+  log.warn("world list warm started");
   const results = await Promise.allSettled([
     thinnedWorldList(2),
     worldList("owners"),
