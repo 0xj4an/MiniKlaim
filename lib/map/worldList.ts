@@ -107,6 +107,14 @@ export function thinnedWorldList(res: WorldThinRes): Promise<PackedJson> {
  * own resolution, and `owners` is the full list the deeper zooms fetch. The
  * other resolutions are built on demand, which is cheap once warm.
  *
+ * They are built one after the other, thin first, not concurrently. Measured
+ * on prod: warming both at once took 9.2 s, and a player arriving inside
+ * that window waits for it, because the cache is single-flight and the
+ * request attaches to the build already running. Thin first means the list
+ * the world map actually opens with is ready in about a third of that, and
+ * the full list, which only a zoomed-in player needs, finishes behind it
+ * instead of competing with it for the same database.
+ *
  * Failures are logged and dropped. A cold cache is the state this is trying
  * to improve on, not a reason to refuse to boot.
  *
@@ -122,19 +130,26 @@ export async function warmWorldList(): Promise<void> {
   // "started and failed". Without this line the only evidence of a failed
   // warm is a slow first request, which is what it is meant to prevent.
   log.warn("world list warm started");
-  const results = await Promise.allSettled([
-    thinnedWorldList(2),
-    worldList("owners"),
-  ]);
-  const failed = results.filter((r) => r.status === "rejected");
+  const failed: unknown[] = [];
+  // Sequential and thin first: see the note above. One failure must not stop
+  // the other, so each is caught on its own.
+  try {
+    await thinnedWorldList(2);
+    log.warn("world list warm thin ready", { ms: Date.now() - started });
+  } catch (e) {
+    failed.push(e);
+  }
+  try {
+    await worldList("owners");
+  } catch (e) {
+    failed.push(e);
+  }
   if (failed.length > 0) {
     log.warn("world list warm incomplete", {
       failed: failed.length,
       ms: Date.now() - started,
       message:
-        failed[0].status === "rejected"
-          ? String((failed[0] as PromiseRejectedResult).reason)
-          : undefined,
+        failed[0] instanceof Error ? failed[0].message : String(failed[0]),
     });
     return;
   }
