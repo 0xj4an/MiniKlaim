@@ -34,11 +34,22 @@ export async function register() {
     // The world list takes 2.60 s to build, and a route module is only
     // evaluated on its first request, so after every deploy one player paid
     // that 2.6 s on an endpoint whose rebuild blocks the process. Build it
-    // now instead. Not awaited: a slow database should delay the world map,
-    // not the boot, and warmWorldList swallows its own failures.
-    void import("./lib/map/worldList").then(({ warmWorldList }) =>
-      warmWorldList(),
-    );
+    // now instead.
+    //
+    // The module is imported with await and the import is caught: the first
+    // version was `void import(...).then(...)`, which swallows a rejected
+    // import whole. It did reject in production, and the only symptom was
+    // that nothing happened, measured as a 10 s first request after a
+    // restart. The warm itself is still not awaited, because a slow database
+    // should delay the world map and not the boot.
+    try {
+      const { warmWorldList } = await import("./lib/map/worldList");
+      void warmWorldList();
+    } catch (e) {
+      createLogger("map:worldList").warn("world list warm could not start", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
   if (process.env.NEXT_RUNTIME === "edge") {
     await import("./sentry.edge.config");
