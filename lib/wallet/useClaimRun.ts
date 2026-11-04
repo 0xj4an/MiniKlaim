@@ -17,16 +17,28 @@ import {
   shortfallHeaders,
 } from "@/lib/onchain/sponsorHeaders";
 import { walletPaysGasInToken } from "@/lib/wallet/feeSupport";
-import { isUserRejection, playerHasNoFeeBalance } from "@/lib/wallet/playerFee";
+import { isUserRejection } from "@/lib/wallet/playerFee";
 import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { reportDeclined, runTokenHeaders } from "@/lib/wallet/runTokens";
-import { sponsorRefusalFor } from "@/lib/wallet/sponsorOutcome";
+import {
+  sponsorRefusalFor,
+  sponsorWantsPlayerToPay,
+} from "@/lib/wallet/sponsorOutcome";
 
 const log = createLogger("wallet:claimRun");
 
-function orFailed(outcome: ClaimOutcome | "refused"): ClaimOutcome {
-  return outcome === "refused" ? "failed" : outcome;
+/**
+ * Collapse the sponsor's answer into an outcome, for the call sites where the
+ * player cannot take over: no wallet at all, or no voucher to sign. A
+ * hand-over there is a failure, because there is nobody to hand it to.
+ */
+function orFailed(
+  outcome: ClaimOutcome | "refused" | "player-pays",
+): ClaimOutcome {
+  return outcome === "refused" || outcome === "player-pays"
+    ? "failed"
+    : outcome;
 }
 
 export type ClaimOutcome = "user-claimed" | "sponsored" | "no-hexes" | "failed";
@@ -41,11 +53,21 @@ type Voucher = {
 
 /**
  * Drives the post-finish on-chain hex mint on the active chain (Celo via
- * MiniPay/Farcaster, Soneium via Startale). Player submits their own `claimRun`
- * tx (gated by a backend EIP-712 voucher for that chain) so they are the
- * on-chain msg.sender. When their tx cannot go through the client asks the
- * relayer and the server decides (it refuses players who can pay and caps
- * each wallet per day). A declined signature is never sponsored.
+ * MiniPay/Farcaster, Soneium via Startale).
+ *
+ * The relayer is asked first, so finishing a run costs the player nothing.
+ * Until 4 Nov 2026 it was the other way round, and the numbers said so: over
+ * 7 days, 423 claims were signed and paid by players against 106 sponsored.
+ * The server decides, and it only pays while its own balance is above the
+ * claim floor, so this is a promise that unwinds by itself rather than one
+ * that breaks.
+ *
+ * When the relayer hands the claim back (it is low on funds and the player
+ * can pay, the wallet is past its daily allowance, or the relayer tx failed)
+ * the player submits their own `claimRun`, gated by a backend EIP-712 voucher
+ * so they are the on-chain msg.sender. A declined signature is never
+ * sponsored afterwards: the player said no, and asking the relayer would
+ * claim the run they just refused to claim.
  */
 export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
   const { data: walletClient } = useWalletClient();
@@ -56,7 +78,7 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
     async (
       runId: string,
       shortfall = false,
-    ): Promise<ClaimOutcome | "refused"> => {
+    ): Promise<ClaimOutcome | "refused" | "player-pays"> => {
       try {
         const res = await fetchWithRetry(
           `/api/runs/${runId}/sponsor-mint?chain=${chainKey}`,
@@ -72,6 +94,13 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
         if (await isSponsorInProgress(res)) {
           log.info("sponsor already in progress", { runId });
           return "sponsored";
+        }
+        if (sponsorWantsPlayerToPay(res.status)) {
+          log.info("sponsor hands the claim to the player", {
+            runId,
+            status: res.status,
+          });
+          return "player-pays";
         }
         const refusal = sponsorRefusalFor(res.status);
         if (refusal) {
@@ -113,6 +142,12 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
         return orFailed(await sponsorFallback(runId));
       }
 
+      // The relayer first: the claim is free while it has the funds. Anything
+      // other than a hand-over is final, including a 403 (this browser has no
+      // run token, so the player's own voucher would be refused too).
+      const sponsored = await sponsorFallback(runId);
+      if (sponsored !== "player-pays") return orFailed(sponsored);
+
       let voucher: Voucher;
       try {
         const res = await fetchWithRetry(
@@ -135,18 +170,11 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
         return orFailed(await sponsorFallback(runId));
       }
 
-      // Fee abstraction only where supported (Celo CIP-64). No held stable
-      // means the relayer pays. A decline does not.
+      // Fee abstraction only where supported (Celo CIP-64). The relayer has
+      // already been asked and handed the claim back, so there is nothing to
+      // gain by asking it again here: the player pays, in a held stablecoin
+      // if they have one and in CELO if they do not.
       const held = heldFeeAdaptersForWallet(chain.feeCurrencies, balances);
-      if (
-        playerHasNoFeeBalance(chain.feeCurrencies.length, held.length, balances)
-      ) {
-        log.info("no fee stablecoin; asking the relayer", { runId });
-        const outcome = await sponsorFallback(runId);
-        // The server saw enough to pay (usually CELO, which the client does
-        // not read). Fall through and let the player pay in CELO.
-        if (outcome !== "refused") return outcome;
-      }
       try {
         const data = encodeFunctionData({
           abi: HEXES_CLAIM_ABI,
@@ -188,8 +216,12 @@ export function useClaimRun(address: `0x${string}` | null, enabled: boolean) {
           runId,
           message: e instanceof Error ? e.message : String(e),
         });
-        // The wallet already failed (not a decline): the player cannot pay now.
-        return orFailed(await sponsorFallback(runId, true));
+        // The wallet failed and it was not a decline, so the player cannot
+        // pay after all. `shortfall` tells the server to skip its own
+        // affordability check, which is the one thing that changed since it
+        // handed the claim over a moment ago.
+        const retry = await sponsorFallback(runId, true);
+        return orFailed(retry === "player-pays" ? "failed" : retry);
       }
     },
     // The individual `balances.<sym>` values are memoized inside useBalances,

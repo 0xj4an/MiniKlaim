@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes } from "@/lib/db/schema";
 import { getChain, parseChainKey } from "@/lib/onchain/chains";
-import { quoteMint } from "@/lib/onchain/mintFee";
+import { quoteMint, quoteMintGas } from "@/lib/onchain/mintFee";
+import { mintPlan } from "@/lib/onchain/mintPlan";
 import {
   estimateMintTokensGas,
   MINT_TOKENS_MAX,
@@ -43,7 +44,13 @@ export async function GET(
   // The player pays this fee, so quote it before they tap. The small batch is
   // only offered when it is actually smaller than the whole lot.
   const counts = nextBatch > SMALL_BATCH ? [nextBatch, SMALL_BATCH] : [nextBatch];
+  // What finishing the whole pile takes, not just the next tap. A player with
+  // a big run had no way of knowing that minting is one signature per 700
+  // blocks, so the third wallet popup read as a bug.
+  const plan = mintPlan(recorded);
   const quotes = nextBatch > 0 ? await quoteMint(chainKey, counts) : [];
+  const planQuote =
+    plan.signatures > 1 ? await quoteMintGas(chainKey, plan.totalGas) : null;
   return NextResponse.json({
     enabled,
     recorded,
@@ -53,5 +60,12 @@ export async function GET(
     nextBatchGas: estimateMintTokensGas(nextBatch).toString(),
     smallBatch: nextBatch > SMALL_BATCH ? SMALL_BATCH : null,
     quotes,
+    plan: {
+      signatures: plan.signatures,
+      batches: plan.batches,
+      // Null when the whole pile is one signature (the quote above says it
+      // already) or when the chain could not be read.
+      usd: planQuote,
+    },
   });
 }
