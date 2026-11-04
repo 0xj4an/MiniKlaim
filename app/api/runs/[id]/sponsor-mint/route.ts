@@ -11,6 +11,7 @@ import { createLogger } from "@/lib/logger";
 import { parseChainKey } from "@/lib/onchain/chains";
 import {
   playerCanPay,
+  relayerFundsClaims,
   setMintStatus,
   sponsorRunHexes,
 } from "@/lib/onchain/sponsor";
@@ -27,8 +28,11 @@ const inFlight = new Set<string>();
  * Relayer-mint this run's hexes. The server decides, not the client:
  *   - the caller must hold the run token issued when the run started;
  *   - the run must be finished;
- *   - a player who can pay their own claim (CELO or a fee stablecoin) is
- *     refused with 402 and the run is marked `sponsor_denied`;
+ *   - while the relayer holds at least `sponsorClaimsFloorCelo`, it pays
+ *     every claim, so finishing a run costs the player nothing;
+ *   - below that floor the old rule returns: a player who can pay their own
+ *     claim (CELO or a fee stablecoin) is refused with 402 and the run is
+ *     marked `sponsor_denied`, and the client falls back to their wallet;
  *   - the relayer mints at most the wallet's daily allowance.
  * A failure on our side marks the run `sponsor_failed`, which the retry cron
  * picks up. Nothing else is retried.
@@ -82,9 +86,14 @@ export async function POST(
   // Outside MiniPay a stablecoin balance cannot pay a fee, so it must
   // not count as the player being able to pay.
   const nativeOnly = request.headers.get(FEE_NATIVE_ONLY_HEADER) === "1";
-    const pay = shortfall
-      ? { canPay: false as const }
-      : await playerCanPay(player, pending, 0, chainKey, { nativeOnly });
+    // Claiming a run is on the relayer while it has the funds for it, so the
+    // finish screen can promise a free claim. Below the floor the old rule
+    // returns on its own and players pay their own claims again.
+    const funded = await relayerFundsClaims(chainKey);
+    const pay =
+      shortfall || funded
+        ? { canPay: false as const }
+        : await playerCanPay(player, pending, 0, chainKey, { nativeOnly });
     if (shortfall) {
       log.info("sponsoring after the player's own tx failed", {
         runId: id,

@@ -78,11 +78,14 @@ describe("remainingHexAllowance", () => {
     delete process.env.SPONSOR_DAILY_HEX_CAP;
   });
 
-  it("defaults to 200 hexes a day", () => {
-    expect(dailyHexCap()).toBe(200);
-    expect(remainingHexAllowance(0)).toBe(200);
-    expect(remainingHexAllowance(150)).toBe(50);
-    expect(remainingHexAllowance(400)).toBe(0);
+  it("defaults to 1000 hexes a day", () => {
+    // Raised from 200 on 4 Nov 2026, when claiming became free: at 200 the
+    // claim was free end to end on 88.4% of playing days, at 1000 on 96.4%,
+    // for 32 US cents a day more.
+    expect(dailyHexCap()).toBe(1000);
+    expect(remainingHexAllowance(0)).toBe(1000);
+    expect(remainingHexAllowance(150)).toBe(850);
+    expect(remainingHexAllowance(1400)).toBe(0);
   });
 
   it("reads the cap from the environment", () => {

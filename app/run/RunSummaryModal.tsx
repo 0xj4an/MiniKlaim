@@ -12,6 +12,8 @@ import { shareTo } from "@/lib/client/share";
 import { badgeCopy } from "@/lib/onchain/badgeArt";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { isBadgeClaimPending } from "@/lib/wallet/claimInFlight";
+import type { ClaimAllOutcome } from "@/lib/wallet/useClaimAll";
+import { useMintTokens } from "@/lib/wallet/useMintTokens";
 import { StreakNote } from "./StreakNote";
 import { STREAK_MIN_SERVER_METERS } from "@/lib/runs/streakMath";
 
@@ -46,13 +48,25 @@ export function RunSummaryModal({
   username: string | null;
   address: string | null;
   onClose: () => void;
-  onClaim?: () => Promise<boolean>;
+  onClaim?: () => Promise<ClaimAllOutcome>;
 }) {
   const { t, locale } = useLocale();
   const chainKey = useActiveChainKey();
   const [phase, setPhase] = useState<"idle" | "pending" | "done" | "error">(
     "idle",
   );
+  // Whether the relayer paid this claim, which the finish line says out loud.
+  const [sponsored, setSponsored] = useState(false);
+  // The NFTs are the player's own to buy, so the offer lives here with its
+  // price and its signature count rather than waiting to be discovered in
+  // the profile.
+  const [nftDismissed, setNftDismissed] = useState(false);
+  const {
+    status: tokenStatus,
+    state: mintState,
+    mint,
+    reload: reloadTokens,
+  } = useMintTokens((address as `0x${string}` | null) ?? null);
   const [badgeIds, setBadgeIds] = useState<number[] | null>(null);
   const [shareNote, setShareNote] = useState<string | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -130,9 +144,12 @@ export function RunSummaryModal({
     });
     setPhase("pending");
     try {
-      const ok = await onClaim();
-      if (ok) {
+      const outcome = await onClaim();
+      if (outcome !== "failed") {
+        setSponsored(outcome === "sponsored");
         setPhase("done");
+        // This run's blocks only became mintable a moment ago.
+        reloadTokens();
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 5000);
       } else {
@@ -156,7 +173,11 @@ export function RunSummaryModal({
     phase === "done"
       ? hasBadges
         ? t("run.summary.claimedBoth")
-        : t("run.summary.claimed")
+        : // Who paid is worth saying only when it was not the player: the
+          // claim became free on 4 Nov 2026 and nothing on screen said so.
+          sponsored
+          ? t("run.summary.claimedFree")
+          : t("run.summary.claimed")
       : phase === "error"
         ? t("pendingClaim.error")
         : hasBadges
@@ -280,6 +301,83 @@ export function RunSummaryModal({
             }`}
           >
             {claimLine}
+          </p>
+        )}
+        {phase === "done" &&
+          !nftDismissed &&
+          tokenStatus?.enabled &&
+          tokenStatus.recorded > 0 && (
+            <div className="mt-3 rounded-lg bg-zinc-50 p-3">
+              <p className="text-center text-xs text-zinc-700">
+                {(() => {
+                  const usd =
+                    tokenStatus.plan?.usd ??
+                    tokenStatus.quotes.find(
+                      (q) => q.count === tokenStatus.nextBatch,
+                    )?.usd ??
+                    null;
+                  return (
+                    usd === null
+                      ? t("run.summary.nftOfferNoPrice")
+                      : t("run.summary.nftOffer").replace(
+                          "{usd}",
+                          usd.toFixed(2),
+                        )
+                  ).replace(
+                    "{count}",
+                    tokenStatus.recorded.toLocaleString(),
+                  );
+                })()}
+              </p>
+              {(tokenStatus.plan?.signatures ?? 1) > 1 && (
+                <p className="mt-1 text-center text-[11px] text-zinc-500">
+                  {t("run.summary.nftBatches").replaceAll(
+                    "{signatures}",
+                    String(tokenStatus.plan.signatures),
+                  )}
+                </p>
+              )}
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  className="flex-1 rounded-md bg-zinc-900 px-3 py-2 text-xs font-medium text-white disabled:opacity-60"
+                  disabled={
+                    mintState === "fetching-voucher" ||
+                    mintState === "sending" ||
+                    mintState === "confirming"
+                  }
+                  onClick={() => {
+                    track("run_summary_nft_tapped", {
+                      pending: tokenStatus.recorded,
+                      signatures: tokenStatus.plan?.signatures ?? 1,
+                    });
+                    void mint();
+                  }}
+                >
+                  {mintState === "fetching-voucher" || mintState === "sending"
+                    ? t("me.nfts.minting")
+                    : mintState === "confirming"
+                      ? t("me.nfts.confirming")
+                      : t("run.summary.nftGo")}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md px-3 py-2 text-xs text-zinc-600"
+                  onClick={() => {
+                    track("run_summary_nft_skipped", {
+                      pending: tokenStatus.recorded,
+                    });
+                    setNftDismissed(true);
+                  }}
+                >
+                  {t("run.summary.nftLater")}
+                </button>
+              </div>
+            </div>
+          )}
+        {phase === "done" && nftDismissed && (
+          <p className="mt-3 text-center text-[11px] text-zinc-500">
+            {t("run.summary.nftSkipped")}
           </p>
         )}
         <p className="mt-2 text-center text-xs text-zinc-500">

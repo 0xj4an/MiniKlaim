@@ -13,9 +13,20 @@ function intFromEnv(name: string, fallback: number): number {
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
 }
 
-/** Hexes the relayer mints for one wallet in a rolling 24h window. */
+/**
+ * Hexes the relayer mints for one wallet in a rolling 24h window.
+ *
+ * This is a policy dial, not a chain limit: it exists so one wallet cannot
+ * drain the relayer in an afternoon. It was 200, chosen before there was any
+ * data. Measured over 14 days across 1,022 wallet-days of capture, raising it
+ * to 1,000 takes the share of playing days whose claim is free from end to
+ * end from 88.4% to 96.4%, and costs 32 US cents a day more at the gas price
+ * and traffic of 4 Nov 2026. The days still above it are the extremes, up to
+ * 10,285 blocks in one day; those get the allowance sponsored and pay for the
+ * remainder, which the partial-sponsor path already reports as `capped`.
+ */
 export function dailyHexCap(): number {
-  return intFromEnv("SPONSOR_DAILY_HEX_CAP", 200);
+  return intFromEnv("SPONSOR_DAILY_HEX_CAP", 1000);
 }
 
 /** Sponsored badge transactions for one wallet in a rolling 24h window. */
@@ -26,6 +37,25 @@ export function dailyBadgeTxCap(): number {
 /** Below this the relayer raises an alert. In CELO. */
 export function relayerLowBalanceCelo(): number {
   return intFromEnv("RELAYER_LOW_BALANCE_CELO", 5);
+}
+
+/**
+ * Balance above which the relayer pays every claim, instead of only the
+ * claims of players who cannot pay for themselves.
+ *
+ * Claiming a run used to be the player's own transaction and their own fee:
+ * over 7 days, 423 claims were signed and paid by players against 106
+ * sponsored. Making the claim free is a decision about money, so it is tied
+ * to the money. Above this floor the relayer pays and the screen can promise
+ * a free claim; below it the old rule returns on its own, and players pay
+ * again instead of the game refusing to claim their runs.
+ *
+ * Sized against the measured burn: sponsoring claims costs about 7 CELO a day
+ * on top of the usual 3.5, so 25 leaves about two days of warning between
+ * crossing the floor and the alert at `relayerLowBalanceCelo`.
+ */
+export function sponsorClaimsFloorCelo(): number {
+  return intFromEnv("SPONSOR_CLAIMS_FLOOR_CELO", 25);
 }
 
 // Measured on mainnet: about 28k gas per hex in large captureBatch txs, more

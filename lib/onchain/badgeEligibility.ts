@@ -1,8 +1,9 @@
 import { cellToParent } from "h3-js";
-import { and, count, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, count, desc, inArray, isNotNull, sql } from "drizzle-orm";
 import type { Address } from "viem";
 import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
+import { addressesForPlayer } from "@/lib/players";
 import { BADGE_IDS } from "@/lib/onchain/badges";
 import { getPlayerStreaks } from "@/lib/runs/streak";
 
@@ -15,11 +16,26 @@ const CITY_RESOLUTION = 5;
  * from their lifetime stats. The contract skips badges already held, so callers
  * can pass this whole list. Shared by the player voucher and the no-balance
  * sponsor mint.
+ *
+ * Every figure spans the player's linked wallets, because a badge is an
+ * achievement of the player and not of one address: `/api/users/:a/stats`,
+ * the profile and the leaderboard have always counted that way, and
+ * `getPlayerStreaks` below already did. The rest of this function did not,
+ * and the gap was not theoretical. Measured on 4 Nov 2026 for the only player
+ * with two wallets: 7,693 + 6,250 blocks, 76 + 67 runs and 417 + 251
+ * conquests, so his profile showed 13,943 blocks and 143 runs while this
+ * counted 7,693 and 76. Three badges he had earned were never offered to him:
+ * dominion (10,000 blocks), veteran (100 runs) and conqueror (500 conquests).
+ *
+ * Held badges are already a union across the same wallets, so this makes the
+ * two sides of the comparison agree.
  */
 export async function computeEligibleBadgeIds(
   player: Address,
 ): Promise<bigint[]> {
   const lower = player.toLowerCase();
+
+  const linked = await addressesForPlayer(lower);
 
   const [
     ownedHexes,
@@ -31,29 +47,36 @@ export async function computeEligibleBadgeIds(
     countryRows,
     streaks,
   ] = await Promise.all([
-      db.select({ h3Id: hexes.h3Id }).from(hexes).where(eq(hexes.ownerAddress, lower)),
-      db.select({ c: count() }).from(runs).where(eq(runs.userAddress, lower)),
+      db
+        .select({ h3Id: hexes.h3Id })
+        .from(hexes)
+        .where(inArray(hexes.ownerAddress, linked)),
+      db.select({ c: count() }).from(runs).where(inArray(runs.userAddress, linked)),
       db
         .select({ hexesClaimed: runs.hexesClaimed })
         .from(runs)
-        .where(eq(runs.userAddress, lower))
+        .where(inArray(runs.userAddress, linked))
         .orderBy(desc(runs.hexesClaimed))
         .limit(1),
       db
         .select({ distanceMeters: runs.distanceMeters })
         .from(runs)
-        .where(eq(runs.userAddress, lower))
+        .where(inArray(runs.userAddress, linked))
         .orderBy(desc(runs.distanceMeters))
         .limit(1),
       db
         .select({ total: sql<number>`coalesce(sum(${runs.distanceMeters}), 0)` })
         .from(runs)
-        .where(eq(runs.userAddress, lower)),
-      db.select({ conquests: users.conquests }).from(users).where(eq(users.address, lower)),
+        .where(inArray(runs.userAddress, linked)),
+      // Conquests are counted per wallet, so the player's total is the sum.
+      db
+        .select({ conquests: sql<number>`coalesce(sum(${users.conquests}), 0)::int` })
+        .from(users)
+        .where(inArray(users.address, linked)),
       db
         .selectDistinct({ country: hexes.country })
         .from(hexes)
-        .where(and(eq(hexes.ownerAddress, lower), isNotNull(hexes.country))),
+        .where(and(inArray(hexes.ownerAddress, linked), isNotNull(hexes.country))),
       getPlayerStreaks(lower),
     ]);
 

@@ -20,3 +20,22 @@ export function sponsorRefusalFor(status: number): SponsorRefusal | null {
   if (status === 429 || status === 403) return "failed";
   return null;
 }
+
+/**
+ * The claim is asked of the relayer first, so a refusal is not the end of the
+ * attempt: the player can still pay for their own run, which is what happened
+ * on every claim before 4 Nov 2026.
+ *
+ * 402 is the relayer declining because the player can pay (it only says this
+ * when its own balance is below the floor). 429 is this wallet's sponsored
+ * allowance for the day, 200 blocks, which 11.7% of playing days exceed. 503
+ * is the relayer itself failing. In all three the player paying is a better
+ * outcome than telling them the run did not claim, so all three hand over.
+ *
+ * 403 is not here: it means this browser does not hold the run token, and the
+ * voucher the player's own tx needs is gated on the same token, so there is
+ * nothing to hand over to.
+ */
+export function sponsorWantsPlayerToPay(status: number): boolean {
+  return status === 402 || status === 429 || status === 503;
+}

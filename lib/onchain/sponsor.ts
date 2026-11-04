@@ -21,7 +21,9 @@ import {
   playerTxMaxHexes,
   relayerLowBalanceCelo,
   remainingHexAllowance,
+  sponsorClaimsFloorCelo,
 } from "@/lib/onchain/sponsorRules";
+import { createSharedCache } from "@/lib/sharedCache";
 import { TOKENS } from "@/lib/tokens";
 
 const log = createLogger("onchain:sponsor");
@@ -282,6 +284,52 @@ export async function sponsorRunHexes(
 }
 
 let lastAlertAt = 0;
+/**
+ * Whether the relayer is flush enough to pay every claim.
+ *
+ * Claiming a run became free on 4 Nov 2026, which is a standing cost rather
+ * than a one-off: measured, about 7.9 CELO a day on top of the usual 3.5.
+ * Tying it to the balance means the promise unwinds by itself. Above the
+ * floor the relayer pays every claim; below it `playerCanPay` decides again,
+ * exactly as it did before, so a drained relayer makes claims cost money
+ * again instead of making them fail.
+ *
+ * Cached: this is read on the hot path of every claim, and the answer only
+ * changes as the balance drifts. A read failure answers false, which is the
+ * safe direction: the player is asked to pay rather than the claim being
+ * sponsored against a balance nobody could confirm.
+ */
+const claimFundingCache = createSharedCache<boolean>(60_000, {
+  serveStaleWhileRevalidating: true,
+});
+
+export function relayerFundsClaims(chainKey: ChainKey): Promise<boolean> {
+  return claimFundingCache.get(chainKey, async () => {
+    try {
+      const relayer = privateKeyToAccount(getSignerKey()).address;
+      const balance = await hexesPublicClient(chainKey).getBalance({
+        address: relayer,
+      });
+      const celo = Number(formatEther(balance));
+      const funds = celo >= sponsorClaimsFloorCelo();
+      if (!funds) {
+        log.warn("relayer below the claim floor; players pay their own claims", {
+          chainKey,
+          celo,
+          floor: sponsorClaimsFloorCelo(),
+        });
+      }
+      return funds;
+    } catch (e) {
+      log.warn("relayer balance unreadable; players pay their own claims", {
+        chainKey,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      return false;
+    }
+  });
+}
+
 const ALERT_EVERY_MS = 30 * 60_000;
 
 /**

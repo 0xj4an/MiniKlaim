@@ -84,3 +84,37 @@ export async function quoteMint(
     return unpriced;
   }
 }
+
+/**
+ * Dollars for a gas figure that is not one batch: the whole mint plan, whose
+ * batches each pay the base gas again. Quoting `count * rate` would
+ * under-promise for exactly the players who face several signatures.
+ */
+export async function quoteMintGas(
+  chainKey: ChainKey,
+  totalGas: bigint,
+): Promise<number | null> {
+  const directory = FEE_CURRENCY_DIRECTORY[chainKey];
+  const [feeCurrency] = getChain(chainKey).feeCurrencies;
+  if (!directory || !feeCurrency || totalGas <= 0n) return null;
+  try {
+    const client = hexesPublicClient(chainKey);
+    const [gasPrice, rate] = await Promise.all([
+      client.getGasPrice(),
+      client.readContract({
+        address: directory,
+        abi: DIRECTORY_ABI,
+        functionName: "getExchangeRate",
+        args: [feeCurrency.adapter],
+        authorizationList: undefined,
+      }) as Promise<readonly [bigint, bigint]>,
+    ]);
+    return feeToUsd(
+      feeWithBuffer(totalGas, gasPrice),
+      { numerator: rate[0], denominator: rate[1] },
+      TOKENS[feeCurrency.symbol].decimals,
+    );
+  } catch {
+    return null;
+  }
+}

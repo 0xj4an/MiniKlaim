@@ -79,9 +79,21 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
               )}
             </button>
           )}
-          {status.recorded > status.maxPerTx && (
+          {status.plan && status.plan.signatures > 1 && (
             <p className="text-center text-[11px] text-zinc-400">
-              {t("me.nfts.more").replace("{max}", status.maxPerTx.toLocaleString())}
+              {(status.plan.usd === null
+                ? t("me.nfts.planNoPrice")
+                : t("me.nfts.plan").replace(
+                    "{usd}",
+                    status.plan.usd.toFixed(2),
+                  )
+              )
+                .replace("{count}", status.recorded.toLocaleString())
+                .replaceAll(
+                  "{signatures}",
+                  status.plan.signatures.toLocaleString(),
+                )
+                .replace("{max}", status.maxPerTx.toLocaleString())}
             </p>
           )}
         </>

@@ -81,10 +81,24 @@ type EventMap = {
     reason: string;
   };
   run_claim_sponsored: { had_badges: boolean; trigger: string };
+  /**
+   * The relayer was asked first and handed the claim back, so the player paid
+   * after all. `reason` is the server's: `player_can_pay` (the relayer is
+   * below its claim floor), `daily_cap` (this wallet's allowance), or an HTTP
+   * status. This is the measure of how often a free claim is not free.
+   */
+  run_claim_player_pays: { reason: string };
   run_claim_failed: { trigger: string };
   // Signature requested from the finish card. `auto_finish` is the sheet
   // that opens by itself. `button` is a retry after they declined.
   run_summary_claim_tapped: { blocks: number; via: "auto_finish" | "button" };
+  /**
+   * The NFT offer on the finish card, which the player pays for themselves.
+   * `signatures` is how many wallet prompts the plan needs, so the drop-off
+   * between one signature and several is measurable.
+   */
+  run_summary_nft_tapped: { pending: number; signatures: number };
+  run_summary_nft_skipped: { pending: number };
   streak_shown: { streak: number; counted: boolean };
 
   // Badges.
