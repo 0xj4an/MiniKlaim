@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
 import { computeEligibleBadgeIds } from "@/lib/onchain/badgeEligibility";
+import { withoutHeld } from "@/lib/onchain/badgeSet";
 import { badgesContractAddress } from "@/lib/onchain/badges";
 import { parseChainKey } from "@/lib/onchain/chains";
 import { badgeIdsHeldByPlayer } from "@/lib/onchain/playerHeldBadges";
@@ -32,10 +33,7 @@ export async function GET(
   let claimableIds: number[] | undefined;
   if (url.searchParams.get("claimable") === "1") {
     const eligible = await computeEligibleBadgeIds(lower as Address);
-    const heldSet = new Set(heldIds);
-    claimableIds = eligible
-      .map((id) => Number(id))
-      .filter((id) => !heldSet.has(id));
+    claimableIds = withoutHeld(eligible, heldIds).map((id) => Number(id));
   }
 
   return NextResponse.json({ contract, heldIds, claimableIds });
