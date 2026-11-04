@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { Address } from "viem";
 import { createLogger } from "@/lib/logger";
 import { parseChainKey } from "@/lib/onchain/chains";
-import { computeEligibleBadgeIds } from "@/lib/onchain/badgeEligibility";
+import { claimableBadgeIds } from "@/lib/onchain/claimableBadges";
 import { signBadgeVoucher } from "@/lib/onchain/badgeVoucher";
 
 const log = createLogger("api:badges:voucher");
@@ -11,9 +11,14 @@ export const dynamic = "force-dynamic";
 
 /**
  * Issue an EIP-712 voucher so the player can submit `claimBadges` from their own
- * wallet (on-chain msg.sender = player, for attribution). Authorizes exactly the
- * badges the player currently qualifies for. The contract skips already-held
- * badges, so the same voucher is safe to re-submit.
+ * wallet (on-chain msg.sender = player, for attribution).
+ *
+ * Authorizes the badges the player has earned and does not already hold. It
+ * used to authorize every badge they qualified for, because the contract skips
+ * the ones the wallet owns, so the result was right and the drawer was not: a
+ * player offered 3 badges was asked by MiniPay to confirm 28, and paid gas for
+ * all of them. Re-submitting is still safe, since the contract skips anything
+ * that landed in between.
  */
 export async function POST(
   request: Request,
@@ -26,7 +31,7 @@ export async function POST(
   }
 
   const chainKey = parseChainKey(new URL(request.url).searchParams.get("chain"));
-  const badgeIds = await computeEligibleBadgeIds(lower as Address);
+  const badgeIds = await claimableBadgeIds(lower as Address, chainKey);
   if (badgeIds.length === 0) {
     return NextResponse.json({ error: "no eligible badges" }, { status: 409 });
   }
