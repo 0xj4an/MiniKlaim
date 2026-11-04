@@ -9,9 +9,8 @@ import { db } from "@/lib/db";
 import { runs } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
 import { parseChainKey } from "@/lib/onchain/chains";
-import { computeEligibleBadgeIds } from "@/lib/onchain/badgeEligibility";
+import { claimableBadgeIds } from "@/lib/onchain/claimableBadges";
 import { mintBadgesBatch } from "@/lib/onchain/badges";
-import { badgeIdsHeldByPlayer } from "@/lib/onchain/playerHeldBadges";
 import {
   checkRelayerBalance,
   playerCanPay,
@@ -67,9 +66,9 @@ export async function POST(
     return NextResponse.json({ error: "not your run" }, { status: 403 });
   }
 
-  const eligible = await computeEligibleBadgeIds(lower as Address);
-  const held = new Set(await badgeIdsHeldByPlayer(lower, chainKey));
-  const candidates = eligible.filter((id) => !held.has(Number(id)));
+  // The same computation the player's own voucher uses, so the sponsored and
+  // paid paths cannot drift apart again.
+  const candidates = await claimableBadgeIds(lower as Address, chainKey);
   if (candidates.length === 0) {
     return NextResponse.json({ minted: [] });
   }
