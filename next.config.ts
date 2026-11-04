@@ -29,11 +29,31 @@ const nextConfig: NextConfig = {
     // build, which `sentryInitOptions` reads as "no release".
     NEXT_PUBLIC_SENTRY_RELEASE: BUILD_SHA,
   },
-  // Version skew: a tab on an old build calls Server Actions and chunks the
-  // new build no longer has ("Failed to find Server Action", ChunkLoadError).
-  // With a deployment id Next sees the mismatch and does a hard navigation
-  // instead.
-  deploymentId: BUILD_SHA || undefined,
+  // No `deploymentId`, and the reason is measured. Setting it appends
+  // `?dpl=<sha>` to every static asset URL, and on Next 16 the page then
+  // references each chunk twice, once with the query and once without, so the
+  // browser treats them as two URLs and downloads the same JavaScript twice.
+  // Measured on /run from a throttled phone: 491 KB of 1,575 KB of static
+  // JavaScript, 31% of it, was the duplicate. On a 250 kbit/s connection that
+  // is sixteen seconds of nothing, and on a worse one the page never finished
+  // loading at all.
+  //
+  // What it bought was version-skew protection, and the docs for this version
+  // are explicit that the query string is not part of that: "Next.js does not
+  // read the `?dpl=` query parameter on incoming requests", it is for cache
+  // busting, which Turbopack's content-hashed filenames already do. The skew
+  // protection itself rides on the `x-deployment-id` headers.
+  //
+  // And the case it protects against is already handled here: a tab on an old
+  // build that fails to load a chunk hits `isChunkLoadError` in
+  // lib/client/chunkReload.ts, which reloads the page, from both
+  // `app/error.tsx` and `instrumentation-client.ts`. That is the same hard
+  // navigation, and it predates this option. PostHog counts it:
+  // `stale_chunk_reload` runs 0 to 2 a day. Charging every visitor 491 KB to
+  // spare one or two people a reload they already get automatically is the
+  // wrong way round, so the option goes and the handler stays.
+  //
+  // BUILD_SHA is still used above, for the Sentry release.
   // Pin the Turbopack workspace root to this directory so it does not climb up
   // to ~/pnpm-lock.yaml and get confused about which project is the root.
   turbopack: {
