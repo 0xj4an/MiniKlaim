@@ -1,3 +1,10 @@
+# Hidden treasures (lib/drops). Declared before the first stage so both the
+# build (the client inlines them) and the runtime (scripts/drops.ts and the
+# envSkew check read process.env) get the same value. Proxy deployed
+# 2026-11-04 at block 81903330.
+ARG NEXT_PUBLIC_CELO_DROPS_ADDRESS=0x19cE0B7C48608286A7872147f89F70896D0e67c6
+ARG NEXT_PUBLIC_TREASURES=on
+
 FROM node:22-alpine AS builder
 WORKDIR /app
 
@@ -41,6 +48,10 @@ ARG NEXT_PUBLIC_CELO_HEXES_RECORDS=1
 # error anywhere (reported 29 Oct 2026).
 ARG NEXT_PUBLIC_HEX_STRENGTH=on
 
+# Inherit the treasure values declared at the top.
+ARG NEXT_PUBLIC_CELO_DROPS_ADDRESS
+ARG NEXT_PUBLIC_TREASURES
+
 # Must be passed with --build-arg (or compose `build.args`) from the
 # environment: the attribution tag is the one Celo asks stay private, so it
 # gets no default here. Blank means every write tx goes out untagged and the
@@ -77,6 +88,10 @@ RUN npm run build
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ARG NEXT_PUBLIC_CELO_DROPS_ADDRESS
+ARG NEXT_PUBLIC_TREASURES
+ENV NEXT_PUBLIC_CELO_DROPS_ADDRESS=$NEXT_PUBLIC_CELO_DROPS_ADDRESS \
+    NEXT_PUBLIC_TREASURES=$NEXT_PUBLIC_TREASURES
 
 # The cities index is ~135k entries and costs ~55 MB of heap the first time
 # a capture resolves a city, on top of the Next.js baseline. Node sizes its

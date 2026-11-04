@@ -68,6 +68,11 @@ export function bakedPublicEnv(): ReadonlyArray<{
       baked: process.env.NEXT_PUBLIC_LINK_VERIFIER_ADDRESS,
     },
     { name: "NEXT_PUBLIC_SITE_URL", baked: process.env.NEXT_PUBLIC_SITE_URL },
+    { name: "NEXT_PUBLIC_TREASURES", baked: process.env.NEXT_PUBLIC_TREASURES },
+    {
+      name: "NEXT_PUBLIC_CELO_DROPS_ADDRESS",
+      baked: process.env.NEXT_PUBLIC_CELO_DROPS_ADDRESS,
+    },
   ];
 }
 

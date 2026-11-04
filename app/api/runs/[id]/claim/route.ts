@@ -4,10 +4,11 @@ import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
 import { cityForHex } from "@/lib/geo/city";
 import { countryForHex } from "@/lib/geo/country";
+import { detectDrops, type FoundDrop } from "@/lib/drops/detect";
 import { createLogger } from "@/lib/logger";
 import { hexClaimAction } from "@/lib/runs/claimDecision";
 import { isHexStrengthEnabled } from "@/lib/runs/hexStrength";
-import { tooFastForMode } from "@/lib/runs/moveMode";
+import { isMoveMode, tooFastForMode } from "@/lib/runs/moveMode";
 import { applyStrengthBatch } from "@/lib/runs/strengthClaim";
 import { addressesForPlayer } from "@/lib/players";
 import { validateClaim } from "@/lib/runs/validation";
@@ -245,6 +246,8 @@ export async function POST(
   // N+1 Sentry flagged (MINIKLAIM-V). The in-memory map below keeps a
   // repeated h3 out of this list, which ON CONFLICT requires.
   const toWrite: Array<typeof hexes.$inferInsert> = [];
+  // Blocks that passed the guard and validation, for treasure detection.
+  const dropCandidates: Array<{ h3: string; accuracy: number | null }> = [];
 
   for (const raw of items) {
     const h3 = raw.h3;
@@ -295,6 +298,8 @@ export async function POST(
       });
       continue;
     }
+
+    dropCandidates.push({ h3, accuracy });
 
     if (strengthOn) {
       distanceDelta += distanceMeters;
@@ -478,6 +483,24 @@ export async function POST(
       .where(eq(runs.id, id));
   }
 
+  // Treasures: found on any accepted pass (capture, reinforce, attack or
+  // repeat), independent of territory. A failure here never fails the claim.
+  let foundDrops: FoundDrop[] = [];
+  try {
+    foundDrops = await detectDrops(db, {
+      runId: id,
+      player: run.userAddress,
+      declaredMode: isMoveMode(run.declaredMode) ? run.declaredMode : null,
+      accepted: dropCandidates,
+      now,
+    });
+  } catch (e) {
+    log.error("treasure detection failed", {
+      runId: id,
+      error: (e instanceof Error ? e.message : String(e)).slice(0, 300),
+    });
+  }
+
   log.info("hex batch processed", {
     runId: id,
     submitted: items.length,
@@ -497,5 +520,9 @@ export async function POST(
     });
   }
 
-  return NextResponse.json({ ok: true, results });
+  return NextResponse.json({
+    ok: true,
+    results,
+    ...(foundDrops.length > 0 ? { drops: foundDrops } : {}),
+  });
 }

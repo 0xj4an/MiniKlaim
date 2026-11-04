@@ -5,10 +5,12 @@ import {
   date,
   index,
   integer,
+  numeric,
   pgTable,
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -250,6 +252,93 @@ export const sponsoredMints = pgTable(
     index("sponsored_mints_user_created_idx").on(t.userAddress, t.createdAt),
   ],
 );
+
+/**
+ * Hidden treasures. A drop pays `amount` to each of up to `max_winners`
+ * players, one prize per player. `h3` (res 12) and `salt`
+ * never leave the server while the drop is open; the contract only holds
+ * `commitment = keccak256(abi.encode(dropId, h3 as uint64, salt))`. The onchain
+ * dropId is this row's uuid read as a uint256.
+ *
+ * status: draft (DB only) | active (created onchain, slots left) | found
+ * (every slot awarded) | claimed (every slot paid onchain) | expired |
+ * cancelled.
+ */
+export const drops = pgTable(
+  "drops",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    h3: text("h3").notNull(),
+    // Res-8 hint cell (~0.7 km2), public.
+    hintH3: text("hint_h3").notNull(),
+    // Public spot name shown with the hint (e.g. "Main square").
+    label: text("label"),
+    // Short public clue that narrows the spot ("by the fountain, north side").
+    clue: text("clue"),
+    token: text("token").notNull(),
+    // Prize per winner, in base units of the token (USDT 6 decimals, COPm 18).
+    amount: numeric("amount", { precision: 78, scale: 0 }).notNull(),
+    // How many players can win this drop, one prize each.
+    maxWinners: integer("max_winners").notNull().default(1),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    salt: text("salt").notNull(),
+    commitment: text("commitment").notNull(),
+    status: text("status").notNull().default("draft"),
+    sponsor: text("sponsor"),
+    batch: text("batch"),
+    createTx: text("create_tx"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("drops_status_idx").on(t.status),
+    index("drops_h3_idx").on(t.h3),
+  ],
+);
+
+/**
+ * A player's pass near a drop, one row per (drop, run). Tracks the dwell
+ * window (first and last batch inside the drop block or its ring-1
+ * neighbours) and whether the drop block itself was crossed. `review` moves
+ * pending -> ok | flagged | rejected | late. The partial unique index is the
+ * one-prize-per-player rule: at most one ok find per drop and player; the
+ * number of winners is capped under a lock in awardFind.
+ */
+export const dropFinds = pgTable(
+  "drop_finds",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    dropId: uuid("drop_id")
+      .notNull()
+      .references(() => drops.id),
+    player: text("player").notNull(),
+    runId: uuid("run_id").notNull(),
+    firstNearAt: timestamp("first_near_at", { withTimezone: true }).notNull(),
+    lastNearAt: timestamp("last_near_at", { withTimezone: true }).notNull(),
+    nearBatches: integer("near_batches").notNull().default(1),
+    crossedAt: timestamp("crossed_at", { withTimezone: true }),
+    accuracyM: integer("accuracy_m"),
+    review: text("review").notNull().default("pending"),
+    reviewReason: text("review_reason"),
+    foundAt: timestamp("found_at", { withTimezone: true }),
+    nonce: numeric("nonce", { precision: 78, scale: 0 }),
+    claimRequestedAt: timestamp("claim_requested_at", { withTimezone: true }),
+    claimTx: text("claim_tx"),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("drop_finds_drop_run_idx").on(t.dropId, t.runId),
+    uniqueIndex("drop_finds_one_prize_idx")
+      .on(t.dropId, t.player)
+      .where(sql`review = 'ok'`),
+    index("drop_finds_player_idx").on(t.player),
+  ],
+);
+
+export type Drop = typeof drops.$inferSelect;
+export type DropFind = typeof dropFinds.$inferSelect;
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
