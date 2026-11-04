@@ -283,6 +283,10 @@ export function initAnalytics(): PostHog | null {
     // $exception events in PostHog with stack traces (grouped by fingerprint).
     // Cheaper than wiring a full Sentry SDK, sufficient for a hobby MVP.
     capture_exceptions: true,
+    // PostHog's surveys bundle is 37 KB on the wire and nothing here uses
+    // surveys. On the connections this game runs on that is a request and a
+    // download for a feature that does not exist.
+    disable_surveys: true,
     before_send: (event) => {
       if (!event || event.event !== "$exception") return event;
       const props = event.properties ?? {};
