@@ -217,9 +217,14 @@ export function useMintTokens(address: Address | null) {
       }
       setState("done");
       setRefresh((n) => n + 1);
-      // Individual balance fields are memoized in useBalances.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
+    // The individual `balances.<sym>` values are memoized inside useBalances,
+    // so listing them keeps the callback stable across renders. Depending on
+    // `balances` itself (a new object every render) would rebuild the callback
+    // on every render. The directive has to sit on the line before the array,
+    // not inside the body: placed there it disabled nothing and the rule was
+    // reporting a missing `balances` dependency unnoticed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       walletClient,
       address,
