@@ -35,6 +35,17 @@ export type TokenStatus = {
   smallBatch: number | null;
   /** What each offered batch costs the player, in dollars. */
   quotes: MintQuote[];
+  /**
+   * What finishing the whole pile takes, not just the next tap. A player with
+   * a big run had no way of knowing that minting is one signature per batch,
+   * so the second wallet prompt read as a bug.
+   */
+  plan: {
+    signatures: number;
+    batches: number[];
+    /** Dollars for every batch together. Null for a single signature. */
+    usd: number | null;
+  };
 };
 
 type Voucher = {
@@ -206,9 +217,14 @@ export function useMintTokens(address: Address | null) {
       }
       setState("done");
       setRefresh((n) => n + 1);
-      // Individual balance fields are memoized in useBalances.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
+    // The individual `balances.<sym>` values are memoized inside useBalances,
+    // so listing them keeps the callback stable across renders. Depending on
+    // `balances` itself (a new object every render) would rebuild the callback
+    // on every render. The directive has to sit on the line before the array,
+    // not inside the body: placed there it disabled nothing and the rule was
+    // reporting a missing `balances` dependency unnoticed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       walletClient,
       address,
@@ -219,5 +235,12 @@ export function useMintTokens(address: Address | null) {
     ],
   );
 
-  return { status, state, mint, lastMinted };
+  /**
+   * Re-read the pending count. The run summary needs this: it mounts before
+   * the claim finishes, so the first read predates the blocks the player has
+   * just captured.
+   */
+  const reload = useCallback(() => setRefresh((n) => n + 1), []);
+
+  return { status, state, mint, lastMinted, reload };
 }

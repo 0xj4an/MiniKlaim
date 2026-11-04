@@ -47,7 +47,10 @@ import { TOKENS } from "@/lib/tokens";
 import { useBalances } from "@/lib/wallet/useBalances";
 import { useClaimRun } from "@/lib/wallet/useClaimRun";
 import { reportDeclined, runTokenHeaders } from "@/lib/wallet/runTokens";
-import { sponsorRefusalFor } from "@/lib/wallet/sponsorOutcome";
+import {
+  sponsorRefusalFor,
+  sponsorWantsPlayerToPay,
+} from "@/lib/wallet/sponsorOutcome";
 
 const log = createLogger("wallet:claimAll");
 
@@ -92,7 +95,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
       addr: string,
       hadBadges: boolean,
       trigger: string,
-    ): Promise<ClaimAllOutcome | "badges_failed" | "refused"> => {
+    ): Promise<ClaimAllOutcome | "badges_failed" | "refused" | "player-pays"> => {
       try {
         const res = await fetchWithRetry(
           `/api/runs/${runId}/sponsor-mint?chain=${chainKey}`,
@@ -114,6 +117,24 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           log.info("sponsor already in progress", { runId });
           track("run_claim_sponsored", { had_badges: hadBadges, trigger });
           return "sponsored";
+        }
+        if (sponsorWantsPlayerToPay(res.status)) {
+          // The claim is asked of the relayer first, so this is a hand-over,
+          // not a fault: the relayer is below its claim floor and the player
+          // can pay, or this wallet is past today's allowance, or the relayer
+          // tx failed. The player's own tx is still a good outcome.
+          const body = (await res.json().catch(() => ({}))) as {
+            reason?: string;
+          };
+          log.info("sponsor hands the claim to the player", {
+            runId,
+            status: res.status,
+            reason: body.reason,
+          });
+          track("run_claim_player_pays", {
+            reason: body.reason ?? String(res.status),
+          });
+          return "player-pays";
         }
         const refusal = sponsorRefusalFor(res.status);
         if (refusal) {
@@ -268,7 +289,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
             (outcome) =>
               outcome === "badges_failed"
                 ? "sponsored"
-                : outcome === "refused"
+                : outcome === "refused" || outcome === "player-pays"
                   ? "failed"
                   : outcome,
           );
@@ -286,8 +307,8 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           },
         );
         const sponsorWithBadges = async (
-          trigger: "no_balance" | "fee_shortfall" | "tx_error",
-        ): Promise<ClaimAllOutcome | "refused"> => {
+          trigger: "no_balance" | "fee_shortfall" | "tx_error" | "free_claim",
+        ): Promise<ClaimAllOutcome | "refused" | "player-pays"> => {
           if (badgeIds.length > 0) markBadgeClaimSubmitted(badgeIds);
           const outcome = await sponsorFallback(
             runId,
@@ -298,7 +319,11 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           if (
             (outcome === "failed" ||
               outcome === "badges_failed" ||
-              outcome === "refused") &&
+              outcome === "refused" ||
+              // A hand-over means nothing was claimed here: the player's own
+              // tx is about to carry these badges, so leaving them marked as
+              // submitted would silence the prompt for badges nobody minted.
+              outcome === "player-pays") &&
             badgeIds.length > 0
           ) {
             dropBadgeClaims(badgeIds);
@@ -307,6 +332,14 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
         };
 
         const minipay = walletPaysGasInToken();
+        // The relayer first, so finishing a run costs the player nothing.
+        // Until 4 Nov 2026 this was the other way round and every one of the
+        // 585 claims measured over 7 days went through the player's wallet.
+        // The server only pays while its balance is above the claim floor,
+        // and hands the claim back otherwise, so this promise unwinds by
+        // itself instead of breaking.
+        const free = await sponsorWithBadges("free_claim");
+        if (free !== "player-pays") return free === "refused" ? "failed" : free;
         if (
           minipay &&
           playerHasNoFeeBalance(
@@ -319,7 +352,9 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           // does not open a signature sheet.
           log.info("no fee stablecoin; asking the relayer", { runId });
           const outcome = await sponsorWithBadges("no_balance");
-          return outcome === "refused" ? "failed" : outcome;
+          return outcome === "refused" || outcome === "player-pays"
+            ? "failed"
+            : outcome;
         }
         // One stablecoin, the largest balance. If it cannot cover the fee the
         // relayer pays. A dust token is not another sheet, and neither is CELO.
@@ -405,7 +440,9 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
         const outcome = await sponsorWithBadges(
           isUnpayableFee(lastError) ? "fee_shortfall" : "tx_error",
         );
-        return outcome === "refused" ? "failed" : outcome;
+        return outcome === "refused" || outcome === "player-pays"
+          ? "failed"
+          : outcome;
       } finally {
         clearRunClaiming(runId);
       }

@@ -571,6 +571,18 @@ export default function RunPage() {
       const cached = await readCachedWorld();
       if (stale()) return;
       const cachedRows = cached ? parseWorldBody(cached.body) : null;
+      // The player's own blocks, started now and awaited later. This used to
+      // run after the world list, which was fine while /community kept the
+      // full list warm in IndexedDB. Since 3 Nov /community caches the
+      // thinned list under its own key instead, so this branch finds nothing
+      // cached and the player watched their own territory disappear for the
+      // seconds the 1 MB world list took to arrive. Their own blocks are
+      // 56 KB and are the thing they notice missing, so they go first.
+      const ownAddr = addressRef.current;
+      const minePending =
+        ownAddr && (reason === "fresh" || !cachedRows)
+          ? fetchRows(`/api/hexes?owner=${encodeURIComponent(ownAddr)}`)
+          : null;
       if (cachedRows) {
         worldRef.current = { rows: placeHexes(cachedRows), at: cached.savedAt };
         paint(hexesInBounds(worldRef.current.rows, bounds));
@@ -583,6 +595,22 @@ export default function RunPage() {
         );
         if (stale()) return;
         if (nearby && !worldRef.current) paint(nearby);
+      }
+      // Paint the player's own territory as soon as it lands, without waiting
+      // for the world.
+      if (minePending) {
+        const mineFirst = await minePending;
+        if (stale()) return;
+        if (mineFirst) {
+          const placed = placeHexes(mineFirst);
+          worldRef.current = worldRef.current
+            ? {
+                rows: mergeHexes(worldRef.current.rows, placed),
+                at: worldRef.current.at,
+              }
+            : { rows: placed, at: 0 };
+          paint(hexesInBounds(worldRef.current.rows, bounds));
+        }
       }
       const worldStale =
         !worldRef.current || Date.now() - worldRef.current.at > 10 * 60_000;
@@ -600,22 +628,20 @@ export default function RunPage() {
         if (stale()) return;
         if (all) worldRef.current = { rows: placeHexes(all), at: Date.now() };
       }
-      if (reason === "fresh" || worldStale) {
-        const addr = addressRef.current;
-        if (addr) {
-          const mine = await fetchRows(
-            `/api/hexes?owner=${encodeURIComponent(addr)}`,
-          );
-          if (stale()) return;
-          if (mine && worldRef.current) {
-            worldRef.current = {
-              rows: mergeHexes(worldRef.current.rows, placeHexes(mine)),
-              at: worldRef.current.at,
-            };
-          } else if (mine && !worldRef.current) {
-            paint(hexesInBounds(placeHexes(mine), bounds));
-            return;
-          }
+      // Already fetched and merged above when `minePending` was set. This
+      // covers the remaining case: a warm cache on a "move" refresh, where
+      // the world list has just been replaced and the player's own blocks
+      // have to be merged back into it.
+      if (!minePending && ownAddr && worldStale) {
+        const mine = await fetchRows(
+          `/api/hexes?owner=${encodeURIComponent(ownAddr)}`,
+        );
+        if (stale()) return;
+        if (mine && worldRef.current) {
+          worldRef.current = {
+            rows: mergeHexes(worldRef.current.rows, placeHexes(mine)),
+            at: worldRef.current.at,
+          };
         }
       }
       if (!worldRef.current) return;
@@ -1830,7 +1856,9 @@ export default function RunPage() {
               outcome,
             });
             if (outcome !== "failed") setBadgeRefresh((k) => k + 1);
-            return outcome !== "failed";
+            // The outcome, not a boolean: the summary says who paid, and
+            // only the claim knows whether the relayer did.
+            return outcome;
           }}
         />
       )}
