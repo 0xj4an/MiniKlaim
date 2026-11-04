@@ -132,6 +132,12 @@ type EventMap = {
   reward_claim_started: { amount_usdm: string; badge_count: number };
   reward_claim_confirmed: { amount_usdm: string; tx_hash: string };
   reward_claim_failed: { reason: string };
+  // Hidden treasures (tap + relayer claim).
+  drop_found: { drop_id: string; token: string; amount: string };
+  drop_heat: { level: number };
+  drop_claim_started: { count: number; surface: "run" | "me" };
+  drop_claim_sent: { count: number; tx_hash: string };
+  drop_claim_failed: { reason: string };
   // Support form (in-app form posted to /api/support).
   support_form_opened: { source?: "direct_link" };
   support_sent: { topic: string; chars: number; screenshot: boolean };

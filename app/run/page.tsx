@@ -1,5 +1,7 @@
 "use client";
 
+import { TreasureFound, type FoundTreasure } from "@/app/TreasureFound";
+import { TreasureHeat } from "@/app/TreasureHeat";
 import { latLngToCell } from "h3-js";
 // Types only. The module itself is loaded per tier (v6 for gl2, 5.24
 // for gl1), so this import must never pull a bundle at module scope.
@@ -290,6 +292,8 @@ export default function RunPage() {
   // The server stopped capturing because this "on foot" run moves at vehicle
   // speed (too-fast-on-foot). Shown until 45 s pass without another one.
   const [footTooFast, setFootTooFast] = useState(false);
+  // Treasures this run won, shown with a one-tap claim.
+  const [foundTreasures, setFoundTreasures] = useState<FoundTreasure[]>([]);
   const footTooFastTimer = useRef<number | null>(null);
   const modeWarnedRef = useRef(false);
   const footWarnedRef = useRef(false);
@@ -703,8 +707,21 @@ export default function RunPage() {
         track("batch_claim_error", { status: res.status, count: batch.length });
         reportServerError("/api/runs/:id/claim", res.status);
       } else {
-        const data = (await res.json()) as { results: ClaimResultRow[] };
+        const data = (await res.json()) as {
+          results: ClaimResultRow[];
+          drops?: FoundTreasure[];
+        };
         outcome = { kind: "ok", results: data.results ?? [] };
+        if (Array.isArray(data.drops) && data.drops.length > 0) {
+          const won = data.drops;
+          for (const d of won) {
+            track("drop_found", { drop_id: d.dropId, token: d.token, amount: d.amount });
+          }
+          setFoundTreasures((prev) => [
+            ...prev,
+            ...won.filter((d) => !prev.some((p) => p.dropId === d.dropId)),
+          ]);
+        }
         let footRejected = 0;
         let modeRejected = 0;
         for (const row of outcome.results) {
@@ -1819,6 +1836,20 @@ export default function RunPage() {
           <line x1="19" y1="12" x2="22" y2="12" />
         </svg>
       </button>
+      {foundTreasures.length === 0 && (
+        <TreasureHeat
+          runId={runId}
+          currentCell={() => {
+            const pos = latestPosRef.current;
+            return pos ? latLngToCell(pos.lat, pos.lng, 12) : null;
+          }}
+        />
+      )}
+      <TreasureFound
+        address={address ?? null}
+        found={foundTreasures}
+        onClose={() => setFoundTreasures([])}
+      />
       {runId && footTooFast && (
         <div
           role="status"

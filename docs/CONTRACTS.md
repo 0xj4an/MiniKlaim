@@ -51,6 +51,24 @@ Roles:
 - `DEFAULT_ADMIN_ROLE`: upgrade + fund + configure amounts + pause + emergency withdraw.
 - `REWARDER_ROLE`: sign claim vouchers.
 
+### `MiniKlaimDrops` (upgradeable) - LIVE (pilot)
+
+Treasures hidden in map blocks, paid in an allowlisted ERC-20 (USDT, COPm on Celo mainnet). A drop pays `amount` to each of up to `maxWinners` players, one prize per player.
+
+- `fund(token, amount)`: anyone tops up an allowed token.
+- `createDrop(dropId, token, amount, maxWinners, commitment)` (`REWARDER_ROLE`): reserves `amount * maxWinners` in `committed[token]` and reverts when the free balance (`balance - committed`) cannot cover it, so a leaked signing key can at most pay out what open drops already reserve. `commitment = keccak256(abi.encode(dropId, uint64 h3, bytes32 salt))`, so the block is fixed onchain without being public.
+- `updateDrop(dropId, amount, maxWinners)` (`REWARDER_ROLE`): changes the prize per winner and the number of winners of an open drop; the reservation follows and any increase must fit the free balance. Prizes already paid are untouched; `maxWinners` cannot go below the winners already paid, and setting it equal closes the drop.
+- `claimDropsFor(player, dropIds, nonce, deadline, sig)`: permissionless. Verifies a `ClaimDrops(address player,uint256[] dropIds,uint256 nonce,uint256 deadline)` voucher from `REWARDER_ROLE` and always pays `player`, never `msg.sender`. A drop this player already claimed, or one whose winners are all paid, is skipped instead of reverting. In practice the backend relayer submits it, so the player signs nothing and pays no fee.
+- `expireDrop(dropId)` (`REWARDER_ROLE`): closes a drop and releases what its unpaid slots reserve.
+- `reveal(dropId, h3, salt)`: after a drop closes, anyone can publish its block and check it never moved.
+- `withdraw(token, amount, to)` (`DEFAULT_ADMIN_ROLE`): free balance only. Pausable.
+
+A closed spot is reopened by creating a new drop at the same block (new id and commitment).
+
+Roles, split at `initialize(admin, rewarder, tokens)` so the server key cannot upgrade or withdraw:
+- `DEFAULT_ADMIN_ROLE`: upgrade, allowlist, withdraw, pause, roles.
+- `REWARDER_ROLE`: create, edit and expire drops, sign claim vouchers. The backend relayer key.
+
 ### `MiniKlaimClaimRouter` (NOT upgradeable)
 
 Settles a finished run in a single transaction, so the player sees one wallet approval instead of two.
@@ -94,9 +112,13 @@ Use the PROXY address in env, dApps, explorers. The implementation address is de
 | MiniKlaimBadges | implementation | `0x332D8Aa1B0CA847Fb7B95Ed020eF9600860ae406` | 69759385 | 2026-06-17 |
 | MiniKlaimClaimRouter | single (no proxy) | `0x9C3369e1519B03c16C329aCE13dB528eC8Ca8c74` | 78286681 | 2026-09-23 |
 | MiniKlaimRewards | proxy | (not deployed) | - | - |
+| MiniKlaimDrops | proxy | `0x19cE0B7C48608286A7872147f89F70896D0e67c6` | 81903330 | 2026-11-04 |
+| MiniKlaimDrops | implementation | `0xe6fd4ED159A0eece684c19310Fc3204f99D8a23E` | 81903330 | 2026-11-04 |
 
 Creation transactions:
 
+- Drops implementation: `0xbf3ecf2279ff02458ac05e78b0d97112539b356e9f09b9fd4081f9c191991ded`
+- Drops proxy: `0xf0fe6044a2f4844139701c059bcb69d7a1bb66f53e7ce425c72e8861a73f9217`
 - Hexes proxy: `0xe2a3c853929d23ee74e3f474f62aaecf904c1debf09991a1a24cc6b8fc64eca8`
 - Hexes implementation: `0x3afaf852c0baec8004f5be83c438fdce515359caa4a836225c8d461c37456a55`
 - Hexes v2 implementation: `0xdf039b4945c7da85eabc3969943b4e080c881ea57fbbbc53fdeda979020228fb`; upgrade: `0x758bec335bf86f16ae325fec35090111728965f3d3579e1054c8e3eb71c8d227` (block 80613040, 2026-10-20T16:29:58Z)
@@ -210,7 +232,7 @@ forge test --match-contract MiniKlaimHexes -vv
 forge test --match-contract MiniKlaimRewards --gas-report
 ```
 
-Current suite: 74 passing across four files.
+Current suite: 112 passing across five files (`forge test` is the source of truth).
 
 | File | Tests |
 |---|---|
@@ -218,6 +240,7 @@ Current suite: 74 passing across four files.
 | `MiniKlaimBadges.t.sol` | 17 |
 | `MiniKlaimRewards.t.sol` | 21 |
 | `MiniKlaimClaimRouter.t.sol` | 17 |
+| `MiniKlaimDrops.t.sol` | 33 |
 
 ## Deployment
 

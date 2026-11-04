@@ -134,6 +134,13 @@
       "when": 1793298157282,
       "tag": "0018_supreme_madame_web",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793802043709,
+      "tag": "0019_treasures",
+      "breakpoints": true
     }
   ]
 }

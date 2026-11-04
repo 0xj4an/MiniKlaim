@@ -18,6 +18,7 @@ import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { LinkWallet } from "@/app/LinkWallet";
 import { NftSection } from "@/app/me/NftSection";
 import { RewardsSection } from "@/app/me/RewardsSection";
+import { TreasuresSection } from "@/app/me/TreasuresSection";
 import { evaluateBadges, type EvaluatedBadge } from "@/lib/onchain/badgeCatalog";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
@@ -155,6 +156,7 @@ export default function MePage() {
                 surface="me"
                 enabled={isConnected && !isWrongChain}
               />
+              <TreasuresSection address={address ?? null} />
               <RewardsSection address={address ?? null} />
               <NftSection address={address ?? null} />
             </>
