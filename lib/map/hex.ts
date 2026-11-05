@@ -15,6 +15,8 @@ export type ClaimedHexProperties = {
   isMine: boolean;
   /** Captured in the run in progress (only ever true for the player's own). */
   isRun: boolean;
+  /** Captured on this phone and not yet saved. Drawn fainter. */
+  isPending: boolean;
   /** Block level 1-10, or 0 when the row carries none. */
   strength: number;
   /** Top-10 player color for someone else's block, or "" (see topColors.ts). */
@@ -176,6 +178,8 @@ export function claimedHexesToFeatureCollection(
     owner: string;
     ownerUsername?: string | null;
     strength?: number;
+    /** Captured on this phone, not yet acknowledged. See lib/map/ownFloor. */
+    pending?: boolean;
   }>,
   myAddresses: ReadonlySet<string>,
   /** Hexes captured in the run in progress. Painted apart from older ones. */
@@ -195,7 +199,11 @@ export function claimedHexesToFeatureCollection(
           owner: row.owner,
           ownerUsername: row.ownerUsername ?? null,
           isMine,
-          isRun: runHexes.has(row.h3) && isMine,
+          isRun: (runHexes.has(row.h3) || row.pending === true) && isMine,
+          // Drawn fainter than a saved block: the player sees the capture the
+          // moment their feet make it, and a slow save reads as a shade
+          // rather than as nothing having happened.
+          isPending: row.pending === true,
           strength: typeof row.strength === "number" ? row.strength : 0,
           topColor: isMine ? "" : (topColors.get(owner) ?? ""),
         },
