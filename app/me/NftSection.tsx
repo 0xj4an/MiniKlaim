@@ -39,7 +39,9 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
   if (status.recorded === 0 && status.tokens === 0) return null;
 
   const busy =
-    state === "fetching-voucher" || state === "sending" || state === "confirming";
+    state === "fetching-voucher" ||
+    state === "sending" ||
+    state === "confirming";
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-white px-4 py-3 text-sm">
@@ -54,7 +56,9 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
 
       {status.nextBatch > 0 ? (
         <>
-          <p className="text-center text-xs text-zinc-500">{t("me.nfts.explain")}</p>
+          <p className="text-center text-xs text-zinc-500">
+            {t("me.nfts.explain")}
+          </p>
           <button
             onClick={() => void mint()}
             disabled={busy}
@@ -64,7 +68,11 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
               ? t("me.nfts.minting")
               : state === "confirming"
                 ? t("me.nfts.confirming")
-                : label(t("me.nfts.mint"), status.nextBatch, priceOf(status, status.nextBatch))}
+                : label(
+                    t("me.nfts.mint"),
+                    status.nextBatch,
+                    priceOf(status, status.nextBatch),
+                  )}
           </button>
           {status.smallBatch !== null && (
             <button
@@ -83,10 +91,7 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
             <p className="text-center text-[11px] text-zinc-400">
               {(status.plan.usd === null
                 ? t("me.nfts.planNoPrice")
-                : t("me.nfts.plan").replace(
-                    "{usd}",
-                    status.plan.usd.toFixed(2),
-                  )
+                : t("me.nfts.plan").replace("{usd}", status.plan.usd.toFixed(2))
               )
                 .replace("{count}", status.recorded.toLocaleString())
                 .replaceAll(
@@ -98,7 +103,9 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
           )}
         </>
       ) : (
-        <p className="text-center text-xs text-zinc-500">{t("me.nfts.allMinted")}</p>
+        <p className="text-center text-xs text-zinc-500">
+          {t("me.nfts.allMinted")}
+        </p>
       )}
 
       {state === "done" && lastMinted > 0 && (
@@ -108,6 +115,11 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
       )}
       {state === "no_fee" && (
         <p className="text-center text-xs text-red-600">{t("me.nfts.noFee")}</p>
+      )}
+      {state === "refused" && (
+        <p className="text-center text-xs text-amber-700">
+          {t("me.nfts.refused")}
+        </p>
       )}
       {state === "error" && (
         <p className="text-center text-xs text-red-600">{t("me.nfts.error")}</p>
