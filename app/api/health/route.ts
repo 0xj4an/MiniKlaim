@@ -52,12 +52,25 @@ export async function GET() {
   const signerOk = isSignerConfigured();
   const healthy = dbOk && signerOk;
 
-  // Which build is actually serving. Twice now a deploy was reported as
-  // landed when the container was still running the previous image, and both
-  // times it took reading `docker ps` on the host to find out. One request
-  // answers it now, from the same value the Sentry release uses, so "is my
-  // change live" stops being a guess.
-  const commit = process.env.BUILD_COMMIT_SHA?.trim() || null;
+  // Which build is actually serving. Twice a deploy was reported as landed
+  // while the container was still running the previous image, and both times
+  // finding out meant reading `docker ps` on the host. One request answers it
+  // now, so "is my change live" stops being a guess.
+  //
+  // Read from NEXT_PUBLIC_SENTRY_RELEASE, not BUILD_COMMIT_SHA. The sha
+  // arrives as a Docker `ARG`, which exists during the build and is gone at
+  // runtime unless the Dockerfile promotes it to `ENV`, so the first version
+  // of this field reported null in production. `next.config.ts` puts the same
+  // value in `env`, which Next inlines into the server bundle at build time,
+  // so it survives into the running container. BUILD_COMMIT_SHA stays as a
+  // fallback for a build that sets it as a real environment variable.
+  //
+  // The field caught its own bug on the first deploy, which is the argument
+  // for having it.
+  const commit =
+    process.env.NEXT_PUBLIC_SENTRY_RELEASE?.trim() ||
+    process.env.BUILD_COMMIT_SHA?.trim() ||
+    null;
 
   // The relayer pays every claim while it is above the floor, so its balance
   // is the difference between the screen's promise being true and being a
