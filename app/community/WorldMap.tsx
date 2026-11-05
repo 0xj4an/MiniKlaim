@@ -16,6 +16,7 @@ import {
   mapContextLost,
   mapRenderFailed,
   mapRenderReady,
+  watchMapRender,
   mapRenderStarted,
 } from "@/lib/map/mapTelemetry";
 import { useMapTier } from "@/lib/map/useMapTier";
@@ -489,6 +490,10 @@ export function WorldMap({
     // reach the constructor and crash this page (31 crashes, 14 players).
     if (mapTier === null) return;
     if (!isGrid && !gl) return;
+    // Stops the stall watchdog. Hoisted so the unmount cleanup can call it:
+    // a player who leaves the page inside the window has not stalled, and
+    // reporting them would make the metric useless.
+    let settleWatch: (() => void) | null = null;
     const container = containerRef.current;
     if (!container) return;
     let cancelled = false;
@@ -559,6 +564,10 @@ export function WorldMap({
     const zoom = span >= 64 ? Math.min(0, Math.log2(span / 512)) : 0;
     if (!gl) return;
     const glTier = mapTier === "gl1" ? "gl1" : "gl2";
+    // How far the map got, for the watchdog to name the step it stuck in.
+    let progress: "import" | "construct" | "style" | "draw" | null = null;
+    const settle = watchMapRender(glTier, "maplibre", "/community", () => progress);
+    settleWatch = settle;
     mapRenderStarted(glTier, "maplibre", "/community");
     const mapStartedAt =
       typeof performance === "undefined" ? Date.now() : performance.now();
@@ -580,6 +589,7 @@ export function WorldMap({
         message: e instanceof Error ? e.message : String(e),
       });
       track("map_webgl_failed", { path: "/community" });
+      settle();
       mapRenderFailed(glTier, "maplibre", "/community", "construct", e);
       queueMicrotask(() => setMapUnavailable(true));
       return;
@@ -589,6 +599,8 @@ export function WorldMap({
       if (cancelled) return;
       const now =
         typeof performance === "undefined" ? Date.now() : performance.now();
+      settle();
+      progress = "draw";
       mapRenderReady(glTier, "maplibre", "/community", now - mapStartedAt);
       map.resize();
       if (rowsRef.current.length > 0) paintRef.current(map);
@@ -631,6 +643,7 @@ export function WorldMap({
 
     map.on("error", (e) => {
       log.error("map error", { message: e.error?.message ?? String(e) });
+      settle();
       mapRenderFailed(glTier, "maplibre", "/community", "style", e.error ?? e);
     });
 
@@ -688,6 +701,7 @@ export function WorldMap({
     const layers = boundLayers.current;
     return () => {
       cancelled = true;
+      settleWatch?.();
       if (paintTimer !== null) window.clearTimeout(paintTimer);
       layers.clear();
       popupRef.current?.remove();
