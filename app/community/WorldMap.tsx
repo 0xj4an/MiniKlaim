@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
-import { DEFAULT_MAP_STYLE, lightMapOptions } from "@/lib/map/config";
+import { lightMapOptions } from "@/lib/map/config";
 import { reportGpuSupport } from "@/lib/map/gpuSupport";
 import GridMap from "@/app/GridMap";
 import {
@@ -19,6 +19,7 @@ import {
   watchMapRender,
   mapRenderStarted,
 } from "@/lib/map/mapTelemetry";
+import { useMapStyle } from "@/lib/map/useMapStyle";
 import { useMapTier } from "@/lib/map/useMapTier";
 import { useMaplibre } from "@/lib/map/useMaplibre";
 import { zoomForSpan, type LngLat } from "@/lib/map/mercator";
@@ -178,6 +179,8 @@ export function WorldMap({
   const mapTier = useMapTier();
   const isGrid = mapTier === "grid";
   const gl = useMaplibre(mapTier);
+  // Only the MapLibre branch waits on this; the grid draws no basemap.
+  const mapStyle = useMapStyle();
   const glRef = useRef<ReturnType<typeof useMaplibre>>(null);
   glRef.current = gl;
 
@@ -563,6 +566,7 @@ export function WorldMap({
     );
     const zoom = span >= 64 ? Math.min(0, Math.log2(span / 512)) : 0;
     if (!gl) return;
+    if (!mapStyle) return;
     const glTier = mapTier === "gl1" ? "gl1" : "gl2";
     // How far the map got, for the watchdog to name the step it stuck in.
     let progress: "import" | "construct" | "style" | "draw" | null = null;
@@ -575,7 +579,7 @@ export function WorldMap({
     try {
       map = new gl.Map({
         container,
-        style: DEFAULT_MAP_STYLE,
+        style: mapStyle,
         ...lightMapOptions(),
         center: [0, 0],
         zoom,
@@ -708,7 +712,7 @@ export function WorldMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [mapTier, isGrid, gl]);
+  }, [mapTier, isGrid, gl, mapStyle]);
 
   useEffect(() => {
     const map = mapRef.current;
