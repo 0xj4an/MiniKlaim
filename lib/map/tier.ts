@@ -1,6 +1,11 @@
 "use client";
 
 import {
+  connectionHint,
+  isSlowConnection,
+  type ConnectionHint,
+} from "@/lib/map/connectionTier";
+import {
   probeGpuSupport,
   type GpuSupport,
   type WebglLevel,
@@ -151,7 +156,12 @@ let decided: TierDecision | null = null;
  * from memory, so every map on the page agrees with every other.
  */
 export function resolveMapTier(
-  options: { now?: number; search?: string } = {},
+  options: {
+    now?: number;
+    search?: string;
+    /** Test seam. Undefined reads the browser; null means no hint available. */
+    connection?: ConnectionHint | null;
+  } = {},
 ): TierDecision {
   if (decided) return decided;
 
@@ -176,24 +186,51 @@ export function resolveMapTier(
 
   const build = currentBuild();
   const cached = readStored(now, build);
+
+  let base: TierDecision;
   if (cached) {
-    decided = { ...cached, source: "cache" };
-    return decided;
+    base = { ...cached, source: "cache" };
+  } else {
+    const support = probeGpuSupport();
+    const { tier, reason } = tierForSupport(support);
+    base = {
+      tier,
+      webgl: support.webgl,
+      renderer: support.renderer,
+      maxTextureSize: support.maxTextureSize,
+      source: "probe",
+      reason,
+      decidedAt: now,
+    };
+    // Written before the connection is considered, on purpose: what gets
+    // remembered for a week is the fact about the GPU, never the fact about
+    // this moment's signal.
+    write(base, build);
   }
 
-  const support = probeGpuSupport();
-  const { tier, reason } = tierForSupport(support);
-  decided = {
-    tier,
-    webgl: support.webgl,
-    renderer: support.renderer,
-    maxTextureSize: support.maxTextureSize,
-    source: "probe",
-    reason,
-    decidedAt: now,
-  };
-  write(decided, build);
+  decided = downgradeForConnection(
+    base,
+    options.connection === undefined ? connectionHint() : options.connection,
+  );
   return decided;
+}
+
+/**
+ * Drop a MapLibre tier to the canvas when the connection cannot deliver
+ * MapLibre at all. See lib/map/connectionTier for the measurement.
+ *
+ * The reason string keeps the GPU verdict and appends the connection one, so
+ * `map_tier_resolved` still says which phone this was as well as why it did
+ * not get the full map. Without that, a week of grid events on capable
+ * phones would look like the GPU probe having gone wrong.
+ */
+function downgradeForConnection(
+  base: TierDecision,
+  hint: ConnectionHint | null,
+): TierDecision {
+  if (base.tier === "grid") return base;
+  if (!isSlowConnection(hint)) return base;
+  return { ...base, tier: "grid", reason: `${base.reason}+slow-connection` };
 }
 
 /**

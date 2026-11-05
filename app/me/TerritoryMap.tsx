@@ -11,7 +11,6 @@ import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { isWebglFailure } from "@/lib/map/isWebglFailure";
 import {
-  DEFAULT_MAP_STYLE,
   lightMapOptions,
   ME_MIN_ZOOM,
 } from "@/lib/map/config";
@@ -28,6 +27,7 @@ import {
   watchMapRender,
   mapRenderStarted,
 } from "@/lib/map/mapTelemetry";
+import { useMapStyle } from "@/lib/map/useMapStyle";
 import { useMapTier } from "@/lib/map/useMapTier";
 import { useMaplibre } from "@/lib/map/useMaplibre";
 import type { LngLat } from "@/lib/map/mercator";
@@ -66,6 +66,8 @@ export function TerritoryMap({ address }: { address: string | null }) {
   const mapTier = useMapTier();
   const isGrid = mapTier === "grid";
   const gl = useMaplibre(mapTier);
+  // Only the MapLibre branch waits on this; the grid draws no basemap.
+  const mapStyle = useMapStyle();
 
   // Measured on mount, not where the map is built: on /me the map only
   // exists once the player owns blocks, and on /run only once a container
@@ -81,7 +83,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
     // building MapLibre before the tier is known is how a phone with no
     // WebGL reached the constructor at all.
     if (mapTier === null) return;
-    if (!isGrid && (!gl || !containerRef.current)) return;
+    if (!isGrid && (!gl || !containerRef.current || !mapStyle)) return;
     // See the note in app/community/WorldMap.tsx: leaving the page is not a
     // stall, so the cleanup has to be able to stop the clock.
     let settleWatch: (() => void) | null = null;
@@ -129,7 +131,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
           });
           return;
         }
-        if (!containerRef.current || !gl) return;
+        if (!containerRef.current || !gl || !mapStyle) return;
         const glTier = mapTier === "gl1" ? "gl1" : "gl2";
         let progress: "import" | "construct" | "style" | "draw" | null = null;
         const settle = watchMapRender(glTier, "maplibre", "/me", () => progress);
@@ -146,7 +148,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
         try {
           map = new gl.Map({
             container: containerRef.current,
-            style: DEFAULT_MAP_STYLE,
+            style: mapStyle,
             ...lightMapOptions(),
             center: frame.center,
             zoom: frame.zoom,
@@ -260,7 +262,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [address, mapTier, isGrid, gl]);
+  }, [address, mapTier, isGrid, gl, mapStyle]);
 
   return (
     <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">

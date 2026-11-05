@@ -219,6 +219,17 @@ type EventMap = {
     stage: "import" | "construct" | "style" | "draw";
     ms: number;
   };
+  // Where this load's basemap came from. `fallback` means the style could
+  // not be had inside the budget and the map was built with no streets on
+  // it, which used to be a map that never appeared at all. The rate of this
+  // is the health of the tile host, measured on our side for the first time:
+  // every previous failure happened on the player's phone against a third
+  // party and was invisible to us.
+  map_style_loaded: {
+    outcome: "origin" | "fallback";
+    ms: number;
+    reason?: string;
+  };
   // The GPU took the context back, usually under memory pressure. Distinct
   // from a failure: the map worked and then stopped.
   map_context_lost: { tier: "gl2" | "gl1" | "grid"; path: string };
