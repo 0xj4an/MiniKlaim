@@ -201,6 +201,10 @@ type EventMap = {
     engine: "maplibre" | "grid";
     path: string;
     stage: "import" | "construct" | "style" | "draw";
+    // What gave up, which the stage cannot say: the worker and the tile host
+    // both fail at `style`. Lets "the tile host is down" be counted apart
+    // from "the bundle is wrong" without parsing messages in a query.
+    cause: "worker" | "tiles" | "webgl" | "other";
     message: string;
   };
   // A map that started and never drew, and never threw either. Before this

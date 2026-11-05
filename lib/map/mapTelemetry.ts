@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/nextjs";
 import { track } from "@/lib/analytics";
 import { createLogger } from "@/lib/logger";
 import {
+  causeOf,
   shouldRaiseToSentry,
   type FailureStage,
 } from "@/lib/map/mapFailureKind";
@@ -154,13 +155,16 @@ export function mapRenderFailed(
   error: unknown,
 ): void {
   const message = messageOf(error);
-  log.error("map render failed", { tier, engine, path, stage, message });
+  // What gave up, as opposed to when. See lib/map/mapFailureKind.
+  const cause = causeOf(message);
+  log.error("map render failed", { tier, engine, path, stage, cause, message });
 
   track("map_render_failed", {
     tier,
     engine,
     path,
     stage,
+    cause,
     message: message.slice(0, 200),
   });
 
@@ -171,10 +175,20 @@ export function mapRenderFailed(
     Sentry.withScope((scope) => {
       scope.setTag("map.stage", stage);
       scope.setTag("map.engine", engine);
-      // One issue per tier and stage. Without this the grid's failures group
-      // with maplibre's and the tier the fix belongs to is lost in the mix.
-      scope.setFingerprint(["map-render-failed", tier, engine, stage]);
-      scope.setContext("mapFailure", { tier, engine, path, stage, message });
+      scope.setTag("map.cause", cause);
+      // One issue per tier, stage and cause. Stage alone was not enough: the
+      // worker failing to load and the tile host refusing both happen at
+      // `style`, so they shared MINIKLAIM-1R and its title flipped between
+      // them, which is how a worker error got chased as a tile problem.
+      scope.setFingerprint(["map-render-failed", tier, engine, stage, cause]);
+      scope.setContext("mapFailure", {
+        tier,
+        engine,
+        path,
+        stage,
+        cause,
+        message,
+      });
       Sentry.captureException(
         error instanceof Error ? error : new Error(message),
       );

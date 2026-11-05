@@ -32,3 +32,27 @@ export function shouldRaiseToSentry(
   if (stage !== "style") return true;
   return !DEAD_REQUEST.test(message);
 }
+
+/**
+ * A coarse cause, for grouping. The stage says when the map gave up; this
+ * says what gave up, which the stage cannot: the MapLibre worker failing to
+ * load and the tile host refusing both happen at `style`, so they shared one
+ * Sentry issue and its title flipped between them. On 4 Nov that cost real
+ * time, because a worker error sitting under an issue named after the tile
+ * host read as the tile host and was chased as one.
+ *
+ * Deliberately coarse. Four buckets that each imply a different fix: the
+ * worker is a bundling problem, tiles are the host or the player's network,
+ * webgl is the device, and everything else stays together rather than being
+ * split by a message that varies per browser.
+ */
+export type FailureCause = "worker" | "tiles" | "webgl" | "other";
+
+export function causeOf(message: string): FailureCause {
+  if (/worker/i.test(message)) return "worker";
+  if (/openfreemap|tiles?\.|sprite|glyph|style.*fetch|fetch.*style/i.test(message)) {
+    return "tiles";
+  }
+  if (/webgl|gpu|context/i.test(message)) return "webgl";
+  return "other";
+}

@@ -81,15 +81,53 @@ describe("mapRenderFailed", () => {
     [scope.setTag, scope.setFingerprint, scope.setContext].forEach((m) => m.mockReset());
   });
 
-  it("keeps each tier and stage as its own Sentry issue", () => {
+  it("keeps each tier, stage and cause as its own Sentry issue", () => {
     mapRenderFailed("grid", "grid", "/run", "draw", new Error("canvas gone"));
     expect(scope.setFingerprint).toHaveBeenCalledWith([
       "map-render-failed",
       "grid",
       "grid",
       "draw",
+      "other",
     ]);
     expect(captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it("splits the worker from the tile host, which share the style stage", () => {
+    // They shared MINIKLAIM-1R, so its title flipped between them and a
+    // worker error was read, and chased, as a tile host problem.
+    mapRenderFailed(
+      "gl2",
+      "maplibre",
+      "/run",
+      "style",
+      new Error("Worker failed to load. Check that the worker URL is correct."),
+    );
+    const worker = scope.setFingerprint.mock.calls.at(-1)?.[0];
+    expect(worker).toEqual([
+      "map-render-failed",
+      "gl2",
+      "maplibre",
+      "style",
+      "worker",
+    ]);
+    expect(scope.setTag).toHaveBeenCalledWith("map.cause", "worker");
+  });
+
+  it("puts the cause on the counted event too, not only on Sentry", () => {
+    // A style request that never completed stays out of Sentry, so the
+    // breakdown of what is failing has to live in the analytics event.
+    mapRenderFailed(
+      "gl2",
+      "maplibre",
+      "/community",
+      "style",
+      new Error("AJAXError: Failed to fetch (tiles.openfreemap.org) (0)"),
+    );
+    expect(track).toHaveBeenCalledWith(
+      "map_render_failed",
+      expect.objectContaining({ cause: "tiles", stage: "style" }),
+    );
   });
 
   it("throws away a tier whose GPU refused to build the map", () => {
