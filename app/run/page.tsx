@@ -15,7 +15,6 @@ import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import {
   DEFAULT_CENTER,
-  DEFAULT_MAP_STYLE,
   DEFAULT_ZOOM,
   lightMapOptions,
   FOLLOW_ZOOM,
@@ -41,6 +40,7 @@ import { liveGeoSource } from "@/lib/map/liveSource";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
 import { getGridData, resetGridData, setGridData } from "@/lib/map/gridStore";
 import { viewportFromCenter } from "@/lib/map/viewport";
+import { useMapStyle } from "@/lib/map/useMapStyle";
 import { useMapTier } from "@/lib/map/useMapTier";
 import { useMaplibre } from "@/lib/map/useMaplibre";
 import {
@@ -193,6 +193,8 @@ export default function RunPage() {
   // The MapLibre this tier uses, once loaded. Null on the grid tier, which
   // must never download a map bundle.
   const gl = useMaplibre(mapTier);
+  // Only the MapLibre branch waits on this; the grid draws no basemap.
+  const mapStyle = useMapStyle();
   // Read inside callbacks that must not be rebuilt when the tier arrives.
   const isGridRef = useRef(false);
   isGridRef.current = isGrid;
@@ -1470,6 +1472,7 @@ export default function RunPage() {
     }
 
     if (!gl) return;
+    if (!mapStyle) return;
     const glTier = mapTier === "gl1" ? "gl1" : "gl2";
     mapRenderStarted(glTier, "maplibre", "/run");
     const mapStartedAt =
@@ -1478,7 +1481,7 @@ export default function RunPage() {
     try {
       map = new gl.Map({
         container: containerRef.current,
-        style: DEFAULT_MAP_STYLE,
+        style: mapStyle,
         ...lightMapOptions(),
         center: initialCenter,
         zoom: initialZoom,
@@ -1726,6 +1729,7 @@ export default function RunPage() {
     mapTier,
     isGrid,
     gl,
+    mapStyle,
     claimHexes,
     refreshClaimed,
     capturedByLabel,
