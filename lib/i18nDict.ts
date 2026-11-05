@@ -118,9 +118,12 @@ export const dictionaries = {
     "me.rewards.error": "Could not claim. Please try again.",
     "me.nfts.header": "🧩 Your blocks as NFTs",
     "me.nfts.summary": "{recorded} blocks recorded on-chain · {tokens} as NFTs",
-    "me.nfts.explain": "Claiming a run is on us: your blocks go on-chain and it costs you nothing. Turning them into NFTs is yours to keep and yours to pay for, whenever you like. The fee grows with the number of blocks, and each button shows what it costs you now.",
-    "me.nfts.plan": "{count} blocks go in {signatures} transactions of up to {max}, so your wallet will ask you to sign {signatures} times. About ${usd} in total.",
-    "me.nfts.planNoPrice": "{count} blocks go in {signatures} transactions of up to {max}, so your wallet will ask you to sign {signatures} times.",
+    "me.nfts.explain":
+      "Claiming a run is on us: your blocks go on-chain and it costs you nothing. Turning them into NFTs is yours to keep and yours to pay for, whenever you like. The fee grows with the number of blocks, and each button shows what it costs you now.",
+    "me.nfts.plan":
+      "{count} blocks go in {signatures} transactions of up to {max}, so your wallet will ask you to sign {signatures} times. About ${usd} in total.",
+    "me.nfts.planNoPrice":
+      "{count} blocks go in {signatures} transactions of up to {max}, so your wallet will ask you to sign {signatures} times.",
     "me.nfts.mint": "Mint {count} blocks as NFTs",
     "me.nfts.mintSmall": "Or mint just {count}",
     "me.nfts.minting": "Confirm in wallet...",
@@ -129,7 +132,10 @@ export const dictionaries = {
     "me.nfts.allMinted": "All your blocks are NFTs.",
     "me.nfts.more": "Up to {max} per transaction.",
     "me.nfts.error": "Could not mint. Please try again.",
-    "me.nfts.noFee": "Not enough balance to pay the network fee. Add a little USDT, USDC, or USDm and try again.",
+    "me.nfts.refused":
+      "Your wallet turned down the request. Tap the button again; this usually clears on a second try.",
+    "me.nfts.noFee":
+      "Not enough balance to pay the network fee. Add a little USDT, USDC, or USDm and try again.",
     "me.link.title": "🔗 Link another wallet",
     "me.link.desc":
       "Use the same MiniKlaim identity (name, profile) across chains.",
@@ -145,8 +151,9 @@ export const dictionaries = {
     "me.link.error": "Could not link. Check the code and try again.",
     "link.haveAccount": "Already play on another wallet? Link it",
     "link.steps":
-      "On your other wallet, open Profile and tap \"Link another wallet\" to get a code. Then paste it here:",
-    "link.txNote": "You'll confirm a small verification tx to prove this wallet is yours.",
+      'On your other wallet, open Profile and tap "Link another wallet" to get a code. Then paste it here:',
+    "link.txNote":
+      "You'll confirm a small verification tx to prove this wallet is yours.",
     "link.or": "or",
     "link.createNew": "Create a new account",
     "me.runs.header": "Your routes",
@@ -199,7 +206,8 @@ export const dictionaries = {
     "community.stat.player": "player",
     "community.stat.players": "players",
     "community.leaderboard.header": "Top players",
-    "community.leaderboard.colors": "The top 10 have their own color on the map.",
+    "community.leaderboard.colors":
+      "The top 10 have their own color on the map.",
     "community.activity.header": "Latest routes",
     "community.showMore": "Show more",
     "community.myRank": "Your position",
@@ -271,8 +279,10 @@ export const dictionaries = {
     "run.summary.blocks": "Blocks",
     "run.streak.today": "{n}-day streak",
     "run.streak.next": "Play again tomorrow to reach {m} days.",
-    "run.streak.nextBadge": "Play again tomorrow to reach {m} days and earn the {m}-day badge.",
-    "run.streak.start": "Capture a block or move at least 200 m to start a streak.",
+    "run.streak.nextBadge":
+      "Play again tomorrow to reach {m} days and earn the {m}-day badge.",
+    "run.streak.start":
+      "Capture a block or move at least 200 m to start a streak.",
     "run.streak.keepAlive":
       "This run did not count. Capture a block or move 200 m today and your streak carries on.",
     "run.summary.dist": "Dist",
@@ -284,12 +294,16 @@ export const dictionaries = {
     "run.summary.claiming": "Claiming...",
     "run.summary.claimed": "Blocks claimed.",
     "run.summary.claimedFree": "Blocks claimed, and we paid the network fee.",
-    "run.summary.nftOffer": "You have {count} blocks without an NFT. Want them in your wallet? That part is yours to pay: about ${usd}.",
-    "run.summary.nftOfferNoPrice": "You have {count} blocks without an NFT. Want them in your wallet? That part is yours to pay.",
-    "run.summary.nftBatches": "They go in {signatures} transactions, so your wallet will ask you to sign {signatures} times.",
+    "run.summary.nftOffer":
+      "You have {count} blocks without an NFT. Want them in your wallet? That part is yours to pay: about ${usd}.",
+    "run.summary.nftOfferNoPrice":
+      "You have {count} blocks without an NFT. Want them in your wallet? That part is yours to pay.",
+    "run.summary.nftBatches":
+      "They go in {signatures} transactions, so your wallet will ask you to sign {signatures} times.",
     "run.summary.nftLater": "Not now",
     "run.summary.nftGo": "Mint them",
-    "run.summary.nftSkipped": "Your run is claimed. The NFTs stay available in your profile whenever you want them.",
+    "run.summary.nftSkipped":
+      "Your run is claimed. The NFTs stay available in your profile whenever you want them.",
     "run.summary.claimedBoth": "Blocks and badges claimed.",
     "run.banner.block": "block",
     "run.banner.blocks": "blocks",
@@ -306,7 +320,8 @@ export const dictionaries = {
     "treasure.claiming": "Claiming...",
     "treasure.sent": "On its way to your wallet.",
     "treasure.free": "Free: MiniKlaim pays the network fee.",
-    "treasure.failed": "Could not claim right now. Try again from your profile.",
+    "treasure.failed":
+      "Could not claim right now. Try again from your profile.",
     "treasure.later": "Later",
     "treasure.heat.1": "Cold: a treasure is nearby",
     "treasure.heat.2": "Warm",
@@ -317,7 +332,8 @@ export const dictionaries = {
     "treasures.paid": "Paid",
     "treasures.left": "· {n} left",
     "treasures.active.h": "Hidden treasures",
-    "treasures.active.body": "Walk past these spots to find them. One prize per player, paid in your wallet.",
+    "treasures.active.body":
+      "Walk past these spots to find them. One prize per player, paid in your wallet.",
     "run.popup.level": "Level",
     "me.territory.maxed": "{n} at level 10",
     "run.popup.capturedBy": "Captured by",
@@ -353,16 +369,20 @@ export const dictionaries = {
     "support.form.email": "Your email, so we can reply",
     "support.form.emailInvalid": "Enter a valid email address.",
     "support.form.screenshot": "Screenshot (optional)",
-    "support.form.screenshotTooBig": "The image is too big. Use one under 5 MB.",
-    "support.form.note": "We add your wallet, phone model and app version for you. We usually reply within 24 hours.",
+    "support.form.screenshotTooBig":
+      "The image is too big. Use one under 5 MB.",
+    "support.form.note":
+      "We add your wallet, phone model and app version for you. We usually reply within 24 hours.",
     "support.form.send": "Send",
     "support.form.sending": "Sending...",
     "support.form.sentTitle": "Message sent",
-    "support.form.sentBody": "Thanks! We'll reply to {email}. Check your spam folder if you don't see it.",
+    "support.form.sentBody":
+      "Thanks! We'll reply to {email}. Check your spam folder if you don't see it.",
     "support.form.done": "Done",
     "support.form.error": "We couldn't send your message.",
     "support.form.fallback": "Send it by email instead",
-    "support.form.rateLimited": "You've sent several messages already. We'll reply soon; try again in an hour if you need to.",
+    "support.form.rateLimited":
+      "You've sent several messages already. We'll reply soon; try again in an hour if you need to.",
     "support.link.help": "Help",
     "support.link.contact": "Contact support",
     "support.link.inline": "support",
@@ -427,9 +447,9 @@ export const dictionaries = {
     "stats.runs.perDay": "Routes per day (last 14 days)",
     "stats.section.contracts": "Smart Contracts",
     "stats.countries.showMore": "Show more",
-  "stats.cities.show": "Show cities",
-  "stats.cities.hide": "Hide cities",
-  "stats.cities.processing": "Processing city data...",
+    "stats.cities.show": "Show cities",
+    "stats.cities.hide": "Hide cities",
+    "stats.cities.processing": "Processing city data...",
     "stats.card.players": "players",
     "stats.card.blocksOwned": "blocks owned",
     "stats.card.finishedRuns": "routes completed",
@@ -499,7 +519,7 @@ export const dictionaries = {
       "Do not spam runs, do not impersonate other players in your runner name, do not abuse the API. The maintainer may remove accounts that break these rules.",
     "terms.changes.h": "Changes",
     "terms.changes.body":
-      "These terms can change. If they do, the \"last updated\" date above gets bumped. Continued use after a change counts as acceptance.",
+      'These terms can change. If they do, the "last updated" date above gets bumped. Continued use after a change counts as acceptance.',
     "p.title": "Player",
     "p.joined": "Joined",
     "p.bestRun": "Best route:",
@@ -539,11 +559,14 @@ export const dictionaries = {
     "onboarding.gps.title": "Turn on GPS",
     "onboarding.gps.body": "Allow location. Without it you can't play.",
     "onboarding.start.title": "Start",
-    "onboarding.start.body": "Tap Start. Walk, ride, or drive. The blocks you cross become yours.",
+    "onboarding.start.body":
+      "Tap Start. Walk, ride, or drive. The blocks you cross become yours.",
     "onboarding.capture.title": "Your blocks",
-    "onboarding.capture.body": "Each block you cross is yours until someone else crosses it.",
+    "onboarding.capture.body":
+      "Each block you cross is yours until someone else crosses it.",
     "onboarding.finish.title": "Finish",
-    "onboarding.finish.body": "Tap Finish. Then confirm in your wallet to keep the blocks.",
+    "onboarding.finish.body":
+      "Tap Finish. Then confirm in your wallet to keep the blocks.",
     "onboarding.skip": "Skip",
     "onboarding.next": "Next",
     "onboarding.gotit": "Got it!",
@@ -571,7 +594,8 @@ export const dictionaries = {
     "home.hey": "Hola",
     "home.streak.days": "Llevas {n} días seguidos",
     "home.streak.toBadge": "Te faltan {d} para la insignia de {m} días.",
-    "home.streak.allBadges": "Ya tienes todas las insignias de racha. No la sueltes.",
+    "home.streak.allBadges":
+      "Ya tienes todas las insignias de racha. No la sueltes.",
     "home.return.body":
       "Hace unos días. Las cuadras que cruzas siguen siendo tuyas.",
     "home.env.minipay.connecting": "Conectando a MiniPay...",
@@ -622,7 +646,8 @@ export const dictionaries = {
     "common.anonymous": "Anónimo",
     "common.home": "Inicio",
     "error.title": "Algo se rompió",
-    "error.body": "No pudimos cargar esta página. Intenta de nuevo, o vuelve al inicio.",
+    "error.body":
+      "No pudimos cargar esta página. Intenta de nuevo, o vuelve al inicio.",
     "error.tryAgain": "Intentar de nuevo",
     "locale.toggle": "English",
     "me.title": "Tu",
@@ -665,10 +690,14 @@ export const dictionaries = {
     "me.rewards.poolLow": "El pool de recompensas se esta recargando.",
     "me.rewards.error": "No se pudo reclamar. Intenta de nuevo.",
     "me.nfts.header": "🧩 Tus bloques como NFTs",
-    "me.nfts.summary": "{recorded} bloques registrados on-chain · {tokens} como NFTs",
-    "me.nfts.explain": "Reclamar una corrida va por nuestra cuenta: tus bloques quedan on-chain y a ti no te cuesta nada. Convertirlos en NFTs es tuyo y lo pagas tú, cuando quieras. La comisión sube con la cantidad de bloques, y cada botón te muestra cuánto te cuesta ahora.",
-    "me.nfts.plan": "{count} bloques van en {signatures} transacciones de hasta {max}, así que tu wallet te va a pedir {signatures} firmas. En total unos ${usd}.",
-    "me.nfts.planNoPrice": "{count} bloques van en {signatures} transacciones de hasta {max}, así que tu wallet te va a pedir {signatures} firmas.",
+    "me.nfts.summary":
+      "{recorded} bloques registrados on-chain · {tokens} como NFTs",
+    "me.nfts.explain":
+      "Reclamar una corrida va por nuestra cuenta: tus bloques quedan on-chain y a ti no te cuesta nada. Convertirlos en NFTs es tuyo y lo pagas tú, cuando quieras. La comisión sube con la cantidad de bloques, y cada botón te muestra cuánto te cuesta ahora.",
+    "me.nfts.plan":
+      "{count} bloques van en {signatures} transacciones de hasta {max}, así que tu wallet te va a pedir {signatures} firmas. En total unos ${usd}.",
+    "me.nfts.planNoPrice":
+      "{count} bloques van en {signatures} transacciones de hasta {max}, así que tu wallet te va a pedir {signatures} firmas.",
     "me.nfts.mint": "Mintear {count} bloques como NFTs",
     "me.nfts.mintSmall": "O mintea solo {count}",
     "me.nfts.minting": "Confirma en tu wallet...",
@@ -677,7 +706,10 @@ export const dictionaries = {
     "me.nfts.allMinted": "Todos tus bloques son NFTs.",
     "me.nfts.more": "Hasta {max} por transacción.",
     "me.nfts.error": "No se pudo mintear. Intenta de nuevo.",
-    "me.nfts.noFee": "No tienes saldo suficiente para la tarifa de red. Agrega un poco de USDT, USDC o USDm e intenta de nuevo.",
+    "me.nfts.refused":
+      "Tu wallet rechazó la solicitud. Vuelve a tocar el botón: casi siempre se arregla al segundo intento.",
+    "me.nfts.noFee":
+      "No tienes saldo suficiente para la tarifa de red. Agrega un poco de USDT, USDC o USDm e intenta de nuevo.",
     "me.link.title": "🔗 Vincular otra wallet",
     "me.link.desc":
       "Usa la misma identidad MiniKlaim (nombre, perfil) en todas las chains.",
@@ -693,8 +725,9 @@ export const dictionaries = {
     "me.link.error": "No se pudo vincular. Revisa el código.",
     "link.haveAccount": "¿Ya juegas en otra wallet? Vincula esta",
     "link.steps":
-      "En tu otra wallet, ve a Perfil y toca \"Vincular otra wallet\" para obtener un código. Después pégalo acá:",
-    "link.txNote": "Vas a confirmar una pequeña transacción de verificación para probar que esta wallet es tuya.",
+      'En tu otra wallet, ve a Perfil y toca "Vincular otra wallet" para obtener un código. Después pégalo acá:',
+    "link.txNote":
+      "Vas a confirmar una pequeña transacción de verificación para probar que esta wallet es tuya.",
     "link.or": "o",
     "link.createNew": "Crear cuenta nueva",
     "me.runs.header": "Tus recorridos",
@@ -747,7 +780,8 @@ export const dictionaries = {
     "community.stat.player": "jugador",
     "community.stat.players": "jugadores",
     "community.leaderboard.header": "Mejores jugadores",
-    "community.leaderboard.colors": "Los 10 primeros tienen su propio color en el mapa.",
+    "community.leaderboard.colors":
+      "Los 10 primeros tienen su propio color en el mapa.",
     "community.activity.header": "Últimos recorridos",
     "community.showMore": "Ver más",
     "community.myRank": "Tu posición",
@@ -801,8 +835,7 @@ export const dictionaries = {
     "run.finish.finishing": "Terminando...",
     "run.finish.button": "Terminar",
     "run.needName.kicker": "Una cosa más",
-    "run.needName.body":
-      "Elige un nombre para que te reconozcan en el mapa.",
+    "run.needName.body": "Elige un nombre para que te reconozcan en el mapa.",
     "run.needName.cta": "Elige tu nombre",
     "run.summary.header": "Recorrido completo",
     "run.move.foot": "A pie",
@@ -820,8 +853,10 @@ export const dictionaries = {
     "run.summary.blocks": "Cuadras",
     "run.streak.today": "Racha de {n} días",
     "run.streak.next": "Vuelve a jugar mañana para llegar a {m} días.",
-    "run.streak.nextBadge": "Vuelve a jugar mañana para llegar a {m} días y ganar la insignia de {m} días.",
-    "run.streak.start": "Captura una cuadra o muévete al menos 200 m para empezar una racha.",
+    "run.streak.nextBadge":
+      "Vuelve a jugar mañana para llegar a {m} días y ganar la insignia de {m} días.",
+    "run.streak.start":
+      "Captura una cuadra o muévete al menos 200 m para empezar una racha.",
     "run.streak.keepAlive":
       "Esta corrida no contó. Captura una cuadra o muévete 200 m hoy y tu racha sigue.",
     "run.summary.dist": "Dist",
@@ -832,13 +867,18 @@ export const dictionaries = {
     "run.summary.claimBoth": "Reclama tus cuadras y tus insignias.",
     "run.summary.claiming": "Reclamando...",
     "run.summary.claimed": "Cuadras reclamadas.",
-    "run.summary.claimedFree": "Cuadras reclamadas, y la comisión de red la pagamos nosotros.",
-    "run.summary.nftOffer": "Tienes {count} cuadras sin NFT. ¿Las quieres en tu wallet? Esa parte sí la pagas tú: unos ${usd}.",
-    "run.summary.nftOfferNoPrice": "Tienes {count} cuadras sin NFT. ¿Las quieres en tu wallet? Esa parte sí la pagas tú.",
-    "run.summary.nftBatches": "Van en {signatures} transacciones, así que tu wallet te va a pedir {signatures} firmas.",
+    "run.summary.claimedFree":
+      "Cuadras reclamadas, y la comisión de red la pagamos nosotros.",
+    "run.summary.nftOffer":
+      "Tienes {count} cuadras sin NFT. ¿Las quieres en tu wallet? Esa parte sí la pagas tú: unos ${usd}.",
+    "run.summary.nftOfferNoPrice":
+      "Tienes {count} cuadras sin NFT. ¿Las quieres en tu wallet? Esa parte sí la pagas tú.",
+    "run.summary.nftBatches":
+      "Van en {signatures} transacciones, así que tu wallet te va a pedir {signatures} firmas.",
     "run.summary.nftLater": "Ahora no",
     "run.summary.nftGo": "Mintearlas",
-    "run.summary.nftSkipped": "Tu corrida quedó reclamada. Los NFTs quedan disponibles en tu perfil cuando los quieras.",
+    "run.summary.nftSkipped":
+      "Tu corrida quedó reclamada. Los NFTs quedan disponibles en tu perfil cuando los quieras.",
     "run.summary.claimedBoth": "Cuadras e insignias reclamadas.",
     "run.banner.block": "cuadra",
     "run.banner.blocks": "cuadras",
@@ -855,7 +895,8 @@ export const dictionaries = {
     "treasure.claiming": "Reclamando...",
     "treasure.sent": "Va en camino a tu wallet.",
     "treasure.free": "Gratis: MiniKlaim paga el network fee.",
-    "treasure.failed": "No se pudo reclamar ahora. Intenta de nuevo desde tu perfil.",
+    "treasure.failed":
+      "No se pudo reclamar ahora. Intenta de nuevo desde tu perfil.",
     "treasure.later": "Después",
     "treasure.heat.1": "Frío: hay un tesoro cerca",
     "treasure.heat.2": "Tibio",
@@ -866,7 +907,8 @@ export const dictionaries = {
     "treasures.paid": "Pagado",
     "treasures.left": "· quedan {n}",
     "treasures.active.h": "Tesoros escondidos",
-    "treasures.active.body": "Camina por estos lugares para encontrarlos. Un premio por jugador, pagado en tu wallet.",
+    "treasures.active.body":
+      "Camina por estos lugares para encontrarlos. Un premio por jugador, pagado en tu wallet.",
     "run.popup.level": "Nivel",
     "me.territory.maxed": "{n} en nivel 10",
     "run.popup.capturedBy": "Capturada por",
@@ -876,8 +918,7 @@ export const dictionaries = {
     "run.share.text.suffix": "en @Miniklaim.",
     "run.share.text.run": "de recorrido.",
     "pendingClaim.title": "Termina de reclamar tu último recorrido",
-    "pendingClaim.body":
-      "Faltan cuadras de tu ultimo recorrido. Reclamalas.",
+    "pendingClaim.body": "Faltan cuadras de tu ultimo recorrido. Reclamalas.",
     "pendingClaim.blocks": "Cuadras",
     "pendingClaim.distance": "Dist",
     "pendingClaim.cta": "Reclamar",
@@ -895,22 +936,27 @@ export const dictionaries = {
     "support.topic.badges": "Insignias o recompensas",
     "support.topic.other": "Otra cosa",
     "support.form.describe": "¿Qué pasó? ¿Qué viste en pantalla?",
-    "support.form.placeholder": "Ej.: toqué Empezar y el mapa se quedó en blanco",
+    "support.form.placeholder":
+      "Ej.: toqué Empezar y el mapa se quedó en blanco",
     "support.form.min": "Escribe al menos una frase corta para poder ayudarte.",
     "support.form.topicMissing": "Elige de qué se trata.",
     "support.form.email": "Tu correo, para responderte",
     "support.form.emailInvalid": "Escribe un correo válido.",
     "support.form.screenshot": "Captura de pantalla (opcional)",
-    "support.form.screenshotTooBig": "La imagen es muy pesada. Usa una de menos de 5 MB.",
-    "support.form.note": "Agregamos por ti tu wallet, el modelo del teléfono y la versión de la app. Solemos responder en menos de 24 horas.",
+    "support.form.screenshotTooBig":
+      "La imagen es muy pesada. Usa una de menos de 5 MB.",
+    "support.form.note":
+      "Agregamos por ti tu wallet, el modelo del teléfono y la versión de la app. Solemos responder en menos de 24 horas.",
     "support.form.send": "Enviar",
     "support.form.sending": "Enviando...",
     "support.form.sentTitle": "Mensaje enviado",
-    "support.form.sentBody": "¡Gracias! Te responderemos a {email}. Revisa la carpeta de spam si no lo ves.",
+    "support.form.sentBody":
+      "¡Gracias! Te responderemos a {email}. Revisa la carpeta de spam si no lo ves.",
     "support.form.done": "Listo",
     "support.form.error": "No pudimos enviar tu mensaje.",
     "support.form.fallback": "Enviarlo por correo",
-    "support.form.rateLimited": "Ya enviaste varios mensajes. Te responderemos pronto; si lo necesitas, intenta de nuevo en una hora.",
+    "support.form.rateLimited":
+      "Ya enviaste varios mensajes. Te responderemos pronto; si lo necesitas, intenta de nuevo en una hora.",
     "support.link.help": "Ayuda",
     "support.link.contact": "Contactar a soporte",
     "support.link.inline": "soporte",
@@ -953,8 +999,7 @@ export const dictionaries = {
     "about.footer.disclaimer":
       "MiniKlaim es un proyecto personal. Úsalo bajo tu propio riesgo. Sin garantía.",
     "stats.title": "Estadísticas",
-    "stats.subtitle":
-      "Números públicos sobre MiniKlaim. Actualizados en vivo.",
+    "stats.subtitle": "Números públicos sobre MiniKlaim. Actualizados en vivo.",
     "stats.section.lifetime": "Desde siempre",
     "stats.section.7d": "Últimos 7 días",
     "stats.section.24h": "Últimas 24 horas",
@@ -976,9 +1021,9 @@ export const dictionaries = {
     "stats.runs.perDay": "Recorridos por día (últimos 14 días)",
     "stats.section.contracts": "Contratos Inteligentes",
     "stats.countries.showMore": "Ver más",
-  "stats.cities.show": "Ver ciudades",
-  "stats.cities.hide": "Ocultar ciudades",
-  "stats.cities.processing": "Procesando datos de ciudades...",
+    "stats.cities.show": "Ver ciudades",
+    "stats.cities.hide": "Ocultar ciudades",
+    "stats.cities.processing": "Procesando datos de ciudades...",
     "stats.card.players": "jugadores",
     "stats.card.blocksOwned": "cuadras en posesión",
     "stats.card.finishedRuns": "recorridos completados",
@@ -1048,7 +1093,7 @@ export const dictionaries = {
       "No hagas spam de corridas, no suplantes a otros jugadores con tu nombre, no abuses de la API. El mantenedor puede retirar cuentas que rompan estas reglas.",
     "terms.changes.h": "Cambios",
     "terms.changes.body":
-      "Estos términos pueden cambiar. Si lo hacen, la fecha de \"última actualización\" de arriba se actualiza. Seguir usando la app después de un cambio cuenta como aceptación.",
+      'Estos términos pueden cambiar. Si lo hacen, la fecha de "última actualización" de arriba se actualiza. Seguir usando la app después de un cambio cuenta como aceptación.',
     "p.title": "Jugador",
     "p.joined": "Se unio en",
     "p.bestRun": "Mejor recorrido:",
@@ -1088,11 +1133,14 @@ export const dictionaries = {
     "onboarding.gps.title": "Activa el GPS",
     "onboarding.gps.body": "Permite la ubicación. Sin eso no puedes jugar.",
     "onboarding.start.title": "Empieza",
-    "onboarding.start.body": "Toca Empezar. Camina, ve en bici o en carro. Las cuadras que cruzas quedan tuyas.",
+    "onboarding.start.body":
+      "Toca Empezar. Camina, ve en bici o en carro. Las cuadras que cruzas quedan tuyas.",
     "onboarding.capture.title": "Tus cuadras",
-    "onboarding.capture.body": "Cada cuadra que cruzas es tuya hasta que otra persona pase por ella.",
+    "onboarding.capture.body":
+      "Cada cuadra que cruzas es tuya hasta que otra persona pase por ella.",
     "onboarding.finish.title": "Termina",
-    "onboarding.finish.body": "Toca Terminar. Luego confirma en tu billetera para quedarte con las cuadras.",
+    "onboarding.finish.body":
+      "Toca Terminar. Luego confirma en tu billetera para quedarte con las cuadras.",
     "onboarding.skip": "Saltar",
     "onboarding.next": "Siguiente",
     "onboarding.gotit": "¡Entendido!",
