@@ -46,16 +46,11 @@ export const ME_MIN_ZOOM = 6;
  */
 export const HEX_RESOLUTION = 12;
 
-/**
- * OpenFreeMap Positron vector basemap. Free, no API key, hosted on Cloudflare.
- * City-zoom tiles are a few hundred KB. Zoom-2 tiles are about 1.5MB, so the
- * run map must not fly through them. Visually close to the old CARTO Positron
- * look (light, minimal, road-oriented) that we used before CARTO started
- * stamping "API KEY REQUIRED" on its unauthenticated basemap CDN. Attribution
- * (OSM + OpenFreeMap) is baked into the style JSON.
- */
-export const DEFAULT_MAP_STYLE =
-  "https://tiles.openfreemap.org/styles/positron";
+// The basemap style used to live here as a bare upstream URL handed straight
+// to MapLibre, which made every map on every page depend on a free third
+// party being reachable at the moment a player opened it, with no timeout and
+// no fallback. It now lives in lib/map/basemapStyle, is served from our own
+// origin, and degrades to a map with no streets instead of to no map.
 
 /**
  * Keep MapLibre's GPU and tile memory small on low-end phones. One player's
