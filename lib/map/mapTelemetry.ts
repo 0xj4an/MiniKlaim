@@ -7,6 +7,12 @@ import {
   shouldRaiseToSentry,
   type FailureStage,
 } from "@/lib/map/mapFailureKind";
+import {
+  isStalled,
+  MAP_STALL_MS,
+  stalledStage,
+  type MapProgress,
+} from "@/lib/map/mapWatchdog";
 import { forgetMapTier, resolveMapTier, type MapTier } from "@/lib/map/tier";
 
 const log = createLogger("map");
@@ -107,6 +113,39 @@ export function mapRenderReady(
  * the tile host, `draw` is a live failure after a working start. Only one of
  * those is a reason to move the player to another tier.
  */
+/**
+ * Start a clock on a map that is about to be built, and report it if it is
+ * still blank when the clock runs out. Returns the function to call once the
+ * map has drawn or failed; calling it stops the clock, so a map that finishes
+ * either way is never reported.
+ *
+ * This is the only signal for a map that neither draws nor throws, which is
+ * what a player means by "the map did not load".
+ */
+export function watchMapRender(
+  tier: MapTier,
+  engine: MapEngine,
+  path: string,
+  progress: () => MapProgress | null,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  const startedAt = Date.now();
+  const timer = window.setTimeout(() => {
+    const ms = Date.now() - startedAt;
+    if (!isStalled(startedAt, Date.now())) return;
+    const stage = stalledStage(progress());
+    log.warn("map still blank", { tier, engine, path, stage, ms });
+    Sentry.addBreadcrumb({
+      category: "map",
+      level: "warning",
+      message: `still blank after ${ms}ms at ${stage}`,
+      data: { tier, engine, path },
+    });
+    track("map_render_stalled", { tier, engine, path, stage, ms });
+  }, MAP_STALL_MS);
+  return () => window.clearTimeout(timer);
+}
+
 export function mapRenderFailed(
   tier: MapTier,
   engine: MapEngine,
