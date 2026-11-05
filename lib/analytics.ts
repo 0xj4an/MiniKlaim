@@ -203,6 +203,18 @@ type EventMap = {
     stage: "import" | "construct" | "style" | "draw";
     message: string;
   };
+  // A map that started and never drew, and never threw either. Before this
+  // the telemetry only had "ready" and "failed", so a map stuck halfway
+  // produced no event at all and a player reporting "the map did not load"
+  // could not be matched to anything. `ms` says how long it had been blank
+  // and `stage` the step it was stuck in.
+  map_render_stalled: {
+    tier: "gl2" | "gl1" | "grid";
+    engine: "maplibre" | "grid";
+    path: string;
+    stage: "import" | "construct" | "style" | "draw";
+    ms: number;
+  };
   // The GPU took the context back, usually under memory pressure. Distinct
   // from a failure: the map worked and then stopped.
   map_context_lost: { tier: "gl2" | "gl1" | "grid"; path: string };

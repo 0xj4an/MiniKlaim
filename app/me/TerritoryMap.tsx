@@ -25,6 +25,7 @@ import GridMap from "@/app/GridMap";
 import {
   mapRenderFailed,
   mapRenderReady,
+  watchMapRender,
   mapRenderStarted,
 } from "@/lib/map/mapTelemetry";
 import { useMapTier } from "@/lib/map/useMapTier";
@@ -81,6 +82,9 @@ export function TerritoryMap({ address }: { address: string | null }) {
     // WebGL reached the constructor at all.
     if (mapTier === null) return;
     if (!isGrid && (!gl || !containerRef.current)) return;
+    // See the note in app/community/WorldMap.tsx: leaving the page is not a
+    // stall, so the cleanup has to be able to stop the clock.
+    let settleWatch: (() => void) | null = null;
 
     let cancelled = false;
 
@@ -127,6 +131,9 @@ export function TerritoryMap({ address }: { address: string | null }) {
         }
         if (!containerRef.current || !gl) return;
         const glTier = mapTier === "gl1" ? "gl1" : "gl2";
+        let progress: "import" | "construct" | "style" | "draw" | null = null;
+        const settle = watchMapRender(glTier, "maplibre", "/me", () => progress);
+        settleWatch = settle;
         mapRenderStarted(glTier, "maplibre", "/me");
         const mapStartedAt =
           typeof performance === "undefined" ? Date.now() : performance.now();
@@ -153,6 +160,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
           if (!cancelled) setMapFailed(true);
           if (isWebglFailure(message))
             track("map_webgl_failed", { path: "/me" });
+          settle();
           mapRenderFailed(glTier, "maplibre", "/me", "construct", e);
           return;
         }
@@ -162,6 +170,8 @@ export function TerritoryMap({ address }: { address: string | null }) {
           if (cancelled) return;
           const now =
             typeof performance === "undefined" ? Date.now() : performance.now();
+          settle();
+          progress = "draw";
           mapRenderReady(glTier, "maplibre", "/me", now - mapStartedAt);
           map.resize();
           map.addSource("mine", {
@@ -234,6 +244,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
 
         map.on("error", (e) => {
           log.error("map error", { message: e.error?.message ?? String(e) });
+          settle();
           mapRenderFailed(glTier, "maplibre", "/me", "style", e.error ?? e);
         });
       } catch (e) {
@@ -245,6 +256,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
 
     return () => {
       cancelled = true;
+      settleWatch?.();
       mapRef.current?.remove();
       mapRef.current = null;
     };
