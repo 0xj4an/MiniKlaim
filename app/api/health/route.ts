@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { CHAINS, SUPPORTED_CHAIN_KEYS } from "@/lib/onchain/chains";
 import { isSignerConfigured } from "@/lib/onchain/signer";
+import { relayerFunding } from "@/lib/onchain/sponsor";
 
 export const dynamic = "force-dynamic";
 
@@ -51,12 +52,35 @@ export async function GET() {
   const signerOk = isSignerConfigured();
   const healthy = dbOk && signerOk;
 
+  // Which build is actually serving. Twice now a deploy was reported as
+  // landed when the container was still running the previous image, and both
+  // times it took reading `docker ps` on the host to find out. One request
+  // answers it now, from the same value the Sentry release uses, so "is my
+  // change live" stops being a guess.
+  const commit = process.env.BUILD_COMMIT_SHA?.trim() || null;
+
+  // The relayer pays every claim while it is above the floor, so its balance
+  // is the difference between the screen's promise being true and being a
+  // lie. Read from the 60s cache the sponsor decision already uses, so a
+  // monitor polling this endpoint costs no extra chain reads. A low balance
+  // is not an outage and deliberately does not change `status`: the game
+  // keeps working, the claim just stops being free.
+  const funding = await relayerFunding("celo").catch(() => null);
+
   const body = {
     status: healthy ? "ok" : "degraded",
     timestamp: new Date().toISOString(),
     checked_in_ms: Date.now() - startedAt,
+    build: { commit, release: commit?.slice(0, 7) ?? null },
     db: { ok: dbOk, latency_ms: dbLatencyMs, error: dbError },
     signer: { ok: signerOk },
+    relayer: funding
+      ? {
+          celo: funding.celo === null ? null : Number(funding.celo.toFixed(4)),
+          floor_celo: funding.floor,
+          sponsors_claims: funding.fundsClaims,
+        }
+      : null,
     chains,
   };
 

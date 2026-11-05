@@ -299,35 +299,59 @@ let lastAlertAt = 0;
  * safe direction: the player is asked to pay rather than the claim being
  * sponsored against a balance nobody could confirm.
  */
-const claimFundingCache = createSharedCache<boolean>(60_000, {
+/**
+ * What the relayer can currently afford, and therefore whether the claim is
+ * free. `celo` is null when the balance could not be read.
+ *
+ * The balance is cached rather than the verdict, because the number itself is
+ * the thing nobody could see. It funds every claim since 4 Nov and the only
+ * alarm was `relayerLowBalanceCelo` at 5 CELO, which is roughly a day of
+ * runway: by then the free claim has already stopped being free and the
+ * screen has been lying for a while. /api/health reports this so the trend is
+ * visible from one request, days before it matters.
+ */
+export type RelayerFunding = {
+  celo: number | null;
+  floor: number;
+  fundsClaims: boolean;
+};
+
+const claimFundingCache = createSharedCache<RelayerFunding>(60_000, {
   serveStaleWhileRevalidating: true,
 });
 
-export function relayerFundsClaims(chainKey: ChainKey): Promise<boolean> {
+export function relayerFunding(chainKey: ChainKey): Promise<RelayerFunding> {
   return claimFundingCache.get(chainKey, async () => {
+    const floor = sponsorClaimsFloorCelo();
     try {
       const relayer = privateKeyToAccount(getSignerKey()).address;
       const balance = await hexesPublicClient(chainKey).getBalance({
         address: relayer,
       });
       const celo = Number(formatEther(balance));
-      const funds = celo >= sponsorClaimsFloorCelo();
-      if (!funds) {
+      const fundsClaims = celo >= floor;
+      if (!fundsClaims) {
         log.warn("relayer below the claim floor; players pay their own claims", {
           chainKey,
           celo,
-          floor: sponsorClaimsFloorCelo(),
+          floor,
         });
       }
-      return funds;
+      return { celo, floor, fundsClaims };
     } catch (e) {
       log.warn("relayer balance unreadable; players pay their own claims", {
         chainKey,
         message: e instanceof Error ? e.message : String(e),
       });
-      return false;
+      // Unreadable means the player pays: the safe direction, since the
+      // alternative is promising a free claim the relayer may not cover.
+      return { celo: null, floor, fundsClaims: false };
     }
   });
+}
+
+export async function relayerFundsClaims(chainKey: ChainKey): Promise<boolean> {
+  return (await relayerFunding(chainKey)).fundsClaims;
 }
 
 const ALERT_EVERY_MS = 30 * 60_000;
