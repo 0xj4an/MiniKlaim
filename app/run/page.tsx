@@ -35,6 +35,7 @@ import {
   type LngLatBounds,
   type PlacedHex,
 } from "@/lib/map/claimedView";
+import { withOwnFloor } from "@/lib/map/ownFloor";
 import { haversineMeters } from "@/lib/map/geo";
 import { liveGeoSource } from "@/lib/map/liveSource";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
@@ -240,6 +241,8 @@ export default function RunPage() {
   const currentHexRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
   const addressRef = useRef<string | null>(null);
+  /** The player's name, so a floored row labels the same as a server one. */
+  const userRef = useRef<string | null>(null);
   // Last GPS coordinate seen *during the active run*. Used to compute the
   // haversine segment per tick. Reset to null on Start, set on each fix.
   const lastPosRef = useRef<{ lat: number; lng: number } | null>(null);
@@ -366,6 +369,10 @@ export default function RunPage() {
   useEffect(() => {
     addressRef.current = address;
   }, [address]);
+
+  useEffect(() => {
+    userRef.current = user?.username ?? null;
+  }, [user?.username]);
 
   // When the app returns from background (screen unlock, tab switch back,
   // iOS home button, Android task switcher), reset the "previous GPS fix"
@@ -499,9 +506,25 @@ export default function RunPage() {
 
       const stale = () => paintGen.current !== gen || mapRef.current !== map;
       const paint = (rows: ClaimedHexRow[]) => {
+        // `rememberOwners` first: it is what keeps the floor honest, dropping
+        // a hex the moment the server says it changed hands. Only then is it
+        // safe to draw from that set.
         rememberOwners(mineH3Ref.current, rows, linkedRef.current);
-        const collection = claimedHexesToFeatureCollection(
+        // A refresh may add the player's blocks, never take them away. See
+        // lib/map/ownFloor for the run this was filmed on.
+        const floored = withOwnFloor({
           rows,
+          owned: mineH3Ref.current,
+          // Derived from the outbox rather than tracked alongside it: the
+          // queue already *is* the set of captures the server has not
+          // acknowledged, and a second copy would be a second thing to keep
+          // correct.
+          pending: new Set(claimQueueRef.current.map((q) => q.h3)),
+          address: addressRef.current,
+          username: userRef.current,
+        });
+        const collection = claimedHexesToFeatureCollection(
+          floored,
           linkedRef.current,
           runH3Ref.current,
           topColorsRef.current,
@@ -509,7 +532,8 @@ export default function RunPage() {
         if (map) liveGeoSource(map, "claimed-hexes")?.setData(collection);
         else setGridData({ hexes: collection });
         log.debug("claimed-view", {
-          count: rows.length,
+          count: floored.length,
+          fromServer: rows.length,
           reason,
           wide,
           grid: !map,
@@ -717,7 +741,11 @@ export default function RunPage() {
         if (Array.isArray(data.drops) && data.drops.length > 0) {
           const won = data.drops;
           for (const d of won) {
-            track("drop_found", { drop_id: d.dropId, token: d.token, amount: d.amount });
+            track("drop_found", {
+              drop_id: d.dropId,
+              token: d.token,
+              amount: d.amount,
+            });
           }
           setFoundTreasures((prev) => [
             ...prev,
@@ -1558,6 +1586,10 @@ export default function RunPage() {
           "fill-color": ownerColor,
           "fill-opacity": [
             "case",
+            // Captured, not saved yet. Half the run shade, so a walk shows up
+            // under the player's feet and firms up when the server agrees.
+            ["get", "isPending"],
+            0.25,
             ["get", "isRun"],
             0.5,
             ["get", "isMine"],
@@ -1575,7 +1607,14 @@ export default function RunPage() {
         paint: {
           "line-color": ownerColor,
           "line-width": levelLineWidth(2, 4),
-          "line-opacity": ["case", ["get", "isMine"], 0.9, 0.6],
+          "line-opacity": [
+            "case",
+            ["get", "isPending"],
+            0.45,
+            ["get", "isMine"],
+            0.9,
+            0.6,
+          ],
         },
       });
 
