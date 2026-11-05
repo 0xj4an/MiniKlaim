@@ -12,12 +12,12 @@ import { HEXES_MINT_TOKENS_ABI } from "@/lib/onchain/hexesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import * as Sentry from "@sentry/nextjs";
 import {
-  errorText,
-  isPermissionDenied,
-  isUnpayableFee,
-  isUserRejection,
-  isWalletInternalError,
-} from "@/lib/wallet/playerFee";
+  mintFailureFingerprint,
+  mintFailureKind,
+  mintFailureTitle,
+  shouldReportMintFailure,
+} from "@/lib/wallet/mintFailure";
+import { errorText, isUserRejection } from "@/lib/wallet/playerFee";
 import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 
@@ -64,6 +64,7 @@ export type MintTokensState =
   | "done"
   | "rejected"
   | "no_fee"
+  | "refused"
   | "error";
 
 /**
@@ -162,13 +163,7 @@ export function useMintTokens(address: Address | null) {
         // Keep the wallet's own message: "tx" alone left 32 failures on 20-21
         // Oct undiagnosable.
         const message = errorText(e).slice(0, 200);
-        const kind = isUnpayableFee(e)
-          ? "no_fee"
-          : isPermissionDenied(e)
-            ? "permission_denied"
-            : isWalletInternalError(e)
-              ? "wallet_internal"
-              : "tx";
+        const kind = mintFailureKind(e);
         log.warn("mintTokens tx failed", { kind, message });
         track("nft_mint_failed", {
           reason: kind,
@@ -183,13 +178,25 @@ export function useMintTokens(address: Address | null) {
         // `tx` and all of them predate #127; the last three days are 8 no_fee,
         // 3 wallet_internal and 2 rejected, so what Sentry has been showing
         // since is noise.
-        if (kind !== "no_fee")
-          Sentry.captureMessage("nft mint tx failed", {
+        // Fingerprint on the kind, not on the message. The tag alone did
+        // not group, so every non-no_fee failure piled into one issue titled
+        // `Module.T` (MINIKLAIM-1G): three unrelated faults counted as one,
+        // which is what made the rate meaningless. The message stays in
+        // `extra`, where it explains an event without splitting the issue.
+        if (shouldReportMintFailure(kind))
+          Sentry.captureMessage(mintFailureTitle(kind), {
             level: "warning",
             tags: { claim: "nft-mint", kind },
+            fingerprint: mintFailureFingerprint(kind),
             extra: { message, count: voucher.h3Ids.length },
           });
-        setState(kind === "no_fee" ? "no_fee" : "error");
+        setState(
+          kind === "no_fee"
+            ? "no_fee"
+            : kind === "permission_denied"
+              ? "refused"
+              : "error",
+        );
         return;
       }
 
