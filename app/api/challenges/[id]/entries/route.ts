@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import type { Hex } from "viem";
@@ -29,12 +30,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const check = await checkEntryTx(c, txHash as Hex, deposit);
     if ("reason" in check) {
-      const status = check.reason === "pending" ? 202 : 422;
-      return NextResponse.json({ ok: false, reason: check.reason }, { status });
+      if (check.reason === "pending") return NextResponse.json({ ok: false, reason: check.reason }, { status: 202 });
+      // A real tx to the deposit that is not an entry. Money may have moved,
+      // so it must be visible: someone paid the wrong amount, too late, or
+      // from an excluded wallet.
+      log.warn("entry refused", { id, txHash, reason: check.reason });
+      Sentry.captureMessage(`Challenge entry refused: ${check.reason}`, {
+        level: "warning",
+        tags: { flow: "challenge-enter", step: "verify", reason: check.reason, challenge: id },
+        fingerprint: ["challenge-entry-refused", check.reason],
+        extra: { txHash },
+      });
+      return NextResponse.json({ ok: false, reason: check.reason }, { status: 422 });
     }
     const outcome = await recordEntry(db, c, txHash as Hex, check);
     return NextResponse.json({ ok: true, outcome, player: check.player });
   } catch (e) {
+    Sentry.captureException(e, {
+      tags: { flow: "challenge-enter", step: "verify", challenge: id },
+      fingerprint: ["challenge-entry-check-error"],
+      extra: { txHash },
+    });
     log.error("entry check failed", {
       id,
       txHash,

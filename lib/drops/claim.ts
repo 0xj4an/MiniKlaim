@@ -7,6 +7,7 @@ import {
   createPublicClient,
   createWalletClient,
   encodeFunctionData,
+  erc20Abi,
   type Hex,
   http,
   parseAbi,
@@ -101,6 +102,25 @@ export async function sendDropsTx(data: Hex): Promise<Hex> {
   return sendExclusive(() =>
     wallet.sendTransaction({
       to: contract,
+      data: withAttribution(data),
+      chain: celo,
+      account: wallet.account,
+      kzg: undefined,
+    }),
+  );
+}
+
+/**
+ * Relayer pays `amount` of `token` to `to`, tagged, through the shared nonce
+ * queue. Used by the challenge payout to move entries from the deposit wallet
+ * into the drops contract.
+ */
+export async function sendRelayerTokenTransfer(token: Address, to: Address, amount: bigint): Promise<Hex> {
+  const wallet = relayerWallet();
+  const data = encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [to, amount] });
+  return sendExclusive(() =>
+    wallet.sendTransaction({
+      to: token,
       data: withAttribution(data),
       chain: celo,
       account: wallet.account,
