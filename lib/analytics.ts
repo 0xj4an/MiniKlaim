@@ -138,8 +138,20 @@ type EventMap = {
   // Weekly challenges (paid entry by token transfer).
   challenge_viewed: { challenge: string; entered: boolean };
   challenge_enter_started: { challenge: string };
-  challenge_entered: { challenge: string; tx_hash: string };
-  challenge_enter_failed: { reason: string; message?: string; tx_hash?: string };
+  challenge_enter_sent: { challenge: string; tx_hash: string; fee: string };
+  challenge_entered: { challenge: string; tx_hash: string; resumed?: boolean };
+  challenge_enter_failed: {
+    reason: string;
+    message?: string;
+    tx_hash?: string;
+    code?: string;
+    details?: string;
+    error_name?: string;
+    fees_tried?: string;
+    balance?: string;
+    server_reason?: string;
+    status?: number;
+  };
   drop_claim_started: { count: number; surface: "run" | "me" };
   drop_claim_sent: { count: number; tx_hash: string };
   drop_claim_failed: { reason: string };

@@ -9,8 +9,8 @@ import { type Address, encodeFunctionData, type Hex, keccak256, parseUnits, toBy
 import { challengeEntries, challenges, dropFinds, drops } from "../lib/db/schema";
 import { blockAfter, drawWinners, prizePerWinner } from "../lib/challenges/math";
 import { challengeDepositAddress, challengePool, entriesTotal, syncEntries } from "../lib/challenges/server";
-import { DROPS_ABI, dropsPublicClient, sendDropsTx } from "../lib/drops/claim";
-import { DROP_TOKENS, type DropTokenSymbol, dropTokenByAddress } from "../lib/drops/config";
+import { DROPS_ABI, DROPS_READ_ABI, dropsPublicClient, sendDropsTx, sendRelayerTokenTransfer } from "../lib/drops/claim";
+import { DROP_TOKENS, type DropTokenSymbol, dropsAddress, dropTokenByAddress } from "../lib/drops/config";
 import { dropIdToUint } from "../lib/drops/ids";
 import { onchainBadgeIdsHeld } from "../lib/onchain/badges";
 import { addressesForPlayer } from "../lib/players";
@@ -27,9 +27,11 @@ import { addressesForPlayer } from "../lib/players";
  *   npx tsx scripts/challenges.ts draw   <id> --execute     # snapshot at the close + draw
  *   npx tsx scripts/challenges.ts payout <id> --execute     # one drop slot per winner
  *
- * Entries are exact transfers of the entry amount to the MiniKlaimDrops
- * contract. Fund the seed (and treasures) with any other amount, or from an
- * address in CHALLENGE_EXCLUDED_SENDERS, so funding never reads as an entry.
+ * Entries are exact transfers of the entry amount to the deposit wallet (the
+ * relayer unless CHALLENGE_DEPOSIT_ADDRESS says otherwise), not to the drops
+ * contract: MiniPay refused that transfer inside the mini app. The seed is
+ * funded into the drops contract with any other amount; payout tops the
+ * contract up from the deposit wallet with whatever the pool is short.
  *
  * The draw block is fixed at create time (about 10 minutes after the close)
  * and its hash seeds the draw, so the result is reproducible by anyone:
@@ -201,8 +203,26 @@ async function payout(id: string) {
   if (winners.length === 0 || amount <= 0n) throw new Error("nothing to pay");
   const dropId = randomUUID();
   const commitment = keccak256(toBytes(`challenge:${c.id}`));
+  const contract = dropsAddress();
+  if (!contract) throw new Error("NEXT_PUBLIC_CELO_DROPS_ADDRESS not set");
+  const total = amount * BigInt(winners.length);
+  const free = (await pub.readContract({
+    address: contract,
+    abi: DROPS_READ_ABI,
+    functionName: "freeBalance",
+    args: [c.token as Address],
+    authorizationList: undefined,
+  })) as bigint;
+  const shortfall = total > free ? total - free : 0n;
   console.log(`payout ${c.id}: ${winners.length} x ${amount} to ${winners.join(", ")}`);
+  console.log(`contract free ${free}, needs ${total}, top-up from deposit wallet ${shortfall}`);
   if (!execute) return console.log("dry run: pass --execute");
+  if (shortfall > 0n) {
+    const topUp = await sendRelayerTokenTransfer(c.token as Address, contract, shortfall);
+    const r = await pub.waitForTransactionReceipt({ hash: topUp, timeout: 90_000 });
+    if (r.status !== "success") throw new Error(`top-up reverted: ${topUp}`);
+    console.log(`topped up ${shortfall}: ${topUp}`);
+  }
   const tx = await sendDropsTx(
     encodeFunctionData({
       abi: DROPS_ABI,
