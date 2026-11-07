@@ -185,9 +185,17 @@ async function draw(id: string) {
 
   const qualified: string[] = [];
   const detail: Array<{ player: string; held: number[] }> = [];
+  // One ticket per player: linked wallets that each entered count once.
+  const seenPlayers = new Set<string>();
   for (const e of entries) {
     // Holding the badge is what counts, whenever it was minted.
     const wallets = (await addressesForPlayer(e.player)) as Address[];
+    const person = [e.player, ...wallets].map((w) => w.toLowerCase()).sort()[0];
+    if (seenPlayers.has(person)) {
+      detail.push({ player: e.player, held: [] });
+      continue;
+    }
+    seenPlayers.add(person);
     const owned = new Set<number>();
     for (const w of wallets) for (const b of await onchainBadgeIdsHeld(w)) owned.add(b);
     const held = c.badgeIds.filter((b) => owned.has(b));

@@ -10,6 +10,7 @@ import { dropsPublicClient } from "@/lib/drops/claim";
 import { dropsAddress } from "@/lib/drops/config";
 import { createLogger } from "@/lib/logger";
 import { isSignerConfigured } from "@/lib/onchain/signer";
+import { addressesForPlayer } from "@/lib/players";
 
 const log = createLogger("api:challenges:enter");
 
@@ -49,7 +50,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   inFlight.add(key);
   const tags = { flow: "challenge-enter", step: "relay", challenge: c.id };
   try {
-    if (await hasEntered(db, c.id, [raw])) return fail("entered", 409);
+    // One ticket per player: any linked wallet already in counts.
+    const linked = await addressesForPlayer(raw);
+    if (await hasEntered(db, c.id, linked.length ? linked : [raw])) return fail("entered", 409);
     if (!(await isRegisteredOnchain(contract, c))) {
       Sentry.captureMessage("Challenge not registered onchain", {
         level: "error",

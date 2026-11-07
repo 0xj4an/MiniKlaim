@@ -89,7 +89,8 @@ export function WeeklyChallenge() {
   const closed = now >= new Date(c.closesAt).getTime();
   const entered = data?.player?.entered || state === "entered";
   const price = formatPrize(c.token, c.entryAmount, locale);
-  const needsApproval = allowance === null || allowance < BigInt(c.entryAmount);
+  // Unknown (read failed) shows the one-tap copy; the hook asks for the approval if it turns out missing.
+  const needsApproval = allowance !== null && allowance < BigInt(c.entryAmount);
   const approveLabel = approveTotal ? formatPrize(c.token, approveTotal.toString(), locale) : price;
   const fmtDate = (iso: string) =>
     new Date(iso).toLocaleString(locale === "es" ? "es-CO" : "en-US", {
