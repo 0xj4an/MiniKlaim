@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { encodeFunctionData, erc20Abi, type Address, type Hex } from "viem";
 import * as Sentry from "@sentry/nextjs";
+import { useCallback, useState } from "react";
+import { type Address, createPublicClient, encodeFunctionData, erc20Abi, type Hex, http } from "viem";
 import { useWalletClient } from "wagmi";
 import { track } from "@/lib/analytics";
 import { describeEntryError, entryFailureFingerprint } from "@/lib/challenges/entryFailure";
@@ -17,85 +17,58 @@ import { useBalances } from "@/lib/wallet/useBalances";
 
 const log = createLogger("challenges:enter");
 
-export type EnterState = "idle" | "sending" | "confirming" | "entered" | "rejected" | "no-funds" | "error";
+export type EnterState =
+  | "idle"
+  | "approving"
+  | "entering"
+  | "entered"
+  | "rejected"
+  | "no-funds"
+  | "closed"
+  | "error";
 
-const PENDING_KEY = "mk.challenge.pendingEntry";
+type EnterReply = { ok: boolean; reason?: string; txHash?: string };
 
-type Pending = { challengeId: string; txHash: Hex };
-
-function readPending(): Pending | null {
-  try {
-    const raw = window.localStorage.getItem(PENDING_KEY);
-    return raw ? (JSON.parse(raw) as Pending) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writePending(p: Pending | null) {
-  try {
-    if (p) window.localStorage.setItem(PENDING_KEY, JSON.stringify(p));
-    else window.localStorage.removeItem(PENDING_KEY);
-  } catch {
-    // Storage can be off; the server sync picks the entry up anyway.
-  }
-}
-
-type Confirm = { ok: boolean; reason: string | null; status: number | null; attempts: number };
-
-/** Ask the server to read the entry from the chain, retrying while it is not mined. */
-async function confirmEntry(challengeId: string, txHash: Hex): Promise<Confirm> {
-  let last: Confirm = { ok: false, reason: "network", status: null, attempts: 0 };
-  for (let i = 0; i < 40; i++) {
+/**
+ * Ask the relayer to charge the entry from the allowance. `needs-approval`
+ * right after an approve is the RPC lagging behind the wallet, so it retries.
+ */
+async function requestEntry(challengeId: string, address: Address): Promise<EnterReply & { status: number }> {
+  let last: EnterReply & { status: number } = { ok: false, reason: "network", status: 0 };
+  for (let i = 0; i < 6; i++) {
     try {
-      const res = await fetch(`/api/challenges/${challengeId}/entries`, {
+      const res = await fetch(`/api/challenges/${challengeId}/enter`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ txHash }),
+        body: JSON.stringify({ address }),
       });
-      const body = (await res.json().catch(() => ({}))) as { reason?: string };
-      last = { ok: res.ok, reason: body.reason ?? null, status: res.status, attempts: i + 1 };
-      if (res.ok) return last;
-      if (res.status !== 202 && res.status !== 502) return last;
+      const body = (await res.json().catch(() => ({}))) as EnterReply;
+      last = { ...body, status: res.status };
+      if (res.ok || body.reason === "entered") return last;
+      if (body.reason !== "needs-approval" && body.reason !== "in-flight" && res.status !== 502) return last;
     } catch {
-      last = { ...last, reason: "network", attempts: i + 1 };
+      last = { ok: false, reason: "network", status: 0 };
     }
-    await new Promise((r) => setTimeout(r, 3000));
+    await new Promise((r) => setTimeout(r, 2500));
   }
-  return { ...last, reason: last.reason ?? "timeout" };
+  return last;
 }
 
 /**
- * A paid entry the server did not register. Money left the wallet, so this
- * always reaches Sentry as an error; the sync job is the safety net.
- */
-function reportUnconfirmed(challengeId: string, txHash: Hex, c: Confirm) {
-  track("challenge_enter_failed", {
-    reason: "confirm",
-    tx_hash: txHash,
-    server_reason: c.reason ?? undefined,
-    status: c.status ?? undefined,
-  });
-  Sentry.captureMessage("Challenge entry paid but not registered", {
-    level: "error",
-    tags: { flow: "challenge-enter", step: "confirm", server_reason: c.reason ?? "none" },
-    fingerprint: ["challenge-enter-unconfirmed", c.reason ?? "none"],
-    extra: { challengeId, txHash, ...c },
-  });
-}
-
-/**
- * Pay the entry: a plain token transfer from the player to the challenge
- * deposit wallet (see challengeDepositAddress), tagged, with the network fee paid in
- * whatever the wallet holds. It is the only transaction the player signs in a
- * challenge; the prize is claimed with one tap and paid by the relayer.
+ * Enter a challenge. The first time, the player approves the drops contract
+ * for a bounded amount (MiniPay refuses unlimited approvals and caps them at
+ * $10); that is the only transaction they sign. Every entry, that first one
+ * included, is then a tap: the relayer calls `enterFor`, which takes exactly
+ * the fee from the allowance and pays the gas.
  */
 export function useEnterChallenge(p: {
   address: Address | null;
   challengeId: string | null;
   token: Address | null;
   amount: bigint | null;
-  deposit: Address | null;
+  spender: Address | null;
+  approveAmount: bigint | null;
+  allowance: bigint | null;
   onEntered?: () => void;
 }) {
   const { data: walletClient } = useWalletClient();
@@ -103,49 +76,22 @@ export function useEnterChallenge(p: {
   const balances = useBalances(p.address, !!p.address);
   const [state, setState] = useState<EnterState>("idle");
 
-  // A payment sent before the app closed: finish registering it.
-  useEffect(() => {
-    const pending = readPending();
-    if (!pending || pending.challengeId !== p.challengeId) return;
-    setState("confirming");
-    void confirmEntry(pending.challengeId, pending.txHash).then((c) => {
-      if (c.ok) {
-        writePending(null);
-        track("challenge_entered", { challenge: pending.challengeId, tx_hash: pending.txHash, resumed: true });
-        setState("entered");
-        p.onEntered?.();
-      } else {
-        reportUnconfirmed(pending.challengeId, pending.txHash, c);
-        setState("idle");
-      }
-    });
-    // Runs once per challenge.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.challengeId]);
-
-  const enter = useCallback(async () => {
-    const { address, challengeId, token, amount, deposit } = p;
-    if (!walletClient || !address || !challengeId || !token || !amount || !deposit) return;
-    const usdt = balances.USDT?.value ?? null;
-    if (usdt !== null && usdt < amount) {
-      track("challenge_enter_failed", { reason: "no-funds", balance: usdt.toString() });
-      setState("no-funds");
-      return;
-    }
-    setState("sending");
-    track("challenge_enter_started", { challenge: challengeId });
-    let txHash: Hex;
+  const approve = useCallback(async (): Promise<boolean> => {
+    const { address, token, spender, approveAmount, challengeId } = p;
+    if (!walletClient || !address || !token || !spender || !approveAmount) return false;
+    setState("approving");
+    track("challenge_approve_started", { challenge: challengeId ?? "", amount: approveAmount.toString() });
     const tried: string[] = [];
     try {
       const chain = getChain(chainKey);
       const held = heldFeeAdaptersForWallet(chain.feeCurrencies, balances);
-      const data = encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [deposit, amount] });
+      const data = encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [spender, approveAmount] });
       Sentry.addBreadcrumb({
         category: "challenge",
-        message: "entry send",
-        data: { challengeId, token, deposit, amount: amount.toString(), fees: held.map((f) => f.symbol).join(",") },
+        message: "approve send",
+        data: { token, spender, amount: approveAmount.toString(), fees: held.map((f) => f.symbol).join(",") },
       });
-      ({ result: txHash } = await sendWithFeeFallback(held, (fee) => {
+      const { result: txHash } = await sendWithFeeFallback(held, (fee) => {
         tried.push(fee?.symbol ?? "CELO");
         return walletClient.sendTransaction({
           to: token,
@@ -155,18 +101,24 @@ export function useEnterChallenge(p: {
           kzg: undefined,
           ...(fee ? { feeCurrency: fee.adapter } : {}),
         });
-      }));
+      });
+      track("challenge_approve_sent", { challenge: challengeId ?? "", tx_hash: txHash, fee: tried[tried.length - 1] ?? "none" });
+      const pub = createPublicClient({ chain: chain.chain, transport: http() });
+      const receipt = await pub.waitForTransactionReceipt({ hash: txHash as Hex, timeout: 90_000 });
+      if (receipt.status !== "success") throw new Error(`approve reverted: ${txHash}`);
+      track("challenge_approved", { challenge: challengeId ?? "", tx_hash: txHash });
+      return true;
     } catch (e) {
       if (isUserRejection(e)) {
-        track("challenge_enter_failed", { reason: "rejected", fees_tried: tried.join(",") });
+        track("challenge_approve_failed", { reason: "rejected", fees_tried: tried.join(",") });
         setState("rejected");
-        return;
+        return false;
       }
       const d = describeEntryError(e);
       const message = errorText(e).slice(0, 500);
-      log.warn("challenge entry tx failed", { kind: d.kind, code: d.code, message });
-      track("challenge_enter_failed", {
-        reason: d.kind === "tx" ? "tx" : d.kind,
+      log.warn("challenge approve failed", { kind: d.kind, code: d.code, message });
+      track("challenge_approve_failed", {
+        reason: d.kind,
         message,
         code: d.code ?? undefined,
         details: d.details ?? undefined,
@@ -174,31 +126,53 @@ export function useEnterChallenge(p: {
         fees_tried: tried.join(","),
       });
       if (d.kind !== "no_fee") {
-        Sentry.captureMessage(`Challenge entry failed: ${d.kind}`, {
+        Sentry.captureMessage(`Challenge approve failed: ${d.kind}`, {
           level: "warning",
-          tags: { flow: "challenge-enter", step: "send", kind: d.kind, code: d.code ?? "none" },
-          fingerprint: entryFailureFingerprint(d.kind),
-          extra: { ...d, message, challengeId, token, deposit, fees_tried: tried },
+          tags: { flow: "challenge-enter", step: "approve", kind: d.kind, code: d.code ?? "none" },
+          fingerprint: ["challenge-approve-failed", d.kind],
+          extra: { ...d, message, token, spender, fees_tried: tried },
         });
       }
-      setState("error");
-      return;
-    }
-    writePending({ challengeId, txHash });
-    setState("confirming");
-    track("challenge_enter_sent", { challenge: challengeId, tx_hash: txHash, fee: tried[tried.length - 1] ?? "none" });
-    const c = await confirmEntry(challengeId, txHash);
-    if (c.ok) {
-      writePending(null);
-      track("challenge_entered", { challenge: challengeId, tx_hash: txHash });
-      setState("entered");
-      p.onEntered?.();
-    } else {
-      // Paid but not confirmed yet: the server sync registers it from the chain.
-      reportUnconfirmed(challengeId, txHash, c);
-      setState("error");
+      setState(d.kind === "no_fee" ? "no-funds" : "error");
+      return false;
     }
   }, [walletClient, chainKey, balances, p]);
+
+  const enter = useCallback(async () => {
+    const { address, challengeId, amount, allowance } = p;
+    if (!address || !challengeId || !amount) return;
+    const usdt = balances.USDT?.value ?? null;
+    if (usdt !== null && usdt < amount) {
+      track("challenge_enter_failed", { reason: "no-funds", balance: usdt.toString() });
+      setState("no-funds");
+      return;
+    }
+    track("challenge_enter_started", { challenge: challengeId, needs_approval: allowance === null || allowance < amount });
+    if (allowance === null || allowance < amount) {
+      if (!(await approve())) return;
+    }
+    setState("entering");
+    const r = await requestEntry(challengeId, address);
+    if (r.ok || r.reason === "entered") {
+      track("challenge_entered", { challenge: challengeId, tx_hash: r.txHash ?? "", already: r.reason === "entered" });
+      setState("entered");
+      p.onEntered?.();
+      return;
+    }
+    const reason = r.reason ?? "error";
+    track("challenge_enter_failed", { reason, status: r.status, tx_hash: r.txHash });
+    // The card's own states: the player can fix these, nothing is broken.
+    const expected = reason === "no-funds" || reason === "entries-closed" || reason === "needs-approval";
+    if (!expected) {
+      Sentry.captureMessage(`Challenge entry relay failed: ${reason}`, {
+        level: "error",
+        tags: { flow: "challenge-enter", step: "relay", reason },
+        fingerprint: entryFailureFingerprint(`relay-${reason}`),
+        extra: { challengeId, status: r.status, txHash: r.txHash ?? null },
+      });
+    }
+    setState(reason === "no-funds" ? "no-funds" : reason === "entries-closed" ? "closed" : "error");
+  }, [approve, balances, p]);
 
   return { enter, state };
 }

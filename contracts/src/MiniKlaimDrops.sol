@@ -32,6 +32,13 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 ///      sign messages, so the player signs nothing). A drop this player already
 ///      claimed, or one whose winners are all paid, is skipped instead of
 ///      reverting, so one stale id does not fail the rest of a voucher.
+///
+///      Challenges (v2): the player approves this contract once for a bounded
+///      amount, then each paid entry is a tap: the relayer calls `enterFor`,
+///      which pulls exactly the challenge's entry fee, once per player, inside
+///      the entry window. Entries land here as free balance and the payout is a
+///      drop like any other. The fee and token of a challenge cannot change once
+///      set, so the relayer can never charge more than what the player saw.
 contract MiniKlaimDrops is
     Initializable,
     AccessControlUpgradeable,
@@ -70,8 +77,18 @@ contract MiniKlaimDrops is
     mapping(uint256 dropId => mapping(address player => bool)) public hasClaimed;
     mapping(uint256 nonce => bool) public usedNonces;
 
-    /// @dev Storage gap for safe future upgrades.
-    uint256[44] private __gap;
+    struct Challenge {
+        address token;
+        uint128 entry;
+        uint64 opensAt;
+        uint64 closesAt;
+    }
+
+    mapping(bytes32 challengeId => Challenge) private _challenges;
+    mapping(bytes32 challengeId => mapping(address player => bool)) public entered;
+
+    /// @dev Storage gap for safe future upgrades. v2 took two slots.
+    uint256[42] private __gap;
 
     event TokenAllowed(address indexed token, bool allowed);
     event Funded(address indexed from, address indexed token, uint256 amount);
@@ -83,6 +100,10 @@ contract MiniKlaimDrops is
     event DropClaimed(address indexed player, uint256 indexed dropId, address indexed token, uint256 amount);
     event DropExpired(uint256 indexed dropId);
     event DropRevealed(uint256 indexed dropId, uint64 h3, bytes32 salt);
+    event ChallengeSet(
+        bytes32 indexed challengeId, address indexed token, uint256 entry, uint64 opensAt, uint64 closesAt
+    );
+    event ChallengeEntered(bytes32 indexed challengeId, address indexed player, address indexed token, uint256 amount);
 
     error TokenNotAllowed(address token);
     error ZeroAmount();
@@ -99,6 +120,11 @@ contract MiniKlaimDrops is
     error EmptyDrops();
     error BadReveal();
     error ZeroAddress();
+    error UnknownChallenge(bytes32 challengeId);
+    error ChallengeTermsFixed(bytes32 challengeId);
+    error BadWindow();
+    error EntriesClosed(bytes32 challengeId);
+    error AlreadyEntered(bytes32 challengeId, address player);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -271,6 +297,46 @@ contract MiniKlaimDrops is
             emit DropClaimed(player, id, d.token, d.amount);
             IERC20(d.token).safeTransfer(player, d.amount);
         }
+    }
+
+    // --- challenges --------------------------------------------------------------
+
+    function getChallenge(bytes32 challengeId) external view returns (Challenge memory) {
+        return _challenges[challengeId];
+    }
+
+    /// @notice Register a challenge's entry terms, or move its window. The token
+    ///         and the fee are fixed from the first call on.
+    function setChallenge(bytes32 challengeId, address token, uint256 entry, uint64 opensAt, uint64 closesAt)
+        external
+        onlyRole(REWARDER_ROLE)
+    {
+        if (!allowedToken[token]) revert TokenNotAllowed(token);
+        if (entry == 0) revert ZeroAmount();
+        if (entry > type(uint128).max) revert AmountTooLarge();
+        if (opensAt >= closesAt) revert BadWindow();
+        Challenge storage c = _challenges[challengeId];
+        if (c.token != address(0) && (c.token != token || c.entry != entry)) {
+            revert ChallengeTermsFixed(challengeId);
+        }
+        c.token = token;
+        c.entry = uint128(entry);
+        c.opensAt = opensAt;
+        c.closesAt = closesAt;
+        emit ChallengeSet(challengeId, token, entry, opensAt, closesAt);
+    }
+
+    /// @notice Charge `player` the entry fee of a challenge from their allowance.
+    ///         Once per player per challenge, only inside the entry window.
+    function enterFor(bytes32 challengeId, address player) external onlyRole(REWARDER_ROLE) whenNotPaused {
+        if (player == address(0)) revert ZeroAddress();
+        Challenge storage c = _challenges[challengeId];
+        if (c.token == address(0)) revert UnknownChallenge(challengeId);
+        if (block.timestamp < c.opensAt || block.timestamp > c.closesAt) revert EntriesClosed(challengeId);
+        if (entered[challengeId][player]) revert AlreadyEntered(challengeId, player);
+        entered[challengeId][player] = true;
+        IERC20(c.token).safeTransferFrom(player, address(this), c.entry);
+        emit ChallengeEntered(challengeId, player, c.token, c.entry);
     }
 
     // --- admin -------------------------------------------------------------------
