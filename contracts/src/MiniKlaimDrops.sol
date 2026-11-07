@@ -36,9 +36,11 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 ///      Challenges (v2): the player approves this contract once for a bounded
 ///      amount, then each paid entry is a tap: the relayer calls `enterFor`,
 ///      which pulls exactly the challenge's entry fee, once per player, inside
-///      the entry window. Entries land here as free balance and the payout is a
-///      drop like any other. The fee and token of a challenge cannot change once
-///      set, so the relayer can never charge more than what the player saw.
+///      the entry window. Each entry is split onchain: `poolBps` of it stays here
+///      as free balance for the payout (a drop like any other) and the rest goes
+///      to `feeRecipient` at once. Token, fee and split of a challenge cannot
+///      change once set, so the relayer can never charge more, or keep more,
+///      than what the player saw. `pooled` is each challenge's running pool.
 contract MiniKlaimDrops is
     Initializable,
     AccessControlUpgradeable,
@@ -82,13 +84,19 @@ contract MiniKlaimDrops is
         uint128 entry;
         uint64 opensAt;
         uint64 closesAt;
+        /// Share of each entry kept for the pool, in basis points (8000 = 80%).
+        uint16 poolBps;
     }
 
     mapping(bytes32 challengeId => Challenge) private _challenges;
     mapping(bytes32 challengeId => mapping(address player => bool)) public entered;
+    /// Pool share of the entries collected so far, per challenge.
+    mapping(bytes32 challengeId => uint256) public pooled;
+    /// Receives the non-pool share of every entry.
+    address public feeRecipient;
 
-    /// @dev Storage gap for safe future upgrades. v2 took two slots.
-    uint256[42] private __gap;
+    /// @dev Storage gap for safe future upgrades. v2 took four slots.
+    uint256[40] private __gap;
 
     event TokenAllowed(address indexed token, bool allowed);
     event Funded(address indexed from, address indexed token, uint256 amount);
@@ -101,9 +109,16 @@ contract MiniKlaimDrops is
     event DropExpired(uint256 indexed dropId);
     event DropRevealed(uint256 indexed dropId, uint64 h3, bytes32 salt);
     event ChallengeSet(
-        bytes32 indexed challengeId, address indexed token, uint256 entry, uint64 opensAt, uint64 closesAt
+        bytes32 indexed challengeId,
+        address indexed token,
+        uint256 entry,
+        uint64 opensAt,
+        uint64 closesAt,
+        uint16 poolBps
     );
     event ChallengeEntered(bytes32 indexed challengeId, address indexed player, address indexed token, uint256 amount);
+    event ChallengeFeePaid(bytes32 indexed challengeId, address indexed to, address indexed token, uint256 fee);
+    event FeeRecipientSet(address indexed recipient);
 
     error TokenNotAllowed(address token);
     error ZeroAmount();
@@ -125,6 +140,8 @@ contract MiniKlaimDrops is
     error BadWindow();
     error EntriesClosed(bytes32 challengeId);
     error AlreadyEntered(bytes32 challengeId, address player);
+    error BadSplit();
+    error NoFeeRecipient();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -305,25 +322,38 @@ contract MiniKlaimDrops is
         return _challenges[challengeId];
     }
 
-    /// @notice Register a challenge's entry terms, or move its window. The token
-    ///         and the fee are fixed from the first call on.
-    function setChallenge(bytes32 challengeId, address token, uint256 entry, uint64 opensAt, uint64 closesAt)
-        external
-        onlyRole(REWARDER_ROLE)
-    {
+    /// @notice Where the non-pool share of entries goes. Admin only; can change any time.
+    function setFeeRecipient(address recipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (recipient == address(0)) revert ZeroAddress();
+        feeRecipient = recipient;
+        emit FeeRecipientSet(recipient);
+    }
+
+    /// @notice Register a challenge's entry terms, or move its window. Token,
+    ///         fee and split are fixed from the first call on.
+    function setChallenge(
+        bytes32 challengeId,
+        address token,
+        uint256 entry,
+        uint64 opensAt,
+        uint64 closesAt,
+        uint16 poolBps
+    ) external onlyRole(REWARDER_ROLE) {
         if (!allowedToken[token]) revert TokenNotAllowed(token);
         if (entry == 0) revert ZeroAmount();
         if (entry > type(uint128).max) revert AmountTooLarge();
         if (opensAt >= closesAt) revert BadWindow();
+        if (poolBps > 10_000) revert BadSplit();
         Challenge storage c = _challenges[challengeId];
-        if (c.token != address(0) && (c.token != token || c.entry != entry)) {
+        if (c.token != address(0) && (c.token != token || c.entry != entry || c.poolBps != poolBps)) {
             revert ChallengeTermsFixed(challengeId);
         }
         c.token = token;
         c.entry = uint128(entry);
         c.opensAt = opensAt;
         c.closesAt = closesAt;
-        emit ChallengeSet(challengeId, token, entry, opensAt, closesAt);
+        c.poolBps = poolBps;
+        emit ChallengeSet(challengeId, token, entry, opensAt, closesAt, poolBps);
     }
 
     /// @notice Charge `player` the entry fee of a challenge from their allowance.
@@ -334,9 +364,18 @@ contract MiniKlaimDrops is
         if (c.token == address(0)) revert UnknownChallenge(challengeId);
         if (block.timestamp < c.opensAt || block.timestamp > c.closesAt) revert EntriesClosed(challengeId);
         if (entered[challengeId][player]) revert AlreadyEntered(challengeId, player);
+        uint256 toPool = (uint256(c.entry) * c.poolBps) / 10_000;
+        uint256 fee = c.entry - toPool;
+        address to = feeRecipient;
+        if (fee > 0 && to == address(0)) revert NoFeeRecipient();
         entered[challengeId][player] = true;
+        pooled[challengeId] += toPool;
         IERC20(c.token).safeTransferFrom(player, address(this), c.entry);
         emit ChallengeEntered(challengeId, player, c.token, c.entry);
+        if (fee > 0) {
+            IERC20(c.token).safeTransfer(to, fee);
+            emit ChallengeFeePaid(challengeId, to, c.token, fee);
+        }
     }
 
     // --- admin -------------------------------------------------------------------
