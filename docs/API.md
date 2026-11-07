@@ -45,6 +45,14 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 | `POST /api/users/[address]/tokens/voucher` | `MintTokens` voucher for up to 700 recorded blocks this wallet owns. Re-checks `ownerOf` on-chain first and moves a token stuck with a previous owner. 409 nothing to mint or chain not on v2, 503 chain read or signer failed. |
 | `POST /api/users/[address]/tokens/confirm` | Body `{ txHash }`. Reads the receipt (must be this wallet's successful `mintTokens`), marks the minted blocks, and moves any block recaptured meanwhile to its current owner. |
 
+### Weekly challenges
+
+| Method + path | Purpose |
+|---|---|
+| `GET /api/challenges/current` | The challenge open now, or the one closed in the last 7 days. With `?address=`: `player.entered` (any linked wallet), the challenge badges held onchain and earned but unclaimed, and `allowance` and `balance` of the entry token toward `spender` (the drops contract). Also returns `approveAmount`, the one-time approval the card asks for. |
+| `POST /api/challenges/[id]/enter` | Tap to enter. Body `{ address }`. The relayer calls `enterFor`, which takes the fee from the allowance and pays the gas; the entry is recorded from the `ChallengeEntered` event. 409 `needs-approval`, `no-funds`, `entered` (any linked wallet), `entries-closed` or `in-flight`; 503 `not-registered` when the challenge is not onchain; 502 on a relay error. |
+| `POST /api/challenges/[id]/entries` | Register an entry from a tx hash, body `{ txHash }`. Accepts a `ChallengeEntered` from the drops contract or a legacy exact transfer to `CHALLENGE_DEPOSIT_ADDRESS`. 202 while not mined, 422 when the tx is not an entry. |
+
 ### Cross-wallet linking
 
 | Method + path | Purpose |
