@@ -27,8 +27,15 @@ type View = {
 
 type Payload = {
   challenge: View | null;
-  deposit?: Address | null;
-  player?: { entered: boolean; held: number[]; claimable: number[] };
+  spender?: Address | null;
+  approveAmount?: string | null;
+  player?: {
+    entered: boolean;
+    held: number[];
+    claimable: number[];
+    allowance: string | null;
+    balance: string | null;
+  };
 };
 
 /**
@@ -63,12 +70,16 @@ export function WeeklyChallenge() {
   }, [address, refresh]);
 
   const c = data?.challenge ?? null;
+  const allowance = data?.player?.allowance ? BigInt(data.player.allowance) : null;
+  const approveTotal = data?.approveAmount ? BigInt(data.approveAmount) : null;
   const { enter, state } = useEnterChallenge({
     address: (address as Address) ?? null,
     challengeId: c?.id ?? null,
     token: c?.token ?? null,
     amount: c ? BigInt(c.entryAmount) : null,
-    deposit: data?.deposit ?? null,
+    spender: data?.spender ?? null,
+    approveAmount: approveTotal,
+    allowance,
     onEntered: load,
   });
 
@@ -78,6 +89,8 @@ export function WeeklyChallenge() {
   const closed = now >= new Date(c.closesAt).getTime();
   const entered = data?.player?.entered || state === "entered";
   const price = formatPrize(c.token, c.entryAmount, locale);
+  const needsApproval = allowance === null || allowance < BigInt(c.entryAmount);
+  const approveLabel = approveTotal ? formatPrize(c.token, approveTotal.toString(), locale) : price;
   const fmtDate = (iso: string) =>
     new Date(iso).toLocaleString(locale === "es" ? "es-CO" : "en-US", {
       weekday: "short",
@@ -157,21 +170,31 @@ export function WeeklyChallenge() {
         <p className="text-center text-sm font-medium text-emerald-800">✅ {t("challenge.entered")}</p>
       ) : entriesOpen ? (
         <>
+          {address && (
+            <p className="text-center text-xs text-violet-800">
+              {needsApproval
+                ? t("challenge.approveWhy").replace("{approve}", approveLabel).replace("{amount}", price)
+                : t("challenge.oneTap").replace("{amount}", price)}
+            </p>
+          )}
           <button
             onClick={() => void enter()}
-            disabled={!address || state === "sending" || state === "confirming"}
+            disabled={!address || state === "approving" || state === "entering"}
             className="mx-auto rounded-full bg-violet-700 px-8 py-2 text-sm font-semibold text-white hover:bg-violet-800 disabled:opacity-60"
           >
-            {state === "sending"
-              ? t("challenge.sending")
-              : state === "confirming"
-                ? t("challenge.confirming")
-                : t("challenge.enter").replace("{amount}", price)}
+            {state === "approving"
+              ? t("challenge.approving")
+              : state === "entering"
+                ? t("challenge.entering")
+                : needsApproval
+                  ? t("challenge.approveEnter").replace("{amount}", price)
+                  : t("challenge.enter").replace("{amount}", price)}
           </button>
           {state === "no-funds" && (
             <p className="text-center text-xs text-red-700">{t("challenge.noFunds").replace("{amount}", price)}</p>
           )}
           {state === "error" && <p className="text-center text-xs text-red-700">{t("challenge.failed")}</p>}
+          {state === "closed" && <p className="text-center text-xs text-red-700">{t("challenge.entriesClosed")}</p>}
           <p className="text-center text-xs text-violet-700">
             {t("challenge.entriesUntil").replace("{date}", fmtDate(c.entryClosesAt))} ·{" "}
             {t("challenge.endsAt").replace("{date}", fmtDate(c.closesAt))}

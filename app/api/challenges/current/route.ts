@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import type { Address } from "viem";
 import { db } from "@/lib/db";
+import { approveAmount, readEntryFunds } from "@/lib/challenges/allowance";
 import { challengeDepositAddress, currentChallenge, hasEntered, viewOf } from "@/lib/challenges/server";
+import { DROP_TOKENS, dropsAddress, dropTokenByAddress } from "@/lib/drops/config";
 import { createLogger } from "@/lib/logger";
 import { computeEligibleBadgeIds } from "@/lib/onchain/badgeEligibility";
 import { badgeIdsHeldByPlayer } from "@/lib/onchain/playerHeldBadges";
@@ -23,7 +25,15 @@ export async function GET(request: Request) {
     const c = await currentChallenge(db, new Date());
     if (!c) return NextResponse.json({ challenge: null });
     const view = await viewOf(db, c);
-    const body: Record<string, unknown> = { challenge: view, deposit: challengeDepositAddress() };
+    const spender = dropsAddress();
+    const sym = dropTokenByAddress(c.token);
+    const token = sym ? DROP_TOKENS[sym] : null;
+    const body: Record<string, unknown> = {
+      challenge: view,
+      deposit: challengeDepositAddress(),
+      spender,
+      approveAmount: token ? approveAmount(token.decimals).toString() : null,
+    };
     if (address) {
       const [linked, held, eligible] = await Promise.all([
         addressesForPlayer(address),
@@ -33,10 +43,15 @@ export async function GET(request: Request) {
       const wanted = new Set(c.badgeIds);
       const heldHere = held.filter((id) => wanted.has(id));
       const claimable = eligible.map(Number).filter((id) => wanted.has(id) && !heldHere.includes(id));
+      const funds = spender
+        ? await readEntryFunds(c.token as Address, address as Address, spender).catch(() => null)
+        : null;
       body.player = {
         entered: await hasEntered(db, c.id, linked),
         held: heldHere,
         claimable,
+        allowance: funds ? funds.allowance.toString() : null,
+        balance: funds ? funds.balance.toString() : null,
       };
     }
     return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
