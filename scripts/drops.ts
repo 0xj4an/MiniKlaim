@@ -13,6 +13,7 @@ import { DROPS_ABI, DROPS_READ_ABI, dropsPublicClient, sendDropsTx } from "../li
 import { DROP_TOKENS, type DropTokenSymbol, dropTokenByAddress, dropsAddress } from "../lib/drops/config";
 import { awardFind, clearDropIndex } from "../lib/drops/detect";
 import { dropCommitment, dropIdToUint, h3ToUint64, hintCell } from "../lib/drops/ids";
+import { owedToChallenges } from "../lib/challenges/server";
 
 /**
  * Treasure admin for the pilot (no admin panel yet).
@@ -120,8 +121,10 @@ async function create(path: string) {
   });
   const winnersOf = (sp: Spot) => sp.winners ?? f.winners ?? 1;
   const need = f.spots.reduce((sum, sp) => sum + amount * BigInt(winnersOf(sp)), 0n);
-  console.log(`free ${free}, need ${need} (${f.token} base units)`);
-  if (free < need) throw new Error("fund the contract first");
+  // Challenge pools sit in the same contract; treasures must not spend them.
+  const owed = await owedToChallenges(db, token);
+  console.log(`free ${free}, owed to challenges ${owed}, need ${need} (${f.token} base units)`);
+  if (free - owed < need) throw new Error("fund the contract first");
   if (!execute) {
     console.log("dry run: pass --execute to write");
     return;
@@ -215,6 +218,17 @@ async function refill(dropId: string) {
   const endsAt = new Date(startsAt.getTime() + days * 86_400_000);
   console.log(`refill ${old.label ?? old.id}: ${amount} ${sym} base units x${maxWinners}, until ${endsAt.toISOString()}`);
   console.log("  do not reveal the old drop of a spot you keep refilling: reveal publishes the block");
+  const contract = dropsAddress();
+  if (!contract) throw new Error("NEXT_PUBLIC_CELO_DROPS_ADDRESS not set");
+  const free = await dropsPublicClient().readContract({
+    address: contract,
+    abi: DROPS_READ_ABI,
+    functionName: "freeBalance",
+    args: [old.token as Hex],
+    authorizationList: undefined,
+  });
+  const owed = await owedToChallenges(db, old.token);
+  if (free - owed < amount * BigInt(maxWinners)) throw new Error(`free ${free} minus owed to challenges ${owed} does not cover it`);
   if (!execute) return console.log("dry run: pass --execute");
   await openDrop({
     h3: old.h3,

@@ -14,6 +14,7 @@ import {
 } from "@/lib/useLeaderboard";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { ActiveTreasures } from "@/app/ActiveTreasures";
+import { WeeklyChallenge } from "@/app/WeeklyChallenge";
 import { LegalFooter } from "@/app/LegalFooter";
 import { MoveModeIcon } from "@/app/MoveModeIcon";
 import { runMoveMode } from "@/lib/runs/moveMode";
@@ -70,6 +71,7 @@ export default function CommunityPage() {
 
       <WorldMap myAddress={isConnected ? address : null} topColors={topColors} />
 
+      <WeeklyChallenge />
       <ActiveTreasures />
 
       <Leaderboard
