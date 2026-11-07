@@ -1,10 +1,12 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   date,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   primaryKey,
@@ -339,6 +341,64 @@ export const dropFinds = pgTable(
 
 export type Drop = typeof drops.$inferSelect;
 export type DropFind = typeof dropFinds.$inferSelect;
+
+/**
+ * Weekly challenges: players pay a fixed entry (a plain token transfer to the
+ * MiniKlaimDrops contract), qualify by holding `badge_ids` onchain at
+ * `closes_at`, and `winners` of the qualified entrants are drawn from the hash
+ * of `draw_block`, fixed when the challenge is created. The pool is
+ * `seed_amount` plus `pool_bps` of the entries; the rest is protocol revenue.
+ * Payout is a MiniKlaimDrops drop (`drop_id`) with one slot per winner.
+ *
+ * status: open | closed (draw done, result written) | paid (payout drop
+ * created) | rolled (no qualifier, pool carried into `rolled_into`).
+ */
+export const challenges = pgTable("challenges", {
+  id: text("id").primaryKey(),
+  titleEn: text("title_en").notNull(),
+  titleEs: text("title_es").notNull(),
+  badgeIds: integer("badge_ids").array().notNull(),
+  token: text("token").notNull(),
+  // Base units of the token.
+  entryAmount: numeric("entry_amount", { precision: 78, scale: 0 }).notNull(),
+  seedAmount: numeric("seed_amount", { precision: 78, scale: 0 }).notNull(),
+  // Pool carried over from a challenge with no qualifier.
+  carryAmount: numeric("carry_amount", { precision: 78, scale: 0 }).notNull().default("0"),
+  poolBps: integer("pool_bps").notNull().default(8000),
+  winners: integer("winners").notNull(),
+  opensAt: timestamp("opens_at", { withTimezone: true }).notNull(),
+  entryClosesAt: timestamp("entry_closes_at", { withTimezone: true }).notNull(),
+  closesAt: timestamp("closes_at", { withTimezone: true }).notNull(),
+  drawBlock: bigint("draw_block", { mode: "number" }).notNull(),
+  status: text("status").notNull().default("open"),
+  dropId: uuid("drop_id"),
+  rolledInto: text("rolled_into"),
+  result: jsonb("result"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** One paid entry per player per challenge, recorded from the transfer onchain. */
+export const challengeEntries = pgTable(
+  "challenge_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    challengeId: text("challenge_id")
+      .notNull()
+      .references(() => challenges.id),
+    player: text("player").notNull(),
+    txHash: text("tx_hash").notNull(),
+    amount: numeric("amount", { precision: 78, scale: 0 }).notNull(),
+    blockNumber: bigint("block_number", { mode: "number" }).notNull(),
+    enteredAt: timestamp("entered_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("challenge_entries_tx_idx").on(t.txHash),
+    uniqueIndex("challenge_entries_player_idx").on(t.challengeId, t.player),
+  ],
+);
+
+export type Challenge = typeof challenges.$inferSelect;
+export type ChallengeEntry = typeof challengeEntries.$inferSelect;
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
