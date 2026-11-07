@@ -3,8 +3,10 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { type Address, type Hex, decodeEventLog, getAddress, isAddress, parseAbiItem } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { challengeEntries, challenges, type Challenge } from "@/lib/db/schema";
+import { CHALLENGE_ABI, challengeKey, entryEventsIn } from "@/lib/challenges/allowance";
 import { poolAmount } from "@/lib/challenges/math";
 import { dropsPublicClient } from "@/lib/drops/claim";
+import { dropsAddress } from "@/lib/drops/config";
 import { createLogger } from "@/lib/logger";
 import { getSignerKey, isSignerConfigured } from "@/lib/onchain/signer";
 
@@ -24,8 +26,10 @@ function excludedSenders(): Set<string> {
 }
 
 /**
- * Where entries are paid: a plain wallet, the relayer by default
- * (`CHALLENGE_DEPOSIT_ADDRESS` overrides it).
+ * Where legacy transfer entries were paid: a plain wallet, the relayer by
+ * default (`CHALLENGE_DEPOSIT_ADDRESS` overrides it). New entries go through
+ * the allowance and `enterFor` (lib/challenges/allowance.ts); this address
+ * stays readable so a transfer already sent still counts.
  *
  * Not the MiniKlaimDrops contract. Inside the MiniPay mini app a USDT
  * `transfer` to that contract was refused before the sheet even opened
@@ -134,15 +138,26 @@ export type EntryCheck =
   | { ok: false; reason: "pending" | "reverted" | "no-transfer" | "wrong-amount" | "outside-window" | "excluded" };
 
 /**
- * Read an entry from the chain: a successful transfer of exactly the entry
- * amount, in the challenge token, to the deposit address, mined inside the
- * entry window. Never trusts the client beyond the tx hash.
+ * Read an entry from the chain. Either a `ChallengeEntered` from the drops
+ * contract for this challenge (allowance entry), or a successful transfer of
+ * exactly the entry amount, in the challenge token, to the deposit address
+ * (legacy). Both must be mined inside the entry window. Never trusts the
+ * client beyond the tx hash.
  */
 export async function checkEntryTx(c: Challenge, txHash: Hex, deposit: Address): Promise<EntryCheck> {
   const client = dropsPublicClient();
   const receipt = await client.getTransactionReceipt({ hash: txHash }).catch(() => null);
   if (!receipt) return { ok: false, reason: "pending" };
   if (receipt.status !== "success") return { ok: false, reason: "reverted" };
+  const contract = dropsAddress();
+  const viaAllowance = contract ? entryEventsIn(receipt.logs, contract, c)[0] : undefined;
+  if (viaAllowance) {
+    if (viaAllowance.amount !== BigInt(c.entryAmount)) return { ok: false, reason: "wrong-amount" };
+    const block = await client.getBlock({ blockNumber: receipt.blockNumber });
+    const at = new Date(Number(block.timestamp) * 1000);
+    if (at < c.opensAt || at > c.entryClosesAt) return { ok: false, reason: "outside-window" };
+    return { ok: true, player: viaAllowance.player, amount: viaAllowance.amount, blockNumber: receipt.blockNumber, at };
+  }
   let found: { from: string; value: bigint } | null = null;
   for (const l of receipt.logs) {
     if (l.address.toLowerCase() !== c.token.toLowerCase()) continue;
@@ -205,16 +220,29 @@ export async function syncEntries(
 ): Promise<{ scanned: number; entered: number; skipped: Record<string, number> }> {
   const client = dropsPublicClient();
   const out = { scanned: 0, entered: 0, skipped: {} as Record<string, number> };
+  const contract = dropsAddress();
   for (let start = fromBlock; start <= toBlock; start += 5000n) {
     const end = start + 4999n < toBlock ? start + 4999n : toBlock;
-    const logs = await client.getLogs({
+    const transfers = await client.getLogs({
       address: c.token as Address,
       event: TRANSFER,
       args: { to: deposit },
       fromBlock: start,
       toBlock: end,
     });
-    for (const l of logs) {
+    const allowanceEntries = contract
+      ? await client.getLogs({
+          address: contract,
+          event: CHALLENGE_ABI.find((x) => x.type === "event" && x.name === "ChallengeEntered") as Extract<
+            (typeof CHALLENGE_ABI)[number],
+            { type: "event" }
+          >,
+          args: { challengeId: challengeKey(c.id) },
+          fromBlock: start,
+          toBlock: end,
+        })
+      : [];
+    for (const l of [...transfers, ...allowanceEntries]) {
       out.scanned++;
       const check = await checkEntryTx(c, l.transactionHash, deposit);
       if ("reason" in check) {
@@ -229,10 +257,11 @@ export async function syncEntries(
 }
 
 /**
- * The part of unpaid challenge pools that sits in the drops contract, in
- * `token`: the seed and carry. Entries land in the deposit wallet and reach
- * the contract only at payout, so treasure creation must leave just this much
- * of the contract's free balance alone.
+ * Money owed by challenges not paid yet (their whole pools), in `token`.
+ * Treasure creation must leave this much of the contract's free balance
+ * alone. Allowance entries sit in the contract; the few legacy transfer
+ * entries sit in the deposit wallet and payout tops the contract up for them,
+ * so counting them here only errs on the safe side.
  */
 export async function owedToChallenges(database: Db, token: string): Promise<bigint> {
   const open = await database
@@ -240,6 +269,9 @@ export async function owedToChallenges(database: Db, token: string): Promise<big
     .from(challenges)
     .where(and(inArray(challenges.status, ["open", "closed"]), sql`lower(${challenges.token}) = ${token.toLowerCase()}`));
   let owed = 0n;
-  for (const c of open) owed += BigInt(c.seedAmount) + BigInt(c.carryAmount);
+  for (const c of open) {
+    const { total } = await entriesTotal(database, c.id);
+    owed += challengePool(c, total);
+  }
   return owed;
 }
