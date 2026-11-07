@@ -5,6 +5,8 @@ import {
   STREAK_MIN_SERVER_METERS,
   computeBestStreak,
   computeStreak,
+  isValidTimeZone,
+  localDay,
 } from "@/lib/runs/streakMath";
 
 export {
@@ -35,50 +37,56 @@ export type StreakDays = {
  * client when a run starts). Days used to be cut at UTC midnight, which split
  * an evening run in Mexico onto the next day and broke real streaks.
  *
- * The zone is resolved against `pg_timezone_names` before it reaches
- * `AT TIME ZONE`, and falls back to UTC when this server does not know it.
- * The write path validates the client's string with `Intl`, but Node's ICU
- * and Postgres's tz database are two different catalogs: a zone Node accepts
- * can still make `AT TIME ZONE` raise `time zone "X" not recognized`, and
- * that error aborts the whole statement. On 30 Oct 2026 that took
- * /api/profile/[username], /api/users/[address]/stats and the streak on /me
- * to a 500 for four players, who then had no profile at all rather than a
- * streak cut at the wrong midnight. Degrading to UTC is the lesser error.
+ * The day boundary is cut in JS, not in SQL, and that is the whole point of
+ * how this is written.
+ *
+ * Node's ICU and Postgres's tz database are two different catalogs. The write
+ * path validates the client's string with `Intl`, which accepts legacy
+ * aliases, and Postgres only carries canonical names: `Asia/Calcutta` is a
+ * zone Node is happy with and `AT TIME ZONE` rejects outright. On 30 Oct 2026
+ * that raised `time zone "X" not recognized`, which aborts the whole
+ * statement, and took /api/profile/[username], /api/users/[address]/stats and
+ * the streak on /me to a 500 for four players (P65).
+ *
+ * That fix resolved the name against `pg_timezone_names` and fell back to
+ * UTC, which stopped the 500 and left a quieter bug in its place: a player
+ * whose zone Postgres does not know had their streak silently counted in UTC.
+ * On 7 Nov 2026 that cost 0xj4an a real streak. In UTC his run days have a
+ * hole at 6 Nov, because an evening run in India lands on the far side of UTC
+ * midnight, so the chain reset to 1; in `Asia/Calcutta` it runs unbroken from
+ * 28 Oct. He was not alone: 19 players carried `Asia/Calcutta` and 2
+ * `America/Buenos_Aires`, which is also what triggered the original P65
+ * incident that went down as having no identified cause.
+ *
+ * Canonicalising on the way in does not work either, and this was measured
+ * rather than assumed: on Node 22 `Intl` resolves `Asia/Kolkata` to
+ * `Asia/Calcutta`, which is the direction Postgres cannot use.
+ *
+ * So SQL returns the raw timestamps and `localDay` buckets them, using the
+ * same ICU that accepted the zone in the first place and the same helper the
+ * client already uses. Postgres's catalog stops mattering, the class of bug
+ * disappears instead of being caught, and no stored zone needs migrating.
  */
-export async function streakDays(addressesLower: string[]): Promise<StreakDays> {
+export async function streakDays(
+  addressesLower: string[],
+): Promise<StreakDays> {
   if (addressesLower.length === 0) return { days: [], timeZone: "UTC" };
   const list = sql.join(
     addressesLower.map((a) => sql`${a}`),
     sql`, `,
   );
   const rows = await db.execute(sql`
-    WITH claimed AS (
-      SELECT COALESCE(
-        (
-          SELECT u.time_zone
-          FROM runs r
-          JOIN users u ON u.address = r.user_address
-          WHERE r.user_address IN (${list}) AND u.time_zone IS NOT NULL
-          ORDER BY r.started_at DESC
-          LIMIT 1
-        ),
-        (
-          SELECT time_zone FROM users
-          WHERE address IN (${list}) AND time_zone IS NOT NULL
-          LIMIT 1
-        ),
-        'UTC'
-      ) AS name
-    ), tz AS (
-      SELECT COALESCE(
-        (SELECT z.name FROM pg_timezone_names z, claimed c WHERE z.name = c.name),
-        'UTC'
-      ) AS name
-    )
-    SELECT DISTINCT
-      DATE(r.ended_at AT TIME ZONE tz.name)::text AS day,
-      tz.name AS tz
-    FROM runs r, tz
+    SELECT
+      r.ended_at AS ended_at,
+      (
+        SELECT u.time_zone
+        FROM runs r2
+        JOIN users u ON u.address = r2.user_address
+        WHERE r2.user_address IN (${list}) AND u.time_zone IS NOT NULL
+        ORDER BY r2.started_at DESC
+        LIMIT 1
+      ) AS tz
+    FROM runs r
     WHERE r.user_address IN (${list})
       AND r.ended_at IS NOT NULL
       AND (
@@ -87,13 +95,33 @@ export async function streakDays(addressesLower: string[]): Promise<StreakDays> 
         OR r.hexes_damaged > 0
         OR r.server_distance_meters >= ${STREAK_MIN_SERVER_METERS}
       )
-    ORDER BY day DESC
+    ORDER BY r.ended_at DESC
   `);
-  const dayRows = rows as unknown as Array<{ day: string; tz: string }>;
-  return {
-    days: dayRows.map((r) => String(r.day)),
-    timeZone: dayRows[0]?.tz ?? "UTC",
-  };
+  const runRows = rows as unknown as Array<{
+    ended_at: string | Date;
+    tz: string | null;
+  }>;
+
+  // One row per qualifying run rather than per day, because the bucketing
+  // moved to JS. A player with years of daily runs is still in the hundreds
+  // of rows, and the dedupe below collapses them before anyone sees them.
+  const timeZone = isValidTimeZone(runRows[0]?.tz) ? runRows[0].tz : "UTC";
+
+  const seen = new Set<string>();
+  const days: string[] = [];
+  for (const row of runRows) {
+    const at =
+      row.ended_at instanceof Date
+        ? row.ended_at.getTime()
+        : Date.parse(String(row.ended_at));
+    if (Number.isNaN(at)) continue;
+    const day = localDay(at, timeZone);
+    if (seen.has(day)) continue;
+    seen.add(day);
+    days.push(day);
+  }
+
+  return { days, timeZone };
 }
 
 /** Current and best streak from the days and zone `streakDays` returned. */
@@ -101,7 +129,10 @@ export function streaksFrom(
   { days, timeZone }: StreakDays,
   now = Date.now(),
 ): { current: number; best: number } {
-  return { current: computeStreak(days, now, timeZone), best: computeBestStreak(days) };
+  return {
+    current: computeStreak(days, now, timeZone),
+    best: computeBestStreak(days),
+  };
 }
 
 /**

@@ -21,12 +21,32 @@ export const dynamic = "force-dynamic";
 // Caps the disk so a client cannot ask for a continental IN-list.
 const MAX_DISK = 60;
 
-// The world list is ~24 MB of JSON as flat rows (~1.2 MB gzipped) at 230k
-// hexes; `?fmt=owners` groups it by owner (~4 MB, ~0.8 MB gzipped), and
-// `?res=N` thins it to parent cells (~2k rows), which is what the app asks
-// for at world zoom. The flat shape stays for old clients. Pages are
-// compressed by Next; this route handler is not, so the body is packed in
-// lib/map/worldList, which also owns the shared cache and the warm-up.
+// Three shapes of the same world, measured against production on 7 Nov 2026
+// at 337k hexes:
+//
+//   ?res=2          22 KB    0.43 s   what the app asks for at world zoom
+//   ?res=3          43 KB    0.29 s
+//   ?res=4          73 KB    1.08 s
+//   ?fmt=owners    6.8 MB    0.44 s   grouped by owner, what the app asks for
+//                                     once it needs every claim
+//   ?fmt=flat     37.5 MB    8.82 s   one row per hex, owner repeated
+//
+// The flat shape is the default no longer. A single request for it pulled
+// 37.5 MB and held the process for almost nine seconds, which is enough to
+// make everyone else's request time out: it is the best candidate for
+// MINIKLAIM-19 (26 events, 12 players) and for the uptime alerts that fire
+// with no deploy to explain them.
+//
+// Nothing of ours ever asked for it. All five call sites pass `owner=`,
+// `near=&k=`, `fmt=owners` or `res=`, and `git log -p` on lib/map/worldCache
+// shows the client has used `fmt=owners` for as long as the file has existed.
+// An older comment here claimed the flat shape stayed "for old clients"; the
+// history does not support that there were any. So it now has to be asked
+// for by name, and a bare request gets the grouped shape: the same claims,
+// 5.5x smaller and 20x faster.
+//
+// Pages are compressed by Next; this route handler is not, so the body is
+// packed in lib/map/worldList, which also owns the shared cache and warm-up.
 const WORLD_CACHE = "public, max-age=300";
 const SCOPED_CACHE = "private, no-cache";
 
@@ -91,7 +111,11 @@ export async function GET(request: Request) {
   // res-12 cell so a walk does not download the whole table.
   if (!near) {
     const shape: WorldShape =
-      url.searchParams.get("fmt") === "owners" ? "owners" : "flat";
+      url.searchParams.get("fmt") === "flat" ? "flat" : "owners";
+    if (shape === "flat")
+      log.warn("flat world list requested", {
+        ua: request.headers.get("user-agent")?.slice(0, 80) ?? null,
+      });
     return jsonBody(request, await worldList(shape), WORLD_CACHE);
   }
 

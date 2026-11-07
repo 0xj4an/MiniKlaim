@@ -148,7 +148,8 @@ export const dictionaries = {
     "me.link.sending": "Confirm in wallet...",
     "me.link.confirming": "Confirming...",
     "me.link.linked": "Wallet linked!",
-    "me.link.error": "Could not link. Check the code and try again.",
+    "me.link.error":
+      "That code did not work. Codes come from a wallet you already played on. If this is your first time, you do not need one: just close this and press Start.",
     "link.haveAccount": "Already play on another wallet? Link it",
     "link.steps":
       'On your other wallet, open Profile and tap "Link another wallet" to get a code. Then paste it here:',
@@ -722,7 +723,8 @@ export const dictionaries = {
     "me.link.sending": "Confirma en tu wallet...",
     "me.link.confirming": "Confirmando...",
     "me.link.linked": "Wallet vinculada!",
-    "me.link.error": "No se pudo vincular. Revisa el código.",
+    "me.link.error":
+      "Ese código no sirvió. Los códigos salen de una wallet en la que ya jugaste; si es tu primera vez no necesitas ninguno: cierra esto y dale a Empezar.",
     "link.haveAccount": "¿Ya juegas en otra wallet? Vincula esta",
     "link.steps":
       'En tu otra wallet, ve a Perfil y toca "Vincular otra wallet" para obtener un código. Después pégalo acá:',
