@@ -1,11 +1,12 @@
 import { and, asc, count, eq, gt, inArray, lte, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
-import { type Address, type Hex, parseAbiItem, decodeEventLog } from "viem";
+import { type Address, type Hex, decodeEventLog, getAddress, isAddress, parseAbiItem } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { challengeEntries, challenges, type Challenge } from "@/lib/db/schema";
 import { poolAmount } from "@/lib/challenges/math";
 import { dropsPublicClient } from "@/lib/drops/claim";
-import { dropsAddress } from "@/lib/drops/config";
 import { createLogger } from "@/lib/logger";
+import { getSignerKey, isSignerConfigured } from "@/lib/onchain/signer";
 
 const log = createLogger("challenges");
 
@@ -22,9 +23,22 @@ function excludedSenders(): Set<string> {
   return new Set(list);
 }
 
-/** Entries go to the MiniKlaimDrops contract, which also pays the winners. */
+/**
+ * Where entries are paid: a plain wallet, the relayer by default
+ * (`CHALLENGE_DEPOSIT_ADDRESS` overrides it).
+ *
+ * Not the MiniKlaimDrops contract. Inside the MiniPay mini app a USDT
+ * `transfer` to that contract was refused before the sheet even opened
+ * ("Permission denied", three tries on 7 Nov 2026 from a wallet that minted
+ * 13 NFTs the same morning), while MiniPay's documented pattern is a token
+ * transfer to a wallet. The payout moves the pool into the contract instead
+ * (scripts/challenges.ts payout), so winners still claim with one tap.
+ */
 export function challengeDepositAddress(): Address | null {
-  return dropsAddress();
+  const raw = process.env.CHALLENGE_DEPOSIT_ADDRESS?.trim();
+  if (raw && isAddress(raw)) return getAddress(raw);
+  if (!isSignerConfigured()) return null;
+  return privateKeyToAccount(getSignerKey()).address;
 }
 
 export type ChallengeView = {
@@ -215,8 +229,10 @@ export async function syncEntries(
 }
 
 /**
- * Money owed by challenges not paid yet (their pools), in `token`. Treasure
- * creation must leave this much of the contract's free balance alone.
+ * The part of unpaid challenge pools that sits in the drops contract, in
+ * `token`: the seed and carry. Entries land in the deposit wallet and reach
+ * the contract only at payout, so treasure creation must leave just this much
+ * of the contract's free balance alone.
  */
 export async function owedToChallenges(database: Db, token: string): Promise<bigint> {
   const open = await database
@@ -224,9 +240,6 @@ export async function owedToChallenges(database: Db, token: string): Promise<big
     .from(challenges)
     .where(and(inArray(challenges.status, ["open", "closed"]), sql`lower(${challenges.token}) = ${token.toLowerCase()}`));
   let owed = 0n;
-  for (const c of open) {
-    const { total } = await entriesTotal(database, c.id);
-    owed += challengePool(c, total);
-  }
+  for (const c of open) owed += BigInt(c.seedAmount) + BigInt(c.carryAmount);
   return owed;
 }

@@ -101,7 +101,8 @@ describe.skipIf(!db)("challenges (database)", () => {
     const view = await viewOf(db!, c);
     expect(view.entrants).toBe(1);
     expect(view.pool).toBe("1800000"); // 1 seed + 80% of 1
-    expect(await owedToChallenges(db!, USDT)).toBe(1_800_000n);
+    // Only the seed sits in the contract; entries reach it at payout.
+    expect(await owedToChallenges(db!, USDT)).toBe(1_000_000n);
   });
 
   it("refuses anything else", async () => {
