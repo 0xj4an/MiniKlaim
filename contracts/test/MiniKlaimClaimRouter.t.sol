@@ -21,9 +21,8 @@ contract MiniKlaimClaimRouterTest is Test {
     uint256 constant STRANGER_PK = 0xDEAD;
     address signer;
 
-    bytes32 constant CLAIM_ALL_TYPEHASH = keccak256(
-        "ClaimAll(address player,uint256[] h3Ids,uint256[] badgeIds,uint256 nonce)"
-    );
+    bytes32 constant CLAIM_ALL_TYPEHASH =
+        keccak256("ClaimAll(address player,uint256[] h3Ids,uint256[] badgeIds,uint256 nonce)");
 
     uint256 constant HEX_A = 0x8c2a100d2c0d1ff;
     uint256 constant HEX_B = 0x8c2a100d2c0d3ff;
@@ -38,9 +37,7 @@ contract MiniKlaimClaimRouterTest is Test {
             address(
                 new ERC1967Proxy(
                     address(hexesImpl),
-                    abi.encodeCall(
-                        MiniKlaimHexes.initialize, (admin, "https://miniklaim.fun/api/hexes/")
-                    )
+                    abi.encodeCall(MiniKlaimHexes.initialize, (admin, "https://miniklaim.fun/api/hexes/"))
                 )
             )
         );
@@ -50,9 +47,7 @@ contract MiniKlaimClaimRouterTest is Test {
             address(
                 new ERC1967Proxy(
                     address(badgesImpl),
-                    abi.encodeCall(
-                        MiniKlaimBadges.initialize, (admin, "https://miniklaim.fun/api/badges/")
-                    )
+                    abi.encodeCall(MiniKlaimBadges.initialize, (admin, "https://miniklaim.fun/api/badges/"))
                 )
             )
         );
@@ -72,9 +67,7 @@ contract MiniKlaimClaimRouterTest is Test {
     function _domainSeparator() internal view returns (bytes32) {
         return keccak256(
             abi.encode(
-                keccak256(
-                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-                ),
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes("MiniKlaimClaimRouter")),
                 keccak256(bytes("1")),
                 block.chainid,
@@ -83,13 +76,11 @@ contract MiniKlaimClaimRouterTest is Test {
         );
     }
 
-    function _sign(
-        uint256 pk,
-        address player,
-        uint256[] memory h3Ids,
-        uint256[] memory badgeIds,
-        uint256 nonce
-    ) internal view returns (bytes memory) {
+    function _sign(uint256 pk, address player, uint256[] memory h3Ids, uint256[] memory badgeIds, uint256 nonce)
+        internal
+        view
+        returns (bytes memory)
+    {
         bytes32 structHash = keccak256(
             abi.encode(
                 CLAIM_ALL_TYPEHASH,
@@ -262,9 +253,7 @@ contract MiniKlaimClaimRouterTest is Test {
         vm.prank(alice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                address(router),
-                capturerRole
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(router), capturerRole
             )
         );
         router.claimAll(h3, bg, NONCE, sig);
@@ -316,7 +305,9 @@ contract MiniKlaimClaimRouterTest is Test {
     function test_largeRunFitsOneTx() public {
         uint256 n = 8000;
         uint256[] memory h3 = new uint256[](n);
-        for (uint256 i; i < n; i++) h3[i] = 0x8c2a3066380000f + i * 4096;
+        for (uint256 i; i < n; i++) {
+            h3[i] = 0x8c2a3066380000f + i * 4096;
+        }
         uint256[] memory bg = _empty();
         bytes memory sig = _sign(SIGNER_PK, alice, h3, bg, NONCE);
         vm.prank(alice);

@@ -516,9 +516,13 @@ contract MiniKlaimDropsTest is Test {
 
     bytes32 constant CH = keccak256("2026-w46-first-badges");
 
+    address feeTo = address(0xFEE);
+
     function _setChallenge() internal {
+        vm.prank(admin);
+        drops.setFeeRecipient(feeTo);
         vm.prank(rewarder);
-        drops.setChallenge(CH, address(usdt), 1e6, uint64(block.timestamp), uint64(block.timestamp + 4 days));
+        drops.setChallenge(CH, address(usdt), 1e6, uint64(block.timestamp), uint64(block.timestamp + 4 days), 8000);
     }
 
     function _approve(address who, uint256 amount) internal {
@@ -537,7 +541,10 @@ contract MiniKlaimDropsTest is Test {
         assertTrue(drops.entered(CH, alice));
         assertEq(usdt.balanceOf(alice), 9e6);
         assertEq(usdt.allowance(alice, address(drops)), 9e6);
-        assertEq(drops.freeBalance(address(usdt)), 1e6);
+        // 80% stays as pool, 20% goes to the fee recipient in the same tx.
+        assertEq(drops.freeBalance(address(usdt)), 8e5);
+        assertEq(drops.pooled(CH), 8e5);
+        assertEq(usdt.balanceOf(feeTo), 2e5);
 
         vm.prank(rewarder);
         vm.expectRevert(abi.encodeWithSelector(MiniKlaimDrops.AlreadyEntered.selector, CH, alice));
@@ -553,7 +560,12 @@ contract MiniKlaimDropsTest is Test {
         drops.enterFor(CH, alice);
         vm.prank(bob);
         vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, bob, role));
-        drops.setChallenge(CH, address(usdt), 1e6, 1, 2);
+        drops.setChallenge(CH, address(usdt), 1e6, 1, 2, 8000);
+        vm.prank(bob);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, bob, bytes32(0))
+        );
+        drops.setFeeRecipient(bob);
     }
 
     function test_enter_windowAndUnknown() public {
@@ -593,18 +605,54 @@ contract MiniKlaimDropsTest is Test {
         _setChallenge();
         vm.startPrank(rewarder);
         vm.expectRevert(abi.encodeWithSelector(MiniKlaimDrops.ChallengeTermsFixed.selector, CH));
-        drops.setChallenge(CH, address(usdt), 2e6, 1, 2);
+        drops.setChallenge(CH, address(usdt), 2e6, 1, 2, 8000);
         vm.expectRevert(abi.encodeWithSelector(MiniKlaimDrops.ChallengeTermsFixed.selector, CH));
-        drops.setChallenge(CH, address(copm), 1e6, 1, 2);
+        drops.setChallenge(CH, address(copm), 1e6, 1, 2, 8000);
+        vm.expectRevert(abi.encodeWithSelector(MiniKlaimDrops.ChallengeTermsFixed.selector, CH));
+        drops.setChallenge(CH, address(usdt), 1e6, 1, 2, 9000);
         vm.expectRevert(MiniKlaimDrops.BadWindow.selector);
-        drops.setChallenge(CH, address(usdt), 1e6, 5, 5);
+        drops.setChallenge(CH, address(usdt), 1e6, 5, 5, 8000);
+        vm.expectRevert(MiniKlaimDrops.BadSplit.selector);
+        drops.setChallenge(keccak256("y"), address(usdt), 1e6, 1, 2, 10_001);
         vm.expectRevert(abi.encodeWithSelector(MiniKlaimDrops.TokenNotAllowed.selector, address(other)));
-        drops.setChallenge(keccak256("x"), address(other), 1e6, 1, 2);
-        drops.setChallenge(CH, address(usdt), 1e6, 1, 99);
+        drops.setChallenge(keccak256("x"), address(other), 1e6, 1, 2, 8000);
+        drops.setChallenge(CH, address(usdt), 1e6, 1, 99, 8000);
         vm.stopPrank();
         MiniKlaimDrops.Challenge memory c = drops.getChallenge(CH);
         assertEq(c.closesAt, 99);
         assertEq(c.entry, 1e6);
+        assertEq(c.poolBps, 8000);
+    }
+
+    function test_enter_needsFeeRecipientUnlessAllPool() public {
+        bytes32 noFee = keccak256("all-pool");
+        vm.startPrank(rewarder);
+        drops.setChallenge(CH, address(usdt), 1e6, uint64(block.timestamp), uint64(block.timestamp + 1 days), 8000);
+        drops.setChallenge(noFee, address(usdt), 1e6, uint64(block.timestamp), uint64(block.timestamp + 1 days), 10_000);
+        vm.stopPrank();
+        _approve(alice, 2e6);
+        vm.prank(rewarder);
+        vm.expectRevert(MiniKlaimDrops.NoFeeRecipient.selector);
+        drops.enterFor(CH, alice);
+        vm.prank(rewarder);
+        drops.enterFor(noFee, alice);
+        assertEq(drops.pooled(noFee), 1e6);
+        assertEq(drops.freeBalance(address(usdt)), 1e6);
+    }
+
+    function test_feeRecipient_canChange() public {
+        _setChallenge();
+        _approve(alice, 1e6);
+        _approve(bob, 1e6);
+        vm.prank(rewarder);
+        drops.enterFor(CH, alice);
+        vm.prank(admin);
+        drops.setFeeRecipient(address(0xBEEF));
+        vm.prank(rewarder);
+        drops.enterFor(CH, bob);
+        assertEq(usdt.balanceOf(feeTo), 2e5);
+        assertEq(usdt.balanceOf(address(0xBEEF)), 2e5);
+        assertEq(drops.pooled(CH), 16e5);
     }
 
     function test_enter_poolPaysWinnersAsADrop() public {
@@ -615,11 +663,12 @@ contract MiniKlaimDropsTest is Test {
         drops.enterFor(CH, alice);
         drops.enterFor(CH, bob);
         vm.stopPrank();
-        // 2 entries in the contract; a 2-winner payout of 0.8 each fits, the 20% stays free.
+        // 2 entries leave 1.6 in the contract: a 2-winner payout of 0.8 each uses all of it.
         _createN(7, usdt, 8e5, 2);
         _claim(alice, _ids(7), 1);
         assertEq(usdt.balanceOf(alice), 8e5);
-        assertEq(drops.freeBalance(address(usdt)), 4e5);
+        assertEq(drops.freeBalance(address(usdt)), 0);
+        assertEq(usdt.balanceOf(feeTo), 4e5);
     }
 
     function test_upgrade_keepsDropsAndAddsChallenges() public {
@@ -634,6 +683,6 @@ contract MiniKlaimDropsTest is Test {
         _approve(alice, 1e6);
         vm.prank(rewarder);
         drops.enterFor(CH, alice);
-        assertEq(drops.freeBalance(address(usdt)), 1e6);
+        assertEq(drops.freeBalance(address(usdt)), 8e5);
     }
 }

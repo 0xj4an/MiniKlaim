@@ -38,13 +38,11 @@ contract MiniKlaimHexes is
     bytes32 public constant CAPTURER_ROLE = keccak256("CAPTURER_ROLE");
 
     /// @dev keccak256("ClaimRun(address player,uint256[] h3Ids,uint256 nonce)")
-    bytes32 private constant CLAIM_RUN_TYPEHASH =
-        keccak256("ClaimRun(address player,uint256[] h3Ids,uint256 nonce)");
+    bytes32 private constant CLAIM_RUN_TYPEHASH = keccak256("ClaimRun(address player,uint256[] h3Ids,uint256 nonce)");
 
     /// @dev keccak256("MintTokens(address player,uint256[] h3Ids,uint256 nonce,uint256 deadline)")
-    bytes32 private constant MINT_TOKENS_TYPEHASH = keccak256(
-        "MintTokens(address player,uint256[] h3Ids,uint256 nonce,uint256 deadline)"
-    );
+    bytes32 private constant MINT_TOKENS_TYPEHASH =
+        keccak256("MintTokens(address player,uint256[] h3Ids,uint256 nonce,uint256 deadline)");
 
     string private _baseUri;
 
@@ -116,10 +114,7 @@ contract MiniKlaimHexes is
     /// @notice Record many hexes for `player` in one tx. Used at run-finish, both by the
     ///         relayer and by MiniKlaimClaimRouter (which passes the player). Since v2 it
     ///         records instead of minting; the router needs no change.
-    function captureBatch(address player, uint256[] calldata h3Ids)
-        external
-        onlyRole(CAPTURER_ROLE)
-    {
+    function captureBatch(address player, uint256[] calldata h3Ids) external onlyRole(CAPTURER_ROLE) {
         _recordBatch(player, h3Ids);
     }
 
@@ -134,9 +129,8 @@ contract MiniKlaimHexes is
         if (usedNonces[nonce]) revert NonceAlreadyUsed();
         usedNonces[nonce] = true;
 
-        bytes32 structHash = keccak256(
-            abi.encode(CLAIM_RUN_TYPEHASH, msg.sender, keccak256(abi.encodePacked(h3Ids)), nonce)
-        );
+        bytes32 structHash =
+            keccak256(abi.encode(CLAIM_RUN_TYPEHASH, msg.sender, keccak256(abi.encodePacked(h3Ids)), nonce));
         address signer = ECDSA.recover(_hashTypedDataV4(structHash), sig);
         if (!hasRole(CAPTURER_ROLE, signer)) revert InvalidVoucher();
 
@@ -153,24 +147,13 @@ contract MiniKlaimHexes is
     ///         recorded.
     /// @param deadline Unix time after which the voucher is void. Keeps the window in
     ///        which someone else could recapture a hex before this mint lands short.
-    function mintTokens(
-        uint256[] calldata h3Ids,
-        uint256 nonce,
-        uint256 deadline,
-        bytes calldata sig
-    ) external {
+    function mintTokens(uint256[] calldata h3Ids, uint256 nonce, uint256 deadline, bytes calldata sig) external {
         if (block.timestamp > deadline) revert VoucherExpired();
         if (usedNonces[nonce]) revert NonceAlreadyUsed();
         usedNonces[nonce] = true;
 
         bytes32 structHash = keccak256(
-            abi.encode(
-                MINT_TOKENS_TYPEHASH,
-                msg.sender,
-                keccak256(abi.encodePacked(h3Ids)),
-                nonce,
-                deadline
-            )
+            abi.encode(MINT_TOKENS_TYPEHASH, msg.sender, keccak256(abi.encodePacked(h3Ids)), nonce, deadline)
         );
         address signer = ECDSA.recover(_hashTypedDataV4(structHash), sig);
         if (!hasRole(CAPTURER_ROLE, signer)) revert InvalidVoucher();
@@ -191,10 +174,7 @@ contract MiniKlaimHexes is
     /// @notice One-time migration helper: re-mint existing ownership into this contract from a
     ///         trusted off-chain source (the app DB, which is the canonical ownership list).
     ///         Admin-only. `players[i]` becomes the owner of `h3Ids[i]`.
-    function adminImport(address[] calldata players, uint256[] calldata h3Ids)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function adminImport(address[] calldata players, uint256[] calldata h3Ids) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(players.length == h3Ids.length, "length mismatch");
         for (uint256 i = 0; i < h3Ids.length; i++) {
             _capture(players[i], h3Ids[i]);
@@ -259,11 +239,7 @@ contract MiniKlaimHexes is
 
     /// @notice Block all player-initiated transfers. Only the contract's own `_safeTransfer`
     ///         calls (recapture) are allowed.
-    function _update(address to, uint256 tokenId, address auth)
-        internal
-        override
-        returns (address)
-    {
+    function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
         address from = _ownerOf(tokenId);
         // Allow:
         //   - mint (from == 0)
@@ -296,9 +272,5 @@ contract MiniKlaimHexes is
         return super.supportsInterface(interfaceId);
     }
 
-    function _authorizeUpgrade(address newImplementation)
-        internal
-        override
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 }

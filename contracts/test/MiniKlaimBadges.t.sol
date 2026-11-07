@@ -15,17 +15,14 @@ contract MiniKlaimBadgesTest is Test {
     uint256 constant SIGNER_PK = 0xB0B5;
     address signer;
 
-    bytes32 constant CLAIM_BADGES_TYPEHASH =
-        keccak256("ClaimBadges(address player,uint256[] badgeIds,uint256 nonce)");
+    bytes32 constant CLAIM_BADGES_TYPEHASH = keccak256("ClaimBadges(address player,uint256[] badgeIds,uint256 nonce)");
 
     uint256 constant FIRST_STEPS = 1;
     uint256 constant FIVE_BLOCKS = 2;
 
     function setUp() public {
         MiniKlaimBadges impl = new MiniKlaimBadges();
-        bytes memory initData = abi.encodeCall(
-            MiniKlaimBadges.initialize, (admin, "https://miniklaim.fun/api/badges/")
-        );
+        bytes memory initData = abi.encodeCall(MiniKlaimBadges.initialize, (admin, "https://miniklaim.fun/api/badges/"));
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         badges = MiniKlaimBadges(address(proxy));
 
@@ -40,9 +37,7 @@ contract MiniKlaimBadgesTest is Test {
     function _domainSeparator() internal view returns (bytes32) {
         return keccak256(
             abi.encode(
-                keccak256(
-                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-                ),
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes("MiniKlaimBadges")),
                 keccak256(bytes("1")),
                 block.chainid,
@@ -56,9 +51,8 @@ contract MiniKlaimBadgesTest is Test {
         view
         returns (bytes memory)
     {
-        bytes32 structHash = keccak256(
-            abi.encode(CLAIM_BADGES_TYPEHASH, player, keccak256(abi.encodePacked(ids)), nonce)
-        );
+        bytes32 structHash =
+            keccak256(abi.encode(CLAIM_BADGES_TYPEHASH, player, keccak256(abi.encodePacked(ids)), nonce));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
         return abi.encodePacked(r, s, v);

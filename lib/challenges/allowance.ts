@@ -10,16 +10,21 @@ import { dropsPublicClient, sendDropsTx } from "@/lib/drops/claim";
  * sheet). Its standard cap is $10. So the player approves the drops contract
  * once for `APPROVE_UNITS` of the token, and every entry after that is a tap:
  * the relayer calls `enterFor`, which pulls exactly the fee, once per player,
- * inside the window. The player signs one transaction in ten challenges and
- * pays no gas for the entries.
+ * inside the window, and splits it onchain: `poolBps` stays in the contract
+ * for the payout, the rest goes to the contract's `feeRecipient` in the same
+ * transaction. The player signs one transaction in ten challenges and pays no
+ * gas for the entries.
  */
 export const APPROVE_UNITS = 10n;
 
 export const CHALLENGE_ABI = parseAbi([
-  "function setChallenge(bytes32 challengeId, address token, uint256 entry, uint64 opensAt, uint64 closesAt)",
+  "function setChallenge(bytes32 challengeId, address token, uint256 entry, uint64 opensAt, uint64 closesAt, uint16 poolBps)",
+  "function setFeeRecipient(address recipient)",
+  "function feeRecipient() view returns (address)",
+  "function pooled(bytes32 challengeId) view returns (uint256)",
   "function enterFor(bytes32 challengeId, address player)",
   "function entered(bytes32 challengeId, address player) view returns (bool)",
-  "function getChallenge(bytes32 challengeId) view returns ((address token, uint128 entry, uint64 opensAt, uint64 closesAt))",
+  "function getChallenge(bytes32 challengeId) view returns ((address token, uint128 entry, uint64 opensAt, uint64 closesAt, uint16 poolBps))",
   "event ChallengeEntered(bytes32 indexed challengeId, address indexed player, address indexed token, uint256 amount)",
 ]);
 
@@ -49,8 +54,12 @@ export async function isRegisteredOnchain(contract: Address, c: Challenge): Prom
     functionName: "getChallenge",
     args: [challengeKey(c.id)],
     authorizationList: undefined,
-  })) as { token: Address; entry: bigint };
-  return got.token.toLowerCase() === c.token.toLowerCase() && got.entry === BigInt(c.entryAmount);
+  })) as { token: Address; entry: bigint; poolBps: number };
+  return (
+    got.token.toLowerCase() === c.token.toLowerCase() &&
+    got.entry === BigInt(c.entryAmount) &&
+    Number(got.poolBps) === c.poolBps
+  );
 }
 
 export async function enteredOnchain(contract: Address, c: Challenge, player: Address): Promise<boolean> {

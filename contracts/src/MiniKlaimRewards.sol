@@ -104,22 +104,13 @@ contract MiniKlaimRewards is
     /// @param badgeIds Badge ids the backend authorized for this claim.
     /// @param nonce    Unique, single-use voucher nonce issued by the backend.
     /// @param sig      Backend's EIP-712 signature over (msg.sender, badgeIds, nonce).
-    function claimRewards(uint256[] calldata badgeIds, uint256 nonce, bytes calldata sig)
-        external
-        whenNotPaused
-    {
+    function claimRewards(uint256[] calldata badgeIds, uint256 nonce, bytes calldata sig) external whenNotPaused {
         if (badgeIds.length == 0) revert EmptyBadges();
         if (usedNonces[nonce]) revert NonceAlreadyUsed();
         usedNonces[nonce] = true;
 
-        bytes32 structHash = keccak256(
-            abi.encode(
-                CLAIM_REWARDS_TYPEHASH,
-                msg.sender,
-                keccak256(abi.encodePacked(badgeIds)),
-                nonce
-            )
-        );
+        bytes32 structHash =
+            keccak256(abi.encode(CLAIM_REWARDS_TYPEHASH, msg.sender, keccak256(abi.encodePacked(badgeIds)), nonce));
         address signer = ECDSA.recover(_hashTypedDataV4(structHash), sig);
         if (!hasRole(REWARDER_ROLE, signer)) revert InvalidVoucher();
 
@@ -144,10 +135,7 @@ contract MiniKlaimRewards is
 
     /// @notice Set the reward paid out for a single badge. Passing zero effectively
     ///         disables the badge (claims for it will revert `NoRewardConfigured`).
-    function setRewardAmount(uint256 badgeId, uint256 amountWei)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setRewardAmount(uint256 badgeId, uint256 amountWei) external onlyRole(DEFAULT_ADMIN_ROLE) {
         rewardAmount[badgeId] = amountWei;
         emit RewardConfigured(badgeId, amountWei);
     }
@@ -184,16 +172,9 @@ contract MiniKlaimRewards is
     /// @notice Rescue tokens from the vault. Admin-only.
     /// @param to     Destination address.
     /// @param amount Amount of `rewardToken` to send.
-    function emergencyWithdraw(address to, uint256 amount)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function emergencyWithdraw(address to, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
         rewardToken.safeTransfer(to, amount);
     }
 
-    function _authorizeUpgrade(address newImplementation)
-        internal
-        override
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 }

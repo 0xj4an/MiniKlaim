@@ -13,18 +13,14 @@ contract DeployBadges is Script {
         uint256 pk = vm.envUint("SERVER_SIGNER_PRIVATE_KEY");
         address deployer = vm.addr(pk);
 
-        string memory baseUri = vm.envOr(
-            "BADGES_BASE_URI",
-            string("https://www.miniklaim.fun/api/onchain/badges/")
-        );
+        string memory baseUri = vm.envOr("BADGES_BASE_URI", string("https://www.miniklaim.fun/api/onchain/badges/"));
 
         console2.log("Deployer:", deployer);
         console2.log("Base URI:", baseUri);
 
         vm.startBroadcast(pk);
         MiniKlaimBadges impl = new MiniKlaimBadges();
-        bytes memory initData =
-            abi.encodeCall(MiniKlaimBadges.initialize, (deployer, baseUri));
+        bytes memory initData = abi.encodeCall(MiniKlaimBadges.initialize, (deployer, baseUri));
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         vm.stopBroadcast();
 

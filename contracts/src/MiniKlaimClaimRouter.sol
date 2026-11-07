@@ -37,9 +37,8 @@ contract MiniKlaimClaimRouter is AccessControl, EIP712 {
     bytes32 public constant VOUCHER_SIGNER_ROLE = keccak256("VOUCHER_SIGNER_ROLE");
 
     /// @dev keccak256("ClaimAll(address player,uint256[] h3Ids,uint256[] badgeIds,uint256 nonce)")
-    bytes32 private constant CLAIM_ALL_TYPEHASH = keccak256(
-        "ClaimAll(address player,uint256[] h3Ids,uint256[] badgeIds,uint256 nonce)"
-    );
+    bytes32 private constant CLAIM_ALL_TYPEHASH =
+        keccak256("ClaimAll(address player,uint256[] h3Ids,uint256[] badgeIds,uint256 nonce)");
 
     IMiniKlaimHexes public immutable hexes;
     IMiniKlaimBadges public immutable badges;
@@ -61,17 +60,13 @@ contract MiniKlaimClaimRouter is AccessControl, EIP712 {
     mapping(address => bool) private _seenClaimer;
 
     /// @dev Emitted once per settled combined claim.
-    event ClaimAllSettled(
-        address indexed player, uint256 indexed nonce, uint256 hexCount, uint256 badgeCount
-    );
+    event ClaimAllSettled(address indexed player, uint256 indexed nonce, uint256 hexCount, uint256 badgeCount);
 
     error NonceAlreadyUsed();
     error InvalidVoucher();
     error NothingToClaim();
 
-    constructor(address admin, address hexes_, address badges_)
-        EIP712("MiniKlaimClaimRouter", "1")
-    {
+    constructor(address admin, address hexes_, address badges_) EIP712("MiniKlaimClaimRouter", "1") {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         hexes = IMiniKlaimHexes(hexes_);
         badges = IMiniKlaimBadges(badges_);
@@ -87,12 +82,9 @@ contract MiniKlaimClaimRouter is AccessControl, EIP712 {
     /// @param badgeIds Badges the backend confirmed the player earned.
     /// @param nonce    Single-use voucher nonce issued by the backend.
     /// @param sig      Backend EIP-712 signature over (msg.sender, h3Ids, badgeIds, nonce).
-    function claimAll(
-        uint256[] calldata h3Ids,
-        uint256[] calldata badgeIds,
-        uint256 nonce,
-        bytes calldata sig
-    ) external {
+    function claimAll(uint256[] calldata h3Ids, uint256[] calldata badgeIds, uint256 nonce, bytes calldata sig)
+        external
+    {
         if (h3Ids.length == 0 && badgeIds.length == 0) revert NothingToClaim();
         if (usedNonces[nonce]) revert NonceAlreadyUsed();
         usedNonces[nonce] = true;

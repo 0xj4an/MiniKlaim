@@ -28,8 +28,7 @@ contract DeployRewards is Script {
 
         vm.startBroadcast(pk);
         MiniKlaimRewards impl = new MiniKlaimRewards();
-        bytes memory initData =
-            abi.encodeCall(MiniKlaimRewards.initialize, (deployer, USDM_CELO_MAINNET));
+        bytes memory initData = abi.encodeCall(MiniKlaimRewards.initialize, (deployer, USDM_CELO_MAINNET));
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         vm.stopBroadcast();
 
