@@ -16,6 +16,7 @@ import {
 } from "@/lib/wallet/environment";
 import { LinkExisting } from "@/app/LinkExisting";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
+import { WeeklyChallenge } from "@/app/WeeklyChallenge";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
 import { NeedCeloNote } from "@/app/NeedCeloNote";
 import { ReturnNote } from "@/app/ReturnNote";
@@ -131,6 +132,8 @@ export function HomeClient() {
           surface="home"
         />
       )}
+
+      {mounted && <WeeklyChallenge />}
 
       {mounted && (
         <NeedCeloNote

@@ -135,6 +135,11 @@ type EventMap = {
   // Hidden treasures (tap + relayer claim).
   drop_found: { drop_id: string; token: string; amount: string };
   drop_heat: { level: number };
+  // Weekly challenges (paid entry by token transfer).
+  challenge_viewed: { challenge: string; entered: boolean };
+  challenge_enter_started: { challenge: string };
+  challenge_entered: { challenge: string; tx_hash: string };
+  challenge_enter_failed: { reason: string; message?: string; tx_hash?: string };
   drop_claim_started: { count: number; surface: "run" | "me" };
   drop_claim_sent: { count: number; tx_hash: string };
   drop_claim_failed: { reason: string };
