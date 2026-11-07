@@ -17,9 +17,11 @@ contract MiniKlaimHexesTest is Test {
     uint256 constant SIGNER_PK = 0xB0B5;
     address signer;
 
-    bytes32 constant CLAIM_RUN_TYPEHASH = keccak256("ClaimRun(address player,uint256[] h3Ids,uint256 nonce)");
-    bytes32 constant MINT_TOKENS_TYPEHASH =
-        keccak256("MintTokens(address player,uint256[] h3Ids,uint256 nonce,uint256 deadline)");
+    bytes32 constant CLAIM_RUN_TYPEHASH =
+        keccak256("ClaimRun(address player,uint256[] h3Ids,uint256 nonce)");
+    bytes32 constant MINT_TOKENS_TYPEHASH = keccak256(
+        "MintTokens(address player,uint256[] h3Ids,uint256 nonce,uint256 deadline)"
+    );
 
     // A made-up H3-resolution-12 cell id.
     uint256 constant HEX_A = 0x8c2a306638783ff;
@@ -27,7 +29,9 @@ contract MiniKlaimHexesTest is Test {
 
     function setUp() public {
         MiniKlaimHexes impl = new MiniKlaimHexes();
-        bytes memory initData = abi.encodeCall(MiniKlaimHexes.initialize, (admin, "https://miniklaim.fun/api/hexes/"));
+        bytes memory initData = abi.encodeCall(
+            MiniKlaimHexes.initialize, (admin, "https://miniklaim.fun/api/hexes/")
+        );
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         hexes = MiniKlaimHexes(address(proxy));
 
@@ -42,7 +46,9 @@ contract MiniKlaimHexesTest is Test {
     function _domainSeparator() internal view returns (bytes32) {
         return keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
                 keccak256(bytes("MiniKlaimHexes")),
                 keccak256(bytes("1")),
                 block.chainid,
@@ -56,8 +62,9 @@ contract MiniKlaimHexesTest is Test {
         view
         returns (bytes memory)
     {
-        bytes32 structHash =
-            keccak256(abi.encode(CLAIM_RUN_TYPEHASH, player, keccak256(abi.encodePacked(h3Ids)), nonce));
+        bytes32 structHash = keccak256(
+            abi.encode(CLAIM_RUN_TYPEHASH, player, keccak256(abi.encodePacked(h3Ids)), nonce)
+        );
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
         return abi.encodePacked(r, s, v);
@@ -332,8 +339,9 @@ contract MiniKlaimHexesTest is Test {
 
     function test_upgradeFromV1KeepsTokensAndCounters() public {
         MiniKlaimHexesV1 v1impl = new MiniKlaimHexesV1();
-        ERC1967Proxy proxy =
-            new ERC1967Proxy(address(v1impl), abi.encodeCall(MiniKlaimHexesV1.initialize, (admin, "u/")));
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(v1impl), abi.encodeCall(MiniKlaimHexesV1.initialize, (admin, "u/"))
+        );
         MiniKlaimHexesV1 v1 = MiniKlaimHexesV1(address(proxy));
         vm.prank(admin);
         v1.captureBatch(alice, _twoHexes());

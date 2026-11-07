@@ -30,7 +30,8 @@ contract MiniKlaimHexesV1 is
     bytes32 public constant CAPTURER_ROLE = keccak256("CAPTURER_ROLE");
 
     /// @dev keccak256("ClaimRun(address player,uint256[] h3Ids,uint256 nonce)")
-    bytes32 private constant CLAIM_RUN_TYPEHASH = keccak256("ClaimRun(address player,uint256[] h3Ids,uint256 nonce)");
+    bytes32 private constant CLAIM_RUN_TYPEHASH =
+        keccak256("ClaimRun(address player,uint256[] h3Ids,uint256 nonce)");
 
     string private _baseUri;
 
@@ -84,7 +85,10 @@ contract MiniKlaimHexesV1 is
     }
 
     /// @notice Same as `capture` but for many hexes in one tx. Used at run-finish.
-    function captureBatch(address player, uint256[] calldata h3Ids) external onlyRole(CAPTURER_ROLE) {
+    function captureBatch(address player, uint256[] calldata h3Ids)
+        external
+        onlyRole(CAPTURER_ROLE)
+    {
         for (uint256 i = 0; i < h3Ids.length; i++) {
             _capture(player, h3Ids[i]);
         }
@@ -101,8 +105,9 @@ contract MiniKlaimHexesV1 is
         if (usedNonces[nonce]) revert NonceAlreadyUsed();
         usedNonces[nonce] = true;
 
-        bytes32 structHash =
-            keccak256(abi.encode(CLAIM_RUN_TYPEHASH, msg.sender, keccak256(abi.encodePacked(h3Ids)), nonce));
+        bytes32 structHash = keccak256(
+            abi.encode(CLAIM_RUN_TYPEHASH, msg.sender, keccak256(abi.encodePacked(h3Ids)), nonce)
+        );
         address signer = ECDSA.recover(_hashTypedDataV4(structHash), sig);
         if (!hasRole(CAPTURER_ROLE, signer)) revert InvalidVoucher();
 
@@ -116,7 +121,10 @@ contract MiniKlaimHexesV1 is
     /// @notice One-time migration helper: re-mint existing ownership into this contract from a
     ///         trusted off-chain source (the app DB, which is the canonical ownership list).
     ///         Admin-only. `players[i]` becomes the owner of `h3Ids[i]`.
-    function adminImport(address[] calldata players, uint256[] calldata h3Ids) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function adminImport(address[] calldata players, uint256[] calldata h3Ids)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         require(players.length == h3Ids.length, "length mismatch");
         for (uint256 i = 0; i < h3Ids.length; i++) {
             _capture(players[i], h3Ids[i]);
@@ -147,7 +155,11 @@ contract MiniKlaimHexesV1 is
 
     /// @notice Block all player-initiated transfers. Only the contract's own `_safeTransfer`
     ///         call inside `_capture` is allowed.
-    function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override
+        returns (address)
+    {
         address from = _ownerOf(tokenId);
         // Allow:
         //   - mint (from == 0)
@@ -180,5 +192,9 @@ contract MiniKlaimHexesV1 is
         return super.supportsInterface(interfaceId);
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {}
 }

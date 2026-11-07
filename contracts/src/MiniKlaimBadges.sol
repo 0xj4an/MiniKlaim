@@ -77,7 +77,10 @@ contract MiniKlaimBadges is
     }
 
     /// @notice Relayer mint of many badges (skips already-held).
-    function mintBatch(address player, uint256[] calldata badgeIds) external onlyRole(MINTER_ROLE) {
+    function mintBatch(address player, uint256[] calldata badgeIds)
+        external
+        onlyRole(MINTER_ROLE)
+    {
         for (uint256 i = 0; i < badgeIds.length; i++) {
             _unlock(player, badgeIds[i]);
         }
@@ -86,12 +89,15 @@ contract MiniKlaimBadges is
     /// @notice Player-submitted claim. The caller unlocks `badgeIds` for themselves,
     ///         gated by an EIP-712 voucher signed by a MINTER_ROLE key. The backend
     ///         issues the voucher only for badges the player actually earned.
-    function claimBadges(uint256[] calldata badgeIds, uint256 nonce, bytes calldata sig) external {
+    function claimBadges(uint256[] calldata badgeIds, uint256 nonce, bytes calldata sig)
+        external
+    {
         if (usedNonces[nonce]) revert NonceAlreadyUsed();
         usedNonces[nonce] = true;
 
-        bytes32 structHash =
-            keccak256(abi.encode(CLAIM_BADGES_TYPEHASH, msg.sender, keccak256(abi.encodePacked(badgeIds)), nonce));
+        bytes32 structHash = keccak256(
+            abi.encode(CLAIM_BADGES_TYPEHASH, msg.sender, keccak256(abi.encodePacked(badgeIds)), nonce)
+        );
         address signer = ECDSA.recover(_hashTypedDataV4(structHash), sig);
         if (!hasRole(MINTER_ROLE, signer)) revert InvalidVoucher();
 
@@ -126,7 +132,12 @@ contract MiniKlaimBadges is
     }
 
     /// @notice Block every transfer that isn't a fresh mint from address(0).
-    function _update(address from, address to, uint256[] memory ids, uint256[] memory values) internal override {
+    function _update(
+        address from,
+        address to,
+        uint256[] memory ids,
+        uint256[] memory values
+    ) internal override {
         if (from != address(0)) revert TransfersDisabled();
         super._update(from, to, ids, values);
     }
@@ -148,5 +159,9 @@ contract MiniKlaimBadges is
         return super.supportsInterface(interfaceId);
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {}
 }

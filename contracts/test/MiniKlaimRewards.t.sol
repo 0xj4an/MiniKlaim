@@ -36,14 +36,15 @@ contract MiniKlaimRewardsTest is Test {
     uint256 constant BADGE_TEN_BLOCKS = 3;
 
     uint256 constant REWARD_FIRST_STEPS = 0.05e18;
-    uint256 constant REWARD_FIVE_BLOCKS = 0.1e18;
-    uint256 constant REWARD_TEN_BLOCKS = 0.2e18;
+    uint256 constant REWARD_FIVE_BLOCKS = 0.10e18;
+    uint256 constant REWARD_TEN_BLOCKS = 0.20e18;
 
     function setUp() public {
         usdm = new MockUSDm();
 
         MiniKlaimRewards impl = new MiniKlaimRewards();
-        bytes memory initData = abi.encodeCall(MiniKlaimRewards.initialize, (admin, address(usdm)));
+        bytes memory initData =
+            abi.encodeCall(MiniKlaimRewards.initialize, (admin, address(usdm)));
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         rewards = MiniKlaimRewards(address(proxy));
 
@@ -58,7 +59,9 @@ contract MiniKlaimRewardsTest is Test {
     function _domainSeparator() internal view returns (bytes32) {
         return keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
                 keccak256(bytes("MiniKlaimRewards")),
                 keccak256(bytes("1")),
                 block.chainid,
@@ -72,8 +75,9 @@ contract MiniKlaimRewardsTest is Test {
         view
         returns (bytes memory)
     {
-        bytes32 structHash =
-            keccak256(abi.encode(CLAIM_REWARDS_TYPEHASH, player, keccak256(abi.encodePacked(ids)), nonce));
+        bytes32 structHash = keccak256(
+            abi.encode(CLAIM_REWARDS_TYPEHASH, player, keccak256(abi.encodePacked(ids)), nonce)
+        );
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
         return abi.encodePacked(r, s, v);
@@ -227,7 +231,9 @@ contract MiniKlaimRewardsTest is Test {
         bytes memory sig = _signVoucher(REWARDER_PK, alice, ids, 1);
 
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(MiniKlaimRewards.AlreadyClaimed.selector, BADGE_FIRST_STEPS));
+        vm.expectRevert(
+            abi.encodeWithSelector(MiniKlaimRewards.AlreadyClaimed.selector, BADGE_FIRST_STEPS)
+        );
         rewards.claimRewards(ids, 1, sig);
     }
 
@@ -242,7 +248,9 @@ contract MiniKlaimRewardsTest is Test {
 
         bytes memory sig2 = _signVoucher(REWARDER_PK, alice, ids, 2);
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(MiniKlaimRewards.AlreadyClaimed.selector, BADGE_FIRST_STEPS));
+        vm.expectRevert(
+            abi.encodeWithSelector(MiniKlaimRewards.AlreadyClaimed.selector, BADGE_FIRST_STEPS)
+        );
         rewards.claimRewards(ids, 2, sig2);
     }
 
@@ -252,7 +260,11 @@ contract MiniKlaimRewardsTest is Test {
         bytes memory sig = _signVoucher(REWARDER_PK, alice, ids, 1);
 
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(MiniKlaimRewards.NoRewardConfigured.selector, BADGE_FIRST_STEPS));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MiniKlaimRewards.NoRewardConfigured.selector, BADGE_FIRST_STEPS
+            )
+        );
         rewards.claimRewards(ids, 1, sig);
     }
 
