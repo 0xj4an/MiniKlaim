@@ -33,7 +33,11 @@ type EnterReply = { ok: boolean; reason?: string; txHash?: string };
  * Ask the relayer to charge the entry from the allowance. `needs-approval`
  * right after an approve is the RPC lagging behind the wallet, so it retries.
  */
-async function requestEntry(challengeId: string, address: Address): Promise<EnterReply & { status: number }> {
+async function requestEntry(
+  challengeId: string,
+  address: Address,
+  justApproved: boolean,
+): Promise<EnterReply & { status: number }> {
   let last: EnterReply & { status: number } = { ok: false, reason: "network", status: 0 };
   for (let i = 0; i < 6; i++) {
     try {
@@ -45,6 +49,8 @@ async function requestEntry(challengeId: string, address: Address): Promise<Ente
       const body = (await res.json().catch(() => ({}))) as EnterReply;
       last = { ...body, status: res.status };
       if (res.ok || body.reason === "entered") return last;
+      // needs-approval is only worth waiting on right after an approve.
+      if (body.reason === "needs-approval" && !justApproved) return last;
       if (body.reason !== "needs-approval" && body.reason !== "in-flight" && res.status !== 502) return last;
     } catch {
       last = { ok: false, reason: "network", status: 0 };
@@ -147,12 +153,18 @@ export function useEnterChallenge(p: {
       setState("no-funds");
       return;
     }
-    track("challenge_enter_started", { challenge: challengeId, needs_approval: allowance === null || allowance < amount });
-    if (allowance === null || allowance < amount) {
-      if (!(await approve())) return;
-    }
+    // Unknown allowance (the read failed) tries the tap first, so a player who
+    // already approved is never asked to approve again.
+    const knownShort = allowance !== null && allowance < amount;
+    track("challenge_enter_started", { challenge: challengeId, needs_approval: knownShort });
+    if (knownShort && !(await approve())) return;
     setState("entering");
-    const r = await requestEntry(challengeId, address);
+    let r = await requestEntry(challengeId, address, knownShort);
+    if (!knownShort && r.reason === "needs-approval") {
+      if (!(await approve())) return;
+      setState("entering");
+      r = await requestEntry(challengeId, address, true);
+    }
     if (r.ok || r.reason === "entered") {
       track("challenge_entered", { challenge: challengeId, tx_hash: r.txHash ?? "", already: r.reason === "entered" });
       setState("entered");
