@@ -9,6 +9,7 @@ import { type Address, encodeFunctionData, type Hex, keccak256, parseUnits, toBy
 import { challengeEntries, challenges, dropFinds, drops } from "../lib/db/schema";
 import { blockAfter, drawWinners, prizePerWinner } from "../lib/challenges/math";
 import { challengeDepositAddress, challengePool, entriesTotal, syncEntries } from "../lib/challenges/server";
+import { CHALLENGE_ABI, challengeKey } from "../lib/challenges/allowance";
 import { DROPS_ABI, DROPS_READ_ABI, dropsPublicClient, sendDropsTx, sendRelayerTokenTransfer } from "../lib/drops/claim";
 import { DROP_TOKENS, type DropTokenSymbol, dropsAddress, dropTokenByAddress } from "../lib/drops/config";
 import { dropIdToUint } from "../lib/drops/ids";
@@ -23,15 +24,18 @@ import { addressesForPlayer } from "../lib/players";
  *        --opens 2026-11-09T00:00:00Z --entry-closes 2026-11-11T23:59:59Z --closes 2026-11-16T00:00:00Z \
  *        [--carry 0] --execute
  *   npx tsx scripts/challenges.ts list
+ *   npx tsx scripts/challenges.ts register <id> --execute   # entry terms onchain (create does it too)
  *   npx tsx scripts/challenges.ts sync   <id> --execute     # register entries from the chain
  *   npx tsx scripts/challenges.ts draw   <id> --execute     # snapshot at the close + draw
  *   npx tsx scripts/challenges.ts payout <id> --execute     # one drop slot per winner
  *
- * Entries are exact transfers of the entry amount to the deposit wallet (the
- * relayer unless CHALLENGE_DEPOSIT_ADDRESS says otherwise), not to the drops
- * contract: MiniPay refused that transfer inside the mini app. The seed is
- * funded into the drops contract with any other amount; payout tops the
- * contract up from the deposit wallet with whatever the pool is short.
+ * Entries: the player approves the drops contract once (bounded, MiniPay caps
+ * approvals at $10) and each entry is a tap that the relayer turns into
+ * `enterFor`, which pulls exactly the fee into the contract. The terms must be
+ * registered onchain first (`register`, or `create --execute`). Legacy exact
+ * transfers to the deposit wallet still count; payout tops the contract up
+ * from that wallet with whatever the pool is short. Fund the seed into the
+ * drops contract with any amount.
  *
  * The draw block is fixed at create time (about 10 minutes after the close)
  * and its hash seeds the draw, so the result is reproducible by anyone:
@@ -110,6 +114,26 @@ async function create() {
   if (!execute) return console.log("dry run: pass --execute");
   await db.insert(challenges).values(row);
   console.log("created");
+  await register(id);
+}
+
+/** Put the entry terms onchain: token, fee and window. Fee and token are final. */
+async function register(id: string) {
+  const c = await load(id);
+  const opens = BigInt(Math.floor(c.opensAt.getTime() / 1000));
+  const closes = BigInt(Math.floor(c.entryClosesAt.getTime() / 1000));
+  console.log(`register ${c.id} key ${challengeKey(c.id)} token ${c.token} entry ${c.entryAmount} window ${opens}-${closes}`);
+  if (!execute) return console.log("dry run: pass --execute");
+  const tx = await sendDropsTx(
+    encodeFunctionData({
+      abi: CHALLENGE_ABI,
+      functionName: "setChallenge",
+      args: [challengeKey(c.id), c.token as Address, BigInt(c.entryAmount), opens, closes],
+    }),
+  );
+  const r = await pub.waitForTransactionReceipt({ hash: tx, timeout: 90_000 });
+  if (r.status !== "success") throw new Error(`setChallenge reverted: ${tx}`);
+  console.log(`registered: ${tx}`);
 }
 
 async function list() {
@@ -273,6 +297,8 @@ async function main() {
       return create();
     case "list":
       return list();
+    case "register":
+      return register(arg);
     case "sync":
       return sync(arg);
     case "draw":
