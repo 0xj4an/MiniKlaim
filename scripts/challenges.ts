@@ -9,6 +9,7 @@ import { type Address, encodeFunctionData, type Hex, keccak256, parseUnits, toBy
 import { challengeEntries, challenges, dropFinds, drops } from "../lib/db/schema";
 import { blockAfter, drawWinners, prizePerWinner } from "../lib/challenges/math";
 import { challengeDepositAddress, challengePool, entriesTotal, syncEntries } from "../lib/challenges/server";
+import { CHALLENGE_ABI, challengeKey } from "../lib/challenges/allowance";
 import { DROPS_ABI, DROPS_READ_ABI, dropsPublicClient, sendDropsTx, sendRelayerTokenTransfer } from "../lib/drops/claim";
 import { DROP_TOKENS, type DropTokenSymbol, dropsAddress, dropTokenByAddress } from "../lib/drops/config";
 import { dropIdToUint } from "../lib/drops/ids";
@@ -21,17 +22,22 @@ import { addressesForPlayer } from "../lib/players";
  *   npx tsx scripts/challenges.ts create --id 2026-w46 --title-en "First badges" --title-es "Primeras badges" \
  *        --badges 10,1,34,48 --token USDT --entry 1 --seed 1 --winners 10 \
  *        --opens 2026-11-09T00:00:00Z --entry-closes 2026-11-11T23:59:59Z --closes 2026-11-16T00:00:00Z \
- *        [--carry 0] --execute
+ *        [--carry 0] [--pool-bps 8000] --execute
  *   npx tsx scripts/challenges.ts list
+ *   npx tsx scripts/challenges.ts register <id> --execute   # entry terms onchain (create does it too)
+ *   npx tsx scripts/challenges.ts fee-recipient <address> --execute   # where the non-pool share goes
  *   npx tsx scripts/challenges.ts sync   <id> --execute     # register entries from the chain
  *   npx tsx scripts/challenges.ts draw   <id> --execute     # snapshot at the close + draw
  *   npx tsx scripts/challenges.ts payout <id> --execute     # one drop slot per winner
  *
- * Entries are exact transfers of the entry amount to the deposit wallet (the
- * relayer unless CHALLENGE_DEPOSIT_ADDRESS says otherwise), not to the drops
- * contract: MiniPay refused that transfer inside the mini app. The seed is
- * funded into the drops contract with any other amount; payout tops the
- * contract up from the deposit wallet with whatever the pool is short.
+ * Entries: the player approves the drops contract once (bounded, MiniPay caps
+ * approvals at $10) and each entry is a tap that the relayer turns into
+ * `enterFor`, which pulls exactly the fee into the contract and sends the
+ * non-pool share to the contract's fee recipient at once. The terms must be
+ * registered onchain first (`register`, or `create --execute`). Legacy exact
+ * transfers to the deposit wallet still count; payout tops the contract up
+ * from that wallet with whatever the pool is short. Fund the seed into the
+ * drops contract with any amount.
  *
  * The draw block is fixed at create time (about 10 minutes after the close)
  * and its hash seeds the draw, so the result is reproducible by anyone:
@@ -88,6 +94,8 @@ async function create() {
   const closesAt = new Date(need("--closes"));
   if (!(opensAt < entryClosesAt && entryClosesAt <= closesAt)) throw new Error("need opens < entry-closes <= closes");
   const winners = Number(need("--winners"));
+  const poolBps = Number(flag("--pool-bps") ?? "8000");
+  if (!Number.isInteger(poolBps) || poolBps < 0 || poolBps > 10_000) throw new Error("--pool-bps must be 0..10000");
   const latest = await pub.getBlockNumber();
   const drawBlock = blockAfter(latest, (closesAt.getTime() - Date.now()) / 1000);
   const row = {
@@ -100,6 +108,7 @@ async function create() {
     seedAmount: parseUnits(need("--seed"), token.decimals).toString(),
     carryAmount: parseUnits(flag("--carry") ?? "0", token.decimals).toString(),
     winners,
+    poolBps,
     opensAt,
     entryClosesAt,
     closesAt,
@@ -110,6 +119,42 @@ async function create() {
   if (!execute) return console.log("dry run: pass --execute");
   await db.insert(challenges).values(row);
   console.log("created");
+  await register(id);
+}
+
+/** Where the non-pool share of every entry goes, from now on. */
+async function setFeeRecipient(to: string) {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(to ?? "")) throw new Error("usage: fee-recipient <address> --execute");
+  const contract = dropsAddress();
+  if (!contract) throw new Error("NEXT_PUBLIC_CELO_DROPS_ADDRESS not set");
+  const now = await pub.readContract({ address: contract, abi: CHALLENGE_ABI, functionName: "feeRecipient", authorizationList: undefined });
+  console.log(`fee recipient ${now} -> ${to}`);
+  if (!execute) return console.log("dry run: pass --execute");
+  const tx = await sendDropsTx(encodeFunctionData({ abi: CHALLENGE_ABI, functionName: "setFeeRecipient", args: [to as Address] }));
+  const r = await pub.waitForTransactionReceipt({ hash: tx, timeout: 90_000 });
+  if (r.status !== "success") throw new Error(`setFeeRecipient reverted: ${tx}`);
+  console.log(`fee recipient set: ${tx}`);
+}
+
+/** Put the entry terms onchain: token, fee, split and window. Token, fee and split are final. */
+async function register(id: string) {
+  const c = await load(id);
+  const opens = BigInt(Math.floor(c.opensAt.getTime() / 1000));
+  const closes = BigInt(Math.floor(c.entryClosesAt.getTime() / 1000));
+  console.log(
+    `register ${c.id} key ${challengeKey(c.id)} token ${c.token} entry ${c.entryAmount} pool ${c.poolBps} bps window ${opens}-${closes}`,
+  );
+  if (!execute) return console.log("dry run: pass --execute");
+  const tx = await sendDropsTx(
+    encodeFunctionData({
+      abi: CHALLENGE_ABI,
+      functionName: "setChallenge",
+      args: [challengeKey(c.id), c.token as Address, BigInt(c.entryAmount), opens, closes, c.poolBps],
+    }),
+  );
+  const r = await pub.waitForTransactionReceipt({ hash: tx, timeout: 90_000 });
+  if (r.status !== "success") throw new Error(`setChallenge reverted: ${tx}`);
+  console.log(`registered: ${tx}`);
 }
 
 async function list() {
@@ -161,9 +206,17 @@ async function draw(id: string) {
 
   const qualified: string[] = [];
   const detail: Array<{ player: string; held: number[] }> = [];
+  // One ticket per player: linked wallets that each entered count once.
+  const seenPlayers = new Set<string>();
   for (const e of entries) {
     // Holding the badge is what counts, whenever it was minted.
     const wallets = (await addressesForPlayer(e.player)) as Address[];
+    const person = [e.player, ...wallets].map((w) => w.toLowerCase()).sort()[0];
+    if (seenPlayers.has(person)) {
+      detail.push({ player: e.player, held: [] });
+      continue;
+    }
+    seenPlayers.add(person);
     const owned = new Set<number>();
     for (const w of wallets) for (const b of await onchainBadgeIdsHeld(w)) owned.add(b);
     const held = c.badgeIds.filter((b) => owned.has(b));
@@ -273,6 +326,10 @@ async function main() {
       return create();
     case "list":
       return list();
+    case "register":
+      return register(arg);
+    case "fee-recipient":
+      return setFeeRecipient(arg);
     case "sync":
       return sync(arg);
     case "draw":

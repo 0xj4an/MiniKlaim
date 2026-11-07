@@ -137,19 +137,23 @@ type EventMap = {
   drop_heat: { level: number };
   // Weekly challenges (paid entry by token transfer).
   challenge_viewed: { challenge: string; entered: boolean };
-  challenge_enter_started: { challenge: string };
-  challenge_enter_sent: { challenge: string; tx_hash: string; fee: string };
-  challenge_entered: { challenge: string; tx_hash: string; resumed?: boolean };
-  challenge_enter_failed: {
+  challenge_enter_started: { challenge: string; needs_approval?: boolean };
+  challenge_approve_started: { challenge: string; amount: string };
+  challenge_approve_sent: { challenge: string; tx_hash: string; fee: string };
+  challenge_approved: { challenge: string; tx_hash: string };
+  challenge_approve_failed: {
     reason: string;
     message?: string;
-    tx_hash?: string;
     code?: string;
     details?: string;
     error_name?: string;
     fees_tried?: string;
+  };
+  challenge_entered: { challenge: string; tx_hash: string; already?: boolean };
+  challenge_enter_failed: {
+    reason: string;
+    tx_hash?: string;
     balance?: string;
-    server_reason?: string;
     status?: number;
   };
   drop_claim_started: { count: number; surface: "run" | "me" };

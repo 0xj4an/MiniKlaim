@@ -23,6 +23,8 @@ vi.mock("@/lib/drops/claim", () => ({
   }),
 }));
 
+process.env.NEXT_PUBLIC_CELO_DROPS_ADDRESS = "0x19cE0B7C48608286A7872147f89F70896D0e67c6";
+const { challengeKey } = await import("@/lib/challenges/allowance");
 const { checkEntryTx, currentChallenge, hasEntered, owedToChallenges, recordEntry, viewOf } = await import(
   "@/lib/challenges/server"
 );
@@ -51,6 +53,22 @@ function fakeTransfer(hash: string, opts: { from?: string; to?: string; value?: 
       {
         address: opts.token ?? USDT,
         topics: [TRANSFER_TOPIC, pad(opts.from ?? PLAYER), pad(opts.to ?? DEPOSIT)],
+        data: encodeAbiParameters([{ type: "uint256" }], [opts.value ?? 1_000_000n]),
+      },
+    ],
+  });
+}
+const ENTERED_TOPIC = keccak256(toBytes("ChallengeEntered(bytes32,address,address,uint256)"));
+function fakeEnterFor(hash: string, opts: { player?: string; value?: bigint; key?: Hex; at?: Date; from?: string }) {
+  const block = BigInt(chain.receipts.size + 2000);
+  chain.blockTime.set(block, sec(opts.at ?? new Date(T0.getTime() + 3_600_000)));
+  chain.receipts.set(hash, {
+    status: "success",
+    blockNumber: block,
+    logs: [
+      {
+        address: opts.from ?? DEPOSIT,
+        topics: [ENTERED_TOPIC, opts.key ?? challengeKey(ID), pad(opts.player ?? PLAYER), pad(USDT)],
         data: encodeAbiParameters([{ type: "uint256" }], [opts.value ?? 1_000_000n]),
       },
     ],
@@ -101,8 +119,7 @@ describe.skipIf(!db)("challenges (database)", () => {
     const view = await viewOf(db!, c);
     expect(view.entrants).toBe(1);
     expect(view.pool).toBe("1800000"); // 1 seed + 80% of 1
-    // Only the seed sits in the contract; entries reach it at payout.
-    expect(await owedToChallenges(db!, USDT)).toBe(1_000_000n);
+    expect(await owedToChallenges(db!, USDT)).toBe(1_800_000n);
   });
 
   it("refuses anything else", async () => {
@@ -118,6 +135,24 @@ describe.skipIf(!db)("challenges (database)", () => {
       reasons.push("reason" in r ? r.reason : "ok");
     }
     expect(reasons).toEqual(["wrong-amount", "no-transfer", "outside-window", "reverted", "no-transfer", "excluded", "pending"]);
+  });
+
+  it("reads an allowance entry from the contract's event", async () => {
+    fakeEnterFor(h(20), {});
+    expect(await checkEntryTx(c, h(20), "0x8da26Ae1B32a7e4Cd158622D7d70Fe16D6F1dE83")).toMatchObject({
+      ok: true,
+      player: PLAYER,
+      amount: 1_000_000n,
+    });
+    fakeEnterFor(h(21), { key: challengeKey("another-week") });
+    fakeEnterFor(h(22), { from: "0x0000000000000000000000000000000000000bad" });
+    fakeEnterFor(h(23), { at: new Date(T0.getTime() + 4 * 86_400_000) });
+    const r = [];
+    for (const i of [21, 22, 23]) {
+      const x = await checkEntryTx(c, h(i), "0x8da26Ae1B32a7e4Cd158622D7d70Fe16D6F1dE83");
+      r.push("reason" in x ? x.reason : "ok");
+    }
+    expect(r).toEqual(["no-transfer", "no-transfer", "outside-window"]);
   });
 
   it("one entry per player: a second payment is not an entry", async () => {
