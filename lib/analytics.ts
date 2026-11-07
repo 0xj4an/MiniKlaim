@@ -212,6 +212,15 @@ type EventMap = {
   // produced no event at all and a player reporting "the map did not load"
   // could not be matched to anything. `ms` says how long it had been blank
   // and `stage` the step it was stuck in.
+  // A tile, sprite or glyph that failed after the map was already on screen.
+  // Separated from map_render_failed because mixing them inflated that metric
+  // by a factor of forty: see the note on `drawn` in lib/map/mapTelemetry.
+  map_tiles_degraded: {
+    tier: string;
+    path: string;
+    cause: string;
+    message: string;
+  };
   map_render_stalled: {
     tier: "gl2" | "gl1" | "grid";
     engine: "maplibre" | "grid";
