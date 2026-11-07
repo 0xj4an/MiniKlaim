@@ -93,12 +93,29 @@ export function mapRenderStarted(
   });
 }
 
+/**
+ * Maps that have drawn at least once on this page load.
+ *
+ * MapLibre keeps fetching after the map is up: tiles as you pan, sprites,
+ * glyphs. Any of those failing raises `map.on("error")`, and every one of
+ * those was being reported as a render failure. On 6 Nov 2026 that read as 42
+ * failures, which is the number we would have used to decide whether to pay
+ * for a tile host. Cross-checking against `map_render_ready` showed 5 of the
+ * 6 affected players had a working map; the one with 33 "failures" had loaded
+ * the map twice. One player out of 303 actually went without a map.
+ *
+ * So after a map is ready, a tile that fails is a degraded basemap, not a
+ * failed render: it gets counted, and it stops paging.
+ */
+const drawn = new Set<string>();
+
 export function mapRenderReady(
   tier: MapTier,
   engine: MapEngine,
   path: string,
   ms: number,
 ): void {
+  drawn.add(path);
   Sentry.addBreadcrumb({
     category: "map",
     level: "info",
@@ -157,6 +174,20 @@ export function mapRenderFailed(
   const message = messageOf(error);
   // What gave up, as opposed to when. See lib/map/mapFailureKind.
   const cause = causeOf(message);
+
+  // The map is already on screen, so this is a tile or a sprite, not a map
+  // that never drew. See `drawn` above for the count that made this obvious.
+  if (drawn.has(path)) {
+    log.warn("map asset failed after render", { tier, path, cause, message });
+    track("map_tiles_degraded", {
+      tier,
+      path,
+      cause,
+      message: message.slice(0, 200),
+    });
+    return;
+  }
+
   log.error("map render failed", { tier, engine, path, stage, cause, message });
 
   track("map_render_failed", {
