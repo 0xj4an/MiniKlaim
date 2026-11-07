@@ -53,7 +53,7 @@ Roles:
 
 ### `MiniKlaimDrops` (upgradeable) - LIVE (pilot)
 
-Treasures hidden in map blocks, paid in an allowlisted ERC-20 (USDT, COPm on Celo mainnet). A drop pays `amount` to each of up to `maxWinners` players, one prize per player.
+Treasures hidden in map blocks, paid in an allowlisted ERC-20 (USDT, COPm on Celo mainnet). A drop pays `amount` to each of up to `maxWinners` players, one prize per player. Since v2 it also takes the paid entries of weekly challenges (below), and a challenge payout is a drop like any other.
 
 - `fund(token, amount)`: anyone tops up an allowed token.
 - `createDrop(dropId, token, amount, maxWinners, commitment)` (`REWARDER_ROLE`): reserves `amount * maxWinners` in `committed[token]` and reverts when the free balance (`balance - committed`) cannot cover it, so a leaked signing key can at most pay out what open drops already reserve. `commitment = keccak256(abi.encode(dropId, uint64 h3, bytes32 salt))`, so the block is fixed onchain without being public.
@@ -65,9 +65,17 @@ Treasures hidden in map blocks, paid in an allowlisted ERC-20 (USDT, COPm on Cel
 
 A closed spot is reopened by creating a new drop at the same block (new id and commitment).
 
+Challenge entries (v2, 2026-11-07). MiniPay cannot sign messages, refuses unlimited approvals and caps them at $10, so the player approves this contract once for a bounded amount (10 USDT in the app) and every entry is a tap the relayer turns into one call:
+- `setChallenge(challengeId, token, entry, opensAt, closesAt, poolBps)` (`REWARDER_ROLE`): registers a challenge. `challengeId = keccak256(bytes(id))` of the app's text id. Token, fee and split are fixed from the first call on; only the window can move.
+- `enterFor(challengeId, player)` (`REWARDER_ROLE`, pausable): pulls exactly `entry` from the player's allowance, once per player, inside the window. `poolBps` of it stays here (tracked in `pooled[challengeId]`, free balance for the payout drop) and the rest goes to `feeRecipient` in the same transaction. Emits `ChallengeEntered` and `ChallengeFeePaid`. With a fee and no recipient it reverts.
+- `setFeeRecipient(address)` (`DEFAULT_ADMIN_ROLE`): where the non-pool share goes. Starts as the relayer; can change any time.
+- Views: `getChallenge(challengeId)`, `entered(challengeId, player)`, `pooled(challengeId)`, `feeRecipient()`.
+
+Who qualifies and the draw stay offchain and reproducible: entrants whose linked wallets hold every challenge badge when the draw runs, drawn with the hash of a block fixed at create time (`scripts/challenges.ts`). One ticket per player across linked wallets.
+
 Roles, split at `initialize(admin, rewarder, tokens)` so the server key cannot upgrade or withdraw:
-- `DEFAULT_ADMIN_ROLE`: upgrade, allowlist, withdraw, pause, roles.
-- `REWARDER_ROLE`: create, edit and expire drops, sign claim vouchers. The backend relayer key.
+- `DEFAULT_ADMIN_ROLE`: upgrade, allowlist, withdraw, pause, roles, fee recipient.
+- `REWARDER_ROLE`: create, edit and expire drops, sign claim vouchers, register challenges and relay entries. The backend relayer key.
 
 ### `MiniKlaimClaimRouter` (NOT upgradeable)
 
@@ -113,12 +121,14 @@ Use the PROXY address in env, dApps, explorers. The implementation address is de
 | MiniKlaimClaimRouter | single (no proxy) | `0x9C3369e1519B03c16C329aCE13dB528eC8Ca8c74` | 78286681 | 2026-09-23 |
 | MiniKlaimRewards | proxy | (not deployed) | - | - |
 | MiniKlaimDrops | proxy | `0x19cE0B7C48608286A7872147f89F70896D0e67c6` | 81903330 | 2026-11-04 |
-| MiniKlaimDrops | implementation | `0xe6fd4ED159A0eece684c19310Fc3204f99D8a23E` | 81903330 | 2026-11-04 |
+| MiniKlaimDrops | implementation (v2, live) | `0xcb115d4af62c98aef9177fe00419f98fc52b8b43` | 82145913 | 2026-11-07 |
+| MiniKlaimDrops | implementation (v1, retired) | `0xe6fd4ED159A0eece684c19310Fc3204f99D8a23E` | 81903330 | 2026-11-04 |
 
 Creation transactions:
 
 - Drops implementation: `0xbf3ecf2279ff02458ac05e78b0d97112539b356e9f09b9fd4081f9c191991ded`
 - Drops proxy: `0xf0fe6044a2f4844139701c059bcb69d7a1bb66f53e7ce425c72e8861a73f9217`
+- Drops v2 implementation: `0xdfd013ff530ff1b44f58f0e773aad7387fa8c37562cf74c116654ac4f1312d85`; upgrade: `0xee0505b22af65ac083d9bc7e015df7aa5a371aa5d34ef1ecb053e0b29c81f146` (block 82145915, 2026-11-07); `setFeeRecipient` to the relayer: `0xf38de79d6e353fdc4262b62d7e56ae331e3142c9faf94341f3819041507dc5d9`; `setChallenge` for `2026-w46-first-badges`: `0x72971af29548cae6f2ae2e94847b8d6ceb0bb57653227d16b6846435d4092d30`
 - Hexes proxy: `0xe2a3c853929d23ee74e3f474f62aaecf904c1debf09991a1a24cc6b8fc64eca8`
 - Hexes implementation: `0x3afaf852c0baec8004f5be83c438fdce515359caa4a836225c8d461c37456a55`
 - Hexes v2 implementation: `0xdf039b4945c7da85eabc3969943b4e080c881ea57fbbbc53fdeda979020228fb`; upgrade: `0x758bec335bf86f16ae325fec35090111728965f3d3579e1054c8e3eb71c8d227` (block 80613040, 2026-10-20T16:29:58Z)
@@ -126,7 +136,7 @@ Creation transactions:
 - Badges implementation: `0x2edc0b150e647d1709fddabf05ef78586737d95b352d3efc83c6f9db21ea5533`
 - ClaimRouter: `0x500a52e3ccb2e52efba0afee55d6c935f262c94965a546d7ab6acfbaad665ccf`
 
-All four are verified on both Celoscan and Celo's Blockscout instance.
+Hexes, Badges and the ClaimRouter are verified on both Celoscan and Celo's Blockscout instance. MiniKlaimDrops is not verified yet (pending; MiniPay requires it for its review).
 
 ### Soneium mainnet (chain 1868) - verified on Blockscout
 
@@ -232,15 +242,15 @@ forge test --match-contract MiniKlaimHexes -vv
 forge test --match-contract MiniKlaimRewards --gas-report
 ```
 
-Current suite: 112 passing across five files (`forge test` is the source of truth).
+Current suite: 122 passing across five files (`forge test` is the source of truth).
 
 | File | Tests |
 |---|---|
-| `MiniKlaimHexes.t.sol` | 19 |
+| `MiniKlaimHexes.t.sol` | 23 |
 | `MiniKlaimBadges.t.sol` | 17 |
 | `MiniKlaimRewards.t.sol` | 21 |
-| `MiniKlaimClaimRouter.t.sol` | 17 |
-| `MiniKlaimDrops.t.sol` | 33 |
+| `MiniKlaimClaimRouter.t.sol` | 18 |
+| `MiniKlaimDrops.t.sol` | 43 |
 
 ## Deployment
 
@@ -271,7 +281,11 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for the full sequence.
 
 Rollback: upgrade back to the v1 implementation `0x9Ae06a93154b6f54E4Ad44A2664b321AC68554EE` and unset the flag. Hexes recorded under v2 then have no token; the relayer can mint them with `captureBatch`.
 
-`MiniKlaimHexes`, `MiniKlaimBadges` and `MiniKlaimRewards` are UUPS, so an upgrade is a single tx from the `DEFAULT_ADMIN_ROLE` holder. `MiniKlaimClaimRouter` has no upgrade path by design; replacing it means deploying a new one, granting it the two roles and revoking them from the old one.
+### Drops v2 (challenge entries, 2026-11-07)
+
+`script/UpgradeDrops.s.sol` (`DROPS_PROXY`, `DROPS_CHECK_TOKEN`) upgrades and checks that `committed`, the free balance and the allowlist do not move. v2 takes four storage slots from the gap (44 to 40). After the upgrade: `setFeeRecipient`, then register each challenge (`scripts/challenges.ts register <id> --execute`, or `create --execute`, which registers too). Rollback: upgrade back to `0xe6fd4ED159A0eece684c19310Fc3204f99D8a23E`; entries already taken stay in the contract as free balance.
+
+`MiniKlaimHexes`, `MiniKlaimBadges`, `MiniKlaimRewards` and `MiniKlaimDrops` are UUPS, so an upgrade is a single tx from the `DEFAULT_ADMIN_ROLE` holder. `MiniKlaimClaimRouter` has no upgrade path by design; replacing it means deploying a new one, granting it the two roles and revoking them from the old one.
 
 ```solidity
 // From a UUPS-aware wallet or foundry script
