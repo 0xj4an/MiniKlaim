@@ -80,11 +80,32 @@ export function BottomNav() {
             // full page reload flash.
             router.refresh();
           }}
-          aria-label="Toggle language"
-          className="flex w-12 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-zinc-200 py-2.5 text-[10px] font-medium tracking-wide uppercase text-zinc-500 hover:text-zinc-900"
+          aria-label={
+            locale === "en" ? "Cambiar a espanol" : "Switch to English"
+          }
+          className="flex w-12 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-zinc-200 py-2.5 text-[10px] font-medium tracking-wide text-zinc-500 uppercase hover:text-zinc-900"
         >
           <GlobeIcon className="h-6 w-6" />
-          <span>{locale === "en" ? "EN" : "ES"}</span>
+          {/*
+           * The language this tap WILL give you, not the one you are in.
+           *
+           * It used to show the current locale, which is the wrong way round
+           * for a button and it stranded people. The control is 48px wide and
+           * sits flush against the Help tab, so it gets tapped by accident;
+           * the app turned Spanish, the label then read ES, and a player
+           * looking for English saw no button offering it. Measured over five
+           * days, more people switched into Spanish each day than switched
+           * back out (7 Nov: 31 in, 23 out; 6 Nov: 39 in, 27 out) on a player
+           * base whose browsers are almost entirely English: two people in
+           * two days had a Spanish browser against 31 a day going to Spanish.
+           * The gap is people who could not find the way back, and one of
+           * them wrote to support asking how to return to English.
+           *
+           * Showing the destination is the ordinary convention and makes the
+           * return trip self-evident: in English it offers ES, in Spanish it
+           * offers EN.
+           */}
+          <span>{locale === "en" ? "ES" : "EN"}</span>
         </button>
       </div>
     </nav>
