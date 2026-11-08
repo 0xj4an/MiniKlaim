@@ -148,6 +148,35 @@ wait_serving() {
   return 1
 }
 
+#
+# Pay the cold start ourselves instead of charging it to a player.
+#
+# Measured 8 Nov 2026: a container that has just started accepting connections
+# answers its first page request in 5.7 s, and that one request is the whole
+# remaining cost of a deploy. It was first blamed on the app not draining on
+# SIGTERM, and that was wrong: `docker stop` takes 1.4 s and exits 143, so the
+# signal is honoured and Next finishes what it is holding. The slow request is
+# at the other end, on the way up.
+#
+# So ask for a real page here, once, before the container is carrying anyone.
+# Best effort on purpose: the deploy must not fail because a warm-up request
+# was slow or the page needs a database that is having a moment. If it does not
+# work, the only cost is that a player pays the 5.7 s instead of us.
+#
+# This works because Caddy benches an upstream that refused a connection for
+# `fail_duration`, so the primary is out of rotation for a window after it is
+# replaced, and this runs inside that window. See ops/README.md.
+warm() {
+  local name="$1" ip
+  ip="$(docker inspect -f '{{.NetworkSettings.Networks.shared.IPAddress}}' "$name" 2>/dev/null || true)"
+  [ -n "$ip" ] || return 0
+  local t0 t1
+  t0="$(date +%s%3N)"
+  curl -sS -m 30 -o /dev/null "http://$ip:3000/" 2>/dev/null || true
+  t1="$(date +%s%3N)"
+  echo "    $name warmed in $((t1 - t0)) ms"
+}
+
 # Replace the two app containers one at a time, not both at once.
 #
 # Until today a deploy stopped the only app container and started a new one,
@@ -175,8 +204,10 @@ wait_serving() {
 echo "==> up (rolling: standby, then primary)"
 docker compose up -d --no-deps miniklaim-standby
 wait_serving miniklaim-standby
+warm miniklaim-standby
 docker compose up -d --no-deps miniklaim
 wait_serving miniklaim
+warm miniklaim
 docker compose up -d --no-deps miniklaim-retry-unminted miniklaim-finalize-orphans
 
 # A NEXT_PUBLIC_* that reached the container but not the build is silent and

@@ -161,13 +161,25 @@ visible in the shape of it: exactly one request pays the cost of discovering
 the primary is gone, and everything after it is routed straight to the
 standby.
 
-What is left is that one request, which took 8.8 s, and it is **not** a dial
-problem: lowering `dial_timeout` from 2 s to 1 s barely moved it. It is a
-request that was already in flight when the container took SIGTERM. A
-response that has begun cannot be transparently replayed, so it waits out
-Docker's stop grace period. Closing that needs the app to drain in-flight
-requests on SIGTERM before exiting, which is a change in the app and not in
-the proxy. Until then a deploy costs one slow success, not a failure.
+What is left is that one request, which took 8.8 s. The first explanation
+written here was that it was in flight when the container took SIGTERM and
+was waiting out Docker's stop grace period, and **that was wrong**. Measured
+afterwards: `docker stop` on this image takes **1.4 s** and the container
+exits **143**, so the signal is honoured and Next finishes what it is holding,
+exactly as its own docs promise. Shutdown was never the problem.
+
+The cost is at the other end. A container that has just begun accepting
+connections answers its first page request in **5.7 s**, with the response
+arriving about 8.6 s after launch. That is the whole remaining cost of a
+deploy, and it is a cold start: the world list warms, the first database
+connection opens, nothing is JIT-warm yet.
+
+So `deploy.sh` asks for a real page itself, once, after `wait_serving` and
+before the container is carrying anyone. It fits because `fail_duration`
+keeps a just-replaced upstream out of rotation for a window, and the warm-up
+runs inside it. It is best effort on purpose: a deploy must not fail because
+a warm-up request was slow, and the only cost of it not working is that a
+player pays the 5.7 s instead of us.
 
 `ops/deploy.sh` replaces the two containers one at a time, standby first so
 that traffic only ever lands on a container already running the new build,
