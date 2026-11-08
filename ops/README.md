@@ -100,25 +100,62 @@ takes to come back, and anyone mid-request got a 502. The access log showed
 them in bursts at the exact minute of each deploy: 11 on 30 Oct, 16 on
 31 Oct: not scattered.
 
-The proxy now retries the dial instead of answering. This lives in the
-shared Caddyfile on the VPS (`/home/0xj4an/docker/infra/caddy/Caddyfile`,
-not in this repo), in the MiniKlaim block only:
+Retrying the dial (31 Oct) narrowed the window but could not close it: there
+was nowhere else to retry to. The 07:13 deploy on 8 Nov still cost 25 events
+across 18 players (MINIKLAIM-1C, -1F).
+
+So there are two app containers now, `miniklaim` and `miniklaim-standby`,
+running the same image, and the proxy has both. This lives in the shared
+Caddyfile on the VPS (`/home/0xj4an/docker/infra/caddy/Caddyfile`, not in
+this repo), in the MiniKlaim block only:
 
 ```
 miniklaim.fun, www.miniklaim.fun {
-    reverse_proxy miniklaim:3000 {
+    reverse_proxy miniklaim:3000 miniklaim-standby:3000 {
+        lb_policy first
         lb_try_duration 20s
         lb_try_interval 250ms
+        fail_duration 15s
     }
 }
 ```
 
+`lb_policy first` means this is a standby and not a load balancer:
+everything goes to `miniklaim` while it is up, and to the standby only when
+a dial to the primary fails, so one container keeps its caches warm and
+behaviour stays predictable. `fail_duration` benches an upstream that
+refused a connection, so during a recreation requests go straight to the
+other one instead of each paying a failed dial first.
+
+**There are deliberately no active health checks.** `health_uri /api/health`
+is the obvious thing to add and it would be a mistake: that route answers
+**503 when the database is slow or unreachable**, so a Postgres blip would
+mark *both* upstreams unhealthy and Caddy would 502 everything, including the
+pages that never touch the database. Passive checking keys off whether a TCP
+connection can be opened, which is exactly what is false while a container is
+being replaced and is blind to database state. `ops/deploy.sh` gates its
+rolling restart on the same signal for the same reason.
+
 Only a *failed connection* is retried, so nothing was sent and replaying is
-safe even for a POST. Measured by hammering `/api/health` four times a
-second through a full `docker compose restart`: **239 of 240 requests
-returned 200**, and the one failure was a 503 after the retry window, not a
-502. Validate with `caddy validate` and reload with `caddy reload` before
-trusting any edit to that file: it fronts every site on the box.
+safe even for a POST. App-level 500s do not bench an upstream either, because
+`unhealthy_status` is not set.
+
+`ops/deploy.sh` replaces the two containers one at a time, standby first so
+that traffic only ever lands on a container already running the new build,
+and waits for each to answer before touching the next.
+
+Two containers against one database is only safe because nothing that matters
+lives in the server's memory: the per-run token is a sha256 in
+`runs.claim_token_hash` and the sponsor cap is counted from the
+`sponsored_mints` table, so either container can answer for work the other
+started. The only in-process state is read-only caching (the cities table, the
+basemap style), which costs a second copy and nothing else, and nothing in the
+web server runs on a timer: the maintenance jobs are their own containers and
+are still single. Keep it that way. Anything that needs to happen once per
+deploy, or once per interval, does not belong in the app.
+
+Validate with `caddy validate` and reload with `caddy reload` before trusting
+any edit to that file: it fronts every site on the box.
 
 ## Build arguments the VPS has to pass
 
