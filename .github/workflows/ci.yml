@@ -15,40 +15,62 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Install Foundry from its release tarball instead of running foundryup.
+      # Foundry comes from a cache first and the release tarball second, and
+      # neither of those is how it used to work. The history matters because
+      # I got it wrong twice.
       #
       # `foundry-rs/foundry-toolchain@v1` shells out to foundryup, and on
-      # 8 Nov 2026 that failed all day: GitHub answered 504 for
-      # `foundryup_linux_amd64` and for the release attestation file, three
-      # times in a row inside a single job, so retrying was not enough and a
-      # release sat blocked on a check that could not pass.
+      # 8 Nov 2026 the contracts job failed all day on a 504 fetching
+      # `foundryup_linux_amd64`. First call: GitHub release downloads are
+      # down, add retries. Wrong, and three retries failed in one job.
+      # Second call: only foundryup and the attestation are broken, because
+      # from the VPS the binaries answered 200 four times in a row and
+      # delivered all 118 MB. Also wrong: with the tarball in place the job
+      # passed once and then failed with four 504s on that same tarball.
       #
-      # It was never GitHub being down, which is what it looked like and what
-      # was written here first. Measured the same day from outside CI: the
-      # binaries themselves,
-      # `foundry_v1.9.0_linux_amd64.tar.gz`, answered 200 four times in a row
-      # and delivered all 118 MB, while foundryup and the attestation kept
-      # answering 504. Two specific assets were broken, not the service. So
-      # take the tarball and skip the installer that cannot be fetched.
+      # What is actually true is that the 504s are intermittent and the
+      # runners see them while other networks do not, so no single download
+      # is reliable and a 15-second retry window is not patience, it is
+      # optimism.
       #
-      # This also pins the version, which the action did not: it resolved
+      # So: cache the extracted binaries under the pinned version, and only
+      # reach for the network when that misses. One good download serves
+      # every later run, which takes CI off the CDN instead of hoping. When
+      # it does have to download, it now keeps trying for three minutes.
+      #
+      # The version is pinned, which the action never was: it resolved
       # "latest" on every run, so a Foundry release could change what CI
-      # means with no commit here. Bumping is now a visible edit.
+      # means with no commit here. Bumping is a visible edit and it busts the
+      # cache key by itself.
       #
       # The tarball holds forge, cast, anvil, chisel and solar flat at the
       # root; verified by extracting it and running `forge --version`.
-      - name: Install Foundry
+      - name: Cache Foundry
+        id: foundry-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.foundry/bin
+          key: foundry-1.9.0-linux-amd64
+
+      - name: Download Foundry
+        if: steps.foundry-cache.outputs.cache-hit != 'true'
         working-directory: ${{ github.workspace }}
         run: |
-          curl -fsSL --retry 3 --retry-delay 5 \
+          curl -fsSL --retry 8 --retry-delay 15 --retry-max-time 180 \
             "https://github.com/foundry-rs/foundry/releases/download/v${FOUNDRY_VERSION}/foundry_v${FOUNDRY_VERSION}_linux_amd64.tar.gz" \
             -o /tmp/foundry.tar.gz
           mkdir -p "$HOME/.foundry/bin"
           tar -xzf /tmp/foundry.tar.gz -C "$HOME/.foundry/bin"
-          echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
-          "$HOME/.foundry/bin/forge" --version
         env:
           FOUNDRY_VERSION: 1.9.0
+
+      # Unconditional: a cache hit still needs the directory on PATH, and
+      # running the binary proves the cache is not a stale empty directory.
+      - name: Put Foundry on PATH
+        working-directory: ${{ github.workspace }}
+        run: |
+          echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
+          "$HOME/.foundry/bin/forge" --version
 
       - name: Install contract deps
         # lib/ is gitignored, so CI installs the pinned deps explicitly.
