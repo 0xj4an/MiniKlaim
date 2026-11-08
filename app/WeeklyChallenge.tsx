@@ -91,16 +91,19 @@ export function WeeklyChallenge() {
   });
 
   if (!c) return null;
+  // Paused: the whole card goes, not just its button. Entering is the only
+  // thing it is for, and a challenge you cannot enter is an advert for a
+  // disappointment. Nothing is lost by hiding it: `challenge_entered` has
+  // never fired, so no one has an entry to come back and check on. The
+  // server refuses entry independently, so this is presentation only. See
+  // lib/challenges/paused.
+  if (data?.entriesPaused === true) return null;
   const now = Date.now();
   const entriesOpen =
     now < new Date(c.entryClosesAt).getTime() &&
     now < new Date(c.closesAt).getTime();
   const closed = now >= new Date(c.closesAt).getTime();
   const entered = data?.player?.entered || state === "entered";
-  // Paused server-side; the button would only lead to a wallet refusal. See
-  // lib/challenges/paused. The challenge itself stays visible: its pool,
-  // badges and dates are still real and still worth reading.
-  const entriesPaused = data?.entriesPaused === true;
   const price = formatPrize(c.token, c.entryAmount, locale);
   // Unknown (read failed) shows the one-tap copy; the hook asks for the approval if it turns out missing.
   const needsApproval = allowance !== null && allowance < BigInt(c.entryAmount);
@@ -218,15 +221,6 @@ export function WeeklyChallenge() {
         <p className="text-center text-sm font-medium text-emerald-800">
           ✅ {t("challenge.entered")}
         </p>
-      ) : entriesPaused ? (
-        <>
-          <p className="text-center text-sm font-medium text-amber-800">
-            {t("challenge.paused")}
-          </p>
-          <p className="text-center text-xs text-violet-700">
-            {t("challenge.pausedWhy")}
-          </p>
-        </>
       ) : entriesOpen ? (
         <>
           {address && (
