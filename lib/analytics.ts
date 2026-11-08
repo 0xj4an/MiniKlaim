@@ -24,7 +24,31 @@ type EventMap = {
   wrong_chain_detected: { current_chain_id: number; expected_chain_id: number };
   username_picked: { length: number; is_first_time: boolean };
   username_changed: { length: number };
+  /**
+   * Wallet linking, instrumented end to end.
+   *
+   * `wallet_linked` was declared here and fired from nowhere, and the rest of
+   * the funnel did not exist at all. So the question "is linking used?" came
+   * back as zero events, and on 31 Oct that was read as "nobody uses it"
+   * (P67). It was not an answer, it was the absence of one: there was no way
+   * to tell a player who never saw the panel from one who saw it and walked
+   * away. `link_prompt_shown` is the one that settles that, which is why it
+   * is here even though it fires on a render and not on an action.
+   */
+  link_prompt_shown: Record<string, never>;
+  link_code_generated: { chain: string };
+  link_redeem_started: { chain: string };
   wallet_linked: { linked_chain_id: number };
+  /**
+   * Why a redeem did not finish. The stages are distinct problems and the
+   * fix for each is different: `wallet` is the player declining or the wallet
+   * failing to send, `pending` is our backend never seeing the receipt after
+   * five tries, and `rejected` is the backend refusing the code.
+   */
+  link_redeem_failed: {
+    reason: "wallet" | "rejected" | "pending" | "threw";
+    status?: number;
+  };
   // Onboarding is a single static 3-step card, so there is nothing to page
   // through. Only fire on dismiss with the exit path so we can tell engaged
   // users (tapped the CTA) from disengaged (clicked the backdrop).
