@@ -333,9 +333,6 @@ export const dictionaries = {
       "Could not enter right now. Nothing was charged; try again in a minute.",
     "challenge.entriesUntil": "Entries until {date}",
     "challenge.endsAt": "Closes {date}",
-    "challenge.paused": "Entries are paused right now.",
-    "challenge.pausedWhy":
-      "Paying the entry fee does not work in MiniPay yet: the wallet turns the payment down. We have asked them about it. Nobody has been charged, and we will reopen entries here as soon as it works. The challenge itself runs as planned.",
     "challenge.entriesClosed": "Entries are closed.",
     "challenge.badge.held": "Claimed",
     "challenge.badge.claim": "Earned: claim it",
@@ -941,9 +938,6 @@ export const dictionaries = {
       "No pudimos inscribirte ahora. No se cobró nada; intenta en un minuto.",
     "challenge.entriesUntil": "Inscripciones hasta {date}",
     "challenge.endsAt": "Cierra {date}",
-    "challenge.paused": "Las entradas están en pausa.",
-    "challenge.pausedWhy":
-      "Pagar la entrada todavía no funciona en MiniPay: la wallet rechaza el pago. Ya les preguntamos. A nadie se le cobró, y abrimos las entradas aquí en cuanto funcione. El challenge sigue como estaba previsto.",
     "challenge.entriesClosed": "Inscripciones cerradas.",
     "challenge.badge.held": "Reclamada",
     "challenge.badge.claim": "Ganada: reclámala",
