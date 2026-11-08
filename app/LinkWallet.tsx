@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
@@ -28,6 +29,15 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
     }
   }, [state]);
 
+  // Count that the panel was actually in front of someone. Without this, zero
+  // codes generated is unreadable: it could mean nobody wants to link, or it
+  // could mean nobody ever got here. On 31 Oct the zero was read as the first
+  // and it was never evidence for either (P67, P88).
+  const seen = address !== null;
+  useEffect(() => {
+    if (seen) track("link_prompt_shown", {});
+  }, [seen]);
+
   if (!address) return null;
 
   const busy = state === "sending" || state === "confirming";
@@ -40,7 +50,10 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
         body: JSON.stringify({ address }),
       });
       const d = (await res.json()) as { code?: string };
-      if (res.ok && d.code) setCode(d.code);
+      if (res.ok && d.code) {
+        setCode(d.code);
+        track("link_code_generated", { chain: chainKey });
+      }
     } catch (e) {
       log.warn("generate code failed", {
         message: e instanceof Error ? e.message : String(e),
