@@ -2,8 +2,18 @@ import { NextResponse } from "next/server";
 import type { Address } from "viem";
 import { db } from "@/lib/db";
 import { approveAmount, readEntryFunds } from "@/lib/challenges/allowance";
-import { challengeDepositAddress, currentChallenge, hasEntered, viewOf } from "@/lib/challenges/server";
-import { DROP_TOKENS, dropsAddress, dropTokenByAddress } from "@/lib/drops/config";
+import { challengeEntriesPaused } from "@/lib/challenges/paused";
+import {
+  challengeDepositAddress,
+  currentChallenge,
+  hasEntered,
+  viewOf,
+} from "@/lib/challenges/server";
+import {
+  DROP_TOKENS,
+  dropsAddress,
+  dropTokenByAddress,
+} from "@/lib/drops/config";
 import { createLogger } from "@/lib/logger";
 import { computeEligibleBadgeIds } from "@/lib/onchain/badgeEligibility";
 import { badgeIdsHeldByPlayer } from "@/lib/onchain/playerHeldBadges";
@@ -19,7 +29,8 @@ export const dynamic = "force-dynamic";
  * earned but not claimed (they only count once minted).
  */
 export async function GET(request: Request) {
-  const raw = new URL(request.url).searchParams.get("address")?.toLowerCase() ?? "";
+  const raw =
+    new URL(request.url).searchParams.get("address")?.toLowerCase() ?? "";
   const address = /^0x[a-f0-9]{40}$/.test(raw) ? raw : null;
   try {
     const c = await currentChallenge(db, new Date());
@@ -33,6 +44,7 @@ export async function GET(request: Request) {
       deposit: challengeDepositAddress(),
       spender,
       approveAmount: token ? approveAmount(token.decimals).toString() : null,
+      entriesPaused: challengeEntriesPaused(),
     };
     if (address) {
       const [linked, held, eligible] = await Promise.all([
@@ -42,9 +54,15 @@ export async function GET(request: Request) {
       ]);
       const wanted = new Set(c.badgeIds);
       const heldHere = held.filter((id) => wanted.has(id));
-      const claimable = eligible.map(Number).filter((id) => wanted.has(id) && !heldHere.includes(id));
+      const claimable = eligible
+        .map(Number)
+        .filter((id) => wanted.has(id) && !heldHere.includes(id));
       const funds = spender
-        ? await readEntryFunds(c.token as Address, address as Address, spender).catch(() => null)
+        ? await readEntryFunds(
+            c.token as Address,
+            address as Address,
+            spender,
+          ).catch(() => null)
         : null;
       body.player = {
         entered: await hasEntered(db, c.id, linked),
@@ -54,7 +72,9 @@ export async function GET(request: Request) {
         balance: funds ? funds.balance.toString() : null,
       };
     }
-    return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(body, {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (e) {
     log.error("current challenge failed", {
       error: (e instanceof Error ? e.message : String(e)).slice(0, 300),

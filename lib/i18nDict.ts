@@ -321,15 +321,21 @@ export const dictionaries = {
     "challenge.rule": "Hold these badges when the week ends to enter the draw.",
     "challenge.enter": "Enter for {amount}",
     "challenge.approveEnter": "Approve and enter for {amount}",
-    "challenge.approveWhy": "First time only: approve {approve} for MiniKlaim challenges. Each entry takes {amount} from it with one tap, and we pay the network fee. Nothing else is ever charged.",
+    "challenge.approveWhy":
+      "First time only: approve {approve} for MiniKlaim challenges. Each entry takes {amount} from it with one tap, and we pay the network fee. Nothing else is ever charged.",
     "challenge.approving": "Approve in your wallet...",
     "challenge.entering": "Entering...",
     "challenge.oneTap": "One tap: {amount} comes from your approved balance.",
-    "challenge.entered": "You are in the draw if you hold the badges at the close.",
+    "challenge.entered":
+      "You are in the draw if you hold the badges at the close.",
     "challenge.noFunds": "You need {amount} in your wallet to enter.",
-    "challenge.failed": "Could not enter right now. Nothing was charged; try again in a minute.",
+    "challenge.failed":
+      "Could not enter right now. Nothing was charged; try again in a minute.",
     "challenge.entriesUntil": "Entries until {date}",
     "challenge.endsAt": "Closes {date}",
+    "challenge.paused": "Entries are paused right now.",
+    "challenge.pausedWhy":
+      "Paying the entry fee does not work in MiniPay yet: the wallet turns the payment down. We have asked them about it. Nobody has been charged, and we will reopen entries here as soon as it works. The challenge itself runs as planned.",
     "challenge.entriesClosed": "Entries are closed.",
     "challenge.badge.held": "Claimed",
     "challenge.badge.claim": "Earned: claim it",
@@ -338,7 +344,8 @@ export const dictionaries = {
     "challenge.result.pending": "The week is closed. Draw soon.",
     "challenge.result.done": "Draw done: {n} winners of {amount} each.",
     "challenge.result.won": "You won {amount}! Claim it in your profile.",
-    "challenge.result.rolled": "Nobody qualified: the pool moves to the next challenge.",
+    "challenge.result.rolled":
+      "Nobody qualified: the pool moves to the next challenge.",
     "treasure.found.h": "You found a treasure!",
     "treasure.found.body": "{amount} at {place}.",
     "treasure.found.bodyNoPlace": "{amount}.",
@@ -919,27 +926,36 @@ export const dictionaries = {
     "challenge.pool": "Pool",
     "challenge.entrants": "{n} inscritos",
     "challenge.winners": "{n} ganadores",
-    "challenge.rule": "Ten estas badges al cierre de la semana para entrar al sorteo.",
+    "challenge.rule":
+      "Ten estas badges al cierre de la semana para entrar al sorteo.",
     "challenge.enter": "Entrar por {amount}",
     "challenge.approveEnter": "Aprobar y entrar por {amount}",
-    "challenge.approveWhy": "Solo la primera vez: aprueba {approve} para los challenges de MiniKlaim. Cada entrada toma {amount} de ahí con un toque y nosotros pagamos la comisión de red. Nunca se cobra nada más.",
+    "challenge.approveWhy":
+      "Solo la primera vez: aprueba {approve} para los challenges de MiniKlaim. Cada entrada toma {amount} de ahí con un toque y nosotros pagamos la comisión de red. Nunca se cobra nada más.",
     "challenge.approving": "Aprueba en tu wallet...",
     "challenge.entering": "Inscribiendo...",
     "challenge.oneTap": "Un toque: {amount} sale de tu saldo aprobado.",
     "challenge.entered": "Estás en el sorteo si tienes las badges al cierre.",
     "challenge.noFunds": "Necesitas {amount} en tu wallet para entrar.",
-    "challenge.failed": "No pudimos inscribirte ahora. No se cobró nada; intenta en un minuto.",
+    "challenge.failed":
+      "No pudimos inscribirte ahora. No se cobró nada; intenta en un minuto.",
     "challenge.entriesUntil": "Inscripciones hasta {date}",
     "challenge.endsAt": "Cierra {date}",
+    "challenge.paused": "Las entradas están en pausa.",
+    "challenge.pausedWhy":
+      "Pagar la entrada todavía no funciona en MiniPay: la wallet rechaza el pago. Ya les preguntamos. A nadie se le cobró, y abrimos las entradas aquí en cuanto funcione. El challenge sigue como estaba previsto.",
     "challenge.entriesClosed": "Inscripciones cerradas.",
     "challenge.badge.held": "Reclamada",
     "challenge.badge.claim": "Ganada: reclámala",
     "challenge.badge.missing": "Todavía no",
-    "challenge.howToFirst": "Una corrida que capture un bloque te las da todas.",
+    "challenge.howToFirst":
+      "Una corrida que capture un bloque te las da todas.",
     "challenge.result.pending": "La semana cerró. El sorteo es pronto.",
-    "challenge.result.done": "Sorteo hecho: {n} ganadores de {amount} cada uno.",
+    "challenge.result.done":
+      "Sorteo hecho: {n} ganadores de {amount} cada uno.",
     "challenge.result.won": "¡Ganaste {amount}! Reclámalo en tu perfil.",
-    "challenge.result.rolled": "Nadie cumplió: el pool pasa al siguiente challenge.",
+    "challenge.result.rolled":
+      "Nadie cumplió: el pool pasa al siguiente challenge.",
     "treasure.found.h": "¡Encontraste un tesoro!",
     "treasure.found.body": "{amount} en {place}.",
     "treasure.found.bodyNoPlace": "{amount}.",
