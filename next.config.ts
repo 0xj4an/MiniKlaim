@@ -19,6 +19,11 @@ const BUILD_SHA =
   process.env.RAILWAY_GIT_COMMIT_SHA?.trim() ||
   "";
 
+// Build-time worker cap, read by `experimental.cpus` below. Blank or
+// unparseable means "whatever Next would have chosen", which is the right
+// answer anywhere that is not a shared host.
+const BUILD_CPUS = Number(process.env.NEXT_BUILD_CPUS) || undefined;
+
 const nextConfig: NextConfig = {
   // Short commit of this build, shown in support emails, so a player's
   // ticket can be tied to a build.
@@ -64,6 +69,24 @@ const nextConfig: NextConfig = {
   // the original sources for real-user debugging.
   productionBrowserSourceMaps: true,
   experimental: {
+    // How many worker processes `next build` may fork for static generation.
+    //
+    // Left alone, Next takes `os.cpus().length - 1`, which on the VPS is 7,
+    // and each worker is a Node process that sizes its own heap from the
+    // machine: 8 processes on a 30 GiB box asked for about 25 GiB between
+    // them. The VPS also runs 40-odd other containers, so the build did not
+    // fail, it starved everything else: on 7 Nov 2026 at 10:45 UTC the host
+    // went to 1.27 GiB available and the kernel started killing processes,
+    // taking the site down for about 7 minutes (MINIKLAIM-1E, reported twice
+    // as unexplained downtime because the deploy also wiped the container
+    // logs that would have shown it).
+    //
+    // Set from the environment rather than hardcoded so a laptop with memory
+    // to spare keeps building at full width; the Dockerfile passes 2, which
+    // is what the VPS can afford. Undefined falls back to Next's default.
+    // `build/index.js` honours an explicit value verbatim, so this is a cap
+    // and not a hint.
+    cpus: BUILD_CPUS,
     // Tree-shake barrel exports from these wallet libs. We only use a handful
     // of hooks/utilities but the default Next import pulls in the whole
     // package, inflating client bundles by ~150 KiB on the home route where

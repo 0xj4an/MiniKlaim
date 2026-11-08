@@ -61,7 +61,13 @@ export function WeeklyChallenge() {
       .then((body: Payload) => {
         if (cancelled) return;
         setData(body);
-        if (body.challenge) {
+        // Only count a view the player can actually see. This fires from the
+        // fetch, which knows a challenge exists but not that the render below
+        // hides the card while entries are paused, so from 07:13 UTC on 8 Nov
+        // 2026 every home-page load recorded a view of a card nobody was
+        // shown: 822 of them before this was caught. The render's condition
+        // has to be mirrored here, not assumed.
+        if (body.challenge && body.entriesPaused !== true) {
           track("challenge_viewed", {
             challenge: body.challenge.id,
             entered: !!body.player?.entered,
