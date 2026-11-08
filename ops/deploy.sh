@@ -94,7 +94,7 @@ LOGDIR="$COMPOSE_DIR/logs/miniklaim"
 mkdir -p "$LOGDIR"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 echo "==> keeping logs in $LOGDIR"
-for c in miniklaim miniklaim-retry-unminted miniklaim-finalize-orphans; do
+for c in miniklaim miniklaim-standby miniklaim-retry-unminted miniklaim-finalize-orphans; do
   if docker inspect "$c" >/dev/null 2>&1; then
     # || true: a container that never started has no log, and losing a log is
     # not a reason to abandon a deploy that is otherwise fine.
@@ -114,15 +114,77 @@ done
 # a pending-claim both got ECONNREFUSED and a player saw a 500
 # (MINIKLAIM-1Q, 1P, 1N). The database is `restart: always` and is not this
 # script's to recreate; changing it is a deliberate act, by hand.
-echo "==> up"
-docker compose up -d --no-deps miniklaim miniklaim-retry-unminted miniklaim-finalize-orphans
+#
+# Wait until a container answers on its own port, so the next one is only
+# replaced once this one can take the traffic.
+#
+# The containers only `expose` 3000, so there is no published port to curl.
+# They are reachable from the host by their address on the `shared` bridge,
+# which is how Caddy reaches them too.
+#
+# Deliberately NOT a check that the app is healthy: `/api/health` answers 503
+# when the database is slow or unreachable, and gating a deploy on the
+# database means a Postgres blip leaves one container new and the other old.
+# What this has to prove is that the process is listening and serving, so 200
+# and 503 both pass and only a refused connection (000) or a proxy error
+# fails. It is the same thing Caddy keys off below.
+wait_serving() {
+  local name="$1" ip code deadline
+  deadline=$(( $(date +%s) + 90 ))
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    ip="$(docker inspect -f '{{.NetworkSettings.Networks.shared.IPAddress}}' "$name" 2>/dev/null || true)"
+    if [ -n "$ip" ]; then
+      code="$(curl -sS -m 3 -o /dev/null -w '%{http_code}' "http://$ip:3000/api/health" 2>/dev/null || echo 000)"
+      case "$code" in
+        200|503)
+          echo "    $name serving (http $code)"
+          return 0
+          ;;
+      esac
+    fi
+    sleep 2
+  done
+  echo "!! $name did not answer in 90s"
+  return 1
+}
+
+# Replace the two app containers one at a time, not both at once.
+#
+# Until today a deploy stopped the only app container and started a new one,
+# and for those seconds Caddy had nothing to proxy to: whoever was mid-request
+# got a 502. Caddy retrying the dial (lb_try_duration, 31 Oct) narrowed the
+# window but could not remove it, because there was nowhere else to retry to.
+# The 07:13 deploy on 8 Nov 2026 cost 25 events across 18 players, filed as
+# MINIKLAIM-1C and -1F.
+#
+# So there are two of them now, `miniklaim` and `miniklaim-standby`, running
+# the same image, and Caddy has both as upstreams with `lb_policy first`:
+# everything goes to `miniklaim` while it is up, and to the standby only when
+# a dial to the primary fails. Standby goes first so that by the time traffic
+# lands on it, it is already running the new build; then the primary is
+# replaced while the standby carries the requests.
+#
+# Both containers serve the same database and the same relayer, which is only
+# safe because nothing that matters is held in the server's memory: the
+# per-run token is a sha256 in `runs.claim_token_hash` and the sponsor cap is
+# counted from the `sponsored_mints` table, so either container can answer for
+# work the other started. The only in-process state is read-only caching (the
+# cities table, the basemap style), which costs a second copy and nothing else.
+# Nothing in the web server runs on a timer; the maintenance jobs are their own
+# containers and are still single.
+echo "==> up (rolling: standby, then primary)"
+docker compose up -d --no-deps miniklaim-standby
+wait_serving miniklaim-standby
+docker compose up -d --no-deps miniklaim
+wait_serving miniklaim
+docker compose up -d --no-deps miniklaim-retry-unminted miniklaim-finalize-orphans
 
 # A NEXT_PUBLIC_* that reached the container but not the build is silent and
 # costs a day (29 Oct 2026, hex strength). lib/envSkew.ts logs it at startup;
 # this is where you see it.
-sleep 8
 echo "==> env skew (nothing below this line is good news)"
-docker logs --since 1m miniklaim 2>&1 | grep -i "env:skew" || echo "none"
+docker logs --since 2m miniklaim 2>&1 | grep -i "env:skew" || echo "none"
+docker logs --since 2m miniklaim-standby 2>&1 | grep -i "env:skew" || echo "none"
 
 echo "==> running"
 docker ps --format '{{.Names}}\t{{.Status}}' | grep miniklaim
