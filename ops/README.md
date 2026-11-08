@@ -116,9 +116,22 @@ miniklaim.fun, www.miniklaim.fun {
         lb_try_duration 20s
         lb_try_interval 250ms
         fail_duration 15s
+        transport http {
+            dial_timeout 1s
+        }
     }
 }
 ```
+
+`dial_timeout` is the one that makes the retry budget mean anything, and it
+was found by measuring rather than reasoning. With two upstreams but no dial
+timeout, two requests out of 153 sat for the client's full 10 s instead of
+failing over after 250 ms: `lb_try_duration` governs the gap *between*
+attempts, and a single dial to a container that is being replaced can hang
+far longer than the whole budget, so the retry loop never got to run. A
+healthy dial across the `shared` bridge takes microseconds, so 1 s is three
+orders of magnitude of headroom, and a spurious failover costs nothing
+because the standby serves the same image.
 
 `lb_policy first` means this is a standby and not a load balancer:
 everything goes to `miniklaim` while it is up, and to the standby only when
@@ -139,6 +152,22 @@ rolling restart on the same signal for the same reason.
 Only a *failed connection* is retried, so nothing was sent and replaying is
 safe even for a POST. App-level 500s do not bench an upstream either, because
 `unhealthy_status` is not set.
+
+Measured by requesting the home page four times a second through a full
+`--force-recreate` of the primary: **161 of 161 requests returned 200**, and
+before the standby existed the same event cost real players hard 502s (25
+events across 18 people on the 07:13 deploy of 8 Nov). `fail_duration` is
+visible in the shape of it: exactly one request pays the cost of discovering
+the primary is gone, and everything after it is routed straight to the
+standby.
+
+What is left is that one request, which took 8.8 s, and it is **not** a dial
+problem: lowering `dial_timeout` from 2 s to 1 s barely moved it. It is a
+request that was already in flight when the container took SIGTERM. A
+response that has begun cannot be transparently replayed, so it waits out
+Docker's stop grace period. Closing that needs the app to drain in-flight
+requests on SIGTERM before exiting, which is a change in the app and not in
+the proxy. Until then a deploy costs one slow success, not a failure.
 
 `ops/deploy.sh` replaces the two containers one at a time, standby first so
 that traffic only ever lands on a container already running the new build,
