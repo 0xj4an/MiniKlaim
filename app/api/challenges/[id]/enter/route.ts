@@ -4,8 +4,19 @@ import { NextResponse } from "next/server";
 import { type Address, getAddress } from "viem";
 import { db } from "@/lib/db";
 import { challenges } from "@/lib/db/schema";
-import { enteredOnchain, isRegisteredOnchain, readEntryFunds, sendEnterFor } from "@/lib/challenges/allowance";
-import { checkEntryTx, challengeDepositAddress, hasEntered, recordEntry } from "@/lib/challenges/server";
+import {
+  enteredOnchain,
+  isRegisteredOnchain,
+  readEntryFunds,
+  sendEnterFor,
+} from "@/lib/challenges/allowance";
+import { challengeEntriesPaused } from "@/lib/challenges/paused";
+import {
+  checkEntryTx,
+  challengeDepositAddress,
+  hasEntered,
+  recordEntry,
+} from "@/lib/challenges/server";
 import { dropsPublicClient } from "@/lib/drops/claim";
 import { dropsAddress } from "@/lib/drops/config";
 import { createLogger } from "@/lib/logger";
@@ -31,19 +42,31 @@ function fail(reason: string, status: number, extra?: Record<string, unknown>) {
  * 409 `needs-approval` / `no-funds` tell the card what to show; 409
  * `entered` means it is already done.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const { id } = await params;
   const body = (await request.json().catch(() => ({}))) as { address?: string };
   const raw = (body.address ?? "").toLowerCase();
   if (!/^0x[0-9a-f]{40}$/.test(raw)) return fail("invalid-address", 400);
   const player = getAddress(raw) as Address;
+  // Before anything touches the chain or the relayer. The card hides its
+  // button from the same flag, but an old tab or a direct call has to be
+  // refused here, not in the UI. See lib/challenges/paused.
+  if (challengeEntriesPaused()) return fail("entries-paused", 409);
   const contract = dropsAddress();
   if (!contract || !isSignerConfigured()) return fail("not-configured", 503);
 
-  const [c] = await db.select().from(challenges).where(eq(challenges.id, id)).limit(1);
+  const [c] = await db
+    .select()
+    .from(challenges)
+    .where(eq(challenges.id, id))
+    .limit(1);
   if (!c) return fail("unknown-challenge", 404);
   const now = new Date();
-  if (c.status !== "open" || now < c.opensAt || now > c.entryClosesAt) return fail("entries-closed", 409);
+  if (c.status !== "open" || now < c.opensAt || now > c.entryClosesAt)
+    return fail("entries-closed", 409);
 
   const key = `${c.id}:${raw}`;
   if (inFlight.has(key)) return fail("in-flight", 409);
@@ -52,7 +75,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     // One ticket per player: any linked wallet already in counts.
     const linked = await addressesForPlayer(raw);
-    if (await hasEntered(db, c.id, linked.length ? linked : [raw])) return fail("entered", 409);
+    if (await hasEntered(db, c.id, linked.length ? linked : [raw]))
+      return fail("entered", 409);
     if (!(await isRegisteredOnchain(contract, c))) {
       Sentry.captureMessage("Challenge not registered onchain", {
         level: "error",
@@ -63,12 +87,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     if (await enteredOnchain(contract, c, player)) return fail("entered", 409);
     const fee = BigInt(c.entryAmount);
-    const { allowance, balance } = await readEntryFunds(c.token as Address, player, contract);
-    if (balance < fee) return fail("no-funds", 409, { balance: balance.toString() });
-    if (allowance < fee) return fail("needs-approval", 409, { allowance: allowance.toString() });
+    const { allowance, balance } = await readEntryFunds(
+      c.token as Address,
+      player,
+      contract,
+    );
+    if (balance < fee)
+      return fail("no-funds", 409, { balance: balance.toString() });
+    if (allowance < fee)
+      return fail("needs-approval", 409, { allowance: allowance.toString() });
 
     const txHash = await sendEnterFor(c, player);
-    const receipt = await dropsPublicClient().waitForTransactionReceipt({ hash: txHash, timeout: 60_000 });
+    const receipt = await dropsPublicClient().waitForTransactionReceipt({
+      hash: txHash,
+      timeout: 60_000,
+    });
     if (receipt.status !== "success") {
       Sentry.captureMessage("Challenge enterFor reverted", {
         level: "error",
@@ -81,20 +114,36 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const deposit = challengeDepositAddress() ?? contract;
     const check = await checkEntryTx(c, txHash, deposit);
     if ("reason" in check) {
-      Sentry.captureMessage(`Challenge enterFor not readable: ${check.reason}`, {
-        level: "error",
-        tags,
-        fingerprint: ["challenge-enterfor-unreadable", check.reason],
-        extra: { txHash, player: raw },
-      });
+      Sentry.captureMessage(
+        `Challenge enterFor not readable: ${check.reason}`,
+        {
+          level: "error",
+          tags,
+          fingerprint: ["challenge-enterfor-unreadable", check.reason],
+          extra: { txHash, player: raw },
+        },
+      );
       return fail(check.reason, 502, { txHash });
     }
     const outcome = await recordEntry(db, c, txHash, check);
-    log.warn("challenge entry by allowance", { id: c.id, player: raw, txHash, outcome });
+    log.warn("challenge entry by allowance", {
+      id: c.id,
+      player: raw,
+      txHash,
+      outcome,
+    });
     return NextResponse.json({ ok: true, outcome, txHash });
   } catch (e) {
-    Sentry.captureException(e, { tags, fingerprint: ["challenge-enter-relay-error"], extra: { player: raw } });
-    log.error("enter failed", { id, player: raw, error: (e instanceof Error ? e.message : String(e)).slice(0, 300) });
+    Sentry.captureException(e, {
+      tags,
+      fingerprint: ["challenge-enter-relay-error"],
+      extra: { player: raw },
+    });
+    log.error("enter failed", {
+      id,
+      player: raw,
+      error: (e instanceof Error ? e.message : String(e)).slice(0, 300),
+    });
     return fail("error", 502);
   } finally {
     inFlight.delete(key);
