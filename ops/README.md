@@ -100,25 +100,91 @@ takes to come back, and anyone mid-request got a 502. The access log showed
 them in bursts at the exact minute of each deploy: 11 on 30 Oct, 16 on
 31 Oct: not scattered.
 
-The proxy now retries the dial instead of answering. This lives in the
-shared Caddyfile on the VPS (`/home/0xj4an/docker/infra/caddy/Caddyfile`,
-not in this repo), in the MiniKlaim block only:
+Retrying the dial (31 Oct) narrowed the window but could not close it: there
+was nowhere else to retry to. The 07:13 deploy on 8 Nov still cost 25 events
+across 18 players (MINIKLAIM-1C, -1F).
+
+So there are two app containers now, `miniklaim` and `miniklaim-standby`,
+running the same image, and the proxy has both. This lives in the shared
+Caddyfile on the VPS (`/home/0xj4an/docker/infra/caddy/Caddyfile`, not in
+this repo), in the MiniKlaim block only:
 
 ```
 miniklaim.fun, www.miniklaim.fun {
-    reverse_proxy miniklaim:3000 {
+    reverse_proxy miniklaim:3000 miniklaim-standby:3000 {
+        lb_policy first
         lb_try_duration 20s
         lb_try_interval 250ms
+        fail_duration 15s
+        transport http {
+            dial_timeout 1s
+        }
     }
 }
 ```
 
+`dial_timeout` is the one that makes the retry budget mean anything, and it
+was found by measuring rather than reasoning. With two upstreams but no dial
+timeout, two requests out of 153 sat for the client's full 10 s instead of
+failing over after 250 ms: `lb_try_duration` governs the gap *between*
+attempts, and a single dial to a container that is being replaced can hang
+far longer than the whole budget, so the retry loop never got to run. A
+healthy dial across the `shared` bridge takes microseconds, so 1 s is three
+orders of magnitude of headroom, and a spurious failover costs nothing
+because the standby serves the same image.
+
+`lb_policy first` means this is a standby and not a load balancer:
+everything goes to `miniklaim` while it is up, and to the standby only when
+a dial to the primary fails, so one container keeps its caches warm and
+behaviour stays predictable. `fail_duration` benches an upstream that
+refused a connection, so during a recreation requests go straight to the
+other one instead of each paying a failed dial first.
+
+**There are deliberately no active health checks.** `health_uri /api/health`
+is the obvious thing to add and it would be a mistake: that route answers
+**503 when the database is slow or unreachable**, so a Postgres blip would
+mark *both* upstreams unhealthy and Caddy would 502 everything, including the
+pages that never touch the database. Passive checking keys off whether a TCP
+connection can be opened, which is exactly what is false while a container is
+being replaced and is blind to database state. `ops/deploy.sh` gates its
+rolling restart on the same signal for the same reason.
+
 Only a *failed connection* is retried, so nothing was sent and replaying is
-safe even for a POST. Measured by hammering `/api/health` four times a
-second through a full `docker compose restart`: **239 of 240 requests
-returned 200**, and the one failure was a 503 after the retry window, not a
-502. Validate with `caddy validate` and reload with `caddy reload` before
-trusting any edit to that file: it fronts every site on the box.
+safe even for a POST. App-level 500s do not bench an upstream either, because
+`unhealthy_status` is not set.
+
+Measured by requesting the home page four times a second through a full
+`--force-recreate` of the primary: **161 of 161 requests returned 200**, and
+before the standby existed the same event cost real players hard 502s (25
+events across 18 people on the 07:13 deploy of 8 Nov). `fail_duration` is
+visible in the shape of it: exactly one request pays the cost of discovering
+the primary is gone, and everything after it is routed straight to the
+standby.
+
+What is left is that one request, which took 8.8 s, and it is **not** a dial
+problem: lowering `dial_timeout` from 2 s to 1 s barely moved it. It is a
+request that was already in flight when the container took SIGTERM. A
+response that has begun cannot be transparently replayed, so it waits out
+Docker's stop grace period. Closing that needs the app to drain in-flight
+requests on SIGTERM before exiting, which is a change in the app and not in
+the proxy. Until then a deploy costs one slow success, not a failure.
+
+`ops/deploy.sh` replaces the two containers one at a time, standby first so
+that traffic only ever lands on a container already running the new build,
+and waits for each to answer before touching the next.
+
+Two containers against one database is only safe because nothing that matters
+lives in the server's memory: the per-run token is a sha256 in
+`runs.claim_token_hash` and the sponsor cap is counted from the
+`sponsored_mints` table, so either container can answer for work the other
+started. The only in-process state is read-only caching (the cities table, the
+basemap style), which costs a second copy and nothing else, and nothing in the
+web server runs on a timer: the maintenance jobs are their own containers and
+are still single. Keep it that way. Anything that needs to happen once per
+deploy, or once per interval, does not belong in the app.
+
+Validate with `caddy validate` and reload with `caddy reload` before trusting
+any edit to that file: it fronts every site on the box.
 
 ## Build arguments the VPS has to pass
 
