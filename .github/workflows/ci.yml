@@ -15,7 +15,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Three attempts, because this step downloads from GitHub's own release
+      # CDN and that CDN is not reliable. On 8 Nov 2026 it answered 504 for
+      # `foundryup_linux_amd64` and for the v1.9.0 attestation for hours,
+      # with one brief window where it worked, and this job failed eight
+      # times in a row. Nothing was wrong with the contracts: the diff did
+      # not touch a single Solidity file, and `main` requires this check, so
+      # a release sat blocked on someone else's outage.
+      #
+      # `continue-on-error` only covers the first two tries. The third has no
+      # net, so a real failure still fails the job and the tests still have
+      # to pass: this buys another roll of the dice against a flaky download,
+      # not a way around a red build.
       - name: Install Foundry
+        id: foundry1
+        uses: foundry-rs/foundry-toolchain@v1
+        continue-on-error: true
+
+      - name: Install Foundry (retry 1)
+        id: foundry2
+        if: steps.foundry1.outcome == 'failure'
+        uses: foundry-rs/foundry-toolchain@v1
+        continue-on-error: true
+
+      - name: Install Foundry (retry 2)
+        if: steps.foundry1.outcome == 'failure' && steps.foundry2.outcome == 'failure'
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install contract deps
