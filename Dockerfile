@@ -82,6 +82,29 @@ ARG SENTRY_AUTH_TOKEN
 #   docker compose build --build-arg BUILD_COMMIT_SHA=$(git rev-parse HEAD)
 ARG BUILD_COMMIT_SHA
 
+# Two caps on what the build may take from the machine, because the machine is
+# shared. The VPS has 30 GiB and runs about forty containers; this build used
+# to peak near 25 GiB of it, and on 7 Nov 2026 that left the host with 1.27 GiB
+# available and the kernel killing whatever it found, including the running
+# site (~7 min down, MINIKLAIM-1E).
+#
+# NEXT_BUILD_CPUS caps how many static-generation workers Next forks
+# (next.config.ts reads it into `experimental.cpus`); without it the default is
+# cpus-1, which is 7 here.
+#
+# NODE_OPTIONS caps each of those processes' old space. Workers inherit it, so
+# the ceiling is roughly (workers + 1) x this, about 9 GiB instead of 25. 3 GiB
+# rather than something tighter because the prebuild step holds the ~135k-entry
+# cities index in memory and a build that OOMs is a deploy that does not
+# happen.
+#
+# If the build ever does run out of heap, the failure is safe: `set -e` in
+# ops/deploy.sh aborts before migrate and before `up`, so the running
+# containers are untouched. Raise this, do not remove it.
+ARG NEXT_BUILD_CPUS=2
+ENV NEXT_BUILD_CPUS=$NEXT_BUILD_CPUS
+ENV NODE_OPTIONS=--max-old-space-size=3072
+
 # prebuild extracts the cities JSON, then next build
 RUN npm run build
 
