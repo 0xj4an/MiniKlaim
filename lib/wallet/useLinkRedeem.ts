@@ -9,6 +9,7 @@ import {
   type Hex,
 } from "viem";
 import { useWalletClient } from "wagmi";
+import { track } from "@/lib/analytics";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
 import { getChain } from "@/lib/onchain/chains";
@@ -57,6 +58,8 @@ export function useLinkRedeem(address: `0x${string}` | null) {
       const codeHash = keccak256(toBytes(code));
       const held = heldFeeAdaptersForWallet(chain.feeCurrencies, balances);
 
+      track("link_redeem_started", { chain: chainKey });
+
       setState("sending");
       let txHash: Hex;
       try {
@@ -76,6 +79,7 @@ export function useLinkRedeem(address: `0x${string}` | null) {
         log.warn("link tx rejected", {
           message: e instanceof Error ? e.message : String(e),
         });
+        track("link_redeem_failed", { reason: "wallet" });
         setState("error");
         return false;
       }
@@ -112,6 +116,7 @@ export function useLinkRedeem(address: `0x${string}` | null) {
             continue;
           }
           if (res.ok) {
+            track("wallet_linked", { linked_chain_id: chain.chain.id });
             setState("linked");
             return true;
           }
@@ -119,10 +124,15 @@ export function useLinkRedeem(address: `0x${string}` | null) {
             status: res.status,
             txHash,
           });
+          track("link_redeem_failed", {
+            reason: "rejected",
+            status: res.status,
+          });
           setState("error");
           return false;
         }
         log.warn("redeem still pending after retries", { txHash });
+        track("link_redeem_failed", { reason: "pending" });
         setState("error");
         return false;
       } catch (e) {
@@ -130,6 +140,7 @@ export function useLinkRedeem(address: `0x${string}` | null) {
           txHash,
           message: e instanceof Error ? e.message : String(e),
         });
+        track("link_redeem_failed", { reason: "threw" });
         setState("error");
         return false;
       }
