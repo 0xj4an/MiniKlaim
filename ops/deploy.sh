@@ -52,6 +52,23 @@ if [ -f .env.miniklaim ]; then
 fi
 [ -n "${SENTRY_AUTH_TOKEN:-}" ] || echo "!! SENTRY_AUTH_TOKEN missing: this build uploads nothing to Sentry"
 
+# Refuse to build on a host that is already short.
+#
+# The Dockerfile now caps the build at roughly 9 GiB (NEXT_BUILD_CPUS and
+# NODE_OPTIONS), but a cap only helps if the memory is there to begin with.
+# This box runs about forty containers and the build is the one thing here big
+# enough to push it over; when it does, the kernel does not pick the build to
+# kill, it picks whatever it likes, which on 7 Nov 2026 was the running site.
+# Aborting a deploy costs nothing. 12 GiB is the cap plus a margin.
+MIN_AVAIL_KB=$((12 * 1024 * 1024))
+AVAIL_KB="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)"
+if [ "${AVAIL_KB:-0}" -lt "$MIN_AVAIL_KB" ]; then
+  echo "!! only $((AVAIL_KB / 1024)) MiB available, need $((MIN_AVAIL_KB / 1024)) MiB to build safely"
+  echo "!! not building: free memory on the host first, then run this again"
+  exit 1
+fi
+echo "==> $((AVAIL_KB / 1024)) MiB available, building"
+
 # The app image and the cron image are the same Dockerfile; building the
 # retry service is what produces the `miniklaim-cron:latest` tag the other
 # cron service uses.
@@ -61,6 +78,34 @@ docker compose build miniklaim miniklaim-retry-unminted
 # which is the order Railway's preDeployCommand gave us.
 echo "==> migrating"
 docker compose run --rm --no-deps miniklaim npm run db:migrate
+
+# Keep the log before the container that holds it is replaced.
+#
+# The services log to the default json-file driver, and Docker stores that log
+# against the container, not the service. `up -d` creates a new container, so
+# the old log is deleted with the old one and `docker logs` starts empty. That
+# is four consecutive windows with nothing auditable: no way to review a fast
+# travel report or check what the movement guard did, because the evidence was
+# thrown away by the act of shipping the fix.
+#
+# Dump it first, timestamped, and keep the last 30 files per service. Logs are
+# hundreds of KiB, so the whole history costs less than one image layer.
+LOGDIR="$COMPOSE_DIR/logs/miniklaim"
+mkdir -p "$LOGDIR"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+echo "==> keeping logs in $LOGDIR"
+for c in miniklaim miniklaim-retry-unminted miniklaim-finalize-orphans; do
+  if docker inspect "$c" >/dev/null 2>&1; then
+    # || true: a container that never started has no log, and losing a log is
+    # not a reason to abandon a deploy that is otherwise fine.
+    docker logs "$c" >"$LOGDIR/$c-$STAMP.log" 2>&1 || true
+    echo "    $c $(wc -c <"$LOGDIR/$c-$STAMP.log" | tr -d ' ') bytes"
+  fi
+  # shellcheck disable=SC2012
+  ls -1t "$LOGDIR/$c-"*.log 2>/dev/null | tail -n +31 | while read -r old; do
+    rm -f "$old"
+  done
+done
 
 # --no-deps so a deploy can only touch MiniKlaim's own containers. Without
 # it, `up -d` recreates any dependency whose definition has drifted from the
