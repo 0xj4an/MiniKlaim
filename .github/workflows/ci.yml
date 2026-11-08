@@ -15,32 +15,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Three attempts, because this step downloads from GitHub's own release
-      # CDN and that CDN is not reliable. On 8 Nov 2026 it answered 504 for
-      # `foundryup_linux_amd64` and for the v1.9.0 attestation for hours,
-      # with one brief window where it worked, and this job failed eight
-      # times in a row. Nothing was wrong with the contracts: the diff did
-      # not touch a single Solidity file, and `main` requires this check, so
-      # a release sat blocked on someone else's outage.
+      # Install Foundry from its release tarball instead of running foundryup.
       #
-      # `continue-on-error` only covers the first two tries. The third has no
-      # net, so a real failure still fails the job and the tests still have
-      # to pass: this buys another roll of the dice against a flaky download,
-      # not a way around a red build.
+      # `foundry-rs/foundry-toolchain@v1` shells out to foundryup, and on
+      # 8 Nov 2026 that failed all day: GitHub answered 504 for
+      # `foundryup_linux_amd64` and for the release attestation file, three
+      # times in a row inside a single job, so retrying was not enough and a
+      # release sat blocked on a check that could not pass.
+      #
+      # It was never GitHub being down, which is what it looked like and what
+      # was written here first. Measured the same day from outside CI: the
+      # binaries themselves,
+      # `foundry_v1.9.0_linux_amd64.tar.gz`, answered 200 four times in a row
+      # and delivered all 118 MB, while foundryup and the attestation kept
+      # answering 504. Two specific assets were broken, not the service. So
+      # take the tarball and skip the installer that cannot be fetched.
+      #
+      # This also pins the version, which the action did not: it resolved
+      # "latest" on every run, so a Foundry release could change what CI
+      # means with no commit here. Bumping is now a visible edit.
+      #
+      # The tarball holds forge, cast, anvil, chisel and solar flat at the
+      # root; verified by extracting it and running `forge --version`.
       - name: Install Foundry
-        id: foundry1
-        uses: foundry-rs/foundry-toolchain@v1
-        continue-on-error: true
-
-      - name: Install Foundry (retry 1)
-        id: foundry2
-        if: steps.foundry1.outcome == 'failure'
-        uses: foundry-rs/foundry-toolchain@v1
-        continue-on-error: true
-
-      - name: Install Foundry (retry 2)
-        if: steps.foundry1.outcome == 'failure' && steps.foundry2.outcome == 'failure'
-        uses: foundry-rs/foundry-toolchain@v1
+        working-directory: ${{ github.workspace }}
+        run: |
+          curl -fsSL --retry 3 --retry-delay 5 \
+            "https://github.com/foundry-rs/foundry/releases/download/v${FOUNDRY_VERSION}/foundry_v${FOUNDRY_VERSION}_linux_amd64.tar.gz" \
+            -o /tmp/foundry.tar.gz
+          mkdir -p "$HOME/.foundry/bin"
+          tar -xzf /tmp/foundry.tar.gz -C "$HOME/.foundry/bin"
+          echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
+          "$HOME/.foundry/bin/forge" --version
+        env:
+          FOUNDRY_VERSION: 1.9.0
 
       - name: Install contract deps
         # lib/ is gitignored, so CI installs the pinned deps explicitly.
