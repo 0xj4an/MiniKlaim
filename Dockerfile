@@ -108,6 +108,31 @@ ENV NODE_OPTIONS=--max-old-space-size=3072
 # prebuild extracts the cities JSON, then next build
 RUN npm run build
 
+# Drop the build-only packages before the runner copies node_modules.
+#
+# The runner takes the builder's tree wholesale, so typescript, eslint, vitest,
+# tailwind, postcss, prettier and the @types packages were all shipping into
+# production: 1.3 GB of node_modules in a 2.87 GB image. Nothing runs them
+# there, and the layer has to be written out on every deploy, which is the
+# phase that takes the host's available memory down to 3.4 GiB (page cache
+# while the tarball is written; reclaimable, but it is the squeeze that is
+# left after the build itself was capped).
+#
+# Two packages had to move to `dependencies` first, because production really
+# does import them and pruning them would have broken the container: the
+# runner loads `next.config.ts`, which imports @next/bundle-analyzer, and the
+# settlement and challenge scripts import dotenv. Checked by grepping the
+# non-test code for every devDependency rather than assuming.
+#
+# `typescript` is NOT needed to load a TypeScript config: Next transpiles
+# next.config.ts with its own SWC bindings and reads tsconfig.json with its
+# bundled comment-json. Verified in next/dist before pruning.
+#
+# If this ever does prune something production needs, the failure is contained:
+# ops/deploy.sh replaces the standby first and waits for it to serve, so a
+# container that cannot boot aborts the deploy with the primary still up.
+RUN npm prune --omit=dev
+
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
