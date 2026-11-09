@@ -46,7 +46,13 @@ type EventMap = {
    * five tries, and `rejected` is the backend refusing the code.
    */
   link_redeem_failed: {
-    reason: "wallet" | "rejected" | "pending" | "threw";
+    reason:
+      | "user_cancelled"
+      | "permission_denied"
+      | "wallet"
+      | "rejected"
+      | "pending"
+      | "threw";
     status?: number;
   };
   // Onboarding is a single static 3-step card, so there is nothing to page
