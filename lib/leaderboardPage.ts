@@ -104,10 +104,6 @@ async function build(): Promise<LeaderboardEntry[]> {
     )
     SELECT display_address AS address, country
     FROM counts
-    -- Two blocks minimum, the same floor badgeEligibility uses. One block is
-    -- not a visit: it is what a bad first GPS fix leaves behind, and it was
-    -- putting a country a player had never been to on their row.
-    WHERE n >= 2
     ORDER BY display_address, n DESC, country ASC
   `);
 
@@ -115,35 +111,16 @@ async function build(): Promise<LeaderboardEntry[]> {
   // rather than computed: an exact one costs a pass over the player's hexes
   // and nothing on this page shows it.
   const badgeStatsQ = db.execute(sql`
-    -- Blocks per (owner, country) in one pass, NULL country included, so the
-    -- roll-up below gets both totals without scanning hexes twice. Grouping
-    -- here rather than filtering per row on purpose: a correlated lookup over
-    -- hexes is what cost this page 1.5 s a request before (see countriesQ).
-    WITH owner_countries AS (
+    WITH player_stats AS (
       SELECT
         h.owner_address,
-        h.country,
-        COUNT(*)::int AS n
+        -- h3_id is the primary key, so COUNT(*) is the same number without the
+        -- distinct sort (780 ms to 270 ms for the top-100 page on prod data).
+        COUNT(*)::int AS hex_count,
+        COUNT(DISTINCT h.country)::int AS country_count
       FROM hexes h
       WHERE LOWER(h.owner_address) IN (${list})
-      GROUP BY h.owner_address, h.country
-    ),
-    player_stats AS (
-      SELECT
-        owner_address,
-        -- h3_id is the primary key, so summing the per-country counts is the
-        -- same number a COUNT(*) gave, without the distinct sort (780 ms to
-        -- 270 ms for the top-100 page on prod data).
-        SUM(n)::int AS hex_count,
-        -- Only countries with at least two blocks, the same floor
-        -- badgeEligibility and countriesQ use. A plain COUNT(DISTINCT country)
-        -- awarded "Border crosser" off a single block left by a bad first GPS
-        -- fix, so the badge showed on a player whose every run was in one
-        -- country.
-        COUNT(*) FILTER (WHERE country IS NOT NULL AND n >= 2)::int
-          AS country_count
-      FROM owner_countries
-      GROUP BY owner_address
+      GROUP BY h.owner_address
     ),
     run_stats AS (
       SELECT
