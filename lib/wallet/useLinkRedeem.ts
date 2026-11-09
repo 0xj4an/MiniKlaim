@@ -10,6 +10,7 @@ import {
 } from "viem";
 import { useWalletClient } from "wagmi";
 import { track } from "@/lib/analytics";
+import { isPermissionDenied, isUserRejection } from "@/lib/wallet/playerFee";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
 import { getChain } from "@/lib/onchain/chains";
@@ -79,7 +80,20 @@ export function useLinkRedeem(address: `0x${string}` | null) {
         log.warn("link tx rejected", {
           message: e instanceof Error ? e.message : String(e),
         });
-        track("link_redeem_failed", { reason: "wallet" });
+        // Split what used to be one bucket. Yesterday's numbers said 30 of 30
+        // redeems failed here and gave no way to tell a player who tapped
+        // cancel from a wallet that refused the send, which are different
+        // problems: one is the prompt being alarming, the other is MiniPay
+        // declining a 0-value tx carrying calldata to an address with no
+        // contract code. Guessing between them is how P67 went wrong, so
+        // measure instead.
+        track("link_redeem_failed", {
+          reason: isUserRejection(e)
+            ? "user_cancelled"
+            : isPermissionDenied(e)
+              ? "permission_denied"
+              : "wallet",
+        });
         setState("error");
         return false;
       }
