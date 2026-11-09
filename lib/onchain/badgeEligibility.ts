@@ -73,10 +73,36 @@ export async function computeEligibleBadgeIds(
         .select({ conquests: sql<number>`coalesce(sum(${users.conquests}), 0)::int` })
         .from(users)
         .where(inArray(users.address, linked)),
+      // A country counts once the player owns at least TWO blocks in it.
+      //
+      // One block is not a visit, and a single block is exactly what a bad
+      // first GPS fix produces: the phone reports a position before it has a
+      // real lock, the hex centroid resolves to some far-off country, and the
+      // row is written with that country for good.
+      //
+      // Measured on 9 Nov 2026. A player with all 19 of his runs in one
+      // country showed two in `countries` and held "Border crosser". The
+      // second country came from his very first run: 18 seconds, 0 metres,
+      // 1 block, no mode, never minted, and that run's own
+      // `runs.topCountry` is null. So the per-hex country and the per-run
+      // country disagreed, and only the per-hex one fed the badge. Nothing
+      // the player did was wrong; the count was.
+      //
+      // This is not cosmetic: badges gate who may enter the weekly challenge,
+      // so a country invented by one bad fix changes who is eligible for the
+      // draw.
+      //
+      // Counting blocks per country rather than joining `runs` on purpose:
+      // `hexes.runId` is `onDelete: "set null"`, so a join would silently drop
+      // every legacy hex whose run is gone and shrink real travellers'
+      // counts. A genuine border crossing always leaves more than one block;
+      // a bad fix leaves exactly one.
       db
-        .selectDistinct({ country: hexes.country })
+        .select({ country: hexes.country })
         .from(hexes)
-        .where(and(inArray(hexes.ownerAddress, linked), isNotNull(hexes.country))),
+        .where(and(inArray(hexes.ownerAddress, linked), isNotNull(hexes.country)))
+        .groupBy(hexes.country)
+        .having(sql`count(*) >= 2`),
       getPlayerStreaks(lower),
     ]);
 
