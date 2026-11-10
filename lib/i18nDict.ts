@@ -224,6 +224,18 @@ export const dictionaries = {
     "time.unit.minutes": "m",
     "time.unit.hours": "h",
     "time.unit.days": "d",
+    "run.capture.searching":
+      "Finding accurate GPS. Blocks are not being captured yet.",
+    "run.capture.ready": "GPS ready. Move to capture blocks.",
+    "run.capture.acted": "Done. Move to reach more blocks.",
+    "run.capture.repeat":
+      "You already used this block today. Move to another one or come back tomorrow.",
+    "run.capture.owned":
+      "This block is already yours. Move to capture new ones.",
+    "run.capture.saving": "Saving {n} blocks...",
+    "run.capture.saving.one": "Saving 1 block...",
+    "run.capture.saved": "{n} blocks saved",
+    "run.capture.saved.one": "1 block saved",
     "run.gps.waiting": "Waiting for GPS...",
     "run.gps.requesting":
       "Finding your location. If your phone asks, allow location for MiniPay.",
@@ -828,6 +840,18 @@ export const dictionaries = {
     "time.unit.minutes": "m",
     "time.unit.hours": "h",
     "time.unit.days": "d",
+    "run.capture.searching":
+      "Buscando GPS preciso. Todavía no se capturan bloques.",
+    "run.capture.ready": "GPS listo. Muévete para capturar bloques.",
+    "run.capture.acted": "Hecho. Muévete para alcanzar más bloques.",
+    "run.capture.repeat":
+      "Ya usaste este bloque hoy. Muévete a otro o vuelve mañana.",
+    "run.capture.owned":
+      "Este bloque ya es tuyo. Muévete para capturar nuevos.",
+    "run.capture.saving": "Guardando {n} bloques...",
+    "run.capture.saving.one": "Guardando 1 bloque...",
+    "run.capture.saved": "{n} bloques guardados",
+    "run.capture.saved.one": "1 bloque guardado",
     "run.gps.waiting": "Esperando GPS...",
     "run.gps.requesting":
       "Buscando tu ubicación. Si el teléfono pregunta, permite la ubicación para MiniPay.",
