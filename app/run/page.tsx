@@ -290,6 +290,9 @@ export default function RunPage() {
   const [weakAccuracyM, setWeakAccuracyM] = useState<number | null>(null);
   const coarseStreakRef = useRef(0);
   const [geoLastError, setGeoLastError] = useState<string | null>(null);
+  const [geoPriorPermission, setGeoPriorPermission] = useState<string | null>(
+    null,
+  );
   const [runId, setRunId] = useState<string | null>(null);
   const [hexCount, setHexCount] = useState(0);
   const [reinforcedCount, setReinforcedCount] = useState(0);
@@ -542,6 +545,7 @@ export default function RunPage() {
       const fetchRows = async (
         url: string,
       ): Promise<ClaimedHexRow[] | null> => {
+        const startedAt = Date.now();
         try {
           const res = await fetch(url);
           if (!res.ok) {
@@ -562,6 +566,8 @@ export default function RunPage() {
           });
           trackLimited("hexes_refresh_network_error", {
             error: e instanceof Error ? e.message : String(e),
+            elapsed_ms: Date.now() - startedAt,
+            online: navigator.onLine,
           });
           return null;
         }
@@ -703,6 +709,7 @@ export default function RunPage() {
       })),
     };
     let outcome: Parameters<typeof applyHttp>[2];
+    const claimStartedAt = Date.now();
     try {
       const res = await fetch(`/api/runs/${id}/claim`, {
         method: "POST",
@@ -798,6 +805,8 @@ export default function RunPage() {
       trackLimited("batch_claim_network_error", {
         count: batch.length,
         error: e instanceof Error ? e.message : String(e),
+        elapsed_ms: Date.now() - claimStartedAt,
+        online: navigator.onLine,
       });
     }
     const applied = applyHttp(
@@ -1214,6 +1223,7 @@ export default function RunPage() {
       // or raises the banner that says how to fix it in phone settings.
       const permission = await readGeolocationPermission();
       if (cancelled) return;
+      setGeoPriorPermission(permission);
       if (permission === "prompt" || permission === "unknown") {
         if (shouldExplainGps()) {
           gpsExplainOpenRef.current = true;
@@ -1842,6 +1852,7 @@ export default function RunPage() {
       <GeoStatusBanner
         status={geoStatus}
         lastError={geoLastError}
+        priorPermission={geoPriorPermission}
         onRetry={retryLocation}
         weakAccuracyM={runId ? weakAccuracyM : null}
       />

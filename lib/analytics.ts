@@ -54,6 +54,13 @@ type EventMap = {
       | "pending"
       | "threw";
     status?: number;
+    /**
+     * The wallet's own words and JSON-RPC code, on the stages where the wallet
+     * is what failed. `wallet` kept firing next to `permission_denied` on
+     * 9 Nov and the bucket alone could not say what it held.
+     */
+    message?: string;
+    code?: string;
   };
   // Onboarding is a single static 3-step card, so there is nothing to page
   // through. Only fire on dismiss with the exit path so we can tell engaged
@@ -149,9 +156,25 @@ type EventMap = {
   // (MINIKLAIM-T) and the page reloaded itself.
   head_detach_reload: { path: string };
   hexes_refresh_error: { status: number };
-  hexes_refresh_network_error: { error: string; capped?: boolean };
+  /**
+   * `elapsed_ms` and `online` tell a request that hung until it timed out
+   * (slow server or slow network) from one that never left the phone. The
+   * error text cannot: both read "Failed to fetch".
+   */
+  hexes_refresh_network_error: {
+    error: string;
+    elapsed_ms?: number;
+    online?: boolean;
+    capped?: boolean;
+  };
   batch_claim_error: { status: number; count: number };
-  batch_claim_network_error: { count: number; error: string; capped?: boolean };
+  batch_claim_network_error: {
+    count: number;
+    error: string;
+    elapsed_ms?: number;
+    online?: boolean;
+    capped?: boolean;
+  };
   run_start_error: { status: number };
   run_start_network_error: { error: string; capped?: boolean };
   run_finish_error: { status: number };
@@ -199,7 +222,12 @@ type EventMap = {
   nft_mint_failed: { reason: string; message?: string; count?: number };
 
   // Friction / errors that gate the golden path.
-  gps_denied: Record<string, never>;
+  /**
+   * `prior_permission` is what the browser had already decided before we
+   * asked. "denied" means it refused without showing a prompt, which the
+   * player never saw happen; "prompt" means the player said no themselves.
+   */
+  gps_denied: { prior_permission: string };
   /** First-run location explainer shown before the browser prompt. */
   gps_prompt_shown: { permission: string };
   /**
