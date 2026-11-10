@@ -7,6 +7,7 @@ import {
   moveModeIcon,
   moveModeLabelKey,
 } from "@/lib/runs/moveMode";
+import type { CaptureStatus } from "@/lib/runs/captureStatus";
 import { ElapsedBanner } from "./ElapsedBanner";
 
 /**
@@ -20,6 +21,7 @@ export function RunControls({
   isActive,
   isBusy,
   hexCount,
+  capture,
   reinforcedCount = 0,
   attackedCount = 0,
   distanceMeters,
@@ -34,6 +36,8 @@ export function RunControls({
   isActive: boolean;
   isBusy: boolean;
   hexCount: number;
+  /** What to tell the player about capture right now. */
+  capture: CaptureStatus;
   reinforcedCount?: number;
   attackedCount?: number;
   distanceMeters: number;
@@ -105,7 +109,9 @@ export function RunControls({
             onClick={onStart}
             disabled={!canStart || !locationReady || isBusy || !mode}
             className="mt-3 w-full rounded-full bg-orange-700 py-3 text-base font-semibold text-white hover:bg-orange-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
-            aria-label={!canStart ? t("run.start.signIn") : t("run.start.button")}
+            aria-label={
+              !canStart ? t("run.start.signIn") : t("run.start.button")
+            }
           >
             {!canStart
               ? t("run.start.signIn")
@@ -124,6 +130,7 @@ export function RunControls({
       className="absolute right-4 left-4 z-20 flex flex-col items-center gap-3"
       style={{ bottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
     >
+      <CaptureLine capture={capture} />
       <ElapsedBanner
         startTime={runStartTime}
         hexCount={hexCount}
@@ -139,6 +146,44 @@ export function RunControls({
       >
         {isBusy ? t("run.finish.finishing") : t("run.finish.button")}
       </button>
+    </div>
+  );
+}
+
+/**
+ * One line that says whether blocks are being captured, and why not when
+ * they are not. Announced politely so a screen reader hears each change.
+ */
+function CaptureLine({ capture }: { capture: CaptureStatus }) {
+  const { t } = useLocale();
+  const good = capture.kind === "saved" || capture.kind === "acted";
+  const waiting =
+    capture.kind === "searching" ||
+    capture.kind === "owned" ||
+    capture.kind === "repeat";
+  const text =
+    capture.kind === "saving"
+      ? t(
+          capture.count === 1 ? "run.capture.saving.one" : "run.capture.saving",
+        ).replace("{n}", String(capture.count))
+      : capture.kind === "saved"
+        ? t(
+            capture.count === 1 ? "run.capture.saved.one" : "run.capture.saved",
+          ).replace("{n}", String(capture.count))
+        : t(`run.capture.${capture.kind}`);
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`max-w-[19rem] rounded-full px-4 py-1.5 text-center text-xs font-semibold shadow-md ${
+        good
+          ? "bg-emerald-700 text-white"
+          : waiting
+            ? "bg-amber-100 text-amber-950"
+            : "bg-white/95 text-zinc-800"
+      }`}
+    >
+      {text}
     </div>
   );
 }
