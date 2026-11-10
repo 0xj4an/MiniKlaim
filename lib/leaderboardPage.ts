@@ -55,12 +55,17 @@ async function build(): Promise<LeaderboardEntry[]> {
     sql`, `,
   );
 
+  // Every address column below is compared as stored, with no LOWER() around
+  // it. Addresses are written lowercase (measured on 10 Nov 2026: zero rows in
+  // users, runs or hexes differ from their lowercase form) and the list is
+  // lowercased above, so wrapping the column only kept Postgres off the
+  // index: the users lookups were full scans of the table on every build.
   const runCountsQ = db.execute(sql`
     SELECT
       user_address AS address,
       COUNT(*)::int AS count
     FROM runs
-    WHERE LOWER(user_address) IN (${list})
+    WHERE user_address IN (${list})
     GROUP BY user_address
   `);
 
@@ -77,7 +82,7 @@ async function build(): Promise<LeaderboardEntry[]> {
     WITH page AS (
       SELECT u.address AS display_address
       FROM users u
-      WHERE LOWER(u.address) IN (${list})
+      WHERE u.address IN (${list})
     ),
     grp AS (
       SELECT p.display_address, pw.player_id
@@ -119,7 +124,7 @@ async function build(): Promise<LeaderboardEntry[]> {
         COUNT(*)::int AS hex_count,
         COUNT(DISTINCT h.country)::int AS country_count
       FROM hexes h
-      WHERE LOWER(h.owner_address) IN (${list})
+      WHERE h.owner_address IN (${list})
       GROUP BY h.owner_address
     ),
     run_stats AS (
@@ -130,7 +135,7 @@ async function build(): Promise<LeaderboardEntry[]> {
         MAX(r.distance_meters)::int AS best_distance,
         SUM(r.distance_meters)::int AS lifetime_distance
       FROM runs r
-      WHERE LOWER(r.user_address) IN (${list})
+      WHERE r.user_address IN (${list})
       GROUP BY r.user_address
     ),
     user_stats AS (
@@ -138,7 +143,7 @@ async function build(): Promise<LeaderboardEntry[]> {
         u.address,
         u.conquests
       FROM users u
-      WHERE LOWER(u.address) IN (${list})
+      WHERE u.address IN (${list})
     )
     SELECT
       ps.owner_address AS address,
@@ -150,8 +155,8 @@ async function build(): Promise<LeaderboardEntry[]> {
       COALESCE(rs.lifetime_distance, 0) AS lifetime_distance,
       COALESCE(us.conquests, 0) AS conquests
     FROM player_stats ps
-    LEFT JOIN run_stats rs ON LOWER(rs.user_address) = LOWER(ps.owner_address)
-    LEFT JOIN user_stats us ON LOWER(us.address) = LOWER(ps.owner_address)
+    LEFT JOIN run_stats rs ON rs.user_address = ps.owner_address
+    LEFT JOIN user_stats us ON us.address = ps.owner_address
   `);
 
   // Every wallet linked to each listed player, so a map can paint all of a
