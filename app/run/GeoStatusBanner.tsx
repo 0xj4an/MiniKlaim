@@ -6,12 +6,7 @@ import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 
 export type GeoStatus =
-  | "idle"
-  | "requesting"
-  | "granted"
-  | "denied"
-  | "timeout"
-  | "unavailable";
+  "idle" | "requesting" | "granted" | "denied" | "timeout" | "unavailable";
 
 /**
  * Shown while location is requested, when it is blocked, and during a run
@@ -21,10 +16,13 @@ export type GeoStatus =
 export function GeoStatusBanner({
   status,
   weakAccuracyM = null,
+  priorPermission = null,
   onRetry,
 }: {
   status: GeoStatus;
   lastError: string | null;
+  /** What the browser had decided before we asked; null if not read yet. */
+  priorPermission?: string | null;
   /** Asks for location again; offered when it was blocked or timed out. */
   onRetry?: () => void;
   /** Accuracy in meters of recent fixes when all were too coarse to capture. */
@@ -35,8 +33,13 @@ export function GeoStatusBanner({
   useEffect(() => {
     if (trackedStatusRef.current === status) return;
     trackedStatusRef.current = status;
-    if (status === "denied") track("gps_denied");
+    if (status === "denied")
+      track("gps_denied", { prior_permission: priorPermission ?? "unread" });
     else if (status === "unavailable") track("gps_unavailable");
+    // priorPermission is read once, before location is ever requested, so it
+    // is settled by the time status can be "denied". Not a dependency: the
+    // event is about the status change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
   // Every banner can be closed. A closed one stays hidden until the state
@@ -93,14 +96,14 @@ export function GeoStatusBanner({
           (status === "denied" ||
             status === "timeout" ||
             status === "unavailable") && (
-          <button
-            type="button"
-            onClick={onRetry}
-            className="rounded-full bg-amber-900 px-4 py-1.5 text-xs font-semibold text-white"
-          >
-            {t("run.gps.retry")}
-          </button>
-        )}
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded-full bg-amber-900 px-4 py-1.5 text-xs font-semibold text-white"
+            >
+              {t("run.gps.retry")}
+            </button>
+          )}
       </div>
       <CloseButton
         onClick={() => setClosedKind(kind)}
