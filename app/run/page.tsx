@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { track, trackLimited } from "@/lib/analytics";
 import { isMoveMode, type MoveMode, moveMode } from "@/lib/runs/moveMode";
+import { captureStatus } from "@/lib/runs/captureStatus";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import {
@@ -295,8 +296,26 @@ export default function RunPage() {
   );
   const [runId, setRunId] = useState<string | null>(null);
   const [hexCount, setHexCount] = useState(0);
+  // What the capture status line is built from. See lib/runs/captureStatus.
+  const [pendingCount, setPendingCount] = useState(0);
+  const [fixReady, setFixReady] = useState(false);
+  const [startedOnOwned, setStartedOnOwned] = useState(false);
+  const [repeatedCount, setRepeatedCount] = useState(0);
   const [reinforcedCount, setReinforcedCount] = useState(0);
   const [attackedCount, setAttackedCount] = useState(0);
+  const capture = captureStatus({
+    pending: pendingCount,
+    saved: hexCount,
+    acted: reinforcedCount + attackedCount,
+    repeated: repeatedCount,
+    fixReady,
+    startedOnOwned,
+  });
+  // The finish handler reads it without being rebuilt on every change.
+  const captureStatusRef = useRef(capture.kind);
+  useEffect(() => {
+    captureStatusRef.current = capture.kind;
+  }, [capture.kind]);
   // The server stopped capturing because this "on foot" run moves at vehicle
   // speed (too-fast-on-foot). Shown until 45 s pass without another one.
   const [footTooFast, setFootTooFast] = useState(false);
@@ -819,10 +838,12 @@ export default function RunPage() {
     claimFailuresRef.current = applied.failures;
     claimRetryMsRef.current = applied.retryMs ?? 0;
     writeClaimQueue(id, applied.items);
+    setPendingCount(applied.items.length);
     claimFlushing.current = false;
     if (applied.reinforced > 0)
       setReinforcedCount((c) => c + applied.reinforced);
     if (applied.attacked > 0) setAttackedCount((c) => c + applied.attacked);
+    if (applied.repeated > 0) setRepeatedCount((c) => c + applied.repeated);
     if (outcome.kind === "ok" && applied.newly > 0)
       setHexCount((c) => c + applied.newly);
     if (
@@ -864,6 +885,7 @@ export default function RunPage() {
       claimQueueRef.current,
       readClaimQueue(runId),
     );
+    setPendingCount(claimQueueRef.current.length);
     if (claimQueueRef.current.length > 0) void flushClaimQueueRef.current();
   }, [runId]);
 
@@ -912,6 +934,7 @@ export default function RunPage() {
         })),
       );
       writeClaimQueue(id, claimQueueRef.current);
+      setPendingCount(claimQueueRef.current.length);
       if (claimFlushing.current || claimFlushTimer.current !== null) return;
       const delay = flushDelay(lastClaimFlushAt.current, Date.now());
       if (delay === 0) {
@@ -1002,6 +1025,7 @@ export default function RunPage() {
       setHexCount(0);
       setReinforcedCount(0);
       setAttackedCount(0);
+      setRepeatedCount(0);
       setDistanceMeters(0);
       setRunStartTime(Date.now());
       setFootTooFast(false);
@@ -1013,6 +1037,11 @@ export default function RunPage() {
       pendingDistanceRef.current = 0;
       // Claim the hex we are currently standing in, if any.
       const here = currentHexRef.current;
+      // Without hex strength an owned block is not claimed again, so a run
+      // that starts on one captures nothing until the player moves. Say so.
+      setStartedOnOwned(
+        !!here && !HEX_STRENGTH && mineH3Ref.current.has(here),
+      );
       if (here) {
         runIdRef.current = data.id;
         await claimHexes([here], 0);
@@ -1079,6 +1108,7 @@ export default function RunPage() {
       track("run_finished", {
         duration_sec: durationSec,
         blocks: data.hexesClaimed,
+        capture_state: captureStatusRef.current,
         distance_m: Math.round(data.distanceMeters),
         speed_kmh:
           durationSec > 0
@@ -1325,6 +1355,7 @@ export default function RunPage() {
             log.debug("skipped capture: low accuracy", { accuracy });
             coarseStreakRef.current += 1;
             if (coarseStreakRef.current >= WEAK_FIX_STREAK) {
+              setFixReady(false);
               const rounded = Math.round(accuracy / 10) * 10;
               setWeakAccuracyM((cur) => (cur === rounded ? cur : rounded));
             }
@@ -1343,6 +1374,7 @@ export default function RunPage() {
             coarseStreakRef.current = 0;
             setWeakAccuracyM(null);
           }
+          setFixReady(true);
 
           // Snapshot the previous GPS fix (and its timestamp) before either
           // gets overwritten. The timestamp is what tells us whether the
@@ -1918,6 +1950,7 @@ export default function RunPage() {
         isActive={isActive}
         isBusy={isBusy}
         hexCount={hexCount}
+        capture={capture}
         reinforcedCount={reinforcedCount}
         attackedCount={attackedCount}
         distanceMeters={distanceMeters}

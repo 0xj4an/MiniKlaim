@@ -83,6 +83,15 @@ type EventMap = {
   run_finished: {
     duration_sec: number;
     blocks: number;
+    /**
+     * What the capture line said when the player tapped Finish. For a run
+     * with zero blocks it is the reason: "searching" is no usable GPS fix,
+     * "repeat" a block already acted on today, "acted" a reinforce or an
+     * attack and no new block, "owned" a start on a block already held,
+     * "ready" a fix but no move.
+     */
+    capture_state?:
+      "saving" | "saved" | "acted" | "searching" | "repeat" | "owned" | "ready";
     distance_m: number;
     speed_kmh: number;
     move_mode: MoveMode | "none";
