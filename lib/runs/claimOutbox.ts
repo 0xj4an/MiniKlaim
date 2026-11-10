@@ -120,10 +120,12 @@ export function applyHttp(
   newly: number;
   reinforced: number;
   attacked: number;
+  /** Blocks the player had already acted on today, so the pass did nothing. */
+  repeated: number;
   retryMs: number | null;
   failures: number;
 } {
-  const none = { newly: 0, reinforced: 0, attacked: 0 };
+  const none = { newly: 0, reinforced: 0, attacked: 0, repeated: 0 };
   if (outcome.kind === "ended") {
     return { items: [], ...none, retryMs: null, failures: 0 };
   }
@@ -142,8 +144,10 @@ export function applyHttp(
   let newly = 0;
   let reinforced = 0;
   let attacked = 0;
+  let repeated = 0;
   for (const row of outcome.results) {
     if (!sent.has(row.h3) || row.rejected) continue;
+    if (row.action === "repeat") repeated += 1;
     const view = claimRowView(row);
     if (view.captured) newly += 1;
     if (view.reinforced) reinforced += 1;
@@ -154,6 +158,7 @@ export function applyHttp(
     newly,
     reinforced,
     attacked,
+    repeated,
     retryMs: next.length > 0 ? CLAIM_FLUSH_MS : null,
     failures: 0,
   };

@@ -306,3 +306,18 @@ describe("hex strength results", () => {
     expect(hexesToQueue(["a", "b"], owned, new Set(["a"]), true)).toEqual(["b"]);
   });
 });
+
+describe("applyHttp daily limit", () => {
+  test("counts passes the server ignored as repeats", () => {
+    const items = [{ h3: "a", distanceMeters: 0 }];
+    const out = applyHttp(
+      items,
+      ["a"],
+      { kind: "ok", results: [{ h3: "a", action: "repeat", alreadyOwned: true }] },
+      0,
+    );
+    expect(out.repeated).toBe(1);
+    expect(out.newly + out.reinforced + out.attacked).toBe(0);
+    expect(out.items).toEqual([]);
+  });
+});
