@@ -1,16 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import {
-  createPublicClient,
-  http,
-  keccak256,
-  toBytes,
-  type Hex,
-} from "viem";
+import { createPublicClient, http, keccak256, toBytes, type Hex } from "viem";
 import { useWalletClient } from "wagmi";
 import { track } from "@/lib/analytics";
-import { isPermissionDenied, isUserRejection } from "@/lib/wallet/playerFee";
+import {
+  errorText,
+  isPermissionDenied,
+  isUserRejection,
+} from "@/lib/wallet/playerFee";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
 import { getChain } from "@/lib/onchain/chains";
@@ -26,11 +24,7 @@ const PENDING_RETRIES = 5;
 const PENDING_DELAY_MS = 2000;
 
 export type LinkRedeemState =
-  | "idle"
-  | "sending"
-  | "confirming"
-  | "linked"
-  | "error";
+  "idle" | "sending" | "confirming" | "linked" | "error";
 
 /**
  * Redeem a link code from the current wallet by sending a 0-value tx to the
@@ -87,12 +81,18 @@ export function useLinkRedeem(address: `0x${string}` | null) {
         // declining a 0-value tx carrying calldata to an address with no
         // contract code. Guessing between them is how P67 went wrong, so
         // measure instead.
+        const code =
+          e && typeof e === "object" && "code" in e
+            ? String((e as { code?: unknown }).code)
+            : undefined;
         track("link_redeem_failed", {
           reason: isUserRejection(e)
             ? "user_cancelled"
             : isPermissionDenied(e)
               ? "permission_denied"
               : "wallet",
+          message: errorText(e).slice(0, 160),
+          ...(code ? { code } : {}),
         });
         setState("error");
         return false;
