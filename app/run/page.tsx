@@ -102,6 +102,8 @@ import {
 } from "./gpsPrimer";
 import { NeedNameOverlay } from "./NeedNameOverlay";
 import { OnboardingTooltip } from "./OnboardingTooltip";
+import { CaptureBursts, type CaptureBurst } from "./CaptureBursts";
+import { MapLegend } from "./MapLegend";
 import { readCachedPosition, writeCachedPosition } from "./positionCache";
 import { FINE_FIX, nextFixAttempt } from "./gpsAttempts";
 import { RunControls } from "./RunControls";
@@ -304,6 +306,16 @@ export default function RunPage() {
   const [fixReady, setFixReady] = useState(false);
   const [startedOnOwned, setStartedOnOwned] = useState(false);
   const [repeatedCount, setRepeatedCount] = useState(0);
+  // Accuracy of the latest fix, in 5 m steps so a jittering GPS does not
+  // re-render the screen on every reading.
+  const [accuracyM, setAccuracyM] = useState<number | null>(null);
+  // Floating "+1" chips, one per kind of action in a server answer.
+  const [bursts, setBursts] = useState<CaptureBurst[]>([]);
+  const burstIdRef = useRef(0);
+  const fixReadyRef = useRef(false);
+  useEffect(() => {
+    fixReadyRef.current = fixReady;
+  }, [fixReady]);
   const [reinforcedCount, setReinforcedCount] = useState(0);
   const [attackedCount, setAttackedCount] = useState(0);
   const capture = captureStatus({
@@ -872,6 +884,48 @@ export default function RunPage() {
       setReinforcedCount((c) => c + applied.reinforced);
     if (applied.attacked > 0) setAttackedCount((c) => c + applied.attacked);
     if (applied.repeated > 0) setRepeatedCount((c) => c + applied.repeated);
+    // Say what this answer did, where the player is looking.
+    const fresh: CaptureBurst[] = [];
+    if (applied.newly > 0) {
+      fresh.push({ id: ++burstIdRef.current, kind: "new", count: applied.newly });
+    }
+    if (applied.reinforced > 0) {
+      let level = 0;
+      if (outcome.kind === "ok") {
+        for (const row of outcome.results) {
+          if (row.action === "reinforce" && typeof row.strength === "number") {
+            level = Math.max(level, row.strength);
+          }
+        }
+      }
+      fresh.push({
+        id: ++burstIdRef.current,
+        kind: "reinforced",
+        count: applied.reinforced,
+        ...(level > 0 ? { level } : {}),
+      });
+    }
+    if (applied.attacked > 0) {
+      fresh.push({
+        id: ++burstIdRef.current,
+        kind: "attacked",
+        count: applied.attacked,
+      });
+    }
+    if (fresh.length > 0) {
+      const ids = new Set(fresh.map((b) => b.id));
+      setBursts((cur) => [...cur, ...fresh].slice(-4));
+      window.setTimeout(
+        () => setBursts((cur) => cur.filter((b) => !ids.has(b.id))),
+        1900,
+      );
+      // A short buzz: the phone is often in a hand or a pocket, not in view.
+      try {
+        navigator.vibrate?.(applied.newly > 0 ? 40 : 25);
+      } catch {
+        // Not supported, or blocked by the webview. The chip is enough.
+      }
+    }
     if (outcome.kind === "ok" && applied.newly > 0)
       setHexCount((c) => c + applied.newly);
     if (
@@ -1045,7 +1099,10 @@ export default function RunPage() {
       log.info("run started", { id: data.id });
       track(
         "run_started",
-        declaredModeRef.current ? { mode: declaredModeRef.current } : {},
+        {
+          ...(declaredModeRef.current ? { mode: declaredModeRef.current } : {}),
+          fix_ready: fixReadyRef.current,
+        },
       );
       setRunId(data.id);
       runH3Ref.current = new Set();
@@ -1319,6 +1376,18 @@ export default function RunPage() {
     requestLocation();
   }, [geoStatus, requestLocation]);
 
+  // Blocked location is fixed in the phone's settings, which means leaving
+  // this screen. When the player comes back, ask once on their behalf: they
+  // should not have to find a button to learn that it worked.
+  useEffect(() => {
+    if (geoStatus !== "denied" && geoStatus !== "unavailable") return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") requestLocation();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [geoStatus, requestLocation]);
+
   useEffect(() => {
     if (!containerRef.current || !mapBoot) return;
     // Wait for the tier. Building MapLibre first and discovering the tier
@@ -1360,6 +1429,10 @@ export default function RunPage() {
           if (!alive) return;
           const { latitude, longitude, accuracy } = pos.coords;
           setGeoStatus("granted");
+          if (typeof accuracy === "number" && Number.isFinite(accuracy)) {
+            const stepped = Math.max(5, Math.round(accuracy / 5) * 5);
+            setAccuracyM((cur) => (cur === stepped ? cur : stepped));
+          }
           log.debug("position", { lat: latitude, lng: longitude, accuracy });
 
           // Always render the live position dot and refresh the "center on
@@ -1989,6 +2062,9 @@ export default function RunPage() {
       <RunControls
         canStart={!!canStart}
         locationReady={geoStatus === "granted"}
+        geoStatus={geoStatus}
+        fixReady={fixReady}
+        accuracyM={accuracyM}
         isActive={isActive}
         isBusy={isBusy}
         hexCount={hexCount}
@@ -2002,6 +2078,8 @@ export default function RunPage() {
         mode={declaredMode}
         onModeChange={pickMode}
       />
+      {isActive && <CaptureBursts bursts={bursts} />}
+      {!isActive && !gpsExplain && <MapLegend strength={HEX_STRENGTH} />}
       {gpsExplain && <GpsExplainer onAllow={allowLocation} />}
       {lastFinishedRun && (
         <RunSummaryModal
