@@ -127,6 +127,12 @@ const FAR_CAMERA_METERS = 1500;
 // between good ones is normal; a streak means no GPS lock (indoors, network
 // location only).
 const WEAK_FIX_STREAK = 3;
+/**
+ * New blocks in one server answer from which the number is labelled as a
+ * saved queue. A flush goes out every 2.5 s; ten blocks in that time is
+ * over 250 km/h, so on the ground this many means a queue caught up.
+ */
+const LATE_BURST_MIN = 10;
 
 /** The phone's IANA time zone, or undefined when the runtime cannot tell. */
 function currentTimeZone(): string | undefined {
@@ -224,6 +230,8 @@ export default function RunPage() {
   const mineH3Ref = useRef<Set<string>>(new Set());
   // Hexes this run captured or stole. Painted red; older ones stay orange.
   const runH3Ref = useRef<Set<string>>(new Set());
+  // Own blocks reinforced in this run. Painted with a green rim.
+  const reinforcedH3Ref = useRef<Set<string>>(new Set());
   // Hex strength: every block already queued this run, own ones included,
   // so a pass is sent once per run (the server allows one action a day).
   const passedH3Ref = useRef<Set<string>>(new Set());
@@ -290,6 +298,10 @@ export default function RunPage() {
   const lastClaimFlushAt = useRef(0);
   const hexRefreshPauseUntil = useRef(0);
   const flushClaimQueueRef = useRef<() => Promise<void>>(async () => {});
+  // The server rows behind the last paint, kept so a capture can be drawn
+  // the moment it is queued without asking the server again.
+  const lastServerRowsRef = useRef<ClaimedHexRow[]>([]);
+  const localPaintTimer = useRef<number | null>(null);
 
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("idle");
   // Set when the last few fixes were all too coarse to capture.
@@ -303,6 +315,8 @@ export default function RunPage() {
   const [hexCount, setHexCount] = useState(0);
   // What the capture status line is built from. See lib/runs/captureStatus.
   const [pendingCount, setPendingCount] = useState(0);
+  // The last upload failed and the queue is waiting on a retry.
+  const [uploadFailing, setUploadFailing] = useState(false);
   const [fixReady, setFixReady] = useState(false);
   const [startedOnOwned, setStartedOnOwned] = useState(false);
   const [repeatedCount, setRepeatedCount] = useState(0);
@@ -325,6 +339,7 @@ export default function RunPage() {
     repeated: repeatedCount,
     fixReady,
     startedOnOwned,
+    uploadFailing,
   });
   // The finish handler reads it without being rebuilt on every change.
   const captureStatusRef = useRef(capture.kind);
@@ -491,6 +506,73 @@ export default function RunPage() {
   const paintGen = useRef(0);
   const worldInflight = useRef<Promise<ClaimedHexRow[] | null> | null>(null);
 
+  /**
+   * Draw the claimed layer from a set of server rows plus what this phone
+   * knows on its own: the player's blocks the answer left out, and the
+   * captures still queued. Returns how many blocks went to the map.
+   */
+  const drawClaimed = useCallback((rows: ClaimedHexRow[]): number => {
+    const map = mapRef.current;
+    if (!map && !isGridRef.current) return 0;
+    // A refresh may add the player's blocks, never take them away. See
+    // lib/map/ownFloor for the run this was filmed on.
+    const floored = withOwnFloor({
+      rows,
+      owned: mineH3Ref.current,
+      // Derived from the outbox rather than tracked alongside it: the
+      // queue already *is* the set of captures the server has not
+      // acknowledged, and a second copy would be a second thing to keep
+      // correct.
+      pending: new Set(claimQueueRef.current.map((q) => q.h3)),
+      address: addressRef.current,
+      username: userRef.current,
+    });
+    const collection = claimedHexesToFeatureCollection(
+      floored,
+      linkedRef.current,
+      runH3Ref.current,
+      topColorsRef.current,
+      usedTodayRef.current,
+      reinforcedH3Ref.current,
+    );
+    if (map) liveGeoSource(map, "claimed-hexes")?.setData(collection);
+    else setGridData({ hexes: collection });
+    return floored.length;
+  }, []);
+
+  /**
+   * Repaint from what the phone already has, with no request.
+   *
+   * The pending shade existed, but it was only ever drawn by a refresh, and
+   * a refresh runs after the server answers. So a block showed up when the
+   * network allowed, not when the player crossed it, and with the upload
+   * failing the trail simply stopped (11 Nov 2026, Mumbai: five failed
+   * uploads in four minutes and a map that looked stuck). This draws the
+   * crossing at the crossing.
+   *
+   * The server rows are the last ones painted, so another player's block
+   * keeps its owner until the server says otherwise: nothing here guesses
+   * the outcome of an attack. Coalesced, because at speed the fix handler
+   * queues blocks about once a second and each paint rebuilds the layer.
+   */
+  const paintLocalSoon = useCallback(() => {
+    if (localPaintTimer.current !== null) return;
+    localPaintTimer.current = window.setTimeout(() => {
+      localPaintTimer.current = null;
+      drawClaimed(lastServerRowsRef.current);
+    }, 250);
+  }, [drawClaimed]);
+
+  useEffect(
+    () => () => {
+      if (localPaintTimer.current !== null) {
+        window.clearTimeout(localPaintTimer.current);
+        localPaintTimer.current = null;
+      }
+    },
+    [],
+  );
+
   const refreshClaimed = useCallback(
     async (reason: "move" | "fresh" = "fresh") => {
       const map = mapRef.current;
@@ -547,30 +629,10 @@ export default function RunPage() {
         // a hex the moment the server says it changed hands. Only then is it
         // safe to draw from that set.
         rememberOwners(mineH3Ref.current, rows, linkedRef.current);
-        // A refresh may add the player's blocks, never take them away. See
-        // lib/map/ownFloor for the run this was filmed on.
-        const floored = withOwnFloor({
-          rows,
-          owned: mineH3Ref.current,
-          // Derived from the outbox rather than tracked alongside it: the
-          // queue already *is* the set of captures the server has not
-          // acknowledged, and a second copy would be a second thing to keep
-          // correct.
-          pending: new Set(claimQueueRef.current.map((q) => q.h3)),
-          address: addressRef.current,
-          username: userRef.current,
-        });
-        const collection = claimedHexesToFeatureCollection(
-          floored,
-          linkedRef.current,
-          runH3Ref.current,
-          topColorsRef.current,
-          usedTodayRef.current,
-        );
-        if (map) liveGeoSource(map, "claimed-hexes")?.setData(collection);
-        else setGridData({ hexes: collection });
+        lastServerRowsRef.current = rows;
+        const count = drawClaimed(rows);
         log.debug("claimed-view", {
-          count: floored.length,
+          count,
           fromServer: rows.length,
           reason,
           wide,
@@ -718,7 +780,7 @@ export default function RunPage() {
       if (!worldRef.current) return;
       paint(hexesInBounds(worldRef.current.rows, bounds));
     },
-    [],
+    [drawClaimed],
   );
 
   // Load the blocks already spent today, so the map can mark them before
@@ -834,6 +896,7 @@ export default function RunPage() {
           if (view.ownedAfter) mineH3Ref.current.add(row.h3);
           else mineH3Ref.current.delete(row.h3);
           if (view.captured) runH3Ref.current.add(row.h3);
+          if (view.reinforced) reinforcedH3Ref.current.add(row.h3);
         }
         if (modeRejected > 0 && !modeWarnedRef.current) {
           // A vehicle over its realistic ceiling is almost always a GPS
@@ -868,6 +931,9 @@ export default function RunPage() {
         online: navigator.onLine,
       });
     }
+    // Read before it is reset: an answer that follows a failed upload is
+    // carrying a queue, and its number should say so.
+    const afterFailure = claimFailuresRef.current > 0;
     const applied = applyHttp(
       claimQueueRef.current,
       batch.map((item) => item.h3),
@@ -879,6 +945,7 @@ export default function RunPage() {
     claimRetryMsRef.current = applied.retryMs ?? 0;
     writeClaimQueue(id, applied.items);
     setPendingCount(applied.items.length);
+    setUploadFailing(applied.failures > 0 && applied.items.length > 0);
     claimFlushing.current = false;
     if (applied.reinforced > 0)
       setReinforcedCount((c) => c + applied.reinforced);
@@ -887,7 +954,16 @@ export default function RunPage() {
     // Say what this answer did, where the player is looking.
     const fresh: CaptureBurst[] = [];
     if (applied.newly > 0) {
-      fresh.push({ id: ++burstIdRef.current, kind: "new", count: applied.newly });
+      fresh.push({
+        id: ++burstIdRef.current,
+        kind: "new",
+        count: applied.newly,
+        // A queue that just went through, not one step: label it, or "+20"
+        // after a run of "+1" looks like a glitch.
+        ...(afterFailure || applied.newly >= LATE_BURST_MIN
+          ? { late: true }
+          : {}),
+      });
     }
     if (applied.reinforced > 0) {
       let level = 0;
@@ -1017,6 +1093,7 @@ export default function RunPage() {
       );
       writeClaimQueue(id, claimQueueRef.current);
       setPendingCount(claimQueueRef.current.length);
+      paintLocalSoon();
       if (claimFlushing.current || claimFlushTimer.current !== null) return;
       const delay = flushDelay(lastClaimFlushAt.current, Date.now());
       if (delay === 0) {
@@ -1030,7 +1107,7 @@ export default function RunPage() {
         void flushClaimQueueRef.current();
       }, delay);
     },
-    [flushClaimQueue],
+    [flushClaimQueue, paintLocalSoon],
   );
 
   const drainClaimQueue = useCallback(async () => {
@@ -1106,7 +1183,9 @@ export default function RunPage() {
       );
       setRunId(data.id);
       runH3Ref.current = new Set();
+      reinforcedH3Ref.current = new Set();
       passedH3Ref.current = new Set();
+      setUploadFailing(false);
       setHexCount(0);
       setReinforcedCount(0);
       setAttackedCount(0);
@@ -1224,8 +1303,11 @@ export default function RunPage() {
       setRunId(null);
       declaredModeRef.current = null;
       setDeclaredMode(null);
-      // The run's red hexes become ordinary owned (orange) territory.
+      // The run's red hexes become ordinary owned (orange) territory, and
+      // the green rims go with them.
       runH3Ref.current = new Set();
+      reinforcedH3Ref.current = new Set();
+      setUploadFailing(false);
       passedH3Ref.current = new Set();
       // Do not await this. The world list is megabytes, and waiting on it
       // kept the wallet sheet from opening.
@@ -1715,6 +1797,8 @@ export default function RunPage() {
         "case",
         ["get", "isRun"],
         HEX_COLORS.run,
+        ["get", "isReinforced"],
+        HEX_COLORS.reinforced,
         ["get", "isMine"],
         levelColor(HEX_COLORS.mine, LEVEL_DARK.mine),
         hasTopColor,
@@ -1735,6 +1819,8 @@ export default function RunPage() {
             0.25,
             ["get", "isRun"],
             0.5,
+            ["get", "isReinforced"],
+            0.55,
             ["get", "isMine"],
             levelValue(0.4, 0.85),
             hasTopColor,
@@ -1785,6 +1871,21 @@ export default function RunPage() {
           },
         });
       }
+      // Reinforced in this run: green, the fill above and this rim.
+      // Thicker than any other outline, and with the dashed white rim below
+      // drawn over it (a reinforce spends the block for today), it reads as
+      // a pattern and not only as a color.
+      map.addLayer({
+        id: "claimed-hex-reinforced",
+        type: "line",
+        source: "claimed-hexes",
+        filter: ["==", ["get", "isReinforced"], true],
+        paint: {
+          "line-color": HEX_COLORS.reinforced,
+          "line-width": 4.5,
+          "line-opacity": 0.95,
+        },
+      });
       // Spent for today: a dashed white rim, so the player can tell before
       // walking there that a pass over this block will do nothing.
       map.addLayer({
