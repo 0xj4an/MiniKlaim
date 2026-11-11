@@ -1,0 +1,1 @@
+CREATE INDEX "player_wallets_player_id_idx" ON "player_wallets" USING btree ("player_id");
