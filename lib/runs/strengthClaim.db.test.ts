@@ -2,7 +2,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { hexActions, hexes, runs, users } from "@/lib/db/schema";
+import { hexActions, hexes, hexLosses, runs, users } from "@/lib/db/schema";
 import { strengthSql } from "@/lib/runs/hexStrength";
 import { applyStrengthBatch } from "@/lib/runs/strengthClaim";
 
@@ -49,6 +49,7 @@ const hex = async (h3: string) =>
 describe.skipIf(!db)("applyStrengthBatch (database)", () => {
   beforeEach(async () => {
     await db!.delete(hexActions);
+    await db!.delete(hexLosses).where(inArray(hexLosses.h3Id, [H1, H2]));
     await db!.delete(hexes).where(inArray(hexes.h3Id, [H1, H2]));
     await db!.delete(runs).where(inArray(runs.id, [RUN_A, RUN_B, RUN_C]));
     for (const address of [A, A2, B, C]) {
@@ -67,7 +68,11 @@ describe.skipIf(!db)("applyStrengthBatch (database)", () => {
 
   it("captures a free block at level 1", async () => {
     const r = await pass(A, RUN_A, [H1], T0);
-    expect(r.byH3.get(H1)).toEqual({ action: "new", strength: 1, ownedByActor: true });
+    expect(r.byH3.get(H1)).toEqual({
+      action: "new",
+      strength: 1,
+      ownedByActor: true,
+    });
     expect(r.captured).toBe(1);
     expect(r.conquests).toBe(0);
     const row = await hex(H1);
@@ -81,7 +86,11 @@ describe.skipIf(!db)("applyStrengthBatch (database)", () => {
     const same = await pass(A, RUN_A, [H1], new Date(T0.getTime() + 3_600_000));
     expect(same.byH3.get(H1)?.action).toBe("repeat");
     const next = await pass(A, RUN_A, [H1], new Date(T0.getTime() + DAY));
-    expect(next.byH3.get(H1)).toEqual({ action: "reinforce", strength: 2, ownedByActor: true });
+    expect(next.byH3.get(H1)).toEqual({
+      action: "reinforce",
+      strength: 2,
+      ownedByActor: true,
+    });
     expect((await hex(H1)).baseStrength).toBe(2);
   });
 
@@ -104,7 +113,11 @@ describe.skipIf(!db)("applyStrengthBatch (database)", () => {
       .where(eq(hexes.h3Id, H1));
 
     const hit = await pass(B, RUN_B, [H1], new Date(T0.getTime() + 2 * DAY));
-    expect(hit.byH3.get(H1)).toEqual({ action: "attack", strength: 1, ownedByActor: false });
+    expect(hit.byH3.get(H1)).toEqual({
+      action: "attack",
+      strength: 1,
+      ownedByActor: false,
+    });
     expect(hit.damaged).toBe(1);
     let row = await hex(H1);
     expect(row.ownerAddress).toBe(A);
@@ -113,7 +126,11 @@ describe.skipIf(!db)("applyStrengthBatch (database)", () => {
     expect(row.damage).toBe(1);
 
     const take = await pass(B, RUN_B, [H1], new Date(T0.getTime() + 3 * DAY));
-    expect(take.byH3.get(H1)).toEqual({ action: "capture", strength: 1, ownedByActor: true });
+    expect(take.byH3.get(H1)).toEqual({
+      action: "capture",
+      strength: 1,
+      ownedByActor: true,
+    });
     expect(take.conquests).toBe(1);
     row = await hex(H1);
     expect(row.ownerAddress).toBe(B);
@@ -138,20 +155,26 @@ describe.skipIf(!db)("applyStrengthBatch (database)", () => {
     await pass(A, RUN_A, [H1], new Date(T0.getTime() + DAY));
     const t = new Date(T0.getTime() + 2 * DAY);
     expect((await pass(B, RUN_B, [H1], t)).byH3.get(H1)?.action).toBe("attack");
-    expect((await pass(C, RUN_C, [H1], t)).byH3.get(H1)?.action).toBe("capture");
+    expect((await pass(C, RUN_C, [H1], t)).byH3.get(H1)?.action).toBe(
+      "capture",
+    );
     expect((await hex(H1)).ownerAddress).toBe(C);
   });
 
   it("linked wallets share the daily limit", async () => {
     await pass(A, RUN_A, [H1], T0, [A, A2]);
-    const r = await pass(A2, RUN_A, [H1], new Date(T0.getTime() + 60_000), [A, A2]);
+    const r = await pass(A2, RUN_A, [H1], new Date(T0.getTime() + 60_000), [
+      A,
+      A2,
+    ]);
     expect(r.byH3.get(H1)?.action).toBe("repeat");
     expect(r.byH3.get(H1)?.ownedByActor).toBe(true);
   });
 
   it("owner visit folds damage into the new level", async () => {
     await pass(A, RUN_A, [H1], T0);
-    for (let d = 1; d <= 4; d += 1) await pass(A, RUN_A, [H1], new Date(T0.getTime() + d * DAY));
+    for (let d = 1; d <= 4; d += 1)
+      await pass(A, RUN_A, [H1], new Date(T0.getTime() + d * DAY));
     await pass(B, RUN_B, [H1], new Date(T0.getTime() + 5 * DAY));
     await pass(B, RUN_B, [H1], new Date(T0.getTime() + 6 * DAY));
     // level 5, two hits -> 3; owner visit -> 4, damage cleared.
@@ -165,7 +188,10 @@ describe.skipIf(!db)("applyStrengthBatch (database)", () => {
   it("parallel passes on a level-1 block capture once", async () => {
     await pass(A, RUN_A, [H1], T0);
     const t = new Date(T0.getTime() + DAY);
-    const [rb, rc] = await Promise.all([pass(B, RUN_B, [H1], t), pass(C, RUN_C, [H1], t)]);
+    const [rb, rc] = await Promise.all([
+      pass(B, RUN_B, [H1], t),
+      pass(C, RUN_C, [H1], t),
+    ]);
     const actions = [rb.byH3.get(H1)?.action, rc.byH3.get(H1)?.action].sort();
     // One captures from A at level 1; the other then attacks the new
     // owner's level-1 block, which is a capture too. Owner ends as one of
@@ -181,10 +207,16 @@ describe.skipIf(!db)("applyStrengthBatch (database)", () => {
     await pass(A, RUN_A, [H1], T0);
     await db!
       .update(hexes)
-      .set({ baseStrength: 7, damage: 2, reinforcedAt: new Date(Date.now() - 65 * DAY) })
+      .set({
+        baseStrength: 7,
+        damage: 2,
+        reinforcedAt: new Date(Date.now() - 65 * DAY),
+      })
       .where(eq(hexes.h3Id, H1));
     const [row] = await db!
-      .select({ s: strengthSql(hexes.baseStrength, hexes.damage, hexes.reinforcedAt) })
+      .select({
+        s: strengthSql(hexes.baseStrength, hexes.damage, hexes.reinforcedAt),
+      })
       .from(hexes)
       .where(eq(hexes.h3Id, H1));
     // 7 - 2 = 5, two full months -> 3.
@@ -193,5 +225,50 @@ describe.skipIf(!db)("applyStrengthBatch (database)", () => {
       sql`select ${strengthSql(sql`3`, sql`2`, sql`now() - interval '400 days'`)} as s`,
     );
     expect(Number(deep.s)).toBe(1);
+  });
+
+  const lossesOf = (h3: string) =>
+    db!
+      .select({
+        victim: hexLosses.victim,
+        actor: hexLosses.actor,
+        kind: hexLosses.kind,
+      })
+      .from(hexLosses)
+      .where(eq(hexLosses.h3Id, h3));
+
+  it("writes nothing for a new block or for a reinforce", async () => {
+    await pass(A, RUN_A, [H1], T0);
+    await pass(A, RUN_A, [H1], new Date(T0.getTime() + DAY));
+    expect(await lossesOf(H1)).toEqual([]);
+  });
+
+  it("names the owner when a level 1 block is taken", async () => {
+    await pass(A, RUN_A, [H1], T0);
+    const out = await pass(B, RUN_B, [H1], T0);
+    expect(out.conquests).toBe(1);
+    expect(await lossesOf(H1)).toEqual([
+      { victim: A, actor: B, kind: "capture" },
+    ]);
+  });
+
+  it("names the owner on an attack, and the block stays theirs", async () => {
+    await pass(A, RUN_A, [H1], T0);
+    await pass(A, RUN_A, [H1], new Date(T0.getTime() + DAY));
+    const out = await pass(B, RUN_B, [H1], new Date(T0.getTime() + DAY));
+    expect(out.damaged).toBe(1);
+    expect((await hex(H1)).ownerAddress).toBe(A);
+    expect(await lossesOf(H1)).toEqual([
+      { victim: A, actor: B, kind: "attack" },
+    ]);
+  });
+
+  it("does not log a pass the daily limit swallowed", async () => {
+    await pass(A, RUN_A, [H1], T0);
+    await pass(A, RUN_A, [H1], new Date(T0.getTime() + DAY));
+    const later = new Date(T0.getTime() + DAY);
+    await pass(B, RUN_B, [H1], later);
+    await pass(B, RUN_B, [H1], later);
+    expect(await lossesOf(H1)).toHaveLength(1);
   });
 });
