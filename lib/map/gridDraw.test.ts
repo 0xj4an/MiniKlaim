@@ -92,6 +92,11 @@ describe("fillFor", () => {
     expect(fillFor({ isRun: true, isMine: true, strength: 9 })).toBe(HEX_COLORS.run);
   });
 
+  it("paints a reinforce green, and a capture still wins", () => {
+    expect(fillFor({ isMine: true, isReinforced: true })).toBe(HEX_COLORS.reinforced);
+    expect(fillFor({ isMine: true, isRun: true, isReinforced: true })).toBe(HEX_COLORS.run);
+  });
+
   it("darkens the player's own blocks with their level", () => {
     expect(fillFor({ isMine: true, strength: 1 })).toBe("#f97316");
     expect(fillFor({ isMine: true, strength: 10 })).toBe(LEVEL_DARK.mine.toLowerCase());
@@ -135,6 +140,30 @@ describe("drawGrid", () => {
       cell(CENTER),
     ];
     expect(drawGrid(ctx, scene(broken))).toBe(1);
+  });
+
+  it("paints a block reinforced in this run green, with a thicker rim", () => {
+    const { ctx } = fakeContext();
+    const strokes: Array<{ style: string; width: number }> = [];
+    ctx.stroke = vi.fn(
+      () => void strokes.push({ style: String(ctx.strokeStyle), width: ctx.lineWidth }),
+    );
+    drawGrid(ctx, scene([cell(CENTER, { isMine: true, isReinforced: true })]));
+    expect(strokes).toContainEqual({ style: HEX_COLORS.reinforced, width: 3 });
+  });
+
+  it("draws a capture still being saved fainter than a saved one", () => {
+    const { ctx } = fakeContext();
+    const alphas: number[] = [];
+    ctx.fill = vi.fn(() => void alphas.push(ctx.globalAlpha));
+    drawGrid(
+      ctx,
+      scene([
+        cell(CENTER, { isMine: true, isRun: true, isPending: true }),
+        cell(CENTER, { isMine: true, isRun: true }),
+      ]),
+    );
+    expect(alphas[0]).toBeLessThan(alphas[1]);
   });
 
   it("draws the player on top of the blocks", () => {
