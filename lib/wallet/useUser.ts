@@ -14,7 +14,12 @@ export type User = {
   lastRunAt: string | null;
 };
 
-export type SetUsernameResult = { ok: boolean; error?: string };
+export type SetUsernameResult = {
+  ok: boolean;
+  error?: string;
+  /** Set when the name belongs to another wallet: that wallet, shortened. */
+  takenBy?: string;
+};
 
 export type UseUser = {
   user: User | null;
@@ -67,11 +72,19 @@ export function useUser(address: string | null): UseUser {
             body: JSON.stringify({ username }),
           },
         );
-        const data = (await res.json()) as { user: User } | { error: string };
+        const data = (await res.json()) as
+          | { user: User }
+          | { error: string; code?: string; owner?: string };
         if (!res.ok || "error" in data) {
           const error = "error" in data ? data.error : `status ${res.status}`;
           log.warn("set username failed", { error });
-          return { ok: false, error };
+          return {
+            ok: false,
+            error,
+            ...("error" in data && data.code === "taken"
+              ? { takenBy: data.owner ?? "" }
+              : {}),
+          };
         }
         setUser(data.user);
         setPersonUsername(data.user.username);

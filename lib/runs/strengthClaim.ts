@@ -1,6 +1,6 @@
 import { inArray, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
-import { hexActions, hexes } from "@/lib/db/schema";
+import { hexActions, hexes, hexLosses } from "@/lib/db/schema";
 import {
   type HexAction,
   type HexPlan,
@@ -115,6 +115,8 @@ export async function applyStrengthBatch(
     const captureRows: Array<typeof hexes.$inferInsert> = [];
     const reinforceByLevel = new Map<number, string[]>();
     const attacks: string[] = [];
+    // Who lost what in this batch, for the notice on their home screen.
+    const losses: Array<typeof hexLosses.$inferInsert> = [];
 
     for (const h3 of ids) {
       const plan = plans.get(h3)!;
@@ -142,7 +144,19 @@ export async function applyStrengthBatch(
           reinforcedAt: now,
         });
         out.captured += 1;
-        if (plan.action === "capture") out.conquests += 1;
+        if (plan.action === "capture") {
+          out.conquests += 1;
+          const row = byId.get(h3);
+          if (row) {
+            losses.push({
+              victim: row.ownerAddress.toLowerCase(),
+              actor,
+              h3Id: h3,
+              kind: "capture",
+              createdAt: now,
+            });
+          }
+        }
         out.byH3.set(h3, { action: plan.action, strength: 1, ownedByActor: true });
       } else if (plan.action === "reinforce") {
         const list = reinforceByLevel.get(plan.baseStrength) ?? [];
@@ -153,6 +167,16 @@ export async function applyStrengthBatch(
       } else {
         attacks.push(h3);
         out.damaged += 1;
+        const row = byId.get(h3);
+        if (row) {
+          losses.push({
+            victim: row.ownerAddress.toLowerCase(),
+            actor,
+            h3Id: h3,
+            kind: "attack",
+            createdAt: now,
+          });
+        }
         out.byH3.set(h3, { action: "attack", strength: plan.strength, ownedByActor: false });
       }
     }
@@ -189,6 +213,9 @@ export async function applyStrengthBatch(
         .update(hexes)
         .set({ damage: sql`${hexes.damage} + 1` })
         .where(inArray(hexes.h3Id, attacks));
+    }
+    if (losses.length > 0) {
+      await tx.insert(hexLosses).values(losses);
     }
   });
 
