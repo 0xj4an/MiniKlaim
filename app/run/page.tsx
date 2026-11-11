@@ -225,6 +225,9 @@ export default function RunPage() {
   // Hex strength: every block already queued this run, own ones included,
   // so a pass is sent once per run (the server allows one action a day).
   const passedH3Ref = useRef<Set<string>>(new Set());
+  // Blocks already acted on today, from the server and from this session.
+  // One action per block per player per day: these are spent until tomorrow.
+  const usedTodayRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     linkedRef.current = linked;
   }, [linked]);
@@ -550,6 +553,7 @@ export default function RunPage() {
           linkedRef.current,
           runH3Ref.current,
           topColorsRef.current,
+          usedTodayRef.current,
         );
         if (map) liveGeoSource(map, "claimed-hexes")?.setData(collection);
         else setGridData({ hexes: collection });
@@ -705,6 +709,27 @@ export default function RunPage() {
     [],
   );
 
+  // Load the blocks already spent today, so the map can mark them before
+  // the player walks onto one. A failure costs the marks and nothing else:
+  // the capture line still says so when a pass is ignored.
+  useEffect(() => {
+    if (!HEX_STRENGTH || !address) return;
+    let cancelled = false;
+    void fetch(`/api/users/${address.toLowerCase()}/used-today`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { h3?: unknown } | null) => {
+        if (cancelled || !data || !Array.isArray(data.h3)) return;
+        for (const h3 of data.h3) {
+          if (typeof h3 === "string") usedTodayRef.current.add(h3);
+        }
+        void refreshClaimed();
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [address, refreshClaimed]);
+
   /**
    * Upload every hex still waiting. One POST carries the whole queue so a
    * fast run stays under the 30 writes/minute cap. A 429 or a dropped
@@ -790,6 +815,9 @@ export default function RunPage() {
             passedH3Ref.current.delete(row.h3);
             continue;
           }
+          // Any answer with an action means today's turn on this block is
+          // spent, "repeat" included: that one says it already was.
+          if (row.action) usedTodayRef.current.add(row.h3);
           const view = claimRowView(row);
           if (view.ownedAfter) mineH3Ref.current.add(row.h3);
           else mineH3Ref.current.delete(row.h3);
@@ -1657,6 +1685,20 @@ export default function RunPage() {
             0.9,
             0.6,
           ],
+        },
+      });
+      // Spent for today: a dashed white rim, so the player can tell before
+      // walking there that a pass over this block will do nothing.
+      map.addLayer({
+        id: "claimed-hex-used",
+        type: "line",
+        source: "claimed-hexes",
+        filter: ["==", ["get", "usedToday"], true],
+        paint: {
+          "line-color": "#ffffff",
+          "line-width": 2,
+          "line-opacity": 0.95,
+          "line-dasharray": [1.2, 1.2],
         },
       });
 
