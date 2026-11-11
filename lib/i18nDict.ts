@@ -249,9 +249,15 @@ export const dictionaries = {
     "run.capture.saving.one": "Saving 1 block...",
     "run.capture.saved": "{n} blocks saved",
     "run.capture.saved.one": "1 block saved",
+    "run.capture.queued":
+      "No connection. {n} blocks waiting, they save when it is back.",
+    "run.capture.queued.one":
+      "No connection. 1 block waiting, it saves when it is back.",
     "run.legend.open": "What the colors mean",
     "run.legend.title": "How the map works",
-    "run.legend.run": "Red: captured in this run.",
+    "run.legend.run":
+      "Red: captured in this run. Lighter while it is still saving.",
+    "run.legend.reinforced": "Green: yours, reinforced in this run.",
     "run.legend.mine": "Orange: yours from before.",
     "run.legend.others": "Gray: another player's. Yours to take.",
     "run.legend.top":
@@ -280,6 +286,7 @@ export const dictionaries = {
     "run.start.waitingSignal": "Getting signal...",
     "run.start.anyway": "Start anyway",
     "run.burst.reinforced": "reinforced",
+    "run.burst.saved": "saved",
     "run.burst.attacked": "attack",
     "run.burst.level": "level {l}",
     "run.gps.deniedAgain":
@@ -913,9 +920,15 @@ export const dictionaries = {
     "run.capture.saving.one": "Guardando 1 cuadra...",
     "run.capture.saved": "{n} cuadras guardadas",
     "run.capture.saved.one": "1 cuadra guardada",
+    "run.capture.queued":
+      "Sin conexión. {n} cuadras en espera, se guardan cuando vuelva.",
+    "run.capture.queued.one":
+      "Sin conexión. 1 cuadra en espera, se guarda cuando vuelva.",
     "run.legend.open": "Qué significan los colores",
     "run.legend.title": "Cómo funciona el mapa",
-    "run.legend.run": "Rojo: capturada en esta corrida.",
+    "run.legend.run":
+      "Rojo: capturada en esta corrida. Más claro mientras se guarda.",
+    "run.legend.reinforced": "Verde: tuya, reforzada en esta corrida.",
     "run.legend.mine": "Naranja: tuya desde antes.",
     "run.legend.others": "Gris: de otro jugador. La puedes tomar.",
     "run.legend.top":
@@ -943,6 +956,7 @@ export const dictionaries = {
     "run.start.waitingSignal": "Tomando señal...",
     "run.start.anyway": "Empezar de todos modos",
     "run.burst.reinforced": "reforzada",
+    "run.burst.saved": "guardadas",
     "run.burst.attacked": "ataque",
     "run.burst.level": "nivel {l}",
     "run.gps.deniedAgain":

@@ -97,10 +97,12 @@ function rgbToHex(r: number, g: number, b: number): string {
 export function fillFor(props: {
   isMine?: boolean;
   isRun?: boolean;
+  isReinforced?: boolean;
   strength?: number;
   topColor?: string;
 }): string {
   if (props.isRun) return HEX_COLORS.run;
+  if (props.isReinforced) return HEX_COLORS.reinforced;
   const t = (levelOf(props.strength) - 1) / 9;
   if (props.isMine) return mixHex(HEX_COLORS.mine, LEVEL_DARK.mine, t);
   if (props.topColor) return props.topColor;
@@ -160,15 +162,29 @@ export function drawGrid(ctx: DrawContext, scene: GridScene): number {
     const props: Partial<{
       isMine: boolean;
       isRun: boolean;
+      isPending: boolean;
+      isReinforced: boolean;
       strength: number;
       topColor: string;
     }> = feature.properties ?? {};
-    ctx.globalAlpha = props.isMine || props.isRun ? 0.55 : 0.35;
+    // A capture still on its way to the server is the same red, fainter, as
+    // on the WebGL tiers: it firms up when the server agrees.
+    ctx.globalAlpha = props.isPending
+      ? 0.28
+      : props.isMine || props.isRun
+        ? 0.55
+        : 0.35;
     ctx.fillStyle = fillFor(props);
     ctx.fill();
     ctx.globalAlpha = 1;
+    // Reinforced in this run: green like its fill, with a rim thicker than
+    // any other outline, so it does not rest on telling green from red.
     ctx.strokeStyle = fillFor(props);
-    ctx.lineWidth = levelOf(props.strength) >= 10 ? 2.5 : 1;
+    ctx.lineWidth = props.isReinforced
+      ? 3
+      : levelOf(props.strength) >= 10
+        ? 2.5
+        : 1;
     ctx.stroke();
     drawn++;
   }

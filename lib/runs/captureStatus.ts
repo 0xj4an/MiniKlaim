@@ -14,11 +14,18 @@
  * new blocks, and the next run on the same block did nothing at all because
  * a block takes one action per player per day. Neither was said on screen.
  *
+ * And on 11 Nov 2026, a 30 minute car run in Mumbai (826 new blocks) had
+ * five uploads fail on the network and one answered 502. The player saw
+ * "+1, +2" and then a sudden "+20" with nothing in between, and read it as
+ * the app being stuck. The blocks were queued the whole time; nothing said
+ * so. That is the "queued" state.
+ *
  * Order matters. A block on its way to the server is the most useful thing
  * to say, then what is already saved, and only when there is nothing of
  * either does the reason for the silence come up.
  */
 export type CaptureStatus =
+  | { kind: "queued"; count: number }
   | { kind: "saving"; count: number }
   | { kind: "saved"; count: number }
   | { kind: "acted" }
@@ -43,7 +50,18 @@ export function captureStatus(input: {
   fixReady: boolean;
   /** The run started on a block the player already owned. */
   startedOnOwned: boolean;
+  /**
+   * The last upload did not get through and the blocks are waiting for the
+   * next try. Optional so a caller that does not track it reads as before.
+   */
+  uploadFailing?: boolean;
 }): CaptureStatus {
+  // "Saving 8 blocks..." for a minute reads as a hang. When the upload is
+  // failing the player needs the reason and the promise: nothing is lost,
+  // it goes out when the connection is back.
+  if (input.pending > 0 && input.uploadFailing) {
+    return { kind: "queued", count: input.pending };
+  }
   if (input.pending > 0) return { kind: "saving", count: input.pending };
   if (input.saved > 0) return { kind: "saved", count: input.saved };
   if (input.acted > 0) return { kind: "acted" };
