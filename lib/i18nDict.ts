@@ -236,6 +236,44 @@ export const dictionaries = {
     "run.capture.saving.one": "Saving 1 block...",
     "run.capture.saved": "{n} blocks saved",
     "run.capture.saved.one": "1 block saved",
+    "run.legend.open": "What the colors mean",
+    "run.legend.title": "How the map works",
+    "run.legend.run": "Red: captured in this run.",
+    "run.legend.mine": "Orange: yours from before.",
+    "run.legend.others":
+      "Gray, or a top-10 player's color: someone else's. Yours to take.",
+    "run.legend.level":
+      "Darker means a higher level, from 1 to 10. Higher is harder to take.",
+    "run.legend.used": "Dashed rim: you already used this block today.",
+    "run.legend.rules": "The rules",
+    "run.legend.rule.move":
+      "Move through a block during a run and it becomes yours.",
+    "run.legend.rule.reinforce":
+      "Pass over your own block and it goes up one level.",
+    "run.legend.rule.attack":
+      "Pass over someone else's block and it drops one level. At level 1 you take it.",
+    "run.legend.rule.daily":
+      "Each block takes one action from you per day. It resets at midnight.",
+    "run.legend.rule.gps":
+      "Blocks only count with an accurate GPS signal, so wait for it before you start.",
+    "run.legend.ok": "Got it",
+    "run.signal.requesting": "Finding your location...",
+    "run.signal.blocked": "Allow location to start.",
+    "run.signal.searching": "Getting a GPS signal. Wait a moment.",
+    "run.signal.searching.m": "Getting a GPS signal (±{m} m). Wait a moment.",
+    "run.signal.ready": "GPS is accurate. You can start.",
+    "run.signal.ready.m": "GPS is accurate (±{m} m). You can start.",
+    "run.start.waitingSignal": "Getting signal...",
+    "run.start.anyway": "Start anyway",
+    "run.burst.new": "+{n} blocks",
+    "run.burst.new.one": "+1 block",
+    "run.burst.reinforced": "+{n} reinforced",
+    "run.burst.reinforced.one": "+1 reinforced",
+    "run.burst.attacked": "{n} attacked",
+    "run.burst.attacked.one": "1 attacked",
+    "run.burst.level": "level {l}",
+    "run.gps.deniedAgain":
+      "Still blocked. Trying again does not unblock it: change the permission in your phone settings and come back to this screen. We will check on our own.",
     "run.gps.waiting": "Waiting for GPS...",
     "run.gps.requesting":
       "Finding your location. If your phone asks, allow location for MiniPay.",
@@ -841,17 +879,54 @@ export const dictionaries = {
     "time.unit.hours": "h",
     "time.unit.days": "d",
     "run.capture.searching":
-      "Buscando GPS preciso. Todavía no se capturan bloques.",
-    "run.capture.ready": "GPS listo. Muévete para capturar bloques.",
-    "run.capture.acted": "Hecho. Muévete para alcanzar más bloques.",
+      "Buscando GPS preciso. Todavía no se capturan cuadras.",
+    "run.capture.ready": "GPS listo. Muévete para capturar cuadras.",
+    "run.capture.acted": "Hecho. Muévete para alcanzar más cuadras.",
     "run.capture.repeat":
-      "Ya usaste este bloque hoy. Muévete a otro o vuelve mañana.",
+      "Ya usaste esta cuadra hoy. Muévete a otra o vuelve mañana.",
     "run.capture.owned":
-      "Este bloque ya es tuyo. Muévete para capturar nuevos.",
-    "run.capture.saving": "Guardando {n} bloques...",
-    "run.capture.saving.one": "Guardando 1 bloque...",
-    "run.capture.saved": "{n} bloques guardados",
-    "run.capture.saved.one": "1 bloque guardado",
+      "Esta cuadra ya es tuya. Muévete para capturar nuevas.",
+    "run.capture.saving": "Guardando {n} cuadras...",
+    "run.capture.saving.one": "Guardando 1 cuadra...",
+    "run.capture.saved": "{n} cuadras guardadas",
+    "run.capture.saved.one": "1 cuadra guardada",
+    "run.legend.open": "Qué significan los colores",
+    "run.legend.title": "Cómo funciona el mapa",
+    "run.legend.run": "Rojo: capturada en esta corrida.",
+    "run.legend.mine": "Naranja: tuya desde antes.",
+    "run.legend.others":
+      "Gris, o el color de un jugador del top 10: de otra persona. La puedes tomar.",
+    "run.legend.level":
+      "Más oscuro es más nivel, de 1 a 10. Más nivel, más difícil de quitar.",
+    "run.legend.used": "Borde punteado: ya usaste esta cuadra hoy.",
+    "run.legend.rules": "Las reglas",
+    "run.legend.rule.move":
+      "Pasa por una cuadra durante una corrida y se vuelve tuya.",
+    "run.legend.rule.reinforce": "Pasa por una cuadra tuya y sube un nivel.",
+    "run.legend.rule.attack":
+      "Pasa por la cuadra de otra persona y baja un nivel. En nivel 1 te la quedas.",
+    "run.legend.rule.daily":
+      "Cada cuadra admite una acción tuya por día. Se reinicia a medianoche.",
+    "run.legend.rule.gps":
+      "Las cuadras solo cuentan con señal GPS precisa, así que espérala antes de empezar.",
+    "run.legend.ok": "Entendido",
+    "run.signal.requesting": "Buscando tu ubicación...",
+    "run.signal.blocked": "Permite la ubicación para empezar.",
+    "run.signal.searching": "Tomando señal GPS. Espera un momento.",
+    "run.signal.searching.m": "Tomando señal GPS (±{m} m). Espera un momento.",
+    "run.signal.ready": "GPS preciso. Ya puedes empezar.",
+    "run.signal.ready.m": "GPS preciso (±{m} m). Ya puedes empezar.",
+    "run.start.waitingSignal": "Tomando señal...",
+    "run.start.anyway": "Empezar de todos modos",
+    "run.burst.new": "+{n} cuadras",
+    "run.burst.new.one": "+1 cuadra",
+    "run.burst.reinforced": "+{n} reforzadas",
+    "run.burst.reinforced.one": "+1 reforzada",
+    "run.burst.attacked": "{n} atacadas",
+    "run.burst.attacked.one": "1 atacada",
+    "run.burst.level": "nivel {l}",
+    "run.gps.deniedAgain":
+      "Sigue bloqueada. Reintentar no la desbloquea: cambia el permiso en los ajustes del teléfono y vuelve a esta pantalla. Revisamos solos.",
     "run.gps.waiting": "Esperando GPS...",
     "run.gps.requesting":
       "Buscando tu ubicación. Si el teléfono pregunta, permite la ubicación para MiniPay.",
