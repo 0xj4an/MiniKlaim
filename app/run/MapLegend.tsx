@@ -99,6 +99,12 @@ export function MapLegend({ strength }: { strength: boolean }) {
                 {swatch(HEX_COLORS.mine)}
                 <span>{t("run.legend.mine")}</span>
               </li>
+              {strength && (
+                <li className="flex items-center gap-3">
+                  {swatch(HEX_COLORS.reinforced)}
+                  <span>{t("run.legend.reinforced")}</span>
+                </li>
+              )}
               <li className="flex items-center gap-3">
                 {swatch(HEX_COLORS.others)}
                 <span>{t("run.legend.others")}</span>

@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useLocale } from "@/lib/i18n";
+import { HEX_COLORS } from "@/lib/map/hexColors";
 
 /**
  * One thing that just happened to the player's blocks: blocks captured,
@@ -13,11 +14,20 @@ export type CaptureBurst = {
   count: number;
   /** Highest block level reached by a reinforce in this answer, if known. */
   level?: number;
+  /**
+   * The answer carried a queue (it followed a failed upload, or brought more
+   * blocks than one step can). Captioned, so a jump from "+1" to "+20" says
+   * what it is.
+   */
+  late?: boolean;
 };
 
+// The same meaning as on the map (lib/map/hexColors.ts): red is a capture,
+// green a reinforce. Red is a shade darker than the map's fill so the number
+// holds up as text inside its white rim.
 const COLOR: Record<CaptureBurst["kind"], string> = {
-  new: "#ea580c",
-  reinforced: "#059669",
+  new: "#dc2626",
+  reinforced: HEX_COLORS.reinforced,
   attacked: "#18181b",
 };
 
@@ -62,7 +72,9 @@ export function CaptureBursts({ bursts }: { bursts: CaptureBurst[] }) {
               : t("run.burst.reinforced")
             : b.kind === "attacked"
               ? t("run.burst.attacked")
-              : null;
+              : b.late
+                ? t("run.burst.saved")
+                : null;
         return (
           <div key={b.id} className="capture-burst" style={style}>
             <span className="capture-burst-ring" />

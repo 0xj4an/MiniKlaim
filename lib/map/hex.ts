@@ -18,6 +18,8 @@ export type ClaimedHexProperties = {
   isRun: boolean;
   /** Captured on this phone and not yet saved. Drawn fainter. */
   isPending: boolean;
+  /** Own block reinforced in the run in progress. Drawn with a green rim. */
+  isReinforced: boolean;
   /** Block level 1-10, or 0 when the row carries none. */
   strength: number;
   /** Top-10 player color for someone else's block, or "" (see topColors.ts). */
@@ -196,6 +198,8 @@ export function claimedHexesToFeatureCollection(
    * player per day, so these are spent until tomorrow whoever owns them.
    */
   usedToday: ReadonlySet<string> = new Set(),
+  /** Own blocks reinforced in the run in progress. Drawn with a green rim. */
+  reinforcedHexes: ReadonlySet<string> = new Set(),
 ): ClaimedHexFeatureCollection {
   return {
     type: "FeatureCollection",
@@ -203,6 +207,7 @@ export function claimedHexesToFeatureCollection(
       const owner = row.owner.toLowerCase();
       const isMine = myAddresses.has(owner);
       const topColor = isMine ? "" : (topColors.get(owner) ?? "");
+      const isRun = (runHexes.has(row.h3) || row.pending === true) && isMine;
       return {
         type: "Feature",
         properties: {
@@ -210,7 +215,10 @@ export function claimedHexesToFeatureCollection(
           owner: row.owner,
           ownerUsername: row.ownerUsername ?? null,
           isMine,
-          isRun: (runHexes.has(row.h3) || row.pending === true) && isMine,
+          isRun,
+          // A capture wins: a block taken and then passed again is still
+          // this run's capture, and red already says so.
+          isReinforced: reinforcedHexes.has(row.h3) && isMine && !isRun,
           // Drawn fainter than a saved block: the player sees the capture the
           // moment their feet make it, and a slow save reads as a shade
           // rather than as nothing having happened.
