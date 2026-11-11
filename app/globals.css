@@ -26,7 +26,22 @@
   100% { opacity: 1; transform: none; }
 }
 
+@keyframes capture-burst {
+  0% { opacity: 0; transform: translateY(14px) scale(0.7); }
+  15% { opacity: 1; transform: translateY(0) scale(1.12); }
+  30% { transform: translateY(-4px) scale(1); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-64px) scale(1); }
+}
+
+@keyframes signal-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
 .claim-count { animation: claim-count 0.55s ease-out; }
+.capture-burst { animation: capture-burst 1.8s ease-out forwards; }
+.signal-pulse { animation: signal-pulse 1.1s ease-in-out infinite; }
 .claim-plus { animation: claim-plus 1.35s ease-out forwards; }
 .claim-hex { animation: claim-hex 1s ease-out forwards; }
 .claim-badge { animation: claim-badge 0.4s ease-out both; }
@@ -34,4 +49,7 @@
 @media (prefers-reduced-motion: reduce) {
   .claim-count, .claim-badge { animation: none; }
   .claim-plus, .claim-hex { display: none; }
+  /* Still shown, since it is the feedback itself: it just does not move. */
+  .capture-burst { animation: none; }
+  .signal-pulse { animation: none; opacity: 1; }
 }
