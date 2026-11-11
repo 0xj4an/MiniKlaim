@@ -24,6 +24,19 @@ export const dictionaries = {
     "home.streak.days": "You are on a {n}-day streak",
     "home.streak.toBadge": "{d} more to the {m}-day badge.",
     "home.streak.allBadges": "Every streak badge is yours. Keep it going.",
+    "home.losses.title": "While you were away",
+    "home.losses.captured": "{n} blocks taken from you",
+    "home.losses.captured.one": "1 block taken from you",
+    "home.losses.attacked": "{n} attacks on your blocks",
+    "home.losses.attacked.one": "1 attack on your blocks",
+    "home.losses.took": "took {n}",
+    "home.losses.took.one": "took 1",
+    "home.losses.hit": "{n} attacks",
+    "home.losses.hit.one": "1 attack",
+    "home.losses.hint":
+      "An attack lowers a block one level. Pass over your blocks to raise them again, and over theirs to take them back.",
+    "me.username.taken":
+      "That name already exists and belongs to wallet {wallet}. If that wallet is yours, open the game with it. To add this wallet to the same account, use Link wallet.",
     "home.return.body":
       "It's been a few days. The blocks you cross are still yours.",
     "home.env.minipay.connecting": "Connecting to MiniPay...",
@@ -673,6 +686,19 @@ export const dictionaries = {
     "home.streak.toBadge": "Te faltan {d} para la insignia de {m} días.",
     "home.streak.allBadges":
       "Ya tienes todas las insignias de racha. No la sueltes.",
+    "home.losses.title": "Mientras no estabas",
+    "home.losses.captured": "Te quitaron {n} cuadras",
+    "home.losses.captured.one": "Te quitaron 1 cuadra",
+    "home.losses.attacked": "{n} ataques a tus cuadras",
+    "home.losses.attacked.one": "1 ataque a tus cuadras",
+    "home.losses.took": "te quitó {n}",
+    "home.losses.took.one": "te quitó 1",
+    "home.losses.hit": "{n} ataques",
+    "home.losses.hit.one": "1 ataque",
+    "home.losses.hint":
+      "Un ataque le baja un nivel a una cuadra. Pasa por las tuyas para subirlas otra vez, y por las de ellos para recuperarlas.",
+    "me.username.taken":
+      "Ese nombre ya existe y es de la wallet {wallet}. Si esa wallet es tuya, entra al juego con ella. Para sumar esta wallet a la misma cuenta, usa Vincular wallet.",
     "home.return.body":
       "Hace unos días. Las cuadras que cruzas siguen siendo tuyas.",
     "home.env.minipay.connecting": "Conectando a MiniPay...",
