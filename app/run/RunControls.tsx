@@ -8,7 +8,9 @@ import {
   moveModeLabelKey,
 } from "@/lib/runs/moveMode";
 import type { CaptureStatus } from "@/lib/runs/captureStatus";
+import { useEffect, useState } from "react";
 import { ElapsedBanner } from "./ElapsedBanner";
+import type { GeoStatus } from "./GeoStatusBanner";
 
 /**
  * Bottom-of-map primary action for the run flow. Shows a Start button
@@ -18,6 +20,9 @@ import { ElapsedBanner } from "./ElapsedBanner";
 export function RunControls({
   canStart,
   locationReady,
+  geoStatus,
+  fixReady,
+  accuracyM,
   isActive,
   isBusy,
   hexCount,
@@ -33,6 +38,11 @@ export function RunControls({
 }: {
   canStart: boolean;
   locationReady: boolean;
+  geoStatus: GeoStatus;
+  /** The latest fixes are accurate enough to capture with. */
+  fixReady: boolean;
+  /** Accuracy of the latest fix in meters, rounded; null before any fix. */
+  accuracyM: number | null;
   isActive: boolean;
   isBusy: boolean;
   hexCount: number;
@@ -49,6 +59,21 @@ export function RunControls({
   onModeChange: (mode: MoveMode) => void;
 }) {
   const { t } = useLocale();
+  // Start waits for an accurate fix, but not forever: indoors it may never
+  // come, and a player who cannot start at all is worse off than one who
+  // starts vague. After the wait the button opens with a label that says
+  // what they are doing.
+  const waitingForSignal = canStart && locationReady && !fixReady;
+  const [waitOver, setWaitOver] = useState(false);
+  useEffect(() => {
+    if (!waitingForSignal) {
+      setWaitOver(false);
+      return;
+    }
+    const id = window.setTimeout(() => setWaitOver(true), SIGNAL_WAIT_MS);
+    return () => window.clearTimeout(id);
+  }, [waitingForSignal]);
+  const holdStart = waitingForSignal && !waitOver;
   if (!isActive) {
     return (
       <div
@@ -105,9 +130,18 @@ export function RunControls({
               {t("run.start.hint")}
             </p>
           )}
+          {canStart && (
+            <SignalRow
+              geoStatus={geoStatus}
+              fixReady={fixReady}
+              accuracyM={accuracyM}
+            />
+          )}
           <button
             onClick={onStart}
-            disabled={!canStart || !locationReady || isBusy || !mode}
+            disabled={
+              !canStart || !locationReady || isBusy || !mode || holdStart
+            }
             className="mt-3 w-full rounded-full bg-orange-700 py-3 text-base font-semibold text-white hover:bg-orange-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
             aria-label={
               !canStart ? t("run.start.signIn") : t("run.start.button")
@@ -119,7 +153,11 @@ export function RunControls({
                 ? t("run.start.starting")
                 : !mode
                   ? t("run.mode.pick")
-                  : t("run.start.button")}
+                  : holdStart
+                    ? t("run.start.waitingSignal")
+                    : waitingForSignal
+                      ? t("run.start.anyway")
+                      : t("run.start.button")}
           </button>
         </div>
       </div>
@@ -146,6 +184,78 @@ export function RunControls({
       >
         {isBusy ? t("run.finish.finishing") : t("run.finish.button")}
       </button>
+    </div>
+  );
+}
+
+/** How long Start waits for an accurate fix before opening anyway. */
+const SIGNAL_WAIT_MS = 12_000;
+
+/**
+ * The GPS, before the run: asking, getting a signal, or accurate. Three
+ * bars fill as it gets there, so "wait a moment" has something to watch.
+ */
+function SignalRow({
+  geoStatus,
+  fixReady,
+  accuracyM,
+}: {
+  geoStatus: GeoStatus;
+  fixReady: boolean;
+  accuracyM: number | null;
+}) {
+  const { t } = useLocale();
+  const granted = geoStatus === "granted";
+  const blocked =
+    geoStatus === "denied" ||
+    geoStatus === "unavailable" ||
+    geoStatus === "timeout";
+  const bars = !granted
+    ? 0
+    : fixReady
+      ? 3
+      : accuracyM !== null && accuracyM <= 60
+        ? 2
+        : 1;
+  const withM = (key: "run.signal.searching" | "run.signal.ready") =>
+    accuracyM === null
+      ? t(key)
+      : t(`${key}.m`).replace("{m}", String(accuracyM));
+  const text = blocked
+    ? t("run.signal.blocked")
+    : !granted
+      ? t("run.signal.requesting")
+      : fixReady
+        ? withM("run.signal.ready")
+        : withM("run.signal.searching");
+  const ready = granted && fixReady;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`mt-3 flex items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-semibold ${
+        ready
+          ? "bg-emerald-50 text-emerald-800"
+          : blocked
+            ? "bg-amber-100 text-amber-950"
+            : "bg-zinc-100 text-zinc-700"
+      }`}
+    >
+      <span className="flex items-end gap-0.5" aria-hidden>
+        {[1, 2, 3].map((n) => (
+          <span
+            key={n}
+            className={`w-1 rounded-sm ${n === 1 ? "h-2" : n === 2 ? "h-3" : "h-4"} ${
+              n <= bars
+                ? ready
+                  ? "bg-emerald-600"
+                  : "bg-orange-600"
+                : `bg-zinc-300 ${granted && !ready && n === bars + 1 ? "signal-pulse" : ""}`
+            }`}
+          />
+        ))}
+      </span>
+      <span>{text}</span>
     </div>
   );
 }
