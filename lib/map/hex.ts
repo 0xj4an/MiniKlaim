@@ -21,6 +21,8 @@ export type ClaimedHexProperties = {
   strength: number;
   /** Top-10 player color for someone else's block, or "" (see topColors.ts). */
   topColor: string;
+  /** The player already acted on it today, so a pass does nothing. */
+  usedToday: boolean;
 };
 export type ClaimedHexFeature = Feature<Polygon, ClaimedHexProperties>;
 export type ClaimedHexFeatureCollection = FeatureCollection<
@@ -186,6 +188,11 @@ export function claimedHexesToFeatureCollection(
   runHexes: ReadonlySet<string> = new Set(),
   /** Lowercased owner -> top-10 color. Never applied to the player's own. */
   topColors: ReadonlyMap<string, string> = new Map(),
+  /**
+   * Blocks the player already acted on today. A block takes one action per
+   * player per day, so these are spent until tomorrow whoever owns them.
+   */
+  usedToday: ReadonlySet<string> = new Set(),
 ): ClaimedHexFeatureCollection {
   return {
     type: "FeatureCollection",
@@ -206,6 +213,7 @@ export function claimedHexesToFeatureCollection(
           isPending: row.pending === true,
           strength: typeof row.strength === "number" ? row.strength : 0,
           topColor: isMine ? "" : (topColors.get(owner) ?? ""),
+          usedToday: usedToday.has(row.h3),
         },
         geometry: { type: "Polygon", coordinates: [hexToPolygon(row.h3)] },
       };
