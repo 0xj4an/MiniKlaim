@@ -41,7 +41,13 @@ export const playerWallets = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.address, t.chainId] })],
+  (t) => [
+    primaryKey({ columns: [t.address, t.chainId] }),
+    // "Every wallet of this player" is asked on almost every request (see
+    // addressesForPlayer), and without this it read the whole table each
+    // time: about 890 sequential scans an hour, measured 11 Nov 2026.
+    index("player_wallets_player_id_idx").on(t.playerId),
+  ],
 );
 
 // Short-lived codes to link a new wallet to an existing player. Generated from
