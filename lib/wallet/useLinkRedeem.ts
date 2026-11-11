@@ -91,7 +91,7 @@ export function useLinkRedeem(address: `0x${string}` | null) {
             : isPermissionDenied(e)
               ? "permission_denied"
               : "wallet",
-          message: errorText(e).slice(0, 160),
+          message: errorText(e).slice(0, 400),
           ...(code ? { code } : {}),
         });
         setState("error");
