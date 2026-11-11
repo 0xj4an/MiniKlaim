@@ -53,6 +53,7 @@ async function main() {
 
   await checkRelayerBalance("celo");
   await pruneHexActions(db);
+  await pruneHexLosses(db);
 
   // ISO string: postgres-js does not bind Date instances in db.execute.
   const cutoff = new Date(Date.now() - MIN_AGE_MIN * 60_000).toISOString();
@@ -141,6 +142,19 @@ async function main() {
   });
   if (failed === 0) await settleOldBacklog(client);
   await client.end();
+}
+
+/** The loss notice looks back two weeks at most; older rows are of no use. */
+async function pruneHexLosses(db: ReturnType<typeof drizzle>) {
+  try {
+    await db.execute(
+      sql`DELETE FROM hex_losses WHERE created_at < now() - interval '14 days'`,
+    );
+  } catch (e) {
+    log.warn("hex losses prune failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
 }
 
 /**

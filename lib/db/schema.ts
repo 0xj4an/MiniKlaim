@@ -239,6 +239,36 @@ export const hexActions = pgTable(
 );
 
 /**
+ * One row each time a player loses something to another: a block taken
+ * ("capture") or a level knocked off one of theirs ("attack").
+ *
+ * Nothing else remembers the loser. A capture overwrites `hexes.owner`, an
+ * attack only raises `hexes.damage`, and `hex_actions` records who acted,
+ * not on whom. So a player whose blocks were taken found out by noticing a
+ * smaller number: on 10 Nov 2026 one dropped 97 blocks and a place in the
+ * top ten to two players, and nothing told them. The home screen reads
+ * this to say who and how many since the last visit.
+ *
+ * `victim` is the owner's address at the moment of the pass. Rows are
+ * pruned after two weeks; this is a notice, not a ledger.
+ */
+export const hexLosses = pgTable(
+  "hex_losses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    victim: text("victim").notNull(),
+    actor: text("actor").notNull(),
+    h3Id: text("h3_id").notNull(),
+    // capture, attack.
+    kind: text("kind").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("hex_losses_victim_idx").on(t.victim, t.createdAt)],
+);
+
+/**
  * One row per relayer transaction paid on a player's behalf. Drives the daily
  * per-wallet sponsor cap and makes relayer spend auditable per player.
  */
