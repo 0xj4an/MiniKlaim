@@ -1,4 +1,5 @@
 import { cellToBoundary, cellToLatLng, gridDisk, latLngToCell } from "h3-js";
+import { rankForTopColor } from "@/lib/map/topColors";
 import type { Feature, FeatureCollection, Polygon, Position } from "geojson";
 
 export type HexProperties = {
@@ -23,6 +24,8 @@ export type ClaimedHexProperties = {
   topColor: string;
   /** The player already acted on it today, so a pass does nothing. */
   usedToday: boolean;
+  /** Leaderboard rank 1-10 of a top-10 owner, or 0. Printed on the block. */
+  topRank: number;
 };
 export type ClaimedHexFeature = Feature<Polygon, ClaimedHexProperties>;
 export type ClaimedHexFeatureCollection = FeatureCollection<
@@ -199,6 +202,7 @@ export function claimedHexesToFeatureCollection(
     features: rows.map((row) => {
       const owner = row.owner.toLowerCase();
       const isMine = myAddresses.has(owner);
+      const topColor = isMine ? "" : (topColors.get(owner) ?? "");
       return {
         type: "Feature",
         properties: {
@@ -212,8 +216,9 @@ export function claimedHexesToFeatureCollection(
           // rather than as nothing having happened.
           isPending: row.pending === true,
           strength: typeof row.strength === "number" ? row.strength : 0,
-          topColor: isMine ? "" : (topColors.get(owner) ?? ""),
+          topColor,
           usedToday: usedToday.has(row.h3),
+          topRank: rankForTopColor(topColor),
         },
         geometry: { type: "Polygon", coordinates: [hexToPolygon(row.h3)] },
       };

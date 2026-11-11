@@ -240,8 +240,9 @@ export const dictionaries = {
     "run.legend.title": "How the map works",
     "run.legend.run": "Red: captured in this run.",
     "run.legend.mine": "Orange: yours from before.",
-    "run.legend.others":
-      "Gray, or a top-10 player's color: someone else's. Yours to take.",
+    "run.legend.others": "Gray: another player's. Yours to take.",
+    "run.legend.top":
+      "A color with a number: one of the top 10 players. The number is their rank.",
     "run.legend.level":
       "Darker means a higher level, from 1 to 10. Higher is harder to take.",
     "run.legend.used": "Dashed rim: you already used this block today.",
@@ -265,12 +266,8 @@ export const dictionaries = {
     "run.signal.ready.m": "GPS is accurate (±{m} m). You can start.",
     "run.start.waitingSignal": "Getting signal...",
     "run.start.anyway": "Start anyway",
-    "run.burst.new": "+{n} blocks",
-    "run.burst.new.one": "+1 block",
-    "run.burst.reinforced": "+{n} reinforced",
-    "run.burst.reinforced.one": "+1 reinforced",
-    "run.burst.attacked": "{n} attacked",
-    "run.burst.attacked.one": "1 attacked",
+    "run.burst.reinforced": "reinforced",
+    "run.burst.attacked": "attack",
     "run.burst.level": "level {l}",
     "run.gps.deniedAgain":
       "Still blocked. Trying again does not unblock it: change the permission in your phone settings and come back to this screen. We will check on our own.",
@@ -894,8 +891,9 @@ export const dictionaries = {
     "run.legend.title": "Cómo funciona el mapa",
     "run.legend.run": "Rojo: capturada en esta corrida.",
     "run.legend.mine": "Naranja: tuya desde antes.",
-    "run.legend.others":
-      "Gris, o el color de un jugador del top 10: de otra persona. La puedes tomar.",
+    "run.legend.others": "Gris: de otro jugador. La puedes tomar.",
+    "run.legend.top":
+      "Un color con un número: uno de los 10 primeros del ranking. El número es su puesto.",
     "run.legend.level":
       "Más oscuro es más nivel, de 1 a 10. Más nivel, más difícil de quitar.",
     "run.legend.used": "Borde punteado: ya usaste esta cuadra hoy.",
@@ -918,12 +916,8 @@ export const dictionaries = {
     "run.signal.ready.m": "GPS preciso (±{m} m). Ya puedes empezar.",
     "run.start.waitingSignal": "Tomando señal...",
     "run.start.anyway": "Empezar de todos modos",
-    "run.burst.new": "+{n} cuadras",
-    "run.burst.new.one": "+1 cuadra",
-    "run.burst.reinforced": "+{n} reforzadas",
-    "run.burst.reinforced.one": "+1 reforzada",
-    "run.burst.attacked": "{n} atacadas",
-    "run.burst.attacked.one": "1 atacada",
+    "run.burst.reinforced": "reforzada",
+    "run.burst.attacked": "ataque",
     "run.burst.level": "nivel {l}",
     "run.gps.deniedAgain":
       "Sigue bloqueada. Reintentar no la desbloquea: cambia el permiso en los ajustes del teléfono y vuelve a esta pantalla. Revisamos solos.",
