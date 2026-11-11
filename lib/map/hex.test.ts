@@ -121,6 +121,22 @@ describe("claimedHexesToFeatureCollection run marking", () => {
     { h3: lostHex, owner: other },
   ];
 
+  test("marks blocks spent today, whoever owns them", () => {
+    const fc = claimedHexesToFeatureCollection(
+      rows,
+      new Set([me]),
+      new Set(),
+      new Map(),
+      new Set([oldHex, lostHex]),
+    );
+    const byHex = Object.fromEntries(
+      fc.features.map((f) => [f.properties.hex, f.properties]),
+    );
+    expect(byHex[oldHex].usedToday).toBe(true);
+    expect(byHex[lostHex].usedToday).toBe(true);
+    expect(byHex[runHex].usedToday).toBe(false);
+  });
+
   test("flags only this run's hexes that are still the player's", () => {
     const fc = claimedHexesToFeatureCollection(
       rows,
