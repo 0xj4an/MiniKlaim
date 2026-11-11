@@ -5,6 +5,7 @@ import { CloseButton } from "@/app/CloseButton";
 import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 import { HEX_COLORS, LEVEL_DARK } from "@/lib/map/hexColors";
+import { TOP_COLORS } from "@/lib/map/topColors";
 
 const SEEN_KEY = "run_legend_seen";
 
@@ -101,6 +102,20 @@ export function MapLegend({ strength }: { strength: boolean }) {
               <li className="flex items-center gap-3">
                 {swatch(HEX_COLORS.others)}
                 <span>{t("run.legend.others")}</span>
+              </li>
+              <li>
+                <span className="flex flex-wrap gap-1" aria-hidden>
+                  {TOP_COLORS.map((color, i) => (
+                    <span
+                      key={color}
+                      className="flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-bold text-white"
+                      style={{ backgroundColor: color }}
+                    >
+                      {i + 1}
+                    </span>
+                  ))}
+                </span>
+                <span className="mt-1.5 block">{t("run.legend.top")}</span>
               </li>
               {strength && (
                 <>

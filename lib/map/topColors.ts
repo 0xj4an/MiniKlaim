@@ -24,14 +24,16 @@ export const TOP_COLOR_COUNT = TOP_COLORS.length;
  * included. Entries must be in rank order.
  */
 export function topColorMap(
-  entries: ReadonlyArray<{ address: string; linked?: string[] }> | null | undefined,
+  entries:
+    ReadonlyArray<{ address: string; linked?: string[] }> | null | undefined,
 ): Map<string, string> {
   const out = new Map<string, string>();
   if (!entries) return out;
   entries.slice(0, TOP_COLOR_COUNT).forEach((entry, i) => {
     const color = TOP_COLORS[i];
     out.set(entry.address.toLowerCase(), color);
-    for (const linked of entry.linked ?? []) out.set(linked.toLowerCase(), color);
+    for (const linked of entry.linked ?? [])
+      out.set(linked.toLowerCase(), color);
   });
   return out;
 }
@@ -39,4 +41,15 @@ export function topColorMap(
 /** Color for a leaderboard rank (1-based), or null outside the top 10. */
 export function topColorForRank(rank: number): string | null {
   return rank >= 1 && rank <= TOP_COLOR_COUNT ? TOP_COLORS[rank - 1] : null;
+}
+
+/**
+ * Leaderboard rank (1-based) for a top-10 color, or 0 for anything else.
+ * The run map prints it on the block, so a color says who without the
+ * player having to learn ten of them.
+ */
+export function rankForTopColor(color: string | null | undefined): number {
+  if (!color) return 0;
+  const i = (TOP_COLORS as readonly string[]).indexOf(color);
+  return i < 0 ? 0 : i + 1;
 }

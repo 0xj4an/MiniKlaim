@@ -917,7 +917,7 @@ export default function RunPage() {
       setBursts((cur) => [...cur, ...fresh].slice(-4));
       window.setTimeout(
         () => setBursts((cur) => cur.filter((b) => !ids.has(b.id))),
-        1900,
+        1350,
       );
       // A short buzz: the phone is often in a hand or a pocket, not in view.
       try {
@@ -1760,6 +1760,31 @@ export default function RunPage() {
           ],
         },
       });
+      // A top-10 player's rank, printed on their blocks. The color alone
+      // asked the player to memorise ten of them. Only when the style
+      // brought glyphs: the no-basemap fallback has none, and a text layer
+      // there would raise the map error it exists to avoid.
+      if (map.getStyle()?.glyphs) {
+        map.addLayer({
+          id: "claimed-hex-rank",
+          type: "symbol",
+          source: "claimed-hexes",
+          minzoom: 16.5,
+          filter: [">", ["get", "topRank"], 0],
+          layout: {
+            "text-field": ["to-string", ["get", "topRank"]],
+            "text-font": ["Noto Sans Bold"],
+            "text-size": ["interpolate", ["linear"], ["zoom"], 16.5, 9, 19, 15],
+            "text-allow-overlap": true,
+            "text-ignore-placement": true,
+          },
+          paint: {
+            "text-color": "#ffffff",
+            "text-halo-color": ["get", "topColor"],
+            "text-halo-width": 1.5,
+          },
+        });
+      }
       // Spent for today: a dashed white rim, so the player can tell before
       // walking there that a pass over this block will do nothing.
       map.addLayer({
