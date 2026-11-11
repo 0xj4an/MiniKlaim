@@ -155,5 +155,53 @@ describe("claimedHexesToFeatureCollection run marking", () => {
   test("defaults to no run hexes", () => {
     const fc = claimedHexesToFeatureCollection(rows, new Set([me]));
     expect(fc.features.every((f) => f.properties.isRun === false)).toBe(true);
+    expect(fc.features.every((f) => f.properties.isReinforced === false)).toBe(
+      true,
+    );
+  });
+
+  test("marks an own block reinforced in this run", () => {
+    const fc = claimedHexesToFeatureCollection(
+      rows,
+      new Set([me]),
+      new Set(),
+      new Map(),
+      new Set(),
+      new Set([oldHex]),
+    );
+    const byHex = Object.fromEntries(
+      fc.features.map((f) => [f.properties.hex, f.properties]),
+    );
+    expect(byHex[oldHex].isReinforced).toBe(true);
+    expect(byHex[runHex].isReinforced).toBe(false);
+  });
+
+  test("a capture outranks a reinforce, and a lost block is neither", () => {
+    const fc = claimedHexesToFeatureCollection(
+      rows,
+      new Set([me]),
+      new Set([runHex]),
+      new Map(),
+      new Set(),
+      new Set([runHex, lostHex]),
+    );
+    const byHex = Object.fromEntries(
+      fc.features.map((f) => [f.properties.hex, f.properties]),
+    );
+    // Captured and then passed again in the same run: still red.
+    expect(byHex[runHex]).toMatchObject({ isRun: true, isReinforced: false });
+    // Reinforced, then taken by someone else: their color, no green rim.
+    expect(byHex[lostHex]).toMatchObject({ isMine: false, isReinforced: false });
+  });
+
+  test("a queued capture is drawn as this run's, marked pending", () => {
+    const queued = latLngToCell(6.247, -75.584, 12);
+    const fc = claimedHexesToFeatureCollection(
+      [...rows, { h3: queued, owner: me, pending: true }],
+      new Set([me]),
+    );
+    const props = fc.features.find((f) => f.properties.hex === queued)!
+      .properties;
+    expect(props).toMatchObject({ isRun: true, isPending: true });
   });
 });

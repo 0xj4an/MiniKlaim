@@ -40,6 +40,18 @@ describe("captureStatus", () => {
     });
   });
 
+  it("says the blocks are waiting when the upload is failing", () => {
+    expect(
+      captureStatus({ ...base, pending: 8, saved: 5, uploadFailing: true }),
+    ).toEqual({ kind: "queued", count: 8 });
+  });
+
+  it("does not report a failing upload once nothing is waiting", () => {
+    expect(
+      captureStatus({ ...base, pending: 0, saved: 5, uploadFailing: true }),
+    ).toEqual({ kind: "saved", count: 5 });
+  });
+
   it("shows the saved total once the queue is empty", () => {
     expect(captureStatus({ ...base, saved: 5 })).toEqual({
       kind: "saved",

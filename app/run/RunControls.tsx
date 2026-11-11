@@ -268,15 +268,22 @@ function CaptureLine({ capture }: { capture: CaptureStatus }) {
   const { t } = useLocale();
   const good = capture.kind === "saved" || capture.kind === "acted";
   const waiting =
+    capture.kind === "queued" ||
     capture.kind === "searching" ||
     capture.kind === "owned" ||
     capture.kind === "repeat";
   const text =
-    capture.kind === "saving"
+    capture.kind === "queued"
       ? t(
-          capture.count === 1 ? "run.capture.saving.one" : "run.capture.saving",
+          capture.count === 1 ? "run.capture.queued.one" : "run.capture.queued",
         ).replace("{n}", String(capture.count))
-      : capture.kind === "saved"
+      : capture.kind === "saving"
+        ? t(
+            capture.count === 1
+              ? "run.capture.saving.one"
+              : "run.capture.saving",
+          ).replace("{n}", String(capture.count))
+        : capture.kind === "saved"
         ? t(
             capture.count === 1 ? "run.capture.saved.one" : "run.capture.saved",
           ).replace("{n}", String(capture.count))
