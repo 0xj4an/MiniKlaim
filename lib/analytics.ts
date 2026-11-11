@@ -99,10 +99,18 @@ type EventMap = {
      * with zero blocks it is the reason: "searching" is no usable GPS fix,
      * "repeat" a block already acted on today, "acted" a reinforce or an
      * attack and no new block, "owned" a start on a block already held,
-     * "ready" a fix but no move.
+     * "ready" a fix but no move. "queued" is blocks still waiting behind a
+     * failed upload when the player stopped.
      */
     capture_state?:
-      "saving" | "saved" | "acted" | "searching" | "repeat" | "owned" | "ready";
+      | "queued"
+      | "saving"
+      | "saved"
+      | "acted"
+      | "searching"
+      | "repeat"
+      | "owned"
+      | "ready";
     distance_m: number;
     speed_kmh: number;
     move_mode: MoveMode | "none";
