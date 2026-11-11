@@ -76,7 +76,16 @@ type EventMap = {
   campaign_banner_dismissed: { campaign: string };
 
   // Run lifecycle.
-  run_started: { mode?: MoveMode };
+  run_started: {
+    mode?: MoveMode;
+    /**
+     * Whether the phone had an accurate fix when Start was tapped. False is
+     * a run that begins blind: 17 of 42 zero-block runs on 10 Nov 2026.
+     */
+    fix_ready?: boolean;
+  };
+  /** The color legend on the run map was opened, by itself or by the player. */
+  run_legend_opened: { auto: boolean };
   // First batch of a run the server refused as too fast for a run on foot.
   run_foot_too_fast: { rejected: number };
   run_mode_too_fast: { rejected: number };
