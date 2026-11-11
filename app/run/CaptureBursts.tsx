@@ -1,10 +1,11 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useLocale } from "@/lib/i18n";
 
 /**
- * One thing that just happened to the player's blocks, to float up the
- * screen and fade: blocks captured, blocks reinforced, blocks attacked.
+ * One thing that just happened to the player's blocks: blocks captured,
+ * blocks reinforced, blocks attacked.
  */
 export type CaptureBurst = {
   id: number;
@@ -14,16 +15,27 @@ export type CaptureBurst = {
   level?: number;
 };
 
+const COLOR: Record<CaptureBurst["kind"], string> = {
+  new: "#ea580c",
+  reinforced: "#059669",
+  attacked: "#18181b",
+};
+
 /**
- * Floating "+1" feedback for the run screen.
+ * A number that pops over the map and is gone in a second.
  *
  * The counters in the banner tell the player the total. They do not tell
  * the player that the step they just took did something, and a reinforce
  * in particular changed a number nobody was looking at. Each answer from
- * the server now produces one chip per kind of action it carried.
+ * the server now throws one number per kind of action it carried: "+3" for
+ * new blocks, "+1" for a reinforce with the level it reached, "-2" for
+ * attacks, each a level taken off someone else's block.
  *
- * Purely decorative for assistive tech: the capture line below is the
- * status region, and announcing both would say everything twice.
+ * Nothing here stays on screen or takes a tap: it sits over the map with
+ * pointer events off and removes itself.
+ *
+ * Decorative for assistive tech: the capture line is the status region,
+ * and announcing both would say everything twice.
  */
 export function CaptureBursts({ bursts }: { bursts: CaptureBurst[] }) {
   const { t } = useLocale();
@@ -31,33 +43,36 @@ export function CaptureBursts({ bursts }: { bursts: CaptureBurst[] }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-x-0 bottom-52 z-30 flex flex-col items-center gap-1.5"
+      className="pointer-events-none absolute inset-x-0 top-[34%] z-30 h-0"
     >
       {bursts.map((b) => {
-        const one = b.count === 1;
-        const text =
-          b.kind === "new"
-            ? t(one ? "run.burst.new.one" : "run.burst.new")
-            : b.kind === "reinforced"
-              ? t(one ? "run.burst.reinforced.one" : "run.burst.reinforced")
-              : t(one ? "run.burst.attacked.one" : "run.burst.attacked");
-        const tone =
-          b.kind === "new"
-            ? "bg-orange-600 text-white"
-            : b.kind === "reinforced"
-              ? "bg-emerald-600 text-white"
-              : "bg-zinc-900 text-white";
+        // One lane per kind, so the numbers from a single answer land side
+        // by side instead of on top of each other.
+        const slot = b.kind === "attacked" ? -1 : b.kind === "new" ? 0 : 1;
+        const style = {
+          "--dx": `${slot * 104}px`,
+          "--rot": `${slot * 5}deg`,
+          "--c": COLOR[b.kind],
+          color: COLOR[b.kind],
+        } as CSSProperties;
+        const caption =
+          b.kind === "reinforced"
+            ? b.level
+              ? t("run.burst.level").replace("{l}", String(b.level))
+              : t("run.burst.reinforced")
+            : b.kind === "attacked"
+              ? t("run.burst.attacked")
+              : null;
         return (
-          <div
-            key={b.id}
-            className={`capture-burst rounded-full px-4 py-1.5 text-base font-bold shadow-lg ${tone}`}
-          >
-            {text.replace("{n}", String(b.count))}
-            {b.kind === "reinforced" && b.level ? (
-              <span className="ml-1.5 text-xs font-semibold opacity-90">
-                {t("run.burst.level").replace("{l}", String(b.level))}
-              </span>
-            ) : null}
+          <div key={b.id} className="capture-burst" style={style}>
+            <span className="capture-burst-ring" />
+            <span className="capture-burst-number">
+              {b.kind === "attacked" ? "-" : "+"}
+              {b.count}
+            </span>
+            {caption && (
+              <span className="capture-burst-caption">{caption}</span>
+            )}
           </div>
         );
       })}
