@@ -289,7 +289,14 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
       setInput("");
       setIsEditing(false);
     } else {
-      setError(result.error ?? "Something went wrong");
+      setError(
+        result.takenBy !== undefined
+          ? t("me.username.taken").replace(
+              "{wallet}",
+              result.takenBy || "0x…",
+            )
+          : (result.error ?? "Something went wrong"),
+      );
     }
   }
 

@@ -148,6 +148,20 @@
       "when": 1794038424136,
       "tag": "0020_weekly_challenges",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794365148856,
+      "tag": "0021_player_wallets_player_id_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794365374156,
+      "tag": "0022_hex_losses",
+      "breakpoints": true
     }
   ]
 }

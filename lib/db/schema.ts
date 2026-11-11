@@ -41,7 +41,13 @@ export const playerWallets = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.address, t.chainId] })],
+  (t) => [
+    primaryKey({ columns: [t.address, t.chainId] }),
+    // "Every wallet of this player" is asked on almost every request (see
+    // addressesForPlayer), and without this it read the whole table each
+    // time: about 890 sequential scans an hour, measured 11 Nov 2026.
+    index("player_wallets_player_id_idx").on(t.playerId),
+  ],
 );
 
 // Short-lived codes to link a new wallet to an existing player. Generated from
@@ -230,6 +236,36 @@ export const hexActions = pgTable(
     primaryKey({ columns: [t.h3Id, t.playerKey, t.day] }),
     index("hex_actions_day_idx").on(t.day),
   ],
+);
+
+/**
+ * One row each time a player loses something to another: a block taken
+ * ("capture") or a level knocked off one of theirs ("attack").
+ *
+ * Nothing else remembers the loser. A capture overwrites `hexes.owner`, an
+ * attack only raises `hexes.damage`, and `hex_actions` records who acted,
+ * not on whom. So a player whose blocks were taken found out by noticing a
+ * smaller number: on 10 Nov 2026 one dropped 97 blocks and a place in the
+ * top ten to two players, and nothing told them. The home screen reads
+ * this to say who and how many since the last visit.
+ *
+ * `victim` is the owner's address at the moment of the pass. Rows are
+ * pruned after two weeks; this is a notice, not a ledger.
+ */
+export const hexLosses = pgTable(
+  "hex_losses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    victim: text("victim").notNull(),
+    actor: text("actor").notNull(),
+    h3Id: text("h3_id").notNull(),
+    // capture, attack.
+    kind: text("kind").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("hex_losses_victim_idx").on(t.victim, t.createdAt)],
 );
 
 /**

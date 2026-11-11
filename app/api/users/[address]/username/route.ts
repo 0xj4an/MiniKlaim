@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
 import { getChain, parseChainKey } from "@/lib/onchain/chains";
 import { ensurePlayer } from "@/lib/players";
+import { shortAddress } from "@/lib/shortAddress";
 
 const log = createLogger("api:users:username");
 
@@ -34,6 +36,14 @@ export async function POST(
       { status: 400 },
     );
   }
+
+  // Ask before writing. The unique index is still the authority, and the
+  // catch below handles the race, but the common case was being answered by
+  // provoking a database error: 52 of them in 48 hours (11 Nov 2026), and
+  // "already taken" told the player nothing about by whom. Many of those
+  // players are the owner, on a second wallet.
+  const taken = await takenBy(username, lower);
+  if (taken) return taken;
 
   try {
     const [user] = await db
@@ -67,9 +77,12 @@ export async function POST(
       detail.constraint.includes("username")
     ) {
       log.warn("username taken", { username, constraint: detail.constraint });
-      return NextResponse.json(
-        { error: "username already taken" },
-        { status: 409 },
+      return (
+        (await takenBy(username, lower)) ??
+        NextResponse.json(
+          { error: "username already taken", code: "taken" },
+          { status: 409 },
+        )
       );
     }
     log.error("username set failed", {
@@ -87,6 +100,27 @@ export async function POST(
       { status: 500 },
     );
   }
+}
+
+/**
+ * A 409 naming the wallet that holds `username`, shortened, or null when
+ * the name is free or already belongs to the wallet asking.
+ */
+async function takenBy(username: string, asking: string) {
+  const [holder] = await db
+    .select({ address: users.address })
+    .from(users)
+    .where(eq(users.username, username))
+    .limit(1);
+  if (!holder || holder.address === asking) return null;
+  return NextResponse.json(
+    {
+      error: "username already taken",
+      code: "taken",
+      owner: shortAddress(holder.address),
+    },
+    { status: 409 },
+  );
 }
 
 type ErrShape = {

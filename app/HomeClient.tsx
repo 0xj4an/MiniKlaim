@@ -20,6 +20,7 @@ import { WeeklyChallenge } from "@/app/WeeklyChallenge";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
 import { NeedCeloNote } from "@/app/NeedCeloNote";
 import { ReturnNote } from "@/app/ReturnNote";
+import { LossNotice } from "@/app/LossNotice";
 import { StreakCard } from "@/app/StreakCard";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -98,6 +99,10 @@ export function HomeClient() {
           <span className="opacity-0">.</span>
         )}
       </p>
+
+      {mounted && isConnected && !isWrongChain && user?.username && (
+        <LossNotice address={address ?? null} />
+      )}
 
       {mounted && (
         <StreakCard
