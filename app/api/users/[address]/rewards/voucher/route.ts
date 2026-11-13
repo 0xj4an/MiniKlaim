@@ -10,6 +10,7 @@ import {
 } from "@/lib/onchain/rewards";
 import { signRewardsVoucher } from "@/lib/onchain/rewardsVoucher";
 import { createLogger } from "@/lib/logger";
+import { addressesForPlayer } from "@/lib/players";
 
 const log = createLogger("api:rewards:voucher");
 
@@ -43,11 +44,25 @@ export async function POST(
     return NextResponse.json({ error: "no eligible badges" }, { status: 409 });
   }
 
-  const [claimed, amounts, poolBalance] = await Promise.all([
-    readClaimedBadgeIds(player, eligible, chainKey),
-    readRewardAmounts(eligible, chainKey),
-    readRewardsPoolBalance(chainKey),
-  ]);
+  // Eligibility adds up every linked wallet, but the contract records a
+  // claim per wallet. Counting only this wallet's claims let each wallet
+  // linked to a player collect that player's rewards again.
+  const linked = await addressesForPlayer(lower);
+  let claimedPerWallet: Set<number>[];
+  let amounts: Awaited<ReturnType<typeof readRewardAmounts>>;
+  let poolBalance: bigint;
+  try {
+    [claimedPerWallet, amounts, poolBalance] = await Promise.all([
+      Promise.all(
+        linked.map((wallet) => readClaimedBadgeIds(wallet as Address, eligible, chainKey)),
+      ),
+      readRewardAmounts(eligible, chainKey),
+      readRewardsPoolBalance(chainKey),
+    ]);
+  } catch {
+    return NextResponse.json({ error: "chain unavailable" }, { status: 503 });
+  }
+  const claimed = new Set(claimedPerWallet.flatMap((set) => [...set]));
 
   const unclaimed = eligible.filter((id) => !claimed.has(Number(id)));
   const priced = unclaimed.filter((id) => (amounts.get(Number(id)) ?? 0n) > 0n);

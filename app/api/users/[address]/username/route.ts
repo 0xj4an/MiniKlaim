@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
 import { getChain, parseChainKey } from "@/lib/onchain/chains";
+import { requestHasOwnerKey } from "@/lib/ownerKey";
 import { ensurePlayer } from "@/lib/players";
 import { shortAddress } from "@/lib/shortAddress";
 
@@ -34,6 +35,16 @@ export async function POST(
           "username must be 3-20 chars: lowercase letters, digits, underscore",
       },
       { status: 400 },
+    );
+  }
+
+  // Only the phone that owns the wallet may name it. The address alone let
+  // anyone rename a player, and then take the name that freed up.
+  if (!(await requestHasOwnerKey(request, lower))) {
+    log.warn("username change without the owner key", { address: lower });
+    return NextResponse.json(
+      { error: "this phone cannot change this wallet's name", code: "proof-needed" },
+      { status: 403 },
     );
   }
 

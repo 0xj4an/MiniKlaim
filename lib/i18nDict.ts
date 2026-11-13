@@ -37,6 +37,10 @@ export const dictionaries = {
       "An attack lowers a block one level. Pass over your blocks to raise them again, and over theirs to take them back.",
     "me.username.taken":
       "That name already exists and belongs to wallet {wallet}. If that wallet is yours, open the game with it. To add this wallet to the same account, use Link wallet.",
+    "me.username.proofNeeded":
+      "This phone can't confirm this wallet is yours, so the name can't change from here. Use the phone where you started playing, or write to support.",
+    "me.link.proofNeeded":
+      "This phone can't confirm this wallet is yours, so it can't make a link code. Use the phone where you started playing, or write to support.",
     "home.return.body":
       "It's been a few days. The blocks you cross are still yours.",
     "home.env.minipay.connecting": "Connecting to MiniPay...",
@@ -708,6 +712,10 @@ export const dictionaries = {
       "Un ataque le baja un nivel a una cuadra. Pasa por las tuyas para subirlas otra vez, y por las de ellos para recuperarlas.",
     "me.username.taken":
       "Ese nombre ya existe y es de la wallet {wallet}. Si esa wallet es tuya, entra al juego con ella. Para sumar esta wallet a la misma cuenta, usa Vincular wallet.",
+    "me.username.proofNeeded":
+      "Este teléfono no puede confirmar que esta wallet es tuya, así que el nombre no se puede cambiar desde aquí. Usa el teléfono donde empezaste a jugar, o escribe a soporte.",
+    "me.link.proofNeeded":
+      "Este teléfono no puede confirmar que esta wallet es tuya, así que no puede crear un código de enlace. Usa el teléfono donde empezaste a jugar, o escribe a soporte.",
     "home.return.body":
       "Hace unos días. Las cuadras que cruzas siguen siendo tuyas.",
     "home.env.minipay.connecting": "Conectando a MiniPay...",

@@ -66,6 +66,17 @@ export function latestRunTokenFor(
   return best ? { runId: best.runId, token: best.token } : null;
 }
 
+/** Every run token held for this wallet, newest first. */
+export function runTokensFor(
+  address: string,
+): Array<{ runId: string; token: string }> {
+  const lower = address.toLowerCase();
+  return Object.entries(load())
+    .filter(([, e]) => e.address === lower)
+    .sort((a, b) => b[1].at - a[1].at)
+    .map(([runId, e]) => ({ runId, token: e.token }));
+}
+
 export function runTokenHeaders(runId: string): Record<string, string> {
   const token = runToken(runId);
   return token ? { [RUN_TOKEN_HEADER]: token } : {};
