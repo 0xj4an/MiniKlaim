@@ -6,6 +6,7 @@ import {
   GPS_GAP_STALE_SECONDS,
   addHexes,
   applyHttp,
+  claimPayload,
   claimRowView,
   hexesToQueue,
   flushDelay,
@@ -319,5 +320,40 @@ describe("applyHttp daily limit", () => {
     expect(out.repeated).toBe(1);
     expect(out.newly + out.reinforced + out.attacked).toBe(0);
     expect(out.items).toEqual([]);
+  });
+});
+
+describe("claimPayload", () => {
+  test("each block says how long it waited, not when it was crossed", () => {
+    const now = 1_000_000;
+    const body = claimPayload(
+      [
+        { h3: "a", distanceMeters: 12, accuracy: 8, at: now - 90_000 },
+        { h3: "b", distanceMeters: 0, at: now - 2_000 },
+      ],
+      now,
+    );
+    expect(body.hexes).toEqual([
+      { h3: "a", distanceMeters: 12, accuracy: 8, ageMs: 90_000 },
+      { h3: "b", ageMs: 2_000 },
+    ]);
+  });
+
+  test("a block queued by an older build goes up without an age", () => {
+    expect(claimPayload([{ h3: "a", distanceMeters: 5 }], 1_000).hexes).toEqual([
+      { h3: "a", distanceMeters: 5 },
+    ]);
+  });
+
+  test("a phone clock that jumped back does not produce a negative age", () => {
+    expect(claimPayload([{ h3: "a", distanceMeters: 0, at: 2_000 }], 1_000).hexes[0].ageMs).toBe(0);
+  });
+
+  test("the crossing time survives a reload of the saved queue", () => {
+    const saved = JSON.stringify([{ h3: "a", distanceMeters: 3, at: 123_456 }, { h3: "b" }]);
+    expect(parseQueue(saved)).toEqual([
+      { h3: "a", distanceMeters: 3, at: 123_456 },
+      { h3: "b", distanceMeters: 0 },
+    ]);
   });
 });

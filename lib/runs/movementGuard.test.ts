@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { gridDisk, latLngToCell } from "h3-js";
 import {
   checkChain,
+  crossedAt,
+  MAX_QUEUE_AGE_MS,
   hexDistanceMeters,
   airborneStep,
   type AirState,
@@ -221,5 +223,74 @@ describe("airborneStep", () => {
     const next = airborneStep({ state, endH3: east(0.5), now: sec(36), pathMeters: 520 });
     expect(next.pathKmh).toBeCloseTo(52, 0);
     expect(next.airborne).toBe(false);
+  });
+});
+
+describe("crossedAt", () => {
+  it("times a batch with no ages at its arrival, as before", () => {
+    expect(crossedAt({ now: after(60), lastAt: t0, ages: [] })).toEqual(after(60));
+    expect(crossedAt({ now: after(60), lastAt: t0, ages: [undefined, "5", NaN, -1] })).toEqual(
+      after(60),
+    );
+  });
+
+  it("times a batch at its newest block", () => {
+    // Crossed between 90 s and 40 s ago: the batch ends 40 s ago.
+    expect(crossedAt({ now: after(300), lastAt: t0, ages: [90_000, 60_000, 40_000] })).toEqual(
+      after(260),
+    );
+  });
+
+  it("never goes back before the run's previous position, or past now", () => {
+    expect(crossedAt({ now: after(30), lastAt: after(20), ages: [25_000] })).toEqual(after(20));
+    expect(crossedAt({ now: after(30), lastAt: t0, ages: [MAX_QUEUE_AGE_MS * 10] })).toEqual(t0);
+  });
+
+  it("keeps a drive that waited out a dead signal (Mumbai, 11 Nov 2026)", () => {
+    // A straight road, 300 blocks, driven at about 40 km/h with no signal
+    // for the whole stretch. The phone then uploads 100 blocks every 2.5 s.
+    const road = Array.from({ length: 400 }, (_, i) =>
+      latLngToCell(19.06, 72.83 + i * 0.00017, RES),
+    ).filter((h, i, a) => a.indexOf(h) === i);
+    const blocks = road.slice(1, 301);
+    const secPerBlock = 1.6;
+    const signalBack = blocks.length * secPerBlock;
+    let lastH3: string | null = road[0];
+    let lastAtOld = t0;
+    let lastAtNew = t0;
+    let lastH3New: string | null = road[0];
+    let rejectedOld = 0;
+    let rejectedNew = 0;
+    for (let b = 0; b < 3; b++) {
+      const batch = blocks.slice(b * 100, b * 100 + 100);
+      const now = after(signalBack + b * 2.5);
+      // Before: timed at arrival.
+      const old = checkChain({ lastH3, lastAt: lastAtOld, now, hexes: batch });
+      rejectedOld += old.rejected.length;
+      lastH3 = old.endH3;
+      if (old.accepted.length > 0) lastAtOld = now;
+      // Now: timed at when the newest block of the batch was crossed.
+      const ages = batch.map(
+        (_, i) => now.getTime() - (t0.getTime() + (b * 100 + i + 1) * secPerBlock * 1000),
+      );
+      const crossed = crossedAt({ now, lastAt: lastAtNew, ages });
+      const fresh = checkChain({ lastH3: lastH3New, lastAt: lastAtNew, now: crossed, hexes: batch });
+      rejectedNew += fresh.rejected.length;
+      lastH3New = fresh.endH3;
+      if (fresh.accepted.length > 0) lastAtNew = crossed;
+    }
+    // The old timing is the bug: it dropped blocks of a drive that happened.
+    expect(rejectedOld).toBeGreaterThan(50);
+    expect(rejectedNew).toBe(0);
+  });
+
+  it("gives a client that lies about ages no more time than really passed", () => {
+    // Every batch claims to be six hours old. Clamped to the run's previous
+    // position time, the batch gets no time at all, so a jump still fails.
+    const far = latLngToCell(6.2442, -75.55, RES); // ~3.5 km east
+    const now = after(5);
+    const crossed = crossedAt({ now, lastAt: t0, ages: [MAX_QUEUE_AGE_MS] });
+    const r = checkChain({ lastH3: walk[0], lastAt: t0, now: crossed, hexes: [far] });
+    expect(r.accepted).toEqual([]);
   });
 });

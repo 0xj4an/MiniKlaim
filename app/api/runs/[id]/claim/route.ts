@@ -1,13 +1,13 @@
-import { and, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { hexes, runs, users } from "@/lib/db/schema";
+import { hexActions, hexes, runs, users } from "@/lib/db/schema";
 import { cityForHex } from "@/lib/geo/city";
 import { countryForHex } from "@/lib/geo/country";
 import { detectDrops, type FoundDrop } from "@/lib/drops/detect";
 import { createLogger } from "@/lib/logger";
 import { hexClaimAction } from "@/lib/runs/claimDecision";
-import { isHexStrengthEnabled } from "@/lib/runs/hexStrength";
+import { isHexStrengthEnabled, playerKey } from "@/lib/runs/hexStrength";
 import { isMoveMode, tooFastForMode } from "@/lib/runs/moveMode";
 import { applyStrengthBatch } from "@/lib/runs/strengthClaim";
 import { addressesForPlayer } from "@/lib/players";
@@ -15,6 +15,7 @@ import { validateClaim } from "@/lib/runs/validation";
 import {
   airborneStep,
   checkChain,
+  crossedAt,
   pathFitsReported,
   reachableFromPrevious,
 } from "@/lib/runs/movementGuard";
@@ -47,10 +48,16 @@ export async function POST(
     h3?: string;
     distanceMeters?: number;
     accuracy?: number;
-    hexes?: Array<{ h3: string; distanceMeters?: number; accuracy?: number }>;
+    hexes?: Array<{
+      h3: string;
+      distanceMeters?: number;
+      accuracy?: number;
+      /** How long the block waited on the phone before this upload, ms. */
+      ageMs?: number;
+    }>;
   };
 
-  const items = Array.isArray(body.hexes)
+  const items: NonNullable<typeof body.hexes> = Array.isArray(body.hexes)
     ? body.hexes
     : body.h3
       ? [{ h3: body.h3, distanceMeters: body.distanceMeters, accuracy: body.accuracy }]
@@ -112,13 +119,47 @@ export async function POST(
   // the run's last capture, and the hex path must roughly match the distance
   // the client reports. See lib/runs/movementGuard.ts.
   const now = new Date();
-  const ordered = items
-    .filter((raw) => typeof raw.h3 === "string" && raw.h3.length > 0)
-    .map((raw) => raw.h3);
+  // Blocks this run has already acted on. A batch whose answer was lost on
+  // the way back is sent again, and walking the guard back over it moved
+  // the run's position behind the player and failed most of the batch as
+  // "too fast", along with the fresh blocks that followed. They are no
+  // movement: they skip the guard and get their "repeat" below.
+  const strengthOnForGuard = isHexStrengthEnabled();
+  const doneThisRun = new Set<string>();
+  if (strengthOnForGuard && h3Ids.length > 0) {
+    const done = await db
+      .select({ h3Id: hexActions.h3Id })
+      .from(hexActions)
+      .where(
+        and(
+          inArray(hexActions.h3Id, h3Ids),
+          eq(hexActions.playerKey, playerKey(playerAddresses, run.userAddress)),
+          gte(hexActions.createdAt, run.startedAt),
+        ),
+      );
+    for (const row of done) doneThisRun.add(row.h3Id);
+  }
+  const moving = items.filter(
+    (raw) => typeof raw.h3 === "string" && raw.h3.length > 0 && !doneThisRun.has(raw.h3),
+  );
+  const ordered = moving.map((raw) => raw.h3);
+  // Timed at when the phone crossed the batch, not at when it could finally
+  // upload it. See crossedAt in lib/runs/movementGuard.ts.
+  const lastAt = run.lastClaimAt ?? run.startedAt;
+  const crossed = crossedAt({ now, lastAt, ages: moving.map((raw) => raw.ageMs) });
+  const queuedSec = Math.round((now.getTime() - crossed.getTime()) / 1000);
+  if (queuedSec >= 60) {
+    log.warn("late batch: timed at when it was crossed", {
+      runId: id,
+      player: run.userAddress,
+      hexes: ordered.length,
+      queuedSec,
+    });
+  }
   let chain = checkChain({
     lastH3: run.lastH3,
-    lastAt: run.lastClaimAt ?? run.startedAt,
-    now,
+    lastAt,
+    now: crossed,
     hexes: ordered,
   });
   // No position in this run yet: the first hex must be reachable from where
@@ -142,7 +183,7 @@ export async function POST(
       !reachableFromPrevious({
         prevH3: prev.lastH3,
         prevAt: prev.lastClaimAt,
-        now,
+        now: crossed,
         firstH3: chain.accepted[0],
       })
     ) {
@@ -195,7 +236,7 @@ export async function POST(
           anchorMeters: run.airAnchorMeters,
         },
         endH3: chain.endH3,
-        now,
+        now: crossed,
         pathMeters: run.serverDistanceMeters + Math.round(chain.meters),
       })
     : null;
@@ -439,7 +480,9 @@ export async function POST(
       ...(guardAccepted
         ? {
             lastH3: chain.endH3,
-            lastClaimAt: now,
+            // The crossing time, so the next batch is measured from where
+            // this one really was in time.
+            lastClaimAt: crossed,
             serverDistanceMeters: sql`${runs.serverDistanceMeters} + ${Math.round(chain.meters)}`,
             ...(air
               ? {
