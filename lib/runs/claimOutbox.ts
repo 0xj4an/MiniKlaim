@@ -16,11 +16,38 @@ export const CLAIM_BATCH_MAX = 100;
 const RETRY_MAX_MS = 15_000;
 const RATE_MAX_MS = 60_000;
 
+// A claim that has not answered in this long is given up and sent again.
+// Without a limit one upload sat for 361 s on a dead connection (12 Nov
+// 2026), and nothing else can go up while one is in flight.
+export const CLAIM_TIMEOUT_MS = 20_000;
 export type QueuedHex = {
   h3: string;
   distanceMeters: number;
   accuracy?: number;
+  /** When the phone crossed it, epoch ms. Old queues do not have it. */
+  at?: number;
 };
+
+/**
+ * The body of one upload. Each block says how long it has waited, so the
+ * server can time a late batch by when it was crossed and not by when the
+ * signal came back. An age, not a time: the phone's clock may be wrong.
+ */
+export function claimPayload(
+  batch: QueuedHex[],
+  now: number,
+): {
+  hexes: Array<{ h3: string; distanceMeters?: number; accuracy?: number; ageMs?: number }>;
+} {
+  return {
+    hexes: batch.map((item) => ({
+      h3: item.h3,
+      ...(item.distanceMeters > 0 ? { distanceMeters: item.distanceMeters } : {}),
+      ...(typeof item.accuracy === "number" ? { accuracy: item.accuracy } : {}),
+      ...(typeof item.at === "number" ? { ageMs: Math.max(0, now - item.at) } : {}),
+    })),
+  };
+}
 
 export type ClaimResultRow = {
   h3: string;
@@ -198,12 +225,14 @@ export function parseQueue(raw: string | null): QueuedHex[] {
       if (typeof h3 !== "string" || h3.length === 0) continue;
       const distance = (row as { distanceMeters?: unknown }).distanceMeters;
       const accuracy = (row as { accuracy?: unknown }).accuracy;
+      const at = (row as { at?: unknown }).at;
       out.push({
         h3,
         distanceMeters: typeof distance === "number" && distance > 0 ? distance : 0,
         ...(typeof accuracy === "number" && Number.isFinite(accuracy)
           ? { accuracy }
           : {}),
+        ...(typeof at === "number" && Number.isFinite(at) && at > 0 ? { at } : {}),
       });
     }
     return out;

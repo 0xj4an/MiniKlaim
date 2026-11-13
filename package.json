@@ -9,7 +9,7 @@
     "prebuild": "npx tsx scripts/extract-top-cities.ts",
     "build": "next build",
     "build:analyze": "ANALYZE=true next build",
-    "start": "next start",
+    "start": "next start --keepAliveTimeout 125000",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
