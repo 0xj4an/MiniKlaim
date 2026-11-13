@@ -34,6 +34,10 @@ function publicClient(chainKey: ChainKey) {
 /**
  * Which of `badgeIds` the player has already claimed on-chain. Returns the
  * set as a Set<number> for O(1) subtraction on the caller side.
+ *
+ * Throws when the chain cannot answer for every badge. Reading a failure as
+ * "not claimed" would sign a voucher for rewards another linked wallet has
+ * already collected.
  */
 export async function readClaimedBadgeIds(
   player: Address,
@@ -62,9 +66,10 @@ export async function readClaimedBadgeIds(
     });
     const out = new Set<number>();
     results.forEach((r, i) => {
-      if (r.status === "success" && r.result === true) {
-        out.add(Number(badgeIds[i]));
+      if (r.status !== "success") {
+        throw new Error(`claimed(${player}, ${badgeIds[i]}) failed`);
       }
+      if (r.result === true) out.add(Number(badgeIds[i]));
     });
     return out;
   } catch (e) {
@@ -73,7 +78,7 @@ export async function readClaimedBadgeIds(
       chainKey,
       error: e instanceof Error ? e.message : String(e),
     });
-    return new Set();
+    throw e;
   }
 }
 

@@ -73,6 +73,11 @@ export const users = pgTable("users", {
   // IANA time zone the phone reported when the player last started a run.
   // Streak days are cut at local midnight in this zone (UTC when null).
   timeZone: text("time_zone"),
+  // SHA-256 of the per-device owner key (lib/ownerKey.ts). MiniPay cannot
+  // sign messages, so this is how a name change or a link code proves it
+  // comes from the phone that owns the wallet. Null until issued.
+  ownerKeyHash: text("owner_key_hash"),
+  ownerKeyAt: timestamp("owner_key_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

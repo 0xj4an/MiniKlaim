@@ -6,6 +6,7 @@ import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { useLinkRedeem } from "@/lib/wallet/useLinkRedeem";
+import { forgetOwnerKey, ownerKeyHeaders } from "@/lib/wallet/ownerKey";
 
 const log = createLogger("ui:linkWallet");
 
@@ -21,6 +22,7 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
   const { redeem, state } = useLinkRedeem(address);
   const [code, setCode] = useState<string | null>(null);
   const [input, setInput] = useState("");
+  const [proofNeeded, setProofNeeded] = useState(false);
 
   useEffect(() => {
     if (state === "linked") {
@@ -44,13 +46,30 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
 
   async function generate() {
     try {
-      const res = await fetch(`/api/link?chain=${chainKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address }),
-      });
+      const owner = address as string;
+      const send = async () =>
+        fetch(`/api/link?chain=${chainKey}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(await ownerKeyHeaders(owner)),
+          },
+          body: JSON.stringify({ address: owner }),
+        });
+      let res = await send();
+      if (res.status === 403) {
+        // The key on this phone may have been replaced from another one.
+        forgetOwnerKey(owner);
+        res = await send();
+      }
+      if (res.status === 403) {
+        setProofNeeded(true);
+        track("link_code_refused", { chain: chainKey });
+        return;
+      }
       const d = (await res.json()) as { code?: string };
       if (res.ok && d.code) {
+        setProofNeeded(false);
         setCode(d.code);
         track("link_code_generated", { chain: chainKey });
       }
@@ -78,6 +97,8 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
               {t("me.link.codeHint")}
             </p>
           </div>
+        ) : proofNeeded ? (
+          <p className="text-xs text-red-600">{t("me.link.proofNeeded")}</p>
         ) : (
           <button
             onClick={generate}

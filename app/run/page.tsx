@@ -90,7 +90,7 @@ import { useActiveRun } from "@/lib/wallet/useActiveRun";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
 import { useClaimAll } from "@/lib/wallet/useClaimAll";
-import { rememberRunToken } from "@/lib/wallet/runTokens";
+import { rememberRunToken, runToken, runTokenHeaders } from "@/lib/wallet/runTokens";
 import { useLinkedAddresses } from "@/lib/wallet/useLinkedAddresses";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -475,6 +475,15 @@ export default function RunPage() {
     if (!activeRun) return;
     if (runId) return;
     restoredRef.current = true;
+    // Only a run this phone started can take its blocks: the server asks for
+    // the run's token. A run opened elsewhere (another device, or someone
+    // else using this address) is left alone, and the player starts a new one.
+    if (!runToken(activeRun.id)) {
+      log.warn("active run not resumed: no token on this phone", {
+        id: activeRun.id,
+      });
+      return;
+    }
     queueMicrotask(() => {
       log.info("resumed active run", {
         id: activeRun.id,
@@ -833,7 +842,7 @@ export default function RunPage() {
       try {
         res = await fetch(`/api/runs/${id}/claim`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...runTokenHeaders(id) },
           body: JSON.stringify(payload),
           signal: abort.signal,
         });
@@ -841,7 +850,16 @@ export default function RunPage() {
         window.clearTimeout(abortTimer);
       }
       if (res.status === 409) outcome = { kind: "ended" };
-      else if (res.status === 429) {
+      else if (res.status === 403) {
+        // This phone does not hold the run's token (it was started on
+        // another device, or the app's storage was cleared). Retrying can
+        // never succeed, so the batch is dropped like an ended run's.
+        outcome = { kind: "ended" };
+        log.warn("batch claim refused: run token missing", {
+          count: batch.length,
+        });
+        track("batch_claim_error", { status: 403, count: batch.length });
+      } else if (res.status === 429) {
         const body = (await res.json().catch(() => ({}))) as {
           retryAfter?: number;
         };
@@ -1252,7 +1270,7 @@ export default function RunPage() {
       const extra = Math.round(pendingDistanceRef.current);
       const res = await fetch(`/api/runs/${id}/finish`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...runTokenHeaders(id) },
         body: JSON.stringify({ distanceMeters: extra > 0 ? extra : 0 }),
       });
       if (!res.ok) {
