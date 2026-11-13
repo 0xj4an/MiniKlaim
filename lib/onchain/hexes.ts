@@ -1,3 +1,4 @@
+import { isValidCell } from "h3-js";
 import {
   createPublicClient,
   createWalletClient,
@@ -95,6 +96,17 @@ function signerWallet(chainKey: ChainKey) {
  */
 export function h3ToTokenId(h3: string): bigint {
   return BigInt(`0x${h3}`);
+}
+
+/**
+ * The block behind a token id, or null when the id is not one of ours.
+ * The inverse of h3ToTokenId: the id is the H3 index read as a number, and
+ * `tokenURI` prints it in decimal.
+ */
+export function tokenIdToH3(tokenId: string): string | null {
+  if (!/^[0-9]{1,20}$/.test(tokenId)) return null;
+  const h3 = BigInt(tokenId).toString(16);
+  return isValidCell(h3) ? h3 : null;
 }
 
 export type CaptureBatchResult =

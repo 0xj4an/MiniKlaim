@@ -249,6 +249,14 @@ export function RunSummaryModal({
               .join(" - ")}
           </p>
         )}
+        {summary.hexesClaimed === 0 && previewReady && !hasBadges && (
+          // A run that only reinforced, or only passed blocks already used
+          // today, ends with no claim step, and players wrote in asking how
+          // to claim (support, 12 Nov 2026). Say there is nothing to claim.
+          <p className="mt-2 text-center text-sm text-zinc-600">
+            {t("run.summary.nothingNew")}
+          </p>
+        )}
         <StreakNote
           address={address}
           countedThisRun={
