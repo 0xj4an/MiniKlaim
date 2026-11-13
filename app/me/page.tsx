@@ -295,7 +295,9 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
               "{wallet}",
               result.takenBy || "0x…",
             )
-          : (result.error ?? "Something went wrong"),
+          : result.proofNeeded
+            ? t("me.username.proofNeeded")
+            : (result.error ?? "Something went wrong"),
       );
     }
   }
