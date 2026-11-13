@@ -82,6 +82,47 @@ export function checkChain(params: {
 }
 
 /**
+ * When the batch was crossed, as far as the server will believe it.
+ *
+ * The guard used to time every batch by its arrival. That holds while the
+ * phone uploads as it goes, and breaks the moment it cannot: with no signal
+ * the blocks wait on the phone, and when the signal returns they go up 100
+ * at a time, 2.5 s apart. The first batch was judged against the whole
+ * outage and passed. The second carried the next kilometre and was judged
+ * against 2.5 s, so it was "too fast" and dropped for good. Measured on two
+ * runs in Mumbai: 11 Nov 2026, 288 s without an upload, then 44 blocks
+ * (about 700 m) rejected; 12 Nov, 515 s, then 167 blocks (about 2.9 km).
+ * Those are the holes players see in a route they did drive.
+ *
+ * Each block now travels with how long it waited on the phone, and the
+ * batch is timed at its newest block. The age is relative, so the phone's
+ * clock does not matter.
+ *
+ * The answer is clamped between the run's previous position time and now,
+ * so the times a run can claim still add up to no more than the time that
+ * really passed: a client that lies about ages only moves allowance from
+ * one batch to another, and a batch with no ages is timed at arrival, as
+ * before.
+ */
+export const MAX_QUEUE_AGE_MS = 6 * 3_600_000;
+
+export function crossedAt(params: {
+  now: Date;
+  lastAt: Date;
+  ages: ReadonlyArray<unknown>;
+}): Date {
+  let newest: number | null = null;
+  for (const age of params.ages) {
+    if (typeof age !== "number" || !Number.isFinite(age) || age < 0) continue;
+    const capped = Math.min(age, MAX_QUEUE_AGE_MS);
+    if (newest === null || capped < newest) newest = capped;
+  }
+  if (newest === null) return params.now;
+  const at = params.now.getTime() - newest;
+  return new Date(Math.min(params.now.getTime(), Math.max(params.lastAt.getTime(), at)));
+}
+
+/**
  * Blocks crossed in the air do not count. A plane in flight keeps moving the
  * run's position (so the next batch is checked from there) but its blocks
  * are not captured. A flight then keeps only the blocks at the airports,

@@ -381,6 +381,8 @@ export const dictionaries = {
       "Too fast to be on foot. Blocks at this speed do not count. Finish and start a new run with the right mode.",
     "run.summary.reinforced": "{n} blocks reinforced",
     "run.summary.attacked": "{n} blocks attacked",
+    "run.summary.nothingNew":
+      "No new blocks this run, so there is nothing to claim.",
     "challenge.kicker": "Weekly challenge",
     "challenge.pool": "Pool",
     "challenge.entrants": "{n} entered",
@@ -1052,6 +1054,8 @@ export const dictionaries = {
       "Vas muy rápido para ir a pie. A esta velocidad las cuadras no cuentan. Termina y empieza otro recorrido con el modo correcto.",
     "run.summary.reinforced": "{n} cuadras reforzadas",
     "run.summary.attacked": "{n} cuadras atacadas",
+    "run.summary.nothingNew":
+      "No hubo cuadras nuevas en esta corrida, así que no hay nada que reclamar.",
     "challenge.kicker": "Challenge semanal",
     "challenge.pool": "Pool",
     "challenge.entrants": "{n} inscritos",
