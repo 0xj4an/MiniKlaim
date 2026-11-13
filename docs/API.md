@@ -18,11 +18,11 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 | Method + path | Purpose |
 |---|---|
 | `POST /api/runs` | Start a run for the connected wallet. Body: `{ address }`. Returns `{ id, startedAt, claimToken }`. The client keeps `claimToken` and sends it as `x-run-token` on sponsor and decline calls for that run. |
-| `POST /api/runs/[id]/claim` | Add captured hexes to an active run. Two body shapes accepted: (1) legacy single `{ h3, distanceMeters?, accuracy? }`; (2) batch `{ hexes: [{ h3, distanceMeters?, accuracy? }, ...] }` used by the interpolation path (client sends every hex crossed since the previous GPS ping in one round trip). Each hex is validated for accuracy (`> 30m` rejected) and distance canary (`> 10km` rejected). Returns per-hex results in `{ ok, results: [{ h3, alreadyOwned?, rejected? }] }` for batch calls; legacy `{ ok, alreadyOwned }` for singular. |
-| `PATCH /api/runs/[id]/finish` | Close a run. No anti-cheat sanity check, game accepts any transport mode. Returns the closed run row. |
+| `POST /api/runs/[id]/claim` | Add captured hexes to an active run. Two body shapes accepted: (1) legacy single `{ h3, distanceMeters?, accuracy? }`; (2) batch `{ hexes: [{ h3, distanceMeters?, accuracy? }, ...] }` used by the interpolation path (client sends every hex crossed since the previous GPS ping in one round trip). Each hex is validated for accuracy (`> 30m` rejected) and distance canary (`> 10km` rejected). Returns per-hex results in `{ ok, results: [{ h3, alreadyOwned?, rejected? }] }` for batch calls; legacy `{ ok, alreadyOwned }` for singular. Requires the run token from `POST /api/runs` in `x-run-token` (403 without it). |
+| `PATCH /api/runs/[id]/finish` | Close a run. No anti-cheat sanity check, game accepts any transport mode. Returns the closed run row. Requires `x-run-token` (403 without it). Only an open run is closed; finishing an ended run again changes nothing and returns it as it stands. |
 | `POST /api/runs/[id]/voucher` | Issue an EIP-712 voucher for the player to submit `claimRun` on-chain. Returns `{ tokenIds, nonce, signature, contract, chainId }`. Returns 409 if the run has no captured hexes. |
 | `POST /api/runs/[id]/claim-all/voucher` | Issue the single EIP-712 voucher that settles a whole run through `MiniKlaimClaimRouter.claimAll`: this run's hexes plus every earned-but-unheld badge, in one tx and therefore one wallet approval. Returns `{ h3Ids, badgeIds, nonce, signature, contract, chainId }`. Returns 409 when there is nothing to settle, and 503 when no router is deployed for the chain (the client then falls back to the two-tx `claimRun` + `claimBadges` path). |
-| `POST /api/runs/[id]/claimed` | Backend hook confirming a settlement tx has landed. Body: `{ txHash }`; `?chain=`. On a v1 chain the hexes are also marked as tokens (`token_at`). Vouchers only include hexes not yet settled. |
+| `POST /api/runs/[id]/claimed` | Backend hook confirming a settlement tx has landed. Body: `{ txHash }`; `?chain=`. Reads the tx from the chain (waits up to 60 s): it must have succeeded, been sent by the run's player, and be a `claimRun` on Hexes or a `claimAll` on the router. Only the blocks it names that belong to this run are marked. 404 tx not found, 400 not a claim by this player. On a v1 chain the hexes are also marked as tokens (`token_at`). Vouchers only include hexes not yet settled. |
 | `POST /api/runs/[id]/sponsor-mint` | Relayer `captureBatch`, decided server-side. Requires the `x-run-token` header. 403 for a wrong token, 402 when the player holds enough CELO or fee stablecoin to pay, 429 when the wallet used its daily allowance (`SPONSOR_DAILY_HEX_CAP`, default 200 hexes), 503 when the relayer fails (the run is marked `sponsor_failed` and the retry cron picks it up). |
 | `POST /api/runs/[id]/declined` | The player closed the wallet sheet. Requires `x-run-token`. Marks the run `declined` so nothing pays for it. |
 
@@ -31,7 +31,8 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 | Method + path | Purpose |
 |---|---|
 | `GET /api/users/[address]` | Player profile: username, stats, on-chain state. |
-| `PATCH /api/users/[address]/username` | Set the player's username. |
+| `POST /api/users/[address]/username` | Set the player's username. Requires the wallet's owner key in `x-owner-key`; 403 `proof-needed` without it. |
+| `POST /api/users/[address]/owner-key` | Hand this phone the wallet's owner key. Body `{ runs?: [{ runId, token }] }`. Free for a wallet with no key, name or runs; otherwise needs the token of a run started before 2026-11-13 20:00 UTC, which also replaces an old key. 403 `proof-needed` otherwise. See `lib/ownerKeyRules.ts`. |
 | `GET /api/users/[address]/stats` | Aggregated stats across all wallets linked to this player. |
 | `GET /api/users/[address]/runs` | Recent runs for the player. |
 | `GET /api/users/[address]/runs/active` | The currently-open run, or null. |
@@ -39,7 +40,7 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 | `GET /api/users/[address]/badges` | Which badges the player currently qualifies for. |
 | `POST /api/users/[address]/badges/voucher` | Issue an EIP-712 voucher for `claimBadges`. |
 | `POST /api/users/[address]/badges/sponsor-mint` | Relayer badge mint, decided server-side. Needs `?runId=` of one of the player's runs plus its `x-run-token`. 402 when the player can pay, 429 past `SPONSOR_DAILY_BADGE_TX_CAP` (default 2) txs per day. |
-| `POST /api/users/[address]/rewards/voucher` | (Dormant) EIP-712 voucher for USDm rewards. Returns 503 unless `NEXT_PUBLIC_CELO_REWARDS_ADDRESS` is set. |
+| `POST /api/users/[address]/rewards/voucher` | (Dormant) EIP-712 voucher for USDm rewards. Returns 503 unless `NEXT_PUBLIC_CELO_REWARDS_ADDRESS` is set, or when the chain cannot say which badges were claimed. A badge claimed by any linked wallet is not offered again. |
 | `GET /api/users/[address]/linked` | All wallets linked to this player's identity. |
 | `GET /api/users/[address]/tokens` | Blocks of this wallet recorded on-chain without a token vs tokens. `?chain=`. Returns `{ enabled, recorded, tokens, maxPerTx, nextBatch, nextBatchGas }`; `enabled` is false until the chain's Hexes contract records (v2). |
 | `POST /api/users/[address]/tokens/voucher` | `MintTokens` voucher for up to 700 recorded blocks this wallet owns. Re-checks `ownerOf` on-chain first and moves a token stuck with a previous owner. 409 nothing to mint or chain not on v2, 503 chain read or signer failed. |
@@ -57,7 +58,7 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 | Method + path | Purpose |
 |---|---|
-| `POST /api/link` | Wallet A (already registered) generates a short-lived link code. Body: `{ address }`. Returns `{ code }`. |
+| `POST /api/link` | Wallet A (already registered) generates a short-lived link code. Body: `{ address }`. Requires A's owner key in `x-owner-key` (403 without it). Returns `{ code }`. |
 | `POST /api/link/redeem` | Wallet B claims the code by pointing at an on-chain ownership-proof tx. Body: `{ code, txHash }`. Backend fetches the tx receipt, verifies `tx.to == chain.linkVerifier` and `tx.input starts with keccak256(code)`, then links B to A's player. Returns 202 while the tx is unconfirmed. |
 
 ### Content + discovery

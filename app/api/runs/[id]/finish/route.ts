@@ -1,14 +1,29 @@
-import { and, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { runs } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
+import { RUN_TOKEN_HEADER, runTokenMatches } from "@/lib/onchain/sponsorRules";
 import { finalMoveMode } from "@/lib/runs/moveMode";
 import { leftoverDistance } from "@/lib/runs/validation";
 
 const log = createLogger("api:runs:finish");
 
 export const dynamic = "force-dynamic";
+
+const FINISHED_FIELDS = {
+  id: runs.id,
+  userAddress: runs.userAddress,
+  startedAt: runs.startedAt,
+  endedAt: runs.endedAt,
+  hexesClaimed: runs.hexesClaimed,
+  hexesReinforced: runs.hexesReinforced,
+  hexesDamaged: runs.hexesDamaged,
+  distanceMeters: runs.distanceMeters,
+  serverDistanceMeters: runs.serverDistanceMeters,
+  declaredMode: runs.declaredMode,
+  maxSustainedKmh: runs.maxSustainedKmh,
+};
 
 export async function PATCH(
   request: Request,
@@ -26,6 +41,24 @@ export async function PATCH(
     }
   }
 
+  const [run] = await db
+    .select({ claimTokenHash: runs.claimTokenHash })
+    .from(runs)
+    .where(eq(runs.id, id))
+    .limit(1);
+  if (!run) {
+    return NextResponse.json({ error: "run not found" }, { status: 404 });
+  }
+  // Run ids are public, so the id alone let anyone end someone else's run
+  // mid-way. Only the client that started the run holds its token.
+  if (!runTokenMatches(run.claimTokenHash, request.headers.get(RUN_TOKEN_HEADER))) {
+    log.warn("finish without the run token", { id });
+    return NextResponse.json({ error: "not your run" }, { status: 403 });
+  }
+
+  // Only a run still open is ended, so a repeated finish cannot move the end
+  // time or add the leftover distance again. A retry whose first answer was
+  // lost gets the run as it already stands.
   const [updated] = await db
     .update(runs)
     .set({
@@ -34,22 +67,22 @@ export async function PATCH(
         ? { distanceMeters: sql`${runs.distanceMeters} + ${extra}` }
         : {}),
     })
-    .where(eq(runs.id, id))
-    .returning({
-      id: runs.id,
-      userAddress: runs.userAddress,
-      startedAt: runs.startedAt,
-      endedAt: runs.endedAt,
-      hexesClaimed: runs.hexesClaimed,
-      hexesReinforced: runs.hexesReinforced,
-      hexesDamaged: runs.hexesDamaged,
-      distanceMeters: runs.distanceMeters,
-      serverDistanceMeters: runs.serverDistanceMeters,
-      declaredMode: runs.declaredMode,
-      maxSustainedKmh: runs.maxSustainedKmh,
-    });
+    .where(and(eq(runs.id, id), isNull(runs.endedAt)))
+    .returning(FINISHED_FIELDS);
 
-  if (!updated || !updated.endedAt) {
+  if (!updated) {
+    const [current] = await db
+      .select({ ...FINISHED_FIELDS, moveMode: runs.moveMode })
+      .from(runs)
+      .where(eq(runs.id, id))
+      .limit(1);
+    if (!current || !current.endedAt) {
+      return NextResponse.json({ error: "run not found" }, { status: 404 });
+    }
+    log.info("finish repeated on an ended run", { id });
+    return NextResponse.json(current);
+  }
+  if (!updated.endedAt) {
     return NextResponse.json({ error: "run not found" }, { status: 404 });
   }
 

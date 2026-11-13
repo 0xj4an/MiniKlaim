@@ -169,6 +169,13 @@
       "when": 1794587080902,
       "tag": "0023_autovacuum_hot_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794603335887,
+      "tag": "0024_owner_keys",
+      "breakpoints": true
     }
   ]
 }
