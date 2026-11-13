@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { setPersonUsername } from "@/lib/analytics";
 import { createLogger } from "@/lib/logger";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
+import { ensureOwnerKey, forgetOwnerKey, ownerKeyHeaders } from "@/lib/wallet/ownerKey";
 
 const log = createLogger("wallet:user");
 
@@ -19,6 +20,8 @@ export type SetUsernameResult = {
   error?: string;
   /** Set when the name belongs to another wallet: that wallet, shortened. */
   takenBy?: string;
+  /** This phone cannot prove it owns the wallet, so the name cannot change. */
+  proofNeeded?: boolean;
 };
 
 export type UseUser = {
@@ -47,6 +50,9 @@ export function useUser(address: string | null): UseUser {
         const data = (await res.json()) as { user: User | null };
         if (!cancelled) setUser(data.user);
         setPersonUsername(data.user?.username);
+        // Get the owner key while the wallet is new: a wallet with nothing
+        // yet gets one for free, and naming it later needs it.
+        void ensureOwnerKey(address);
       } catch (e) {
         log.error("fetch user failed", {
           message: e instanceof Error ? e.message : String(e),
@@ -64,14 +70,21 @@ export function useUser(address: string | null): UseUser {
     async (username) => {
       if (!address) return { ok: false, error: "not connected" };
       try {
-        const res = await fetch(
-          `/api/users/${address.toLowerCase()}/username?chain=${chainKey}`,
-          {
+        const send = async () =>
+          fetch(`/api/users/${address.toLowerCase()}/username?chain=${chainKey}`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(await ownerKeyHeaders(address)),
+            },
             body: JSON.stringify({ username }),
-          },
-        );
+          });
+        let res = await send();
+        if (res.status === 403) {
+          // The key on this phone may have been replaced from another one.
+          forgetOwnerKey(address);
+          res = await send();
+        }
         const data = (await res.json()) as
           | { user: User }
           | { error: string; code?: string; owner?: string };
@@ -83,6 +96,9 @@ export function useUser(address: string | null): UseUser {
             error,
             ...("error" in data && data.code === "taken"
               ? { takenBy: data.owner ?? "" }
+              : {}),
+            ...("error" in data && data.code === "proof-needed"
+              ? { proofNeeded: true }
               : {}),
           };
         }

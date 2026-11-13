@@ -37,6 +37,8 @@ type EventMap = {
    */
   link_prompt_shown: Record<string, never>;
   link_code_generated: { chain: string };
+  /** The server would not make a code: this phone has no owner key for the wallet. */
+  link_code_refused: { chain: string };
   link_redeem_started: { chain: string };
   wallet_linked: { linked_chain_id: number };
   /**
