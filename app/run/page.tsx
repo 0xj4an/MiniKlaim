@@ -80,6 +80,8 @@ import {
   parseQueue,
   queueStorageKey,
   takeBatch,
+  claimPayload,
+  CLAIM_TIMEOUT_MS,
   type ClaimResultRow,
   type QueuedHex,
 } from "@/lib/runs/claimOutbox";
@@ -815,25 +817,29 @@ export default function RunPage() {
     if (!id || claimQueueRef.current.length === 0) return;
     claimFlushing.current = true;
     const { batch } = takeBatch(claimQueueRef.current);
-    const payload = {
-      hexes: batch.map((item) => ({
-        h3: item.h3,
-        ...(item.distanceMeters > 0
-          ? { distanceMeters: item.distanceMeters }
-          : {}),
-        ...(typeof item.accuracy === "number"
-          ? { accuracy: item.accuracy }
-          : {}),
-      })),
-    };
+    const payload = claimPayload(batch, Date.now());
     let outcome: Parameters<typeof applyHttp>[2];
     const claimStartedAt = Date.now();
     try {
-      const res = await fetch(`/api/runs/${id}/claim`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      // A dead connection must not hold the queue: see CLAIM_TIMEOUT_MS.
+      // By hand, because AbortSignal.timeout is missing on older WebViews
+      // and a throw here would look like a network error forever.
+      const abort = new AbortController();
+      const abortTimer = window.setTimeout(
+        () => abort.abort(),
+        CLAIM_TIMEOUT_MS,
+      );
+      let res: Response;
+      try {
+        res = await fetch(`/api/runs/${id}/claim`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: abort.signal,
+        });
+      } finally {
+        window.clearTimeout(abortTimer);
+      }
       if (res.status === 409) outcome = { kind: "ended" };
       else if (res.status === 429) {
         const body = (await res.json().catch(() => ({}))) as {
@@ -1083,12 +1089,14 @@ export default function RunPage() {
         typeof accuracy === "number" && Number.isFinite(accuracy)
           ? accuracy
           : undefined;
+      const queuedAt = Date.now();
       claimQueueRef.current = addHexes(
         claimQueueRef.current,
         fresh.map((h3) => ({
           h3,
           distanceMeters: perHexDistance,
           ...(accuracyOk !== undefined ? { accuracy: accuracyOk } : {}),
+          at: queuedAt,
         })),
       );
       writeClaimQueue(id, claimQueueRef.current);
