@@ -11,6 +11,7 @@ import { isHexStrengthEnabled, playerKey } from "@/lib/runs/hexStrength";
 import { isMoveMode, tooFastForMode } from "@/lib/runs/moveMode";
 import { applyStrengthBatch } from "@/lib/runs/strengthClaim";
 import { addressesForPlayer } from "@/lib/players";
+import { RUN_TOKEN_HEADER, runTokenMatches } from "@/lib/onchain/sponsorRules";
 import { validateClaim } from "@/lib/runs/validation";
 import {
   airborneStep,
@@ -84,6 +85,7 @@ export async function POST(
       maxSustainedKmh: runs.maxSustainedKmh,
       declaredMode: runs.declaredMode,
       footTooFast: runs.footTooFast,
+      claimTokenHash: runs.claimTokenHash,
     })
     .from(runs)
     .where(eq(runs.id, id))
@@ -91,6 +93,14 @@ export async function POST(
 
   if (!run) {
     return NextResponse.json({ error: "run not found" }, { status: 404 });
+  }
+  // Run ids are public (the activity feed, a player's active run), so the id
+  // alone let anyone put blocks on someone else's run and move its position,
+  // which then failed the owner's real blocks as "too fast". Only the client
+  // that started the run holds its token.
+  if (!runTokenMatches(run.claimTokenHash, request.headers.get(RUN_TOKEN_HEADER))) {
+    log.warn("claim without the run token", { runId: id });
+    return NextResponse.json({ error: "not your run" }, { status: 403 });
   }
   if (run.endedAt) {
     return NextResponse.json({ error: "run already ended" }, { status: 409 });

@@ -4,6 +4,7 @@ import { latLngToCell } from "h3-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { hexActions, hexes, runs, users } from "@/lib/db/schema";
+import { hashRunToken, RUN_TOKEN_HEADER } from "@/lib/onchain/sponsorRules";
 
 // The whole claim route against a disposable database with the migrations
 // applied:
@@ -15,6 +16,7 @@ const db = client ? drizzle(client) : null;
 
 const A = "0x00000000000000000000000000000000000c1a1a";
 const RUN = "c1a1c1a1-0000-0000-0000-000000000001";
+const TOKEN = "test-run-token";
 // A straight road in Mumbai, one block per ~17 m.
 const road = Array.from({ length: 400 }, (_, i) =>
   latLngToCell(19.06, 72.83 + i * 0.00017, 12),
@@ -30,7 +32,7 @@ const claim = async (items: Array<{ h3: string; ageMs?: number }>) => {
   const res = await POST(
     new Request(`http://test/api/runs/${RUN}/claim`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", [RUN_TOKEN_HEADER]: TOKEN },
       body: JSON.stringify({ hexes: items }),
     }),
     { params: Promise.resolve({ id: RUN }) },
@@ -65,7 +67,7 @@ describe.skipIf(!db)("POST /api/runs/:id/claim (database)", () => {
     const secPerBlock = 1.6;
     const blocks = road.slice(0, 300);
     const started = new Date(Date.now() - blocks.length * secPerBlock * 1000 - 5_000);
-    await db!.insert(runs).values({ id: RUN, userAddress: A, startedAt: started, declaredMode: "car" });
+    await db!.insert(runs).values({ id: RUN, userAddress: A, claimTokenHash: hashRunToken(TOKEN), startedAt: started, declaredMode: "car" });
     let rejected = 0;
     for (let b = 0; b < 3; b++) {
       const now = Date.now();
@@ -86,6 +88,7 @@ describe.skipIf(!db)("POST /api/runs/:id/claim (database)", () => {
     const blocks = road.slice(0, 300);
     await db!.insert(runs).values({
       id: RUN,
+      claimTokenHash: hashRunToken(TOKEN),
       userAddress: A,
       startedAt: new Date(Date.now() - 485_000),
       declaredMode: "car",
@@ -101,6 +104,7 @@ describe.skipIf(!db)("POST /api/runs/:id/claim (database)", () => {
   it("a batch sent twice does not pull the run back or fail what follows", async () => {
     await db!.insert(runs).values({
       id: RUN,
+      claimTokenHash: hashRunToken(TOKEN),
       userAddress: A,
       startedAt: new Date(Date.now() - 120_000),
       declaredMode: "car",
@@ -116,5 +120,26 @@ describe.skipIf(!db)("POST /api/runs/:id/claim (database)", () => {
     // And the next blocks down the road still count.
     const next = await claim(road.slice(60, 63).map((h3) => ({ h3, ageMs: 0 })));
     expect(next.filter((r) => r.rejected).length).toBe(0);
+  });
+  it("refuses blocks from a caller without the run's token", async () => {
+    await db!.insert(runs).values({
+      id: RUN,
+      claimTokenHash: hashRunToken(TOKEN),
+      userAddress: A,
+      startedAt: new Date(Date.now() - 60_000),
+    });
+    for (const headers of [{}, { [RUN_TOKEN_HEADER]: "someone-else" }]) {
+      const res = await POST(
+        new Request(`http://test/api/runs/${RUN}/claim`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...headers },
+          body: JSON.stringify({ hexes: [{ h3: road[0] }] }),
+        }),
+        { params: Promise.resolve({ id: RUN }) },
+      );
+      expect(res.status).toBe(403);
+    }
+    const owned = await db!.select().from(hexes).where(inArray(hexes.h3Id, road));
+    expect(owned.length).toBe(0);
   });
 });
