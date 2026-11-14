@@ -198,6 +198,12 @@ type EventMap = {
     capped?: boolean;
   };
   batch_claim_error: { status: number; count: number };
+  /** The server refused this run's uploads for good; the player was told. */
+  run_claim_refused: { has_token: boolean };
+  /** A tab older than the live build reloaded itself after a refusal. */
+  stale_client_reload: { from: string; to: string };
+  /** The server would not hand this phone the wallet's owner key. */
+  owner_key_refused: { run_tokens: number };
   batch_claim_network_error: {
     count: number;
     error: string;
