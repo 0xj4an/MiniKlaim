@@ -85,10 +85,18 @@ export async function issueOwnerKey(
     provenByOldRun,
   });
   if (decision === "refused") {
-    log.info("owner key refused", {
+    // At warn so it reaches the production log: this is the only place
+    // that says who is being turned away. A wallet with a name or runs and
+    // no token from before the bootstrap moment has no other door, and
+    // most of them are owners coming back (14 Nov 2026: 33 wallets in 12
+    // hours, 26 of them with nothing but a name or runs from October).
+    log.warn("owner key refused", {
       address: lower,
       hasKey: !!user?.ownerKeyHash,
+      hasUsername: !!user?.username,
+      hasRuns: !!anyRun,
       proofs: proofs.length,
+      oldRunsShown: oldRuns.length,
     });
     return null;
   }

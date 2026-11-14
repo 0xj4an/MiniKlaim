@@ -176,6 +176,13 @@
       "when": 1794603335887,
       "tag": "0024_owner_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794649957194,
+      "tag": "0025_autovacuum_hex_actions",
+      "breakpoints": true
     }
   ]
 }
