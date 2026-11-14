@@ -383,6 +383,8 @@ export const dictionaries = {
     "run.banner.attacked": "{n} attacked",
     "run.footTooFast":
       "Too fast to be on foot. Blocks at this speed do not count. Finish and start a new run with the right mode.",
+    "run.claimRefused":
+      "This phone can't save blocks for this run any more. End the run and start a new one.",
     "run.summary.reinforced": "{n} blocks reinforced",
     "run.summary.attacked": "{n} blocks attacked",
     "run.summary.nothingNew":
@@ -1060,6 +1062,8 @@ export const dictionaries = {
     "run.banner.attacked": "{n} atacadas",
     "run.footTooFast":
       "Vas muy rápido para ir a pie. A esta velocidad las cuadras no cuentan. Termina y empieza otro recorrido con el modo correcto.",
+    "run.claimRefused":
+      "Este teléfono ya no puede guardar cuadras en esta corrida. Termínala y empieza una nueva.",
     "run.summary.reinforced": "{n} cuadras reforzadas",
     "run.summary.attacked": "{n} cuadras atacadas",
     "run.summary.nothingNew":
