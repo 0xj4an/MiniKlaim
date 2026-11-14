@@ -1,6 +1,7 @@
 "use client";
 
 import { createLogger } from "@/lib/logger";
+import { track } from "@/lib/analytics";
 import { runTokensFor } from "@/lib/wallet/runTokens";
 
 const log = createLogger("wallet:ownerKey");
@@ -18,6 +19,11 @@ export const OWNER_KEY_HEADER = "x-owner-key";
 
 const memory: Record<string, string> = {};
 const inflight = new Map<string, Promise<string | null>>();
+// A refusal does not change by asking again, and the app asked on every
+// load: one wallet was turned away 20 times in 12 hours. Remembered for
+// this long, per tab.
+const REFUSED_FOR_MS = 30 * 60_000;
+const refusedAt = new Map<string, number>();
 
 function load(): Record<string, string> {
   try {
@@ -49,6 +55,10 @@ export function ensureOwnerKey(address: string): Promise<string | null> {
   if (held) return Promise.resolve(held);
   const pending = inflight.get(lower);
   if (pending) return pending;
+  const refused = refusedAt.get(lower);
+  if (refused !== undefined && Date.now() - refused < REFUSED_FOR_MS) {
+    return Promise.resolve(null);
+  }
   const request = (async () => {
     try {
       const res = await fetch(`/api/users/${lower}/owner-key`, {
@@ -58,6 +68,10 @@ export function ensureOwnerKey(address: string): Promise<string | null> {
       });
       if (!res.ok) {
         log.info("owner key not issued", { status: res.status });
+        if (res.status === 403) {
+          refusedAt.set(lower, Date.now());
+          track("owner_key_refused", { run_tokens: runTokensFor(lower).length });
+        }
         return null;
       }
       const data = (await res.json()) as { key?: string };
