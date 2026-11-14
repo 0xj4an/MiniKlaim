@@ -72,7 +72,10 @@ export const MOTOR_SUSTAINED_KMH = 45;
  *
  * - foot 25: elite marathon pace is ~21; see FOOT_MAX_SUSTAINED_KMH.
  * - bike 60: a long descent; nobody pedals 60 on the flat for 30 s.
- * - horse 70: a racehorse gallop.
+ * - horse: no ceiling. It is the unicorn, a mode picked for fun and not a
+ *   claim about a vehicle (0xj4an, 14 Nov 2026). At 70 km/h it cost one
+ *   player 1,420 blocks in 12 runs, declared from a car. Blocks crossed in
+ *   the air still do not count, for any mode (CAPTURE_MAX_KMH).
  * - bus 150: an intercity coach flat out on a toll road.
  * - car 220: a fast car on an empty expressway, well past any legal limit
  *   (80-120 where MiniKlaim is played). Of 265 motor runs to 25 Oct the
@@ -89,7 +92,7 @@ export const MOTOR_SUSTAINED_KMH = 45;
  */
 export const DECLARED_MAX_KMH: Record<MoveMode, number> = {
   foot: 25,
-  horse: 70,
+  horse: Number.POSITIVE_INFINITY,
   bike: 60,
   moto: 250,
   car: 220,
