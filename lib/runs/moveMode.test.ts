@@ -119,6 +119,12 @@ describe("finalMoveMode", () => {
 });
 
 describe("tooFastForMode", () => {
+  it("never stops the horse: it is the unicorn, not a vehicle", () => {
+    // flypeztic, 12 to 14 Nov 2026: 1,420 blocks lost declaring it from a car.
+    expect(tooFastForMode("horse", 71)).toBe(false);
+    expect(tooFastForMode("horse", 206)).toBe(false);
+    expect(finalMoveMode({ declared: "horse", distanceMeters: 30000, durationSec: 1200, maxSustainedKmh: 150 })).toEqual({ mode: "horse", mismatch: false });
+  });
   it("lets realistic vehicle speeds through", () => {
     expect(tooFastForMode("car", 120)).toBe(false);
     // celovibe (156) and princessvalue (141), 21 and 25 Oct: fast, kept.
