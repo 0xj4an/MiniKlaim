@@ -91,6 +91,7 @@ import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
 import { useClaimAll } from "@/lib/wallet/useClaimAll";
 import { rememberRunToken, runToken, runTokenHeaders } from "@/lib/wallet/runTokens";
+import { buildDiffers, claimReload, liveBuild } from "@/lib/runs/staleClient";
 import { useLinkedAddresses } from "@/lib/wallet/useLinkedAddresses";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -351,6 +352,7 @@ export default function RunPage() {
   // The server stopped capturing because this "on foot" run moves at vehicle
   // speed (too-fast-on-foot). Shown until 45 s pass without another one.
   const [footTooFast, setFootTooFast] = useState(false);
+  const [claimRefused, setClaimRefused] = useState(false);
   // Treasures this run won, shown with a one-tap claim.
   const [foundTreasures, setFoundTreasures] = useState<FoundTreasure[]>([]);
   const footTooFastTimer = useRef<number | null>(null);
@@ -859,6 +861,27 @@ export default function RunPage() {
           count: batch.length,
         });
         track("batch_claim_error", { status: 403, count: batch.length });
+        // Unless this tab is simply older than the server: then the batch
+        // is kept and the tab moves onto the live build, where the run
+        // resumes with its token. See lib/runs/staleClient.ts.
+        const mine = process.env.NEXT_PUBLIC_SENTRY_RELEASE;
+        const live = await liveBuild();
+        if (live && buildDiffers(mine, live)) {
+          outcome = { kind: "retry" };
+          if (claimReload(window.sessionStorage, live)) {
+            track("stale_client_reload", {
+              from: String(mine).slice(0, 7),
+              to: live.slice(0, 7),
+            });
+            writeClaimQueue(id, claimQueueRef.current);
+            window.location.reload();
+          }
+        } else {
+          // Nothing will get through on this run. Say so, or the player
+          // keeps moving for blocks that are thrown away.
+          setClaimRefused(true);
+          track("run_claim_refused", { has_token: runToken(id) !== null });
+        }
       } else if (res.status === 429) {
         const body = (await res.json().catch(() => ({}))) as {
           retryAfter?: number;
@@ -1219,6 +1242,7 @@ export default function RunPage() {
       setDistanceMeters(0);
       setRunStartTime(Date.now());
       setFootTooFast(false);
+      setClaimRefused(false);
       footWarnedRef.current = false;
       modeWarnedRef.current = false;
       lastPosRef.current = null;
@@ -2209,6 +2233,14 @@ export default function RunPage() {
           className="absolute top-16 right-4 left-4 z-20 rounded-md border border-red-300 bg-red-50 p-3 text-center text-xs font-medium text-red-900 shadow-md"
         >
           {t("run.footTooFast")}
+        </div>
+      )}
+      {runId && claimRefused && (
+        <div
+          role="alert"
+          className="absolute top-16 right-4 left-4 z-20 rounded-md border border-red-300 bg-red-50 p-3 text-center text-xs font-medium text-red-900 shadow-md"
+        >
+          {t("run.claimRefused")}
         </div>
       )}
       <RunControls
