@@ -357,3 +357,41 @@ describe("claimPayload", () => {
     ]);
   });
 });
+
+describe("applyHttp: what the pass did to other players", () => {
+  test("a block taken from someone is counted apart, and an attack says what is left", () => {
+    const applied = applyHttp(
+      ["a", "b", "c", "d", "e"].map((h3) => ({ h3, distanceMeters: 0 })),
+      ["a", "b", "c", "d", "e"],
+      {
+        kind: "ok",
+        results: [
+          { h3: "a", action: "new", strength: 1 },
+          { h3: "b", action: "capture", strength: 1 },
+          { h3: "c", action: "attack", strength: 2 },
+          { h3: "d", action: "attack", strength: 6 },
+          { h3: "e", action: "reinforce", strength: 3 },
+        ],
+      },
+      0,
+    );
+    // Two blocks are new to the player; one of them had an owner.
+    expect(applied.newly).toBe(2);
+    expect(applied.stolen).toBe(1);
+    expect(applied.attacked).toBe(2);
+    expect(applied.attackLeft).toEqual([2, 6]);
+    expect(applied.reinforced).toBe(1);
+  });
+
+  test("nothing is stolen from a server without hex strength", () => {
+    const applied = applyHttp(
+      [{ h3: "a", distanceMeters: 0 }],
+      ["a"],
+      { kind: "ok", results: [{ h3: "a", alreadyOwned: false }] },
+      0,
+    );
+    expect(applied.newly).toBe(1);
+    expect(applied.stolen).toBe(0);
+    expect(applied.attackLeft).toEqual([]);
+  });
+});

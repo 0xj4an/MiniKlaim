@@ -27,6 +27,8 @@ export type RunSummary = {
   /** Hex strength: own blocks raised a level, others' blocks lowered. */
   hexesReinforced?: number;
   hexesDamaged?: number;
+  /** Of `hexesClaimed`, the blocks taken from another player. */
+  hexesStolen?: number;
   distanceMeters: number;
   /** The run's label from the server (the player's pick when they made one). */
   moveMode?: MoveMode | null;
@@ -83,6 +85,7 @@ export function RunSummaryModal({
   const hasBadges = (badgeIds?.length ?? 0) > 0;
   const reinforced = summary.hexesReinforced ?? 0;
   const damaged = summary.hexesDamaged ?? 0;
+  const stolen = summary.hexesStolen ?? 0;
   const previewReady = badgeIds !== null;
   // Blocks are already known. Waiting on the badge list held the wallet
   // sheet behind a second copy of the same eligibility query.
@@ -237,9 +240,10 @@ export function RunSummaryModal({
             </div>
           </div>
         )}
-        {(reinforced > 0 || damaged > 0) && (
+        {(stolen > 0 || reinforced > 0 || damaged > 0) && (
           <p className="mt-2 text-center text-sm font-semibold text-orange-700">
             {[
+              stolen > 0 ? t("run.summary.stolen").replace("{n}", String(stolen)) : null,
               reinforced > 0
                 ? t("run.summary.reinforced").replace("{n}", String(reinforced))
                 : null,
