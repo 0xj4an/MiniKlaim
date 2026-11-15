@@ -31,6 +31,16 @@ export async function register() {
       import("./lib/logger"),
     ]);
     reportEnvSkew(createLogger("env:skew"));
+    // Logs when this process stops answering for a second or more, so a
+    // cut can be told apart: frozen process, or a network fault outside it.
+    try {
+      const { watchEventLoop } = await import("./lib/eventLoopStall");
+      await watchEventLoop();
+    } catch (e) {
+      createLogger("server:eventLoop").warn("event loop watch could not start", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
     // The world list takes 2.60 s to build, and a route module is only
     // evaluated on its first request, so after every deploy one player paid
     // that 2.6 s on an endpoint whose rebuild blocks the process. Build it
