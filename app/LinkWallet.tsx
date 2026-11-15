@@ -47,18 +47,20 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
   async function generate() {
     try {
       const owner = address as string;
-      const send = async () =>
-        fetch(`/api/link?chain=${chainKey}`, {
+      let sentKey = false;
+      const send = async () => {
+        const keyHeaders = await ownerKeyHeaders(owner);
+        sentKey = Object.keys(keyHeaders).length > 0;
+        return fetch(`/api/link?chain=${chainKey}`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(await ownerKeyHeaders(owner)),
-          },
+          headers: { "Content-Type": "application/json", ...keyHeaders },
           body: JSON.stringify({ address: owner }),
         });
+      };
       let res = await send();
-      if (res.status === 403) {
-        // The key on this phone may have been replaced from another one.
+      // The key on this phone may have been replaced from another one. With
+      // no key sent there is nothing to drop, and asking twice changes nothing.
+      if (res.status === 403 && sentKey) {
         forgetOwnerKey(owner);
         res = await send();
       }
