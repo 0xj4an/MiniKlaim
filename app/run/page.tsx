@@ -29,9 +29,14 @@ import {
   diskRadiusMeters,
   hexesInBounds,
   mergeHexes,
+  patchRows,
   placeHexes,
   viewportNeedsWorld,
   rememberOwners,
+  shouldFetchOwnList,
+  RUN_WORLD_MAX_AGE_MS,
+  type RefreshReason,
+  type RowChange,
   type ClaimedHexRow,
   type LngLatBounds,
   type PlacedHex,
@@ -516,6 +521,8 @@ export default function RunPage() {
   }, [activeRun, isActiveLoading, runId]);
 
   const worldRef = useRef<{ rows: PlacedHex[]; at: number } | null>(null);
+  // When the player's own block list last arrived. See shouldFetchOwnList.
+  const ownListAtRef = useRef(0);
   const diskCoverRef = useRef<{
     lat: number;
     lng: number;
@@ -593,7 +600,7 @@ export default function RunPage() {
   );
 
   const refreshClaimed = useCallback(
-    async (reason: "move" | "fresh" = "fresh") => {
+    async (reason: RefreshReason = "fresh") => {
       const map = mapRef.current;
       // The grid tier has no map object, so the view comes from the canvas
       // instead. Without this the fetch returned early and the phones that
@@ -693,7 +700,7 @@ export default function RunPage() {
       if (!wide) {
         const cover = diskCoverRef.current;
         if (
-          reason !== "fresh" &&
+          reason === "move" &&
           cover &&
           diskCoversView(
             cover.lat,
@@ -720,9 +727,17 @@ export default function RunPage() {
       }
 
       diskCoverRef.current = null;
-      const cached = await readCachedWorld();
-      if (stale()) return;
-      const cachedRows = cached ? parseWorldBody(cached.body) : null;
+      // Read the saved world list only when this screen has none yet. It is
+      // 1.2 MB of JSON; reading and placing it again on every pan and every
+      // batch also threw away the player's own blocks merged into it, which
+      // was harmless only while those were downloaded again each time.
+      let cached: Awaited<ReturnType<typeof readCachedWorld>> = null;
+      let cachedRows: ClaimedHexRow[] | null = null;
+      if (!worldRef.current) {
+        cached = await readCachedWorld();
+        if (stale()) return;
+        cachedRows = cached ? parseWorldBody(cached.body) : null;
+      }
       // The player's own blocks, started now and awaited later. This used to
       // run after the world list, which was fine while /community kept the
       // full list warm in IndexedDB. Since 3 Nov /community caches the
@@ -731,12 +746,36 @@ export default function RunPage() {
       // seconds the 1 MB world list took to arrive. Their own blocks are
       // 56 KB and are the thing they notice missing, so they go first.
       const ownAddr = addressRef.current;
+      const fetchMine = async () => {
+        const mine = await fetchRows(
+          `/api/hexes?owner=${encodeURIComponent(ownAddr ?? "")}`,
+        );
+        if (mine) ownListAtRef.current = Date.now();
+        return mine;
+      };
+      const mergeMine = (mine: ClaimedHexRow[]) => {
+        const placed = placeHexes(mine);
+        worldRef.current = worldRef.current
+          ? {
+              rows: mergeHexes(worldRef.current.rows, placed),
+              at: worldRef.current.at,
+            }
+          : { rows: placed, at: 0 };
+      };
+      // See shouldFetchOwnList: not after every batch, and not on every pan.
       const minePending =
-        ownAddr && (reason === "fresh" || !cachedRows)
-          ? fetchRows(`/api/hexes?owner=${encodeURIComponent(ownAddr)}`)
+        ownAddr &&
+        shouldFetchOwnList({
+          reason,
+          haveWorld: !!cachedRows || !!worldRef.current,
+          ownAgeMs: Date.now() - ownListAtRef.current,
+        })
+          ? fetchMine()
           : null;
-      if (cachedRows) {
+      if (cachedRows && cached) {
         worldRef.current = { rows: placeHexes(cachedRows), at: cached.savedAt };
+        paint(hexesInBounds(worldRef.current.rows, bounds));
+      } else if (worldRef.current) {
         paint(hexesInBounds(worldRef.current.rows, bounds));
       } else {
         // Cold phone: show the blocks around the player while the world list
@@ -754,21 +793,23 @@ export default function RunPage() {
         const mineFirst = await minePending;
         if (stale()) return;
         if (mineFirst) {
-          const placed = placeHexes(mineFirst);
-          worldRef.current = worldRef.current
-            ? {
-                rows: mergeHexes(worldRef.current.rows, placed),
-                at: worldRef.current.at,
-              }
-            : { rows: placed, at: 0 };
-          paint(hexesInBounds(worldRef.current.rows, bounds));
+          mergeMine(mineFirst);
+          if (worldRef.current)
+            paint(hexesInBounds(worldRef.current.rows, bounds));
         }
       }
       const worldStale =
-        !worldRef.current || Date.now() - worldRef.current.at > 10 * 60_000;
+        !worldRef.current ||
+        Date.now() - worldRef.current.at > RUN_WORLD_MAX_AGE_MS;
       if (worldStale) {
+        // The saved copy carries the ETag. Read before the in-flight check,
+        // not inside it: an await between the check and the assignment lets
+        // two refreshes both start the 1.2 MB download.
+        const saved =
+          cached ?? (worldInflight.current ? null : await readCachedWorld());
+        if (stale()) return;
         if (!worldInflight.current) {
-          const pending = fetchWorldRows(cached).then(
+          const pending = fetchWorldRows(saved).then(
             (result) => result?.rows ?? null,
           );
           worldInflight.current = pending;
@@ -778,22 +819,16 @@ export default function RunPage() {
         }
         const all = await worldInflight.current;
         if (stale()) return;
-        if (all) worldRef.current = { rows: placeHexes(all), at: Date.now() };
-      }
-      // Already fetched and merged above when `minePending` was set. This
-      // covers the remaining case: a warm cache on a "move" refresh, where
-      // the world list has just been replaced and the player's own blocks
-      // have to be merged back into it.
-      if (!minePending && ownAddr && worldStale) {
-        const mine = await fetchRows(
-          `/api/hexes?owner=${encodeURIComponent(ownAddr)}`,
-        );
-        if (stale()) return;
-        if (mine && worldRef.current) {
-          worldRef.current = {
-            rows: mergeHexes(worldRef.current.rows, placeHexes(mine)),
-            at: worldRef.current.at,
-          };
+        if (all) {
+          worldRef.current = { rows: placeHexes(all), at: Date.now() };
+          // The new world list replaced the one the player's blocks were
+          // merged into, and it can be a minute behind (the server caches
+          // it). Put the player's blocks back from a download made now,
+          // after it: an earlier copy would miss a block stolen while the
+          // world list was on its way, and the map would hand it back.
+          const mine = ownAddr ? await fetchMine() : null;
+          if (stale()) return;
+          if (mine) mergeMine(mine);
         }
       }
       if (!worldRef.current) return;
@@ -932,6 +967,10 @@ export default function RunPage() {
         }
         let footRejected = 0;
         let modeRejected = 0;
+        // What this answer changed, written into the rows the phone holds
+        // once the loop is done. See patchRows.
+        const changes = new Map<string, RowChange>();
+        const me = addressRef.current?.toLowerCase() ?? null;
         for (const row of outcome.results) {
           if (!row.h3) continue;
           if (row.rejected) {
@@ -954,6 +993,34 @@ export default function RunPage() {
             attackedLeftRef.current.set(row.h3, row.strength);
           }
           if (view.captured) attackedLeftRef.current.delete(row.h3);
+          const level =
+            typeof row.strength === "number" ? { strength: row.strength } : {};
+          if (me && (view.captured || view.reinforced)) {
+            changes.set(row.h3, {
+              owner: me,
+              ownerUsername: userRef.current,
+              ...level,
+            });
+          } else if (view.attacked) {
+            changes.set(row.h3, level);
+          }
+        }
+        if (changes.size > 0) {
+          lastServerRowsRef.current = patchRows(
+            lastServerRowsRef.current,
+            changes,
+            (row) => row,
+          );
+          if (worldRef.current) {
+            worldRef.current = {
+              rows: patchRows(
+                worldRef.current.rows,
+                changes,
+                (row) => placeHexes([row])[0],
+              ),
+              at: worldRef.current.at,
+            };
+          }
         }
         if (modeRejected > 0 && !modeWarnedRef.current) {
           // A vehicle over its realistic ceiling is almost always a GPS
@@ -1087,7 +1154,7 @@ export default function RunPage() {
       outcome.kind === "ok" &&
       (applied.newly > 0 || applied.reinforced > 0 || applied.attacked > 0)
     ) {
-      await refreshClaimed();
+      await refreshClaimed("claimed");
       log.info("batch hexes claimed", {
         submitted: batch.length,
         newly: applied.newly,
