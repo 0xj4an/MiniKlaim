@@ -3,6 +3,11 @@
 import { createLogger } from "@/lib/logger";
 import { track } from "@/lib/analytics";
 import { runTokensFor } from "@/lib/wallet/runTokens";
+import {
+  REFUSED_FOR_MS,
+  refusedRecently,
+  rememberRefusal,
+} from "@/lib/wallet/ownerKeyRefusal";
 
 const log = createLogger("wallet:ownerKey");
 
@@ -20,10 +25,17 @@ export const OWNER_KEY_HEADER = "x-owner-key";
 const memory: Record<string, string> = {};
 const inflight = new Map<string, Promise<string | null>>();
 // A refusal does not change by asking again, and the app asked on every
-// load: one wallet was turned away 20 times in 12 hours. Remembered for
-// this long, per tab.
-const REFUSED_FOR_MS = 30 * 60_000;
+// load. Remembered in the phone's storage (lib/wallet/ownerKeyRefusal.ts),
+// with this copy for a phone whose storage cannot be written.
 const refusedAt = new Map<string, number>();
+
+function phoneStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
 
 function load(): Record<string, string> {
   try {
@@ -56,7 +68,10 @@ export function ensureOwnerKey(address: string): Promise<string | null> {
   const pending = inflight.get(lower);
   if (pending) return pending;
   const refused = refusedAt.get(lower);
-  if (refused !== undefined && Date.now() - refused < REFUSED_FOR_MS) {
+  if (
+    (refused !== undefined && Date.now() - refused < REFUSED_FOR_MS) ||
+    refusedRecently(phoneStorage(), lower, Date.now())
+  ) {
     return Promise.resolve(null);
   }
   const request = (async () => {
@@ -70,6 +85,7 @@ export function ensureOwnerKey(address: string): Promise<string | null> {
         log.info("owner key not issued", { status: res.status });
         if (res.status === 403) {
           refusedAt.set(lower, Date.now());
+          rememberRefusal(phoneStorage(), lower, Date.now());
           track("owner_key_refused", { run_tokens: runTokensFor(lower).length });
         }
         return null;
