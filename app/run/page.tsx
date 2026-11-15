@@ -789,9 +789,8 @@ export default function RunPage() {
       }
       // Paint the player's own territory as soon as it lands, without waiting
       // for the world.
-      let mineFirst: ClaimedHexRow[] | null = null;
       if (minePending) {
-        mineFirst = await minePending;
+        const mineFirst = await minePending;
         if (stale()) return;
         if (mineFirst) {
           mergeMine(mineFirst);
@@ -803,8 +802,14 @@ export default function RunPage() {
         !worldRef.current ||
         Date.now() - worldRef.current.at > RUN_WORLD_MAX_AGE_MS;
       if (worldStale) {
+        // The saved copy carries the ETag. Read before the in-flight check,
+        // not inside it: an await between the check and the assignment lets
+        // two refreshes both start the 1.2 MB download.
+        const saved =
+          cached ?? (worldInflight.current ? null : await readCachedWorld());
+        if (stale()) return;
         if (!worldInflight.current) {
-          const pending = fetchWorldRows(cached ?? (await readCachedWorld())).then(
+          const pending = fetchWorldRows(saved).then(
             (result) => result?.rows ?? null,
           );
           worldInflight.current = pending;
@@ -817,11 +822,11 @@ export default function RunPage() {
         if (all) {
           worldRef.current = { rows: placeHexes(all), at: Date.now() };
           // The new world list replaced the one the player's blocks were
-          // merged into. Put them back: the copy from this same refresh if
-          // there is one, a new download otherwise. Never an older copy,
-          // which could paint as theirs a block the world list just said
-          // someone took.
-          const mine = mineFirst ?? (ownAddr ? await fetchMine() : null);
+          // merged into, and it can be a minute behind (the server caches
+          // it). Put the player's blocks back from a download made now,
+          // after it: an earlier copy would miss a block stolen while the
+          // world list was on its way, and the map would hand it back.
+          const mine = ownAddr ? await fetchMine() : null;
           if (stale()) return;
           if (mine) mergeMine(mine);
         }
