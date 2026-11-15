@@ -34,6 +34,52 @@ export function viewportNeedsWorld(radiusMeters: number): boolean {
   return Math.ceil(radiusMeters / CENTER_M) + 1 > MAX_HEX_DISK;
 }
 
+/**
+ * Why a refresh of the run map was asked for.
+ *
+ * "fresh" is a new screen: the page loaded, the wallet changed, a run
+ * started or ended. "move" is the player panning or zooming. "claimed" is
+ * the server having just answered a batch of this run.
+ */
+export type RefreshReason = "move" | "fresh" | "claimed";
+
+/** How old the player's own block list may get before it is asked for again. */
+export const OWN_LIST_MAX_AGE_MS = 10 * 60_000;
+
+/**
+ * How old the world list may get on the run screen. It is 1.2 MB and it
+ * changes every minute, so the ETag never saves the download. The blocks
+ * near the player and the player's own come from elsewhere and stay current.
+ */
+export const RUN_WORLD_MAX_AGE_MS = 30 * 60_000;
+
+/**
+ * Whether a zoomed-out refresh should download the player's whole block list.
+ *
+ * It used to, after every batch the server accepted, and on every pan when
+ * the phone had no world list saved. The list is 60 to 120 KB for a regular
+ * player and a batch lands every few seconds in a car: on 14 Nov 2026 one
+ * phone asked for it 1,312 times in two drives, about 100 MB of mobile data.
+ * Nothing in the answer was news. What the batch changed is already on the
+ * phone (the claim response says, block by block, who owns it now and at
+ * what level), and the map never takes one of the player's blocks away on
+ * its own (lib/map/ownFloor).
+ */
+export function shouldFetchOwnList(params: {
+  reason: RefreshReason;
+  /** A world list is on the phone, from this session or from storage. */
+  haveWorld: boolean;
+  /** Milliseconds since the own list last arrived; Infinity when it never has. */
+  ownAgeMs: number;
+}): boolean {
+  if (params.reason === "fresh") return true;
+  const stale = !(params.ownAgeMs < OWN_LIST_MAX_AGE_MS);
+  if (params.reason === "claimed") return stale;
+  // A pan with nothing to draw from: the player's own blocks are the part
+  // they notice missing, so fetch them, once.
+  return !params.haveWorld && stale;
+}
+
 export function diskRadiusMeters(k: number): number {
   return Math.max(0, k - 1) * CENTER_M;
 }
@@ -62,6 +108,64 @@ export function rememberOwners(
     if (playerAddresses.has(row.owner.toLowerCase())) owned.add(row.h3);
     else owned.delete(row.h3);
   }
+}
+
+/** What the server just said about one block, in answer to a claim. */
+export type RowChange = {
+  /** Set when the block now belongs to the player. Absent for an attack. */
+  owner?: string;
+  ownerUsername?: string | null;
+  /** The level the block was left at. */
+  strength?: number;
+};
+
+/**
+ * Write a claim's answer into rows the phone already holds.
+ *
+ * This is what lets the run map stop downloading the player's whole list
+ * after every batch. Without it the saved rows would still name the old
+ * owner of a block the player just stole, and `rememberOwners` would take
+ * that as the server saying it changed hands and give it back.
+ *
+ * A block the rows do not have yet is added when the player owns it now. An
+ * attack on a block the rows do not have is dropped: there is no owner to
+ * draw it with, and the next refresh brings it.
+ */
+export function patchRows<T extends ClaimedHexRow>(
+  rows: T[],
+  changes: ReadonlyMap<string, RowChange>,
+  place: (row: ClaimedHexRow) => T,
+): T[] {
+  if (changes.size === 0) return rows;
+  const seen = new Set<string>();
+  const out = rows.map((row) => {
+    const change = changes.get(row.h3);
+    if (!change) return row;
+    seen.add(row.h3);
+    return {
+      ...row,
+      ...(change.owner
+        ? { owner: change.owner, ownerUsername: change.ownerUsername ?? null }
+        : {}),
+      ...(typeof change.strength === "number"
+        ? { strength: change.strength }
+        : {}),
+    };
+  });
+  for (const [h3, change] of changes) {
+    if (seen.has(h3) || !change.owner) continue;
+    out.push(
+      place({
+        h3,
+        owner: change.owner,
+        ownerUsername: change.ownerUsername ?? null,
+        ...(typeof change.strength === "number"
+          ? { strength: change.strength }
+          : {}),
+      }),
+    );
+  }
+  return out;
 }
 
 export function placeHexes(rows: ClaimedHexRow[]): PlacedHex[] {
