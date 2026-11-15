@@ -2,8 +2,9 @@ import { cellToParent } from "h3-js";
 import { and, count, desc, inArray, isNotNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { hexes, runs, users } from "@/lib/db/schema";
+import { hexes, runs } from "@/lib/db/schema";
 import { addressesForPlayer } from "@/lib/players";
+import { conquestsOf } from "@/lib/playerConquests";
 import { streakDays, streaksFrom } from "@/lib/runs/streak";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export async function GET(
     runDays,
     lifetimeRow,
     ownedHexes,
-    userRows,
+    conquests,
     countryRows,
   ] = await Promise.all([
     db
@@ -110,10 +111,7 @@ export async function GET(
       .select({ h3Id: hexes.h3Id })
       .from(hexes)
       .where(inArray(hexes.ownerAddress, linked)),
-    db
-      .select({ conquests: users.conquests })
-      .from(users)
-      .where(inArray(users.address, linked)),
+    conquestsOf(linked),
     db
       .selectDistinct({ country: hexes.country })
       .from(hexes)
@@ -127,7 +125,6 @@ export async function GET(
   const cityCount = new Set(
     ownedHexes.map((h) => cellToParent(h.h3Id, CITY_RESOLUTION)),
   ).size;
-  const conquests = userRows.reduce((sum, r) => sum + (r.conquests ?? 0), 0);
 
   return NextResponse.json({
     hexesOwned: hexResult[0]?.count ?? 0,
