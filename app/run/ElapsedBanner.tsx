@@ -17,12 +17,15 @@ import { appendSpeedSample, formatRollingSpeed } from "@/lib/map/geo";
 export function ElapsedBanner({
   startTime,
   hexCount,
+  stolenCount = 0,
   reinforcedCount = 0,
   attackedCount = 0,
   distanceMeters,
 }: {
   startTime: number | null;
   hexCount: number;
+  /** Of `hexCount`, the blocks taken from another player. */
+  stolenCount?: number;
   reinforcedCount?: number;
   attackedCount?: number;
   distanceMeters: number;
@@ -69,9 +72,12 @@ export function ElapsedBanner({
         {hexCount === 1 ? t("run.banner.block") : t("run.banner.blocks")} ·{" "}
         {distLabel} · {speedLabel}
       </div>
-      {(reinforcedCount > 0 || attackedCount > 0) && (
+      {(stolenCount > 0 || reinforcedCount > 0 || attackedCount > 0) && (
         <div className="text-xs font-semibold text-orange-700">
           {[
+            stolenCount > 0
+              ? t("run.banner.stolen").replace("{n}", String(stolenCount))
+              : null,
             reinforcedCount > 0
               ? t("run.banner.reinforced").replace("{n}", String(reinforcedCount))
               : null,

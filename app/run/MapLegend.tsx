@@ -135,6 +135,22 @@ export function MapLegend({ strength }: { strength: boolean }) {
                   <li className="flex items-center gap-3">
                     <span
                       aria-hidden
+                      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-zinc-500 text-[10px] font-bold text-white"
+                    >
+                      ×3
+                    </span>
+                    <span>{t("run.legend.times")}</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <span
+                      aria-hidden
+                      className="inline-block h-5 w-5 shrink-0 rounded-md border-2 border-zinc-900 bg-zinc-300"
+                    />
+                    <span>{t("run.legend.hit")}</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <span
+                      aria-hidden
                       className="inline-block h-5 w-5 shrink-0 rounded-md border-2 border-dashed border-zinc-500 bg-zinc-200"
                     />
                     <span>{t("run.legend.used")}</span>

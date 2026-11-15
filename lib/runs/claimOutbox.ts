@@ -145,14 +145,25 @@ export function applyHttp(
 ): {
   items: QueuedHex[];
   newly: number;
+  /** How many of `newly` were taken from another player. */
+  stolen: number;
   reinforced: number;
   attacked: number;
+  /** The level each attacked block was left at, one entry per block. */
+  attackLeft: number[];
   /** Blocks the player had already acted on today, so the pass did nothing. */
   repeated: number;
   retryMs: number | null;
   failures: number;
 } {
-  const none = { newly: 0, reinforced: 0, attacked: 0, repeated: 0 };
+  const none = {
+    newly: 0,
+    stolen: 0,
+    reinforced: 0,
+    attacked: 0,
+    attackLeft: [] as number[],
+    repeated: 0,
+  };
   if (outcome.kind === "ended") {
     return { items: [], ...none, retryMs: null, failures: 0 };
   }
@@ -172,19 +183,29 @@ export function applyHttp(
   let reinforced = 0;
   let attacked = 0;
   let repeated = 0;
+  let stolen = 0;
+  const attackLeft: number[] = [];
   for (const row of outcome.results) {
     if (!sent.has(row.h3) || row.rejected) continue;
     if (row.action === "repeat") repeated += 1;
     const view = claimRowView(row);
     if (view.captured) newly += 1;
+    if (row.action === "capture") stolen += 1;
     if (view.reinforced) reinforced += 1;
-    if (view.attacked) attacked += 1;
+    if (view.attacked) {
+      attacked += 1;
+      if (typeof row.strength === "number" && row.strength > 0) {
+        attackLeft.push(row.strength);
+      }
+    }
   }
   return {
     items: next,
     newly,
+    stolen,
     reinforced,
     attacked,
+    attackLeft,
     repeated,
     retryMs: next.length > 0 ? CLAIM_FLUSH_MS : null,
     failures: 0,
