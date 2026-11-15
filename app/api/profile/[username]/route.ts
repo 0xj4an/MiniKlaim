@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
 import { addressesForPlayer } from "@/lib/players";
+import { conquestsOf } from "@/lib/playerConquests";
 import { getPlayerStreaks } from "@/lib/runs/streak";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,6 @@ export async function GET(
       address: users.address,
       username: users.username,
       createdAt: users.createdAt,
-      conquests: users.conquests,
     })
     .from(users)
     .where(eq(users.username, cleanUsername))
@@ -51,6 +51,7 @@ export async function GET(
     ownedHexes,
     countryRows,
     streaks,
+    conquests,
   ] = await Promise.all([
     db
       .select({ count: count() })
@@ -83,6 +84,7 @@ export async function GET(
         and(inArray(hexes.ownerAddress, linked), isNotNull(hexes.country)),
       ),
     getPlayerStreaks(user.address),
+    conquestsOf(linked),
   ]);
 
   const cityCount = new Set(
@@ -100,7 +102,7 @@ export async function GET(
     bestStreak: streaks.best,
     lifetimeDistanceMeters: Number(lifetimeRow[0]?.total ?? 0),
     cityCount,
-    conquests: user.conquests ?? 0,
+    conquests,
     countryCount: countryRows.length,
   });
 }
