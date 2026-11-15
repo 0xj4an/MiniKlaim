@@ -28,6 +28,8 @@ export type ClaimedHexProperties = {
   usedToday: boolean;
   /** Leaderboard rank 1-10 of a top-10 owner, or 0. Printed on the block. */
   topRank: number;
+  /** Someone else's block the player took a level off in this run. */
+  hitInRun: boolean;
 };
 export type ClaimedHexFeature = Feature<Polygon, ClaimedHexProperties>;
 export type ClaimedHexFeatureCollection = FeatureCollection<
@@ -200,6 +202,12 @@ export function claimedHexesToFeatureCollection(
   usedToday: ReadonlySet<string> = new Set(),
   /** Own blocks reinforced in the run in progress. Drawn with a green rim. */
   reinforcedHexes: ReadonlySet<string> = new Set(),
+  /**
+   * Blocks attacked in the run in progress, with the level each was left
+   * at. The level on the map comes from the last download, and without
+   * this an attacked block looked untouched until the next one.
+   */
+  attackedLeft: ReadonlyMap<string, number> = new Map(),
 ): ClaimedHexFeatureCollection {
   return {
     type: "FeatureCollection",
@@ -223,10 +231,16 @@ export function claimedHexesToFeatureCollection(
           // moment their feet make it, and a slow save reads as a shade
           // rather than as nothing having happened.
           isPending: row.pending === true,
-          strength: typeof row.strength === "number" ? row.strength : 0,
+          strength:
+            !isMine && attackedLeft.has(row.h3)
+              ? (attackedLeft.get(row.h3) ?? 0)
+              : typeof row.strength === "number"
+                ? row.strength
+                : 0,
           topColor,
           usedToday: usedToday.has(row.h3),
           topRank: rankForTopColor(topColor),
+          hitInRun: !isMine && attackedLeft.has(row.h3),
         },
         geometry: { type: "Polygon", coordinates: [hexToPolygon(row.h3)] },
       };

@@ -268,6 +268,9 @@ export const dictionaries = {
       "A color with a number: one of the top 10 players. The number is their rank.",
     "run.legend.level":
       "Darker means a higher level, from 1 to 10. Higher is harder to take.",
+    "run.legend.times":
+      "×3 on another player's block: it is level 3. Each pass takes one level off, once a day, and the pass at level 1 makes it yours.",
+    "run.legend.hit": "Black rim: you attacked it in this run.",
     "run.legend.used": "Dashed rim: you already used this block today.",
     "run.legend.rules": "The rules",
     "run.legend.rule.move":
@@ -292,6 +295,8 @@ export const dictionaries = {
     "run.burst.reinforced": "reinforced",
     "run.burst.saved": "saved",
     "run.burst.attacked": "attack",
+    "run.burst.stolen": "stolen",
+    "run.burst.left": "now level {l}",
     "run.burst.level": "level {l}",
     "run.gps.deniedAgain":
       "Still blocked. Trying again does not unblock it: change the permission in your phone settings and come back to this screen. We will check on our own.",
@@ -379,12 +384,14 @@ export const dictionaries = {
     "run.summary.claimedBoth": "Blocks and badges claimed.",
     "run.banner.block": "block",
     "run.banner.blocks": "blocks",
+    "run.banner.stolen": "{n} stolen",
     "run.banner.reinforced": "{n} reinforced",
     "run.banner.attacked": "{n} attacked",
     "run.footTooFast":
       "Too fast to be on foot. Blocks at this speed do not count. Finish and start a new run with the right mode.",
     "run.claimRefused":
       "This phone can't save blocks for this run any more. End the run and start a new one.",
+    "run.summary.stolen": "{n} blocks stolen",
     "run.summary.reinforced": "{n} blocks reinforced",
     "run.summary.attacked": "{n} blocks attacked",
     "run.summary.nothingNew":
@@ -947,6 +954,9 @@ export const dictionaries = {
       "Un color con un número: uno de los 10 primeros del ranking. El número es su puesto.",
     "run.legend.level":
       "Más oscuro es más nivel, de 1 a 10. Más nivel, más difícil de quitar.",
+    "run.legend.times":
+      "×3 en la cuadra de otro jugador: está en nivel 3. Cada pasada le quita un nivel, una vez al día, y la pasada en nivel 1 la vuelve tuya.",
+    "run.legend.hit": "Borde negro: la atacaste en esta corrida.",
     "run.legend.used": "Borde punteado: ya usaste esta cuadra hoy.",
     "run.legend.rules": "Las reglas",
     "run.legend.rule.move":
@@ -970,6 +980,8 @@ export const dictionaries = {
     "run.burst.reinforced": "reforzada",
     "run.burst.saved": "guardadas",
     "run.burst.attacked": "ataque",
+    "run.burst.stolen": "robada",
+    "run.burst.left": "queda en nivel {l}",
     "run.burst.level": "nivel {l}",
     "run.gps.deniedAgain":
       "Sigue bloqueada. Reintentar no la desbloquea: cambia el permiso en los ajustes del teléfono y vuelve a esta pantalla. Revisamos solos.",
@@ -1058,12 +1070,14 @@ export const dictionaries = {
     "run.summary.claimedBoth": "Cuadras e insignias reclamadas.",
     "run.banner.block": "cuadra",
     "run.banner.blocks": "cuadras",
+    "run.banner.stolen": "{n} robadas",
     "run.banner.reinforced": "{n} reforzadas",
     "run.banner.attacked": "{n} atacadas",
     "run.footTooFast":
       "Vas muy rápido para ir a pie. A esta velocidad las cuadras no cuentan. Termina y empieza otro recorrido con el modo correcto.",
     "run.claimRefused":
       "Este teléfono ya no puede guardar cuadras en esta corrida. Termínala y empieza una nueva.",
+    "run.summary.stolen": "{n} cuadras robadas",
     "run.summary.reinforced": "{n} cuadras reforzadas",
     "run.summary.attacked": "{n} cuadras atacadas",
     "run.summary.nothingNew":

@@ -235,6 +235,8 @@ export default function RunPage() {
   const runH3Ref = useRef<Set<string>>(new Set());
   // Own blocks reinforced in this run. Painted with a green rim.
   const reinforcedH3Ref = useRef<Set<string>>(new Set());
+  // Someone else's blocks attacked in this run -> the level each was left at.
+  const attackedLeftRef = useRef<Map<string, number>>(new Map());
   // Hex strength: every block already queued this run, own ones included,
   // so a pass is sent once per run (the server allows one action a day).
   const passedH3Ref = useRef<Set<string>>(new Set());
@@ -335,6 +337,8 @@ export default function RunPage() {
   }, [fixReady]);
   const [reinforcedCount, setReinforcedCount] = useState(0);
   const [attackedCount, setAttackedCount] = useState(0);
+  const [stolenCount, setStolenCount] = useState(0);
+  const stolenRef = useRef(0);
   const capture = captureStatus({
     pending: pendingCount,
     saved: hexCount,
@@ -367,6 +371,7 @@ export default function RunPage() {
     hexesClaimed: number;
     hexesReinforced: number;
     hexesDamaged: number;
+    hexesStolen: number;
     distanceMeters: number;
     moveMode: MoveMode | null;
   } | null>(null);
@@ -547,6 +552,7 @@ export default function RunPage() {
       topColorsRef.current,
       usedTodayRef.current,
       reinforcedH3Ref.current,
+      attackedLeftRef.current,
     );
     if (map) liveGeoSource(map, "claimed-hexes")?.setData(collection);
     else setGridData({ hexes: collection });
@@ -944,6 +950,10 @@ export default function RunPage() {
           else mineH3Ref.current.delete(row.h3);
           if (view.captured) runH3Ref.current.add(row.h3);
           if (view.reinforced) reinforcedH3Ref.current.add(row.h3);
+          if (view.attacked && typeof row.strength === "number") {
+            attackedLeftRef.current.set(row.h3, row.strength);
+          }
+          if (view.captured) attackedLeftRef.current.delete(row.h3);
         }
         if (modeRejected > 0 && !modeWarnedRef.current) {
           // A vehicle over its realistic ceiling is almost always a GPS
@@ -997,14 +1007,28 @@ export default function RunPage() {
     if (applied.reinforced > 0)
       setReinforcedCount((c) => c + applied.reinforced);
     if (applied.attacked > 0) setAttackedCount((c) => c + applied.attacked);
+    if (applied.stolen > 0) {
+      stolenRef.current += applied.stolen;
+      setStolenCount((c) => c + applied.stolen);
+    }
     if (applied.repeated > 0) setRepeatedCount((c) => c + applied.repeated);
     // Say what this answer did, where the player is looking.
     const fresh: CaptureBurst[] = [];
-    if (applied.newly > 0) {
+    // A block taken from someone gets its own number: it used to be one more
+    // "+1" in red, the same as a block nobody held.
+    const emptyTaken = applied.newly - applied.stolen;
+    if (applied.stolen > 0) {
+      fresh.push({
+        id: ++burstIdRef.current,
+        kind: "stolen",
+        count: applied.stolen,
+      });
+    }
+    if (emptyTaken > 0) {
       fresh.push({
         id: ++burstIdRef.current,
         kind: "new",
-        count: applied.newly,
+        count: emptyTaken,
         // A queue that just went through, not one step: label it, or "+20"
         // after a run of "+1" looks like a glitch.
         ...(afterFailure || applied.newly >= LATE_BURST_MIN
@@ -1033,6 +1057,14 @@ export default function RunPage() {
         id: ++burstIdRef.current,
         kind: "attacked",
         count: applied.attacked,
+        ...(applied.attackLeft.length > 0
+          ? {
+              left: {
+                min: Math.min(...applied.attackLeft),
+                max: Math.max(...applied.attackLeft),
+              },
+            }
+          : {}),
       });
     }
     if (fresh.length > 0) {
@@ -1233,11 +1265,14 @@ export default function RunPage() {
       setRunId(data.id);
       runH3Ref.current = new Set();
       reinforcedH3Ref.current = new Set();
+      attackedLeftRef.current = new Map();
       passedH3Ref.current = new Set();
       setUploadFailing(false);
       setHexCount(0);
       setReinforcedCount(0);
       setAttackedCount(0);
+      setStolenCount(0);
+      stolenRef.current = 0;
       setRepeatedCount(0);
       setDistanceMeters(0);
       setRunStartTime(Date.now());
@@ -1345,6 +1380,7 @@ export default function RunPage() {
         hexesClaimed: data.hexesClaimed,
         hexesReinforced: data.hexesReinforced ?? 0,
         hexesDamaged: data.hexesDamaged ?? 0,
+        hexesStolen: stolenRef.current,
         distanceMeters: data.distanceMeters,
         moveMode: isMoveMode(data.moveMode) ? data.moveMode : null,
       });
@@ -1357,6 +1393,7 @@ export default function RunPage() {
       // the green rims go with them.
       runH3Ref.current = new Set();
       reinforcedH3Ref.current = new Set();
+      attackedLeftRef.current = new Map();
       setUploadFailing(false);
       passedH3Ref.current = new Set();
       // Do not await this. The world list is megabytes, and waiting on it
@@ -1365,6 +1402,8 @@ export default function RunPage() {
       setHexCount(0);
       setReinforcedCount(0);
       setAttackedCount(0);
+      setStolenCount(0);
+      stolenRef.current = 0;
       setDistanceMeters(0);
       setRunStartTime(null);
       lastPosRef.current = null;
@@ -1906,9 +1945,33 @@ export default function RunPage() {
           type: "symbol",
           source: "claimed-hexes",
           minzoom: 16.5,
-          filter: [">", ["get", "topRank"], 0],
+          // A rank for a top-10 owner, and "×N" on any block of someone
+          // else that is above level 1: N passes, on N different days, to
+          // take it. Without it a player could not tell a block that falls
+          // today from one that needs a week (0xj4an, 14 Nov 2026).
+          filter: [
+            "any",
+            [">", ["get", "topRank"], 0],
+            ["all", ["!", ["get", "isMine"]], [">=", ["get", "strength"], 2]],
+          ],
           layout: {
-            "text-field": ["to-string", ["get", "topRank"]],
+            "text-field": [
+              "case",
+              ["all", [">", ["get", "topRank"], 0], [">=", ["get", "strength"], 2]],
+              [
+                "format",
+                ["to-string", ["get", "topRank"]],
+                {},
+                "\n",
+                {},
+                ["concat", "×", ["to-string", ["get", "strength"]]],
+                { "font-scale": 0.72 },
+              ],
+              [">", ["get", "topRank"], 0],
+              ["to-string", ["get", "topRank"]],
+              ["concat", "×", ["to-string", ["get", "strength"]]],
+            ],
+            "text-line-height": 1,
             "text-font": ["Noto Sans Bold"],
             "text-size": ["interpolate", ["linear"], ["zoom"], 16.5, 9, 19, 15],
             "text-allow-overlap": true,
@@ -1916,11 +1979,25 @@ export default function RunPage() {
           },
           paint: {
             "text-color": "#ffffff",
-            "text-halo-color": ["get", "topColor"],
+            "text-halo-color": [
+              "case",
+              ["!=", ["get", "topColor"], ""],
+              ["get", "topColor"],
+              "#52525b",
+            ],
             "text-halo-width": 1.5,
           },
         });
       }
+      // Attacked in this run: a black rim, the color of the "-1" that
+      // popped when it happened, so the player can see which ones they hit.
+      map.addLayer({
+        id: "claimed-hex-hit",
+        type: "line",
+        source: "claimed-hexes",
+        filter: ["==", ["get", "hitInRun"], true],
+        paint: { "line-color": "#18181b", "line-width": 2.5 },
+      });
       // Reinforced in this run: green, the fill above and this rim.
       // Thicker than any other outline, and with the dashed white rim below
       // drawn over it (a reinforce spends the block for today), it reads as
@@ -2253,6 +2330,7 @@ export default function RunPage() {
         isBusy={isBusy}
         hexCount={hexCount}
         capture={capture}
+        stolenCount={stolenCount}
         reinforcedCount={reinforcedCount}
         attackedCount={attackedCount}
         distanceMeters={distanceMeters}

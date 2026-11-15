@@ -2,8 +2,9 @@ import { cellToParent } from "h3-js";
 import { and, count, desc, inArray, isNotNull, sql } from "drizzle-orm";
 import type { Address } from "viem";
 import { db } from "@/lib/db";
-import { hexes, runs, users } from "@/lib/db/schema";
+import { hexes, runs } from "@/lib/db/schema";
 import { addressesForPlayer } from "@/lib/players";
+import { conquestsOf } from "@/lib/playerConquests";
 import { BADGE_IDS } from "@/lib/onchain/badges";
 import { getPlayerStreaks } from "@/lib/runs/streak";
 
@@ -43,7 +44,7 @@ export async function computeEligibleBadgeIds(
     bestRunRow,
     bestDistRow,
     lifetimeRow,
-    userRow,
+    conquests,
     countryRows,
     streaks,
   ] = await Promise.all([
@@ -68,11 +69,7 @@ export async function computeEligibleBadgeIds(
         .select({ total: sql<number>`coalesce(sum(${runs.distanceMeters}), 0)` })
         .from(runs)
         .where(inArray(runs.userAddress, linked)),
-      // Conquests are counted per wallet, so the player's total is the sum.
-      db
-        .select({ conquests: sql<number>`coalesce(sum(${users.conquests}), 0)::int` })
-        .from(users)
-        .where(inArray(users.address, linked)),
+      conquestsOf(linked),
       db
         .selectDistinct({ country: hexes.country })
         .from(hexes)
@@ -85,7 +82,6 @@ export async function computeEligibleBadgeIds(
   const bestRunHexes = bestRunRow[0]?.hexesClaimed ?? 0;
   const bestRunDistance = bestDistRow[0]?.distanceMeters ?? 0;
   const lifetimeDistance = Number(lifetimeRow[0]?.total ?? 0);
-  const conquests = userRow[0]?.conquests ?? 0;
   const countryCount = countryRows.length;
   const cityCount = new Set(
     ownedHexes.map((h) => cellToParent(h.h3Id, CITY_RESOLUTION)),

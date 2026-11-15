@@ -205,3 +205,33 @@ describe("claimedHexesToFeatureCollection run marking", () => {
     expect(props).toMatchObject({ isRun: true, isPending: true });
   });
 });
+
+describe("claimedHexesToFeatureCollection: blocks attacked in the run", () => {
+  const me = "0x00000000000000000000000000000000000000aa";
+  const them = "0x00000000000000000000000000000000000000bb";
+  const hit = latLngToCell(6.2442, -75.5812, 12);
+  const untouched = latLngToCell(6.2452, -75.5812, 12);
+  const mine = latLngToCell(6.2462, -75.5812, 12);
+  const rows = [
+    { h3: hit, owner: them, strength: 4 },
+    { h3: untouched, owner: them, strength: 4 },
+    { h3: mine, owner: me, strength: 2 },
+  ];
+
+  test("shows the level the attack left, not the one from the last download", () => {
+    const fc = claimedHexesToFeatureCollection(
+      rows,
+      new Set([me]),
+      new Set(),
+      new Map(),
+      new Set(),
+      new Set(),
+      new Map([[hit, 3], [mine, 9]]),
+    );
+    const byHex = Object.fromEntries(fc.features.map((f) => [f.properties.hex, f.properties]));
+    expect(byHex[hit]).toMatchObject({ strength: 3, hitInRun: true });
+    expect(byHex[untouched]).toMatchObject({ strength: 4, hitInRun: false });
+    // The player's own block is never an attacked one.
+    expect(byHex[mine]).toMatchObject({ strength: 2, hitInRun: false });
+  });
+});
