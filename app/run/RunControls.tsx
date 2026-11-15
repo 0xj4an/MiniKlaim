@@ -27,6 +27,7 @@ export function RunControls({
   isBusy,
   hexCount,
   capture,
+  stolenCount = 0,
   reinforcedCount = 0,
   attackedCount = 0,
   distanceMeters,
@@ -48,6 +49,7 @@ export function RunControls({
   hexCount: number;
   /** What to tell the player about capture right now. */
   capture: CaptureStatus;
+  stolenCount?: number;
   reinforcedCount?: number;
   attackedCount?: number;
   distanceMeters: number;
@@ -172,6 +174,7 @@ export function RunControls({
       <ElapsedBanner
         startTime={runStartTime}
         hexCount={hexCount}
+        stolenCount={stolenCount}
         reinforcedCount={reinforcedCount}
         attackedCount={attackedCount}
         distanceMeters={distanceMeters}

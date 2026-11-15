@@ -10,8 +10,14 @@ import { HEX_COLORS } from "@/lib/map/hexColors";
  */
 export type CaptureBurst = {
   id: number;
-  kind: "new" | "reinforced" | "attacked";
+  kind: "new" | "stolen" | "reinforced" | "attacked";
   count: number;
+  /**
+   * The lowest and highest level the attacked blocks were left at. Says
+   * how far they are from being taken: a block at level 1 falls on the
+   * next pass.
+   */
+  left?: { min: number; max: number };
   /** Highest block level reached by a reinforce in this answer, if known. */
   level?: number;
   /**
@@ -27,6 +33,9 @@ export type CaptureBurst = {
 // holds up as text inside its white rim.
 const COLOR: Record<CaptureBurst["kind"], string> = {
   new: "#dc2626",
+  // Its own color: a block taken from someone is the event of a run, and
+  // in red it was the same "+1" as an empty block (0xj4an, 14 Nov 2026).
+  stolen: "#be185d",
   reinforced: HEX_COLORS.reinforced,
   attacked: "#18181b",
 };
@@ -58,12 +67,22 @@ export function CaptureBursts({ bursts }: { bursts: CaptureBurst[] }) {
       {bursts.map((b) => {
         // One lane per kind, so the numbers from a single answer land side
         // by side instead of on top of each other.
-        const slot = b.kind === "attacked" ? -1 : b.kind === "new" ? 0 : 1;
+        const slot =
+          b.kind === "attacked"
+            ? -1.5
+            : b.kind === "stolen"
+              ? -0.5
+              : b.kind === "new"
+                ? 0.5
+                : 1.5;
         const style = {
-          "--dx": `${slot * 104}px`,
-          "--rot": `${slot * 5}deg`,
+          "--dx": `${slot * 84}px`,
+          "--rot": `${slot * 4}deg`,
           "--c": COLOR[b.kind],
           color: COLOR[b.kind],
+          // The attack sits a row higher: its caption is the long one
+          // ("now level 1-3") and ran into its neighbour's.
+          ...(b.kind === "attacked" ? { marginTop: -58 } : {}),
         } as CSSProperties;
         const caption =
           b.kind === "reinforced"
@@ -71,8 +90,17 @@ export function CaptureBursts({ bursts }: { bursts: CaptureBurst[] }) {
               ? t("run.burst.level").replace("{l}", String(b.level))
               : t("run.burst.reinforced")
             : b.kind === "attacked"
-              ? t("run.burst.attacked")
-              : b.late
+              ? b.left
+                ? t("run.burst.left").replace(
+                    "{l}",
+                    b.left.min === b.left.max
+                      ? String(b.left.min)
+                      : `${b.left.min}-${b.left.max}`,
+                  )
+                : t("run.burst.attacked")
+              : b.kind === "stolen"
+                ? t("run.burst.stolen")
+                : b.late
                 ? t("run.burst.saved")
                 : null;
         return (
