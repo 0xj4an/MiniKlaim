@@ -70,18 +70,22 @@ export function useUser(address: string | null): UseUser {
     async (username) => {
       if (!address) return { ok: false, error: "not connected" };
       try {
-        const send = async () =>
-          fetch(`/api/users/${address.toLowerCase()}/username?chain=${chainKey}`, {
+        let sentKey = false;
+        const send = async () => {
+          const keyHeaders = await ownerKeyHeaders(address);
+          sentKey = Object.keys(keyHeaders).length > 0;
+          return fetch(`/api/users/${address.toLowerCase()}/username?chain=${chainKey}`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(await ownerKeyHeaders(address)),
-            },
+            headers: { "Content-Type": "application/json", ...keyHeaders },
             body: JSON.stringify({ username }),
           });
+        };
         let res = await send();
-        if (res.status === 403) {
-          // The key on this phone may have been replaced from another one.
+        // The key on this phone may have been replaced from another one, so
+        // drop it and try once more. Only when a key was sent: with none to
+        // drop the second try is the same request, and it doubled every
+        // refused rename (16 per wallet on 15 Nov 2026).
+        if (res.status === 403 && sentKey) {
           forgetOwnerKey(address);
           res = await send();
         }
