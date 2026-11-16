@@ -153,10 +153,57 @@ jobs:
     needs: changes
     if: ${{ always() && needs.changes.outputs.web != 'false' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # To look up the "already verified" marker below.
+      actions: read
     steps:
       - uses: actions/checkout@v4
 
+      # The same code used to be tested three times on its way to
+      # production: on the pull request into dev, again on the pull request
+      # from dev into main, and again on the push to main. The second run is
+      # the one somebody waits for, and it is testing a tree that passed a
+      # few minutes earlier.
+      #
+      # So a run that passes leaves a marker named after the git tree it
+      # tested (the tree of the checked-out merge commit, every file in it),
+      # and a later pull request whose tree is identical finds the marker and
+      # skips the work. A tree hash is content: the same hash is the same
+      # files, byte for byte, with the same lockfile, so the answer cannot
+      # differ. One changed byte anywhere is a different hash and a full run.
+      #
+      # The marker is an artifact and not a cache entry because caches are
+      # private to the ref that wrote them, and the two pull requests are
+      # different refs. Only markers written by this repository's own runs
+      # count, so a fork cannot leave one. A failed lookup means a full run.
+      #
+      # Pushes to main never take the shortcut: nobody waits on that run,
+      # and it is the one that refills the caches every pull request reads.
+      - name: Already verified?
+        id: verified
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          tree="$(git rev-parse 'HEAD^{tree}')"
+          hit=false
+          if [ "$EVENT" = "pull_request" ]; then
+            found="$(gh api "repos/$REPO/actions/artifacts?name=ci-pass-web-$tree&per_page=20" \
+              --jq '[.artifacts[] | select(.expired == false and .workflow_run.head_repository_id == .workflow_run.repository_id)] | length')" || found=0
+            if [ "${found:-0}" -gt 0 ]; then hit=true; fi
+          fi
+          echo "tree=$tree" >> "$GITHUB_OUTPUT"
+          echo "hit=$hit" >> "$GITHUB_OUTPUT"
+          if [ "$hit" = "true" ]; then
+            echo "Tree $tree already passed this job. Skipping the work." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Tree $tree has not been verified yet. Running everything."
+          fi
+
       - name: Setup Node
+        if: steps.verified.outputs.hit != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -172,6 +219,7 @@ jobs:
       # pull requests, so the copy that serves most runs is the one the push
       # to main writes after a release.
       - name: Cache node_modules
+        if: steps.verified.outputs.hit != 'true'
         id: modules
         uses: actions/cache@v4
         with:
@@ -179,13 +227,14 @@ jobs:
           key: modules-${{ runner.os }}-${{ runner.arch }}-node22-${{ hashFiles('package-lock.json', '.npmrc') }}
 
       - name: Install
-        if: steps.modules.outputs.cache-hit != 'true'
+        if: steps.verified.outputs.hit != 'true' && steps.modules.outputs.cache-hit != 'true'
         run: npm ci
 
       # Next keeps its compiler cache here and reuses what did not change.
       # The key is unique per commit so every run saves its own; the restore
       # prefix picks the newest one this ref may read.
       - name: Cache Next build
+        if: steps.verified.outputs.hit != 'true'
         uses: actions/cache@v4
         with:
           path: .next/cache
@@ -193,16 +242,41 @@ jobs:
           restore-keys: |
             next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
 
-      - name: Lint
-        run: npx eslint .
+      # The three checks do not depend on each other and the runner has
+      # cores to spare, so they run side by side: 35 seconds in a row became
+      # the length of the slowest one. Each writes to its own log, printed
+      # afterwards in a folded group, so the output of one is not threaded
+      # through another. A failure is named outside the groups, where it is
+      # the first thing on screen.
+      - name: Lint, typecheck and unit tests
+        if: steps.verified.outputs.hit != 'true'
+        run: |
+          npx eslint . > /tmp/lint.log 2>&1 &
+          lint_pid=$!
+          npx tsc --noEmit > /tmp/typecheck.log 2>&1 &
+          typecheck_pid=$!
+          npm test > /tmp/tests.log 2>&1 &
+          tests_pid=$!
 
-      - name: Typecheck
-        run: npx tsc --noEmit
+          failed=""
+          wait "$lint_pid" || failed="$failed lint"
+          wait "$typecheck_pid" || failed="$failed typecheck"
+          wait "$tests_pid" || failed="$failed tests"
 
-      - name: Unit tests
-        run: npm test
+          for name in lint typecheck tests; do
+            echo "::group::$name"
+            cat "/tmp/$name.log"
+            echo "::endgroup::"
+          done
+
+          if [ -n "$failed" ]; then
+            echo "::error::Failed:$failed"
+            exit 1
+          fi
+          echo "lint, typecheck and tests passed"
 
       - name: Build
+        if: steps.verified.outputs.hit != 'true'
         # Catches Turbopack / Next-only failures that pass tsc + eslint alone
         # (server-only imports in client components, PPR boundary violations,
         # missing generateMetadata returns). Hardcoded placeholder
@@ -212,3 +286,24 @@ jobs:
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
         run: npm run build
+
+      # Only reached when every step above passed, which is the whole point:
+      # the marker exists if and only if this exact tree went through lint,
+      # typecheck, tests and build. Two weeks is far longer than a change
+      # takes to go from a pull request to main.
+      - name: Write the verified marker
+        if: steps.verified.outputs.hit != 'true'
+        env:
+          TREE: ${{ steps.verified.outputs.tree }}
+        run: |
+          mkdir -p /tmp/ci-pass
+          printf '%s\n' "$TREE" > /tmp/ci-pass/tree
+
+      - name: Save the verified marker
+        if: steps.verified.outputs.hit != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-pass-web-${{ steps.verified.outputs.tree }}
+          path: /tmp/ci-pass/tree
+          retention-days: 14
+          overwrite: true
