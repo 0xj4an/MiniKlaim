@@ -385,15 +385,18 @@ export const dictionaries = {
     "run.banner.block": "block",
     "run.banner.blocks": "blocks",
     "run.banner.stolen": "{n} stolen",
+    "run.banner.free": "{n} unclaimed",
+    "run.banner.also": "Also:",
     "run.banner.reinforced": "{n} reinforced",
     "run.banner.attacked": "{n} attacked",
     "run.footTooFast":
       "Too fast to be on foot. Blocks at this speed do not count. Finish and start a new run with the right mode.",
     "run.claimRefused":
       "This phone can't save blocks for this run any more. End the run and start a new one.",
-    "run.summary.stolen": "{n} blocks stolen",
-    "run.summary.reinforced": "{n} blocks reinforced",
-    "run.summary.attacked": "{n} blocks attacked",
+    "run.summary.stolen": "{n} stolen from others",
+    "run.summary.free": "{n} unclaimed",
+    "run.summary.reinforced": "{n} reinforced",
+    "run.summary.attacked": "{n} attacked",
     "run.summary.nothingNew":
       "No new blocks this run, so there is nothing to claim.",
     "challenge.kicker": "Weekly challenge",
@@ -1071,15 +1074,18 @@ export const dictionaries = {
     "run.banner.block": "cuadra",
     "run.banner.blocks": "cuadras",
     "run.banner.stolen": "{n} robadas",
+    "run.banner.free": "{n} libres",
+    "run.banner.also": "Además:",
     "run.banner.reinforced": "{n} reforzadas",
     "run.banner.attacked": "{n} atacadas",
     "run.footTooFast":
       "Vas muy rápido para ir a pie. A esta velocidad las cuadras no cuentan. Termina y empieza otro recorrido con el modo correcto.",
     "run.claimRefused":
       "Este teléfono ya no puede guardar cuadras en esta corrida. Termínala y empieza una nueva.",
-    "run.summary.stolen": "{n} cuadras robadas",
-    "run.summary.reinforced": "{n} cuadras reforzadas",
-    "run.summary.attacked": "{n} cuadras atacadas",
+    "run.summary.stolen": "{n} robadas a otros",
+    "run.summary.free": "{n} libres",
+    "run.summary.reinforced": "{n} reforzadas",
+    "run.summary.attacked": "{n} atacadas",
     "run.summary.nothingNew":
       "No hubo cuadras nuevas en esta corrida, así que no hay nada que reclamar.",
     "challenge.kicker": "Challenge semanal",
