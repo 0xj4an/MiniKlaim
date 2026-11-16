@@ -5,9 +5,75 @@ on:
   push:
     branches: [main]
 
+# A new push to a pull request makes the run for the previous push pointless.
+# Runs on main are never cancelled: each one is the record for a commit that
+# shipped.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # Which jobs this change needs. A pull request that only touches the app
+  # does not need Foundry, and one that only touches contracts or docs does
+  # not need two and a half minutes of npm, tsc and next build.
+  #
+  # Both jobs below are required status checks on main. That is why this is
+  # a job-level `if` and not a `paths:` filter on the workflow: a workflow
+  # that does not start leaves its required checks waiting forever, while a
+  # job skipped by `if` reports as passed.
+  #
+  # It is also why the two jobs test for `!= 'false'` under `always()`
+  # instead of `== 'true'`. A job whose `needs` failed is skipped, and a
+  # skipped required check passes, so a broken detector would wave every
+  # change through untested. This way the only thing that skips a job is the
+  # detector saying, in so many words, that nothing it covers changed.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      contracts: ${{ steps.detect.outputs.contracts }}
+      web: ${{ steps.detect.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+
+      # The file list comes from the API, not from git, so this job needs no
+      # history. A renamed file counts under both its names, so moving a file
+      # out of a directory still counts as a change to that directory. Any
+      # failure to get the list prints `__all__`, which the script
+      # reads as "run everything". The values are passed through env, never
+      # interpolated into the script, so nothing in the event can inject
+      # shell.
+      - name: Detect
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          files="__all__"
+          if [ "$EVENT" = "pull_request" ] && [ -n "$PR" ]; then
+            files="$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)')" || files="__all__"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            # The compare API lists at most 300 files. At the limit the list
+            # may be cut short, so it is not trusted.
+            files="$(gh api "repos/$REPO/compare/$BEFORE...$AFTER" --jq '.files[] | .filename, (.previous_filename // empty)')" || files="__all__"
+            if [ "$(printf '%s\n' "$files" | grep -c .)" -ge 300 ]; then files="__all__"; fi
+          fi
+          printf '%s\n' "$files" | .github/scripts/ci-changes.sh | tee -a "$GITHUB_OUTPUT"
+
   contracts:
     name: Contracts (forge test)
+    needs: changes
+    if: ${{ always() && needs.changes.outputs.contracts != 'false' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -84,6 +150,8 @@ jobs:
 
   web:
     name: Web (lint + typecheck + test + build)
+    needs: changes
+    if: ${{ always() && needs.changes.outputs.web != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -92,10 +160,38 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+
+      # `npm ci` was 53 of this job's 143 seconds (run of 15 Nov 2026), and
+      # setup-node's own cache only saves the downloads: the install still
+      # unpacks and links every package. Keeping node_modules itself, keyed
+      # on the lockfile, turns an unchanged lockfile into a restore. The key
+      # carries the runner image and the Node major because some packages
+      # ship binaries built for both.
+      #
+      # A pull request can read caches saved on main, not ones saved by other
+      # pull requests, so the copy that serves most runs is the one the push
+      # to main writes after a release.
+      - name: Cache node_modules
+        id: modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: modules-${{ runner.os }}-${{ runner.arch }}-node22-${{ hashFiles('package-lock.json', '.npmrc') }}
 
       - name: Install
+        if: steps.modules.outputs.cache-hit != 'true'
         run: npm ci
+
+      # Next keeps its compiler cache here and reuses what did not change.
+      # The key is unique per commit so every run saves its own; the restore
+      # prefix picks the newest one this ref may read.
+      - name: Cache Next build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
 
       - name: Lint
         run: npx eslint .
