@@ -1,6 +1,6 @@
-import { gunzipSync } from "node:zlib";
 import { describe, expect, test } from "vitest";
-import { jsonBody, packJson } from "./json-body";
+import { gunzipSync } from "node:zlib";
+import { jsonBody, packJson, packJsonText } from "./json-body";
 
 describe("jsonBody", () => {
   const packed = packJson({ hexes: [{ h3: "abc", owner: "0x" + "ab".repeat(20) }] });
@@ -48,5 +48,22 @@ describe("jsonBody", () => {
     );
     expect(res.status).toBe(304);
     expect(res.headers.get("content-encoding")).toBeNull();
+  });
+});
+
+describe("packJsonText", () => {
+  const body = { owners: [{ owner: "0x" + "ab".repeat(20), ownerUsername: "\u00e9", h3: ["a", "b"] }] };
+
+  // A phone holding a copy made by the old packer must still get its 304.
+  test("gives the same tag and the same bytes as packJson", async () => {
+    const sync = packJson(body);
+    const text = await packJsonText(JSON.stringify(body));
+    expect(text.etag).toBe(sync.etag);
+    expect(Buffer.from(text.json).equals(Buffer.from(sync.json))).toBe(true);
+  });
+
+  test("compresses to something that opens back into the same text", async () => {
+    const text = await packJsonText(JSON.stringify(body));
+    expect(gunzipSync(text.gzip).toString()).toBe(JSON.stringify(body));
   });
 });
