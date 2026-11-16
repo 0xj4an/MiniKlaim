@@ -88,6 +88,8 @@ type EventMap = {
   };
   /** The home screen told the player what others took or attacked. */
   loss_notice_shown: { captured: number; attacked: number; players: number };
+  /** What the player did with it: went to take them back, or put it off. */
+  loss_notice_action: { action: "go" | "later" };
   /** The color legend on the run map was opened, by itself or by the player. */
   run_legend_opened: { auto: boolean };
   // First batch of a run the server refused as too fast for a run on foot.
