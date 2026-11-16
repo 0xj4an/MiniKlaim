@@ -1,12 +1,15 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { hexes, users } from "@/lib/db/schema";
-import { packJson, type PackedJson } from "@/lib/http/json-body";
+import { pg } from "@/lib/db";
+import { packJsonText, type PackedJson } from "@/lib/http/json-body";
 import { getRanking } from "@/lib/leaderboardRanking";
 import { createLogger } from "@/lib/logger";
 import type { ClaimedHexRow } from "@/lib/map/claimedView";
-import { groupByOwner } from "@/lib/map/worldHexes";
-import { thinToParents, type WorldThinRes } from "@/lib/map/worldThin";
+import {
+  addToOwners,
+  groupByOwner,
+  ownersJson,
+  type WorldOwnerGroup,
+} from "@/lib/map/worldHexes";
+import { createThinner, type WorldThinRes } from "@/lib/map/worldThin";
 import { createSharedCache } from "@/lib/sharedCache";
 
 const log = createLogger("map:worldList");
@@ -42,19 +45,43 @@ const thinShared = createSharedCache<PackedJson>(WORLD_TTL_MS, {
   serveStaleWhileRevalidating: true,
 });
 
+/** Rows per slice. 5,000 is 2 ms to group and 11 ms to thin. */
+const WORLD_BATCH = 5_000;
+
 /**
- * Every claim, without each block's level: the world map does not draw
- * levels, and carrying them is ~250k more numbers.
+ * Every claim, without each block's level (the world map does not draw
+ * levels, and carrying them is ~250k more numbers), handed over in slices.
+ *
+ * Building this list used to freeze the process. 16 Nov 2026, first night
+ * of the stall log: 68 freezes in 9.3 h, 1.3 to 4.3 s each, and 24 of the
+ * 28 times the full list was served a freeze sat on top of it. Measured on
+ * prod with 498,906 blocks, the build was a chain of uninterrupted steps:
+ * the driver turning the rows into objects (155 ms holds), grouping
+ * (192 ms), JSON.stringify (135 ms), gzipSync (446 ms), and for the thinned
+ * list 1,140 ms of cellToParent. On a host whose CPU is contended those
+ * double or triple, and both lists rebuild every five minutes.
+ *
+ * A cursor makes the database hand the rows over 5,000 at a time. Each
+ * slice is a network wait, so the process answers players in between, and
+ * the list is never held whole in memory as half a million objects. The
+ * longest hold measured this way was 40 ms.
+ *
+ * Raw SQL because drizzle has no cursor. The column aliases are the row
+ * shape the rest of the app uses; a test reads them back.
  */
-function selectWorldRows(): Promise<ClaimedHexRow[]> {
-  return db
-    .select({
-      h3: hexes.h3Id,
-      owner: hexes.ownerAddress,
-      ownerUsername: users.username,
-    })
-    .from(hexes)
-    .leftJoin(users, eq(hexes.ownerAddress, users.address));
+async function eachWorldBatch(
+  onBatch: (rows: ClaimedHexRow[]) => void,
+): Promise<number> {
+  let count = 0;
+  const query = pg<ClaimedHexRow[]>`
+    select h.h3_id as h3, h.owner_address as owner, u.username as "ownerUsername"
+    from hexes h
+    left join users u on h.owner_address = u.address`;
+  for await (const batch of query.cursor(WORLD_BATCH)) {
+    onBatch(batch);
+    count += batch.length;
+  }
+  return count;
 }
 
 /** The ten owners the world map colours, lowercased. */
@@ -72,11 +99,21 @@ async function topOwners(): Promise<Set<string>> {
 
 export function worldList(shape: WorldShape): Promise<PackedJson> {
   return worldShared.get(shape, async () => {
-    const rows = await selectWorldRows();
-    log.info("world list built", { count: rows.length, shape });
-    return packJson(
-      shape === "owners" ? { owners: groupByOwner(rows) } : { hexes: rows },
-    );
+    if (shape === "owners") {
+      const groups = new Map<string, WorldOwnerGroup>();
+      const count = await eachWorldBatch((rows) => addToOwners(groups, rows));
+      log.info("world list built", { count, shape });
+      return packJsonText(await ownersJson([...groups.values()]));
+    }
+    // One row per block. Nothing asks for it (the route logs a warning when
+    // something does); written slice by slice all the same, so a scraper
+    // cannot freeze the process by asking.
+    const slices: string[] = [];
+    const count = await eachWorldBatch((rows) => {
+      if (rows.length > 0) slices.push(JSON.stringify(rows).slice(1, -1));
+    });
+    log.info("world list built", { count, shape });
+    return packJsonText(`{"hexes":[${slices.join(",")}]}`);
   });
 }
 
@@ -84,18 +121,18 @@ export function thinnedWorldList(res: WorldThinRes): Promise<PackedJson> {
   return thinShared.get(String(res), async () => {
     // A top-ten block wins its cell: those ten colours are the only thing
     // distinguishing the world map from a grey smear.
-    const [top, rows] = await Promise.all([topOwners(), selectWorldRows()]);
-    const thinned = thinToParents(rows, res, (owner) =>
+    const top = await topOwners();
+    const thinner = createThinner(res, (owner) =>
       top.has(owner.toLowerCase()) ? 1 : 0,
     );
-    log.info("world list built", {
-      count: rows.length,
-      thinned: thinned.length,
-      res,
-    });
+    const count = await eachWorldBatch(thinner.add);
+    const thinned = thinner.rows();
+    log.info("world list built", { count, thinned: thinned.length, res });
     // The header counts every captured block, not the dots drawn, so the
     // real total travels with the thinned list.
-    return packJson({ owners: groupByOwner(thinned), total: rows.length });
+    return packJsonText(
+      await ownersJson(groupByOwner(thinned), { total: count }),
+    );
   });
 }
 
