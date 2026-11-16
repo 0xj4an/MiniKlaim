@@ -29,12 +29,10 @@ export const dictionaries = {
     "home.losses.captured.one": "1 block taken from you",
     "home.losses.attacked": "{n} attacks on your blocks",
     "home.losses.attacked.one": "1 attack on your blocks",
-    "home.losses.took": "took {n}",
-    "home.losses.took.one": "took 1",
-    "home.losses.hit": "{n} attacks",
-    "home.losses.hit.one": "1 attack",
-    "home.losses.hint":
-      "An attack lowers a block one level. Pass over your blocks to raise them again, and over theirs to take them back.",
+    "home.losses.attacks": "{n} attacks",
+    "home.losses.attacks.one": "1 attack",
+    "home.losses.more": "+{n} more",
+    "home.losses.go": "Take them back",
     "me.username.taken":
       "That name already exists and belongs to wallet {wallet}. If that wallet is yours, open the game with it. To add this wallet to the same account, use Link wallet.",
     "me.username.proofNeeded":
@@ -382,18 +380,19 @@ export const dictionaries = {
     "run.summary.nftSkipped":
       "Your run is claimed. The NFTs stay available in your profile whenever you want them.",
     "run.summary.claimedBoth": "Blocks and badges claimed.",
-    "run.banner.block": "block",
-    "run.banner.blocks": "blocks",
-    "run.banner.stolen": "{n} stolen",
-    "run.banner.reinforced": "{n} reinforced",
-    "run.banner.attacked": "{n} attacked",
+    "run.tally.blocks": "blocks",
+    "run.tally.blocks.one": "block",
+    "run.tally.reinforced": "reinforced",
+    "run.tally.reinforced.one": "reinforced",
+    "run.tally.attacked": "attacked",
+    "run.tally.attacked.one": "attacked",
+    "run.tally.split": "Blocks: {s} stolen + {f} unclaimed",
+    "run.tally.allStolen": "Blocks: all {n} stolen from others",
+    "run.tally.allStolen.one": "Block: stolen from another player",
     "run.footTooFast":
       "Too fast to be on foot. Blocks at this speed do not count. Finish and start a new run with the right mode.",
     "run.claimRefused":
       "This phone can't save blocks for this run any more. End the run and start a new one.",
-    "run.summary.stolen": "{n} blocks stolen",
-    "run.summary.reinforced": "{n} blocks reinforced",
-    "run.summary.attacked": "{n} blocks attacked",
     "run.summary.nothingNew":
       "No new blocks this run, so there is nothing to claim.",
     "challenge.kicker": "Weekly challenge",
@@ -713,12 +712,10 @@ export const dictionaries = {
     "home.losses.captured.one": "Te quitaron 1 cuadra",
     "home.losses.attacked": "{n} ataques a tus cuadras",
     "home.losses.attacked.one": "1 ataque a tus cuadras",
-    "home.losses.took": "te quitó {n}",
-    "home.losses.took.one": "te quitó 1",
-    "home.losses.hit": "{n} ataques",
-    "home.losses.hit.one": "1 ataque",
-    "home.losses.hint":
-      "Un ataque le baja un nivel a una cuadra. Pasa por las tuyas para subirlas otra vez, y por las de ellos para recuperarlas.",
+    "home.losses.attacks": "{n} ataques",
+    "home.losses.attacks.one": "1 ataque",
+    "home.losses.more": "+{n} más",
+    "home.losses.go": "Recuperarlas",
     "me.username.taken":
       "Ese nombre ya existe y es de la wallet {wallet}. Si esa wallet es tuya, entra al juego con ella. Para sumar esta wallet a la misma cuenta, usa Vincular wallet.",
     "me.username.proofNeeded":
@@ -1068,18 +1065,19 @@ export const dictionaries = {
     "run.summary.nftSkipped":
       "Tu corrida quedó reclamada. Los NFTs quedan disponibles en tu perfil cuando los quieras.",
     "run.summary.claimedBoth": "Cuadras e insignias reclamadas.",
-    "run.banner.block": "cuadra",
-    "run.banner.blocks": "cuadras",
-    "run.banner.stolen": "{n} robadas",
-    "run.banner.reinforced": "{n} reforzadas",
-    "run.banner.attacked": "{n} atacadas",
+    "run.tally.blocks": "cuadras",
+    "run.tally.blocks.one": "cuadra",
+    "run.tally.reinforced": "reforzadas",
+    "run.tally.reinforced.one": "reforzada",
+    "run.tally.attacked": "atacadas",
+    "run.tally.attacked.one": "atacada",
+    "run.tally.split": "Cuadras: {s} robadas + {f} libres",
+    "run.tally.allStolen": "Cuadras: las {n} robadas a otros",
+    "run.tally.allStolen.one": "Cuadra: robada a otro jugador",
     "run.footTooFast":
       "Vas muy rápido para ir a pie. A esta velocidad las cuadras no cuentan. Termina y empieza otro recorrido con el modo correcto.",
     "run.claimRefused":
       "Este teléfono ya no puede guardar cuadras en esta corrida. Termínala y empieza una nueva.",
-    "run.summary.stolen": "{n} cuadras robadas",
-    "run.summary.reinforced": "{n} cuadras reforzadas",
-    "run.summary.attacked": "{n} cuadras atacadas",
     "run.summary.nothingNew":
       "No hubo cuadras nuevas en esta corrida, así que no hay nada que reclamar.",
     "challenge.kicker": "Challenge semanal",

@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { appendSpeedSample, formatRollingSpeed } from "@/lib/map/geo";
+import { RunTally } from "./RunTally";
+import { stolenSplit } from "./stolenSplit";
 
 /**
  * Live status pill above the finish button during an active run.
@@ -64,30 +66,26 @@ export function ElapsedBanner({
       ? `${(distanceMeters / 1000).toFixed(2)} km`
       : `${Math.round(distanceMeters)} m`;
   const speedLabel = formatRollingSpeed(samplesRef.current);
+  const split = stolenSplit(t, hexCount, stolenCount);
   return (
     <div className="rounded-md bg-white/95 px-4 py-2 text-center shadow-md backdrop-blur">
-      <div className="font-mono text-xl font-bold text-zinc-900">{time}</div>
-      <div className="text-xs text-zinc-600">
-        {hexCount}{" "}
-        {hexCount === 1 ? t("run.banner.block") : t("run.banner.blocks")} ·{" "}
-        {distLabel} · {speedLabel}
+      {/* Three lines, as before: time and pace, the numbers, and the note
+          about stolen blocks when there is one. */}
+      <div className="flex items-baseline justify-center gap-2">
+        <span className="font-mono text-xl font-bold text-zinc-900">
+          {time}
+        </span>
+        <span className="text-xs text-zinc-600">
+          {distLabel} · {speedLabel}
+        </span>
       </div>
-      {(stolenCount > 0 || reinforcedCount > 0 || attackedCount > 0) && (
-        <div className="text-xs font-semibold text-orange-700">
-          {[
-            stolenCount > 0
-              ? t("run.banner.stolen").replace("{n}", String(stolenCount))
-              : null,
-            reinforcedCount > 0
-              ? t("run.banner.reinforced").replace("{n}", String(reinforcedCount))
-              : null,
-            attackedCount > 0
-              ? t("run.banner.attacked").replace("{n}", String(attackedCount))
-              : null,
-          ]
-            .filter(Boolean)
-            .join(" - ")}
-        </div>
+      <RunTally
+        blocks={hexCount}
+        reinforced={reinforcedCount}
+        attacked={attackedCount}
+      />
+      {split && (
+        <div className="text-xs font-semibold text-orange-700">{split}</div>
       )}
     </div>
   );

@@ -2335,7 +2335,11 @@ export default function RunPage() {
         style={
           isActive
             ? {
-                bottom: "max(8rem, calc(env(safe-area-inset-bottom) + 6.5rem))",
+                // Above the run stack (finish button, counter, capture
+                // line), not beside it: at 8rem this button sat on the
+                // counter's corner whenever the counter had three numbers.
+                bottom:
+                  "calc(max(1.5rem, env(safe-area-inset-bottom)) + 11.75rem)",
               }
             : { bottom: "calc(env(safe-area-inset-bottom) + 17.25rem)" }
         }

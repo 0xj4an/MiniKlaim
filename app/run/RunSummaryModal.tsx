@@ -14,6 +14,8 @@ import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { isBadgeClaimPending } from "@/lib/wallet/claimInFlight";
 import type { ClaimAllOutcome } from "@/lib/wallet/useClaimAll";
 import { useMintTokens } from "@/lib/wallet/useMintTokens";
+import { RunTally } from "./RunTally";
+import { stolenSplit } from "./stolenSplit";
 import { StreakNote } from "./StreakNote";
 import { STREAK_MIN_SERVER_METERS } from "@/lib/runs/streakMath";
 
@@ -240,18 +242,24 @@ export function RunSummaryModal({
             </div>
           </div>
         )}
-        {(stolen > 0 || reinforced > 0 || damaged > 0) && (
-          <p className="mt-2 text-center text-sm font-semibold text-orange-700">
-            {[
-              stolen > 0 ? t("run.summary.stolen").replace("{n}", String(stolen)) : null,
-              reinforced > 0
-                ? t("run.summary.reinforced").replace("{n}", String(reinforced))
-                : null,
-              damaged > 0 ? t("run.summary.attacked").replace("{n}", String(damaged)) : null,
-            ]
-              .filter(Boolean)
-              .join(" - ")}
+        {/* Stolen blocks are part of the headline number, so they are a
+            note under it. Reinforces and attacks are not blocks gained and
+            get a row of their own. See RunTally. */}
+        {stolen > 0 && (
+          <p className="mt-1.5 text-center text-xs font-semibold text-orange-700">
+            {stolenSplit(t, summary.hexesClaimed, stolen)}
           </p>
+        )}
+        {(reinforced > 0 || damaged > 0) && (
+          <div className="mt-4">
+            <RunTally
+              blocks={summary.hexesClaimed}
+              reinforced={reinforced}
+              attacked={damaged}
+              size="md"
+              showBlocks={false}
+            />
+          </div>
         )}
         {summary.hexesClaimed === 0 && previewReady && !hasBadges && (
           // A run that only reinforced, or only passed blocks already used
