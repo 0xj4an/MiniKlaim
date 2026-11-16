@@ -242,38 +242,21 @@ jobs:
           restore-keys: |
             next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
 
-      # The three checks do not depend on each other and the runner has
-      # cores to spare, so they run side by side: 35 seconds in a row became
-      # the length of the slowest one. Each writes to its own log, printed
-      # afterwards in a folded group, so the output of one is not threaded
-      # through another. A failure is named outside the groups, where it is
-      # the first thing on screen.
-      - name: Lint, typecheck and unit tests
+      # These three stay one after another on purpose. Running them side by
+      # side was tried on 15 Nov 2026 and took 30 seconds against 29 in a
+      # row: vitest already uses every core, so the other two only queued
+      # behind it, and the logs got harder to read for nothing.
+      - name: Lint
         if: steps.verified.outputs.hit != 'true'
-        run: |
-          npx eslint . > /tmp/lint.log 2>&1 &
-          lint_pid=$!
-          npx tsc --noEmit > /tmp/typecheck.log 2>&1 &
-          typecheck_pid=$!
-          npm test > /tmp/tests.log 2>&1 &
-          tests_pid=$!
+        run: npx eslint .
 
-          failed=""
-          wait "$lint_pid" || failed="$failed lint"
-          wait "$typecheck_pid" || failed="$failed typecheck"
-          wait "$tests_pid" || failed="$failed tests"
+      - name: Typecheck
+        if: steps.verified.outputs.hit != 'true'
+        run: npx tsc --noEmit
 
-          for name in lint typecheck tests; do
-            echo "::group::$name"
-            cat "/tmp/$name.log"
-            echo "::endgroup::"
-          done
-
-          if [ -n "$failed" ]; then
-            echo "::error::Failed:$failed"
-            exit 1
-          fi
-          echo "lint, typecheck and tests passed"
+      - name: Unit tests
+        if: steps.verified.outputs.hit != 'true'
+        run: npm test
 
       - name: Build
         if: steps.verified.outputs.hit != 'true'
