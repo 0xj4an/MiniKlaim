@@ -14,6 +14,7 @@ import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { isBadgeClaimPending } from "@/lib/wallet/claimInFlight";
 import type { ClaimAllOutcome } from "@/lib/wallet/useClaimAll";
 import { useMintTokens } from "@/lib/wallet/useMintTokens";
+import { ACTION_TEXT } from "./actionColors";
 import { StreakNote } from "./StreakNote";
 import { STREAK_MIN_SERVER_METERS } from "@/lib/runs/streakMath";
 
@@ -240,17 +241,46 @@ export function RunSummaryModal({
             </div>
           </div>
         )}
-        {(stolen > 0 || reinforced > 0 || damaged > 0) && (
-          <p className="mt-2 text-center text-sm font-semibold text-orange-700">
-            {[
-              stolen > 0 ? t("run.summary.stolen").replace("{n}", String(stolen)) : null,
-              reinforced > 0
-                ? t("run.summary.reinforced").replace("{n}", String(reinforced))
-                : null,
-              damaged > 0 ? t("run.summary.attacked").replace("{n}", String(damaged)) : null,
-            ]
-              .filter(Boolean)
-              .join(" - ")}
+        {/* The big number as a sum: stolen plus unclaimed is the total
+            above. Reinforces and attacks are not blocks gained and go on a
+            line of their own. Colors as on the map and in the popping
+            numbers: see actionColors. */}
+        {stolen > 0 && (
+          <p className="mt-2 text-center text-sm font-semibold">
+            <span className={ACTION_TEXT.stolen}>
+              {t("run.summary.stolen").replace("{n}", String(stolen))}
+            </span>
+            {summary.hexesClaimed - stolen > 0 && (
+              <>
+                <span className="text-zinc-500"> + </span>
+                <span className={ACTION_TEXT.free}>
+                  {t("run.summary.free").replace(
+                    "{n}",
+                    String(summary.hexesClaimed - stolen),
+                  )}
+                </span>
+              </>
+            )}
+          </p>
+        )}
+        {(reinforced > 0 || damaged > 0) && (
+          <p className="mt-2 text-center text-sm font-semibold">
+            <span className="font-normal text-zinc-600">
+              {t("run.banner.also")}{" "}
+            </span>
+            {reinforced > 0 && (
+              <span className={ACTION_TEXT.reinforced}>
+                {t("run.summary.reinforced").replace("{n}", String(reinforced))}
+              </span>
+            )}
+            {reinforced > 0 && damaged > 0 && (
+              <span className="text-zinc-400"> - </span>
+            )}
+            {damaged > 0 && (
+              <span className={ACTION_TEXT.attacked}>
+                {t("run.summary.attacked").replace("{n}", String(damaged))}
+              </span>
+            )}
           </p>
         )}
         {summary.hexesClaimed === 0 && previewReady && !hasBadges && (

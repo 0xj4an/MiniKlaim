@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { appendSpeedSample, formatRollingSpeed } from "@/lib/map/geo";
+import { ACTION_TEXT } from "./actionColors";
 
 /**
  * Live status pill above the finish button during an active run.
@@ -64,29 +65,56 @@ export function ElapsedBanner({
       ? `${(distanceMeters / 1000).toFixed(2)} km`
       : `${Math.round(distanceMeters)} m`;
   const speedLabel = formatRollingSpeed(samplesRef.current);
+  // Blocks nobody held. Never negative, whatever order the counters land in.
+  const freeCount = Math.max(0, hexCount - stolenCount);
   return (
     <div className="rounded-md bg-white/95 px-4 py-2 text-center shadow-md backdrop-blur">
       <div className="font-mono text-xl font-bold text-zinc-900">{time}</div>
       <div className="text-xs text-zinc-600">
-        {hexCount}{" "}
-        {hexCount === 1 ? t("run.banner.block") : t("run.banner.blocks")} ·{" "}
         {distLabel} · {speedLabel}
       </div>
-      {(stolenCount > 0 || reinforcedCount > 0 || attackedCount > 0) && (
-        <div className="text-xs font-semibold text-orange-700">
-          {[
-            stolenCount > 0
-              ? t("run.banner.stolen").replace("{n}", String(stolenCount))
-              : null,
-            reinforcedCount > 0
-              ? t("run.banner.reinforced").replace("{n}", String(reinforcedCount))
-              : null,
-            attackedCount > 0
-              ? t("run.banner.attacked").replace("{n}", String(attackedCount))
-              : null,
-          ]
-            .filter(Boolean)
-            .join(" - ")}
+      {/* The blocks as a sum, so the parts visibly add up to the total. */}
+      <div className="text-xs font-semibold text-zinc-900">
+        {hexCount}{" "}
+        {hexCount === 1 ? t("run.banner.block") : t("run.banner.blocks")}
+        {stolenCount > 0 && (
+          <>
+            {" = "}
+            <span className={ACTION_TEXT.stolen}>
+              {t("run.banner.stolen").replace("{n}", String(stolenCount))}
+            </span>
+            {freeCount > 0 && (
+              <>
+                {" + "}
+                <span className={ACTION_TEXT.free}>
+                  {t("run.banner.free").replace("{n}", String(freeCount))}
+                </span>
+              </>
+            )}
+          </>
+        )}
+      </div>
+      {(reinforcedCount > 0 || attackedCount > 0) && (
+        <div className="text-xs font-semibold">
+          <span className="font-normal text-zinc-600">
+            {t("run.banner.also")}{" "}
+          </span>
+          {reinforcedCount > 0 && (
+            <span className={ACTION_TEXT.reinforced}>
+              {t("run.banner.reinforced").replace(
+                "{n}",
+                String(reinforcedCount),
+              )}
+            </span>
+          )}
+          {reinforcedCount > 0 && attackedCount > 0 && (
+            <span className="text-zinc-400"> - </span>
+          )}
+          {attackedCount > 0 && (
+            <span className={ACTION_TEXT.attacked}>
+              {t("run.banner.attacked").replace("{n}", String(attackedCount))}
+            </span>
+          )}
         </div>
       )}
     </div>

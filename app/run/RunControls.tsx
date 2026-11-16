@@ -296,8 +296,10 @@ function CaptureLine({ capture }: { capture: CaptureStatus }) {
       role="status"
       aria-live="polite"
       className={`max-w-[19rem] rounded-full px-4 py-1.5 text-center text-xs font-semibold shadow-md ${
+        // Dark, not green: green is a reinforce everywhere else on this
+        // screen, and this line is mostly about captures.
         good
-          ? "bg-emerald-700 text-white"
+          ? "bg-zinc-900 text-white"
           : waiting
             ? "bg-amber-100 text-amber-950"
             : "bg-white/95 text-zinc-800"
