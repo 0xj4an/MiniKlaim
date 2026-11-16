@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { cellToParent, latLngToCell } from "h3-js";
-import { parseThinRes, thinToParents, WORLD_THIN_RES } from "./worldThin";
+import {
+  createThinner,
+  parseThinRes,
+  thinToParents,
+  WORLD_THIN_RES,
+} from "./worldThin";
 
 const cell = (lat: number, lng: number) => latLngToCell(lat, lng, 12);
 
@@ -84,5 +89,38 @@ describe("thinToParents", () => {
     const coarse = thinToParents(spread.map((h) => row(h, "0xa")), 2, () => 0);
     const finer = thinToParents(spread.map((h) => row(h, "0xa")), 4, () => 0);
     expect(coarse.length).toBeLessThanOrEqual(finer.length);
+  });
+});
+
+describe("createThinner", () => {
+  const top = "0x00000000000000000000000000000000000000aa";
+  const rank = (owner: string) => (owner === top ? 1 : 0);
+  // Three cities, several blocks each, a top-ten owner mixed in.
+  const rows = [
+    ...Array.from({ length: 60 }, (_, i) => row(cell(6.2442 + i * 0.0004, -75.5812), i % 7 === 0 ? top : `0x${i}`)),
+    ...Array.from({ length: 60 }, (_, i) => row(cell(9.0765 + i * 0.0004, 7.3986), `0xb${i}`, `n${i}`)),
+    ...Array.from({ length: 60 }, (_, i) => row(cell(-26.2432 + i * 0.0004, 28.1948), i === 59 ? top : `0xc${i}`)),
+  ];
+
+  // The world list now arrives from the database 5,000 rows at a time.
+  it("thins a list fed in slices exactly as one fed whole", () => {
+    for (const res of WORLD_THIN_RES) {
+      const thinner = createThinner(res, rank);
+      for (let i = 0; i < rows.length; i += 17) thinner.add(rows.slice(i, i + 17));
+      expect(thinner.rows()).toEqual(thinToParents(rows, res, rank));
+    }
+  });
+
+  it("gives the same answer whatever order the slices come in", () => {
+    const forward = createThinner(2, rank);
+    forward.add(rows);
+    const backward = createThinner(2, rank);
+    for (let i = rows.length; i > 0; i -= 11)
+      backward.add(rows.slice(Math.max(0, i - 11), i));
+    expect(backward.rows()).toEqual(forward.rows());
+  });
+
+  it("has nothing to show before any row arrives", () => {
+    expect(createThinner(2, rank).rows()).toEqual([]);
   });
 });
