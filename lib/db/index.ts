@@ -18,4 +18,11 @@ if (!connectionString) {
 const client = postgres(connectionString, { prepare: false, max: 10 });
 export const db = drizzle(client);
 
+/**
+ * The same connection pool, for the few reads that need what drizzle does
+ * not expose: a cursor, so a half-million-row read arrives in slices
+ * instead of as one array built in one go (lib/map/worldList).
+ */
+export const pg = client;
+
 log.info("db client initialized");

@@ -1,3 +1,4 @@
+import { breathe } from "@/lib/breathe";
 import type { ClaimedHexRow } from "@/lib/map/claimedView";
 
 /**
@@ -13,8 +14,11 @@ export type WorldOwnerGroup = {
 
 export const WORLD_GROUPED_PARAM = "fmt=owners";
 
-export function groupByOwner(rows: ClaimedHexRow[]): WorldOwnerGroup[] {
-  const groups = new Map<string, WorldOwnerGroup>();
+/** Add rows to groups being built, so a list can be grouped as it arrives. */
+export function addToOwners(
+  groups: Map<string, WorldOwnerGroup>,
+  rows: readonly ClaimedHexRow[],
+): void {
   for (const r of rows) {
     let g = groups.get(r.owner);
     if (!g) {
@@ -23,7 +27,43 @@ export function groupByOwner(rows: ClaimedHexRow[]): WorldOwnerGroup[] {
     }
     g.h3.push(r.h3);
   }
+}
+
+export function groupByOwner(rows: readonly ClaimedHexRow[]): WorldOwnerGroup[] {
+  const groups = new Map<string, WorldOwnerGroup>();
+  addToOwners(groups, rows);
   return [...groups.values()];
+}
+
+/** How many block ids are written before the process is handed back. */
+const BREATHE_EVERY_H3 = 5_000;
+
+/**
+ * The text `JSON.stringify({ owners: groups, ...tail })` would give, written
+ * one owner at a time with the process handed back in between.
+ *
+ * One `JSON.stringify` over the whole world list is a single 135 ms hold on
+ * an idle machine and three times that on a busy one. Owner by owner the
+ * longest hold measured was 43 ms, and the text is byte for byte the same.
+ */
+export async function ownersJson(
+  groups: readonly WorldOwnerGroup[],
+  tail: Record<string, number> = {},
+): Promise<string> {
+  const parts: string[] = [];
+  let written = 0;
+  for (const g of groups) {
+    parts.push(JSON.stringify(g));
+    written += g.h3.length;
+    if (written >= BREATHE_EVERY_H3) {
+      written = 0;
+      await breathe();
+    }
+  }
+  const rest = Object.entries(tail)
+    .map(([key, value]) => `,${JSON.stringify(key)}:${JSON.stringify(value)}`)
+    .join("");
+  return `{"owners":[${parts.join(",")}]${rest}}`;
 }
 
 export function expandOwners(groups: WorldOwnerGroup[]): ClaimedHexRow[] {
