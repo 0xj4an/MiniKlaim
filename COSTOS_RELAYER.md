@@ -6,7 +6,7 @@ The relayer at `0x8da26Ae1B32a7e4Cd158622D7d70Fe16D6F1dE83` mints only when the 
 
 - The caller presents the run token issued when the run started (`x-run-token`).
 - The player cannot pay: the server reads their CELO and fee-stablecoin balances on-chain and refuses (402) when any one of them covers the estimated fee. Runs over 700 hexes do not fit one player tx and count as "cannot pay".
-- The wallet is under its daily allowance: `SPONSOR_DAILY_HEX_CAP` hexes (default 200) and `SPONSOR_DAILY_BADGE_TX_CAP` badge txs (default 2) per rolling 24h. Every sponsored tx is logged in `sponsored_mints`.
+- The wallet is under its daily allowance: `SPONSOR_DAILY_HEX_CAP` hexes (default 1000; production sets 10000) and `SPONSOR_DAILY_BADGE_CAP` badges (default 3, counted one by one) and `SPONSOR_DAILY_TOKEN_CAP` NFTs (default 100) per rolling 24h. Every sponsored tx is logged in `sponsored_mints`.
 
 A declined signature is recorded as `declined` and never sponsored. The retry cron (`npm run runs:retry-unminted`, every 4h) only retries runs marked `sponsor_failed`, where the server had agreed and the relayer or RPC failed.
 

@@ -17,6 +17,7 @@ contract UpgradeHexes is Script {
 
         uint256 capturesBefore = hexes.totalCaptures();
         uint256 playersBefore = hexes.uniquePlayers();
+        uint256 tokensBefore = hexes.totalTokensMinted();
         console2.log("Proxy:", proxy);
         console2.log("totalCaptures before:", capturesBefore);
 
@@ -27,7 +28,8 @@ contract UpgradeHexes is Script {
 
         require(hexes.totalCaptures() == capturesBefore, "captures changed");
         require(hexes.uniquePlayers() == playersBefore, "players changed");
-        require(hexes.totalTokensMinted() == 0, "new slot not empty");
+        // Was `== 0`, for the v2 upgrade that added the slot. Tokens exist now.
+        require(hexes.totalTokensMinted() == tokensBefore, "tokens changed");
         console2.log("New implementation:", address(impl));
     }
 }
