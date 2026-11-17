@@ -256,6 +256,9 @@ export const dictionaries = {
       "No connection. {n} blocks waiting, they save when it is back.",
     "run.capture.queued.one":
       "No connection. 1 block waiting, it saves when it is back.",
+    "run.map.orientation.north": "North is up. Tap to turn the map the way you are going.",
+    "run.map.orientation.heading": "The way you are going is up. Tap to put north up.",
+    "run.map.center": "Center on my position",
     "run.legend.open": "What the colors mean",
     "run.legend.title": "How the map works",
     "run.legend.run":
@@ -942,6 +945,9 @@ export const dictionaries = {
       "Sin conexión. {n} cuadras en espera, se guardan cuando vuelva.",
     "run.capture.queued.one":
       "Sin conexión. 1 cuadra en espera, se guarda cuando vuelva.",
+    "run.map.orientation.north": "El norte está arriba. Toca para girar el mapa hacia donde vas.",
+    "run.map.orientation.heading": "Hacia donde vas está arriba. Toca para poner el norte arriba.",
+    "run.map.center": "Centrar en mi posición",
     "run.legend.open": "Qué significan los colores",
     "run.legend.title": "Cómo funciona el mapa",
     "run.legend.run":
