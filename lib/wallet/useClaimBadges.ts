@@ -180,5 +180,21 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
     sponsorFallback,
   ]);
 
-  return { claim };
+  // Whether the player's own wallet will send the claim, so the prompt can
+  // quote the fee. Mirrors the checks in `claim`: no wallet, no contract or
+  // no balance to pay with sends it to the relayer instead.
+  const chainForFee = getChain(chainKey);
+  const playerPays =
+    !!walletClient &&
+    !!address &&
+    !!badgesAddress(chainKey) &&
+    !balances.isLoading &&
+    !balances.isError &&
+    !playerHasNoFeeBalance(
+      chainForFee.feeCurrencies.length,
+      heldFeeAdaptersForWallet(chainForFee.feeCurrencies, balances).length,
+      balances,
+    );
+
+  return { claim, playerPays };
 }
