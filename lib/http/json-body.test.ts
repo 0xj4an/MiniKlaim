@@ -1,29 +1,36 @@
 import { describe, expect, test } from "vitest";
-import { gunzipSync } from "node:zlib";
 import { jsonBody, packJson, packJsonText } from "./json-body";
 
 describe("jsonBody", () => {
   const packed = packJson({ hexes: [{ h3: "abc", owner: "0x" + "ab".repeat(20) }] });
 
-  test("sends gzip when the client accepts it", async () => {
-    const res = jsonBody(
-      new Request("https://miniklaim.fun/api/hexes", {
-        headers: { "accept-encoding": "gzip, deflate, br" },
-      }),
-      packed,
-      "public, max-age=60",
-    );
-    expect(res.status).toBe(200);
-    expect(res.headers.get("content-encoding")).toBe("gzip");
-    expect(res.headers.get("etag")).toBe(`"${packed.etag}"`);
-    const raw = Buffer.from(await res.arrayBuffer());
-    expect(JSON.parse(gunzipSync(raw).toString())).toEqual({
-      hexes: [{ h3: "abc", owner: "0x" + "ab".repeat(20) }],
-    });
-    expect(raw.byteLength).toBeLessThan(packed.json.byteLength);
+  // 17 Nov 2026: this sent its own gzip with Content-Encoding. Next 16.4
+  // drops that header from a route's response and compresses again, so the
+  // phone got gzip inside gzip and every map reading /api/hexes went blank.
+  // The body must leave here plain, whatever the client accepts.
+  test("never compresses or sets Content-Encoding, even for a client that takes gzip", async () => {
+    for (const accept of ["gzip, deflate, br, zstd", "gzip", "br", "*"]) {
+      const res = jsonBody(
+        new Request("https://miniklaim.fun/api/hexes", {
+          headers: { "accept-encoding": accept },
+        }),
+        packed,
+        "public, max-age=60",
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-encoding")).toBeNull();
+      expect(res.headers.get("content-type")).toBe("application/json; charset=utf-8");
+      expect(res.headers.get("etag")).toBe(`"${packed.etag}"`);
+      const raw = Buffer.from(await res.arrayBuffer());
+      // Not a gzip stream: those start 1f 8b.
+      expect(raw.subarray(0, 2).toString("hex")).not.toBe("1f8b");
+      expect(JSON.parse(raw.toString())).toEqual({
+        hexes: [{ h3: "abc", owner: "0x" + "ab".repeat(20) }],
+      });
+    }
   });
 
-  test("sends plain json when gzip is not accepted", async () => {
+  test("sends the same plain json to a client that accepts nothing", async () => {
     const res = jsonBody(
       new Request("https://miniklaim.fun/api/hexes"),
       packed,
@@ -33,6 +40,11 @@ describe("jsonBody", () => {
     expect(await res.json()).toEqual({
       hexes: [{ h3: "abc", owner: "0x" + "ab".repeat(20) }],
     });
+  });
+
+  test("still tells caches the answer depends on Accept-Encoding", () => {
+    const res = jsonBody(new Request("https://miniklaim.fun/api/hexes"), packed, "private");
+    expect(res.headers.get("vary")).toContain("Accept-Encoding");
   });
 
   test("answers 304 when the etag matches", () => {
@@ -54,16 +66,15 @@ describe("jsonBody", () => {
 describe("packJsonText", () => {
   const body = { owners: [{ owner: "0x" + "ab".repeat(20), ownerUsername: "\u00e9", h3: ["a", "b"] }] };
 
-  // A phone holding a copy made by the old packer must still get its 304.
-  test("gives the same tag and the same bytes as packJson", async () => {
-    const sync = packJson(body);
-    const text = await packJsonText(JSON.stringify(body));
-    expect(text.etag).toBe(sync.etag);
-    expect(Buffer.from(text.json).equals(Buffer.from(sync.json))).toBe(true);
+  // A phone holding a copy made by the other packer must still get its 304.
+  test("gives the same tag and the same bytes as packJson", () => {
+    const whole = packJson(body);
+    const text = packJsonText(JSON.stringify(body));
+    expect(text.etag).toBe(whole.etag);
+    expect(Buffer.from(text.json).equals(Buffer.from(whole.json))).toBe(true);
   });
 
-  test("compresses to something that opens back into the same text", async () => {
-    const text = await packJsonText(JSON.stringify(body));
-    expect(gunzipSync(text.gzip).toString()).toBe(JSON.stringify(body));
+  test("keeps no compressed copy", () => {
+    expect(Object.keys(packJsonText("{}")).sort()).toEqual(["etag", "json"]);
   });
 });
