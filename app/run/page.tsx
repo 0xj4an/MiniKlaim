@@ -1100,7 +1100,7 @@ export default function RunPage() {
     return () => {
       cancelled = true;
     };
-  }, [address, refreshClaimed]);
+  }, [address, refreshClaimed, refreshSpot]);
 
   /**
    * Upload every hex still waiting. One POST carries the whole queue so a
@@ -1749,7 +1749,7 @@ export default function RunPage() {
     } finally {
       setIsBusy(false);
     }
-  }, [drainClaimQueue, refreshClaimed]);
+  }, [drainClaimQueue, refreshClaimed, refreshSpot]);
 
   /**
    * Ask for a position, and on a failure the policy says is worth retrying,
@@ -2620,6 +2620,7 @@ export default function RunPage() {
       mapRef.current = null;
     };
   }, [
+    refreshSpot,
     drawClaimed,
     mapAttempt,
     mapBoot,
