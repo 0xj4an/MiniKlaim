@@ -36,7 +36,10 @@ export function RunControls({
   onFinish,
   mode,
   onModeChange,
+  startSpot = null,
 }: {
+  /** The block under the player will not count if they stay on it. */
+  startSpot?: "used" | "owned" | null;
   canStart: boolean;
   locationReady: boolean;
   geoStatus: GeoStatus;
@@ -130,6 +133,14 @@ export function RunControls({
           ) : (
             <p className="mx-auto max-w-[17rem] text-center text-[13px] leading-snug text-zinc-500">
               {t("run.start.hint")}
+            </p>
+          )}
+          {canStart && startSpot && (
+            <p
+              role="status"
+              className="mx-auto mt-2 max-w-[18rem] rounded-md bg-amber-50 px-3 py-1.5 text-center text-xs font-medium text-amber-900"
+            >
+              {t(startSpot === "used" ? "run.start.usedBlock" : "run.start.ownedBlock")}
             </p>
           )}
           {canStart && (

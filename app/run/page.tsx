@@ -12,7 +12,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { track, trackLimited } from "@/lib/analytics";
 import { isMoveMode, type MoveMode, moveMode } from "@/lib/runs/moveMode";
 import { captureStatus } from "@/lib/runs/captureStatus";
-import { GPS_STUCK_AFTER_MS, shownDistanceMeters } from "@/lib/runs/runSummaryCopy";
+import {
+  GPS_STUCK_AFTER_MS,
+  shownDistanceMeters,
+  startSpot,
+} from "@/lib/runs/runSummaryCopy";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import {
@@ -452,20 +456,41 @@ export default function RunPage() {
   // banner with what to do: the status line alone left players walking for
   // minutes and capturing nothing (lib/runs/runSummaryCopy).
   const [gpsStuck, setGpsStuck] = useState(false);
+  // A run started with "Start anyway" already waited for a fix and got none,
+  // so its banner comes up at once: 52% of those runs end with no blocks,
+  // against 14% of runs started with a fix (7 days to 17 Nov 2026).
+  const [startedBlind, setStartedBlind] = useState(false);
   const searchingInRun = !!runId && capture.kind === "searching";
   useEffect(() => {
     if (!searchingInRun) return;
+    const wait = startedBlind ? 0 : GPS_STUCK_AFTER_MS;
     const timer = window.setTimeout(() => {
       setGpsStuck(true);
-      track("run_gps_stuck_shown", {
-        after_sec: Math.round(GPS_STUCK_AFTER_MS / 1000),
-      });
-    }, GPS_STUCK_AFTER_MS);
+      track("run_gps_stuck_shown", { after_sec: Math.round(wait / 1000) });
+    }, wait);
     return () => {
       window.clearTimeout(timer);
       setGpsStuck(false);
     };
-  }, [searchingInRun]);
+  }, [searchingInRun, startedBlind]);
+  // Before Start: whether the block under the player will count
+  // (lib/runs/runSummaryCopy startSpot). Read from refs, so it is refreshed
+  // where they change: a new block underfoot, the used-today list arriving,
+  // and a run ending.
+  const [spot, setSpot] = useState<"used" | "owned" | null>(null);
+  const refreshSpot = useCallback(() => {
+    setSpot(
+      startSpot({
+        here: currentHexRef.current,
+        strength: HEX_STRENGTH,
+        usedToday: usedTodayRef.current,
+        mine: mineH3Ref.current,
+      }),
+    );
+  }, []);
+  useEffect(() => {
+    if (spot && !runId) track("start_spot_hint_shown", { kind: spot });
+  }, [spot, runId]);
   // The server stopped capturing because this "on foot" run moves at vehicle
   // speed (too-fast-on-foot). Shown until 45 s pass without another one.
   const [footTooFast, setFootTooFast] = useState(false);
@@ -1068,6 +1093,7 @@ export default function RunPage() {
         for (const h3 of data.h3) {
           if (typeof h3 === "string") usedTodayRef.current.add(h3);
         }
+        refreshSpot();
         void refreshClaimed();
       })
       .catch(() => {});
@@ -1540,6 +1566,7 @@ export default function RunPage() {
       };
       if (data.claimToken) rememberRunToken(data.id, addr, data.claimToken);
       log.info("run started", { id: data.id });
+      setStartedBlind(!fixReadyRef.current);
       track(
         "run_started",
         {
@@ -1682,6 +1709,8 @@ export default function RunPage() {
         captureState: captureStatusRef.current,
         moveMode: isMoveMode(data.moveMode) ? data.moveMode : null,
       });
+      // The block under the player has just been used.
+      refreshSpot();
       // The card lists the blocks and any badges, then the wallet opens
       // on its own. A decline is not sponsored in that moment.
       setRunId(null);
@@ -2040,6 +2069,7 @@ export default function RunPage() {
           if (currentHex !== previousHex) {
             log.info("entered hex", { hex: currentHex, gapSeconds, staleGap });
             currentHexRef.current = currentHex;
+            refreshSpot();
             if (runIdRef.current) {
               const delta = pendingDistanceRef.current;
               pendingDistanceRef.current = 0;
@@ -2836,6 +2866,7 @@ export default function RunPage() {
         onFinish={finishRun}
         mode={declaredMode}
         onModeChange={pickMode}
+        startSpot={spot}
       />
       {isActive && <CaptureBursts bursts={bursts} />}
       {!isActive && !gpsExplain && <MapLegend strength={HEX_STRENGTH} />}
