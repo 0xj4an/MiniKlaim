@@ -63,3 +63,24 @@ export function emptyRunReason(
  * and then posted the result.
  */
 export const GPS_STUCK_AFTER_MS = 120_000;
+
+/**
+ * What to tell a player about the block they are standing on, before they
+ * start. A run started on a block already used today does nothing until the
+ * player moves (one action per block per player per day), and they were not
+ * told: in the 7 days to 17 Nov 2026, 169 runs of 67 players ended with no
+ * blocks in the "repeat" state, 145 of them in under a minute. Without hex
+ * strength the same happens on a block the player already owns.
+ */
+export function startSpot(input: {
+  /** The block under the player, or null before the first fix. */
+  here: string | null;
+  /** Hex strength on: blocks take one action per player per day. */
+  strength: boolean;
+  usedToday: ReadonlySet<string>;
+  mine: ReadonlySet<string>;
+}): "used" | "owned" | null {
+  if (!input.here) return null;
+  if (input.strength) return input.usedToday.has(input.here) ? "used" : null;
+  return input.mine.has(input.here) ? "owned" : null;
+}
