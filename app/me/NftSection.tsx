@@ -34,7 +34,8 @@ function label(template: string, count: number, usd: number | null): string {
 
 export function NftSection({ address }: { address: `0x${string}` | null }) {
   const { t } = useLocale();
-  const { status, state, mint, lastMinted } = useMintTokens(address);
+  const { status, state, mint, mintFree, freeToday, lastMinted } =
+    useMintTokens(address);
   if (!address || !status?.enabled) return null;
   if (status.recorded === 0 && status.tokens === 0) return null;
 
@@ -59,47 +60,73 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
           <p className="text-center text-xs text-zinc-500">
             {t("me.nfts.explain")}
           </p>
-          <button
-            onClick={() => void mint()}
-            disabled={busy}
-            className="mx-auto rounded-full bg-zinc-900 px-6 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
-          >
-            {state === "sending" || state === "fetching-voucher"
-              ? t("me.nfts.minting")
-              : state === "confirming"
-                ? t("me.nfts.confirming")
-                : label(
-                    t("me.nfts.mint"),
-                    status.nextBatch,
-                    priceOf(status, status.nextBatch),
+          {freeToday > 0 ? (
+            // No balance for the fee: the relayer mints up to 100 a day.
+            <>
+              <button
+                onClick={() => void mintFree()}
+                disabled={busy}
+                className="mx-auto rounded-full bg-zinc-900 px-6 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+              >
+                {state === "sending"
+                  ? t("me.nfts.minting")
+                  : t("me.nfts.mintFree").replace(
+                      "{count}",
+                      freeToday.toLocaleString(),
+                    )}
+              </button>
+              <p className="text-center text-[11px] text-zinc-400">
+                {t("me.nfts.freeNote")}
+              </p>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => void mint()}
+                disabled={busy}
+                className="mx-auto rounded-full bg-zinc-900 px-6 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+              >
+                {state === "sending" || state === "fetching-voucher"
+                  ? t("me.nfts.minting")
+                  : state === "confirming"
+                    ? t("me.nfts.confirming")
+                    : label(
+                        t("me.nfts.mint"),
+                        status.nextBatch,
+                        priceOf(status, status.nextBatch),
+                      )}
+              </button>
+              {status.smallBatch !== null && (
+                <button
+                  onClick={() => void mint(status.smallBatch ?? undefined)}
+                  disabled={busy}
+                  className="mx-auto text-xs text-zinc-600 underline underline-offset-2 disabled:opacity-60"
+                >
+                  {label(
+                    t("me.nfts.mintSmall"),
+                    status.smallBatch,
+                    priceOf(status, status.smallBatch),
                   )}
-          </button>
-          {status.smallBatch !== null && (
-            <button
-              onClick={() => void mint(status.smallBatch ?? undefined)}
-              disabled={busy}
-              className="mx-auto text-xs text-zinc-600 underline underline-offset-2 disabled:opacity-60"
-            >
-              {label(
-                t("me.nfts.mintSmall"),
-                status.smallBatch,
-                priceOf(status, status.smallBatch),
+                </button>
               )}
-            </button>
-          )}
-          {status.plan && status.plan.signatures > 1 && (
-            <p className="text-center text-[11px] text-zinc-400">
-              {(status.plan.usd === null
-                ? t("me.nfts.planNoPrice")
-                : t("me.nfts.plan").replace("{usd}", status.plan.usd.toFixed(2))
-              )
-                .replace("{count}", status.recorded.toLocaleString())
-                .replaceAll(
-                  "{signatures}",
-                  status.plan.signatures.toLocaleString(),
-                )
-                .replace("{max}", status.maxPerTx.toLocaleString())}
-            </p>
+              {status.plan && status.plan.signatures > 1 && (
+                <p className="text-center text-[11px] text-zinc-400">
+                  {(status.plan.usd === null
+                    ? t("me.nfts.planNoPrice")
+                    : t("me.nfts.plan").replace(
+                        "{usd}",
+                        status.plan.usd.toFixed(2),
+                      )
+                  )
+                    .replace("{count}", status.recorded.toLocaleString())
+                    .replaceAll(
+                      "{signatures}",
+                      status.plan.signatures.toLocaleString(),
+                    )
+                    .replace("{max}", status.maxPerTx.toLocaleString())}
+                </p>
+              )}
+            </>
           )}
         </>
       ) : (
@@ -113,7 +140,7 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
           {t("me.nfts.done").replace("{count}", lastMinted.toLocaleString())}
         </p>
       )}
-      {state === "no_fee" && (
+      {state === "no_fee" && freeToday === 0 && (
         <p className="text-center text-xs text-red-600">{t("me.nfts.noFee")}</p>
       )}
       {state === "refused" && (
