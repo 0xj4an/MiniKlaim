@@ -36,7 +36,7 @@ export const dictionaries = {
     "me.username.taken":
       "That name already exists and belongs to wallet {wallet}. If that wallet is yours, open the game with it. To add this wallet to the same account, use Link wallet.",
     "me.username.proofNeeded":
-      "This phone can't confirm this wallet is yours, so the name can't change from here. Use the phone where you started playing, or write to support.",
+      "Your name stays as it is, and you can keep playing and capturing blocks. To change it, use the phone where you first set it, or write to support from this screen.",
     "me.link.proofNeeded":
       "This phone can't confirm this wallet is yours, so it can't make a link code. Use the phone where you started playing, or write to support.",
     "home.return.body":
@@ -719,7 +719,7 @@ export const dictionaries = {
     "me.username.taken":
       "Ese nombre ya existe y es de la wallet {wallet}. Si esa wallet es tuya, entra al juego con ella. Para sumar esta wallet a la misma cuenta, usa Vincular wallet.",
     "me.username.proofNeeded":
-      "Este teléfono no puede confirmar que esta wallet es tuya, así que el nombre no se puede cambiar desde aquí. Usa el teléfono donde empezaste a jugar, o escribe a soporte.",
+      "Tu nombre se queda como está, y puedes seguir jugando y capturando cuadras. Para cambiarlo, usa el teléfono donde lo pusiste, o escribe a soporte desde esta pantalla.",
     "me.link.proofNeeded":
       "Este teléfono no puede confirmar que esta wallet es tuya, así que no puede crear un código de enlace. Usa el teléfono donde empezaste a jugar, o escribe a soporte.",
     "home.return.body":

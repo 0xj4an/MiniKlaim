@@ -108,14 +108,33 @@ describe("buildSupportEmail", () => {
         locale: "es",
         appVersion: "abc1234",
       },
-      { userAgent: "Mozilla/5.0 (Linux; Android 15)", screenshot: true },
+      { userAgent: "Mozilla/5.0 (Linux; Android 15)", screenshot: true, ticketId: "A1B2C3D4" },
     );
-    expect(mail.subject).toBe("MiniKlaim support · Can't start a run");
+    expect(mail.subject).toBe("MiniKlaim support · Can't start a run · #A1B2C3D4");
+    expect(mail.text).toContain("Ticket: #A1B2C3D4");
     expect(mail.text.startsWith("I tapped Start and the map stayed white\n")).toBe(true);
     expect(mail.text).toContain("Reply to: player@example.com");
     expect(mail.text).toContain("Wallet: not connected");
     expect(mail.text).toContain("App: abc1234");
     expect(mail.text).toContain("Screenshot: attached");
+  });
+});
+
+describe("buildSupportEmail ticket ids", () => {
+  it("gives two tickets of the same topic different subjects", async () => {
+    const { buildSupportEmail } = await import("@/lib/supportMail");
+    const req = {
+      topic: "wallet" as const,
+      description: "I can't remember my wallet",
+      email: "player@example.com",
+      wallet: null,
+      locale: null,
+      appVersion: null,
+    };
+    const a = buildSupportEmail(req, {});
+    const b = buildSupportEmail(req, {});
+    expect(a.subject).toMatch(/^MiniKlaim support · Wallet or MiniPay · #[0-9A-F]{8}$/);
+    expect(a.subject).not.toBe(b.subject);
   });
 });
 

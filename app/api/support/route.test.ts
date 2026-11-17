@@ -52,7 +52,7 @@ describe("POST /api/support", () => {
     const payload = JSON.parse(init.body);
     expect(payload.to).toEqual(["support@miniklaim.fun"]);
     expect(payload.reply_to).toBe("player@example.com");
-    expect(payload.subject).toBe("MiniKlaim support · Can't start a run");
+    expect(payload.subject).toMatch(/^MiniKlaim support · Can't start a run · #[0-9A-F]{8}$/);
     expect(payload.text).toContain(
       "Wallet: 0x8f51DC0791CdDDDCE08052FfF939eb7cf0c17856",
     );

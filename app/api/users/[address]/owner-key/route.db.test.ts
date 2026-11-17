@@ -15,7 +15,10 @@ const db = client ? drizzle(client) : null;
 
 const NEW = "0x00000000000000000000000000000000000a0a01";
 const OLD = "0x00000000000000000000000000000000000a0a02";
-const ALL = [NEW, OLD];
+// Played before the cutoff, never set a name, and has no key on this phone.
+const NAMELESS = "0x00000000000000000000000000000000000a0a03";
+const NAMELESS_RUN = "a0a0a0a0-0000-0000-0000-000000000003";
+const ALL = [NEW, OLD, NAMELESS];
 const OLD_RUN = "a0a0a0a0-0000-0000-0000-000000000001";
 const LATE_RUN = "a0a0a0a0-0000-0000-0000-000000000002";
 const OLD_TOKEN = "old-run-token";
@@ -120,6 +123,23 @@ describe.skipIf(!db)("owner keys (database)", () => {
     const got = await askKey(OLD, [{ runId: OLD_RUN, token: OLD_TOKEN }]);
     expect(got.status).toBe(200);
     expect((await rename(OLD, "old_renamed", got.key)).status).toBe(200);
+  });
+
+  it("lets a wallet with no name take its first one without the key, then guards it", async () => {
+    await db!.insert(users).values({ address: NAMELESS });
+    await db!.insert(runs).values({
+      id: NAMELESS_RUN,
+      userAddress: NAMELESS,
+      startedAt: new Date(OWNER_KEY_BOOTSTRAP_BEFORE.getTime() - 86_400_000),
+    });
+    // No key for this phone: it has played and shows no old run token.
+    expect((await askKey(NAMELESS)).status).toBe(403);
+    // The first name goes through all the same.
+    expect((await rename(NAMELESS, "first_name")).status).toBe(200);
+    // Changing it now needs the key, like any named wallet.
+    expect((await rename(NAMELESS, "second_name")).status).toBe(403);
+    const [row] = await db!.select().from(users).where(eq(users.address, NAMELESS));
+    expect(row.username).toBe("first_name");
   });
 
   it("refuses a rename without the key, and the name stays", async () => {
