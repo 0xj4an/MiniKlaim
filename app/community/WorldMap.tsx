@@ -575,7 +575,11 @@ export function WorldMap({
     if (!mapStyle) return;
     const glTier = mapTier === "gl1" ? "gl1" : "gl2";
     // How far the map got, for the watchdog to name the step it stuck in.
-    let progress: "import" | "construct" | "style" | "draw" | null = null;
+    // The bundle is here already (`gl` is set), so the import is done. This
+    // started as null and was only ever set on load, so every stall was
+    // reported as stuck in the import: 24 of 24 on this page in the week to
+    // 17 Nov 2026, none of which were.
+    let progress: "import" | "construct" | "style" | "draw" | null = "import";
     const settle = watchMapRender(glTier, "maplibre", "/community", () => progress);
     settleWatch = settle;
     mapRenderStarted(glTier, "maplibre", "/community");
@@ -605,6 +609,15 @@ export function WorldMap({
       return;
     }
     mapRef.current = map;
+    progress = "construct";
+    // The style is in: layers can be added now. `load` also waits for every
+    // tile in view, and at world zoom those are the heaviest tiles there
+    // are, so on a slow phone the dots waited behind megabytes of basemap.
+    map.once("style.load", () => {
+      if (cancelled) return;
+      progress = "style";
+      if (rowsRef.current.length > 0) paintRef.current(map);
+    });
     map.on("load", () => {
       if (cancelled) return;
       const now =
@@ -666,8 +679,21 @@ export function WorldMap({
       const draw = () => {
         if (!cancelled) paintRef.current(map);
       };
-      if (map.isStyleLoaded()) requestAnimationFrame(draw);
-      else map.once("load", draw);
+      if (map.isStyleLoaded()) {
+        requestAnimationFrame(draw);
+        return;
+      }
+      // Not ready: either the style is still coming, or it is busy with a
+      // change. `load` fires once in a map's life, so waiting on it after
+      // it had fired left the dots unpainted until the next pan.
+      let done = false;
+      const once = () => {
+        if (done) return;
+        done = true;
+        draw();
+      };
+      map.once("style.load", once);
+      map.once("idle", once);
     };
 
     /**

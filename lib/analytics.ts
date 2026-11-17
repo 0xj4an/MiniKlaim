@@ -377,6 +377,8 @@ type EventMap = {
   // The GPU took the context back, usually under memory pressure. Distinct
   // from a failure: the map worked and then stopped.
   map_context_lost: { tier: "gl2" | "gl1" | "grid"; path: string };
+  // The GPU gave the context back and the map redrew.
+  map_context_restored: { tier: "gl2" | "gl1" | "grid"; path: string };
   // A tier was proven wrong by a failure and thrown away, so the next load
   // probes again instead of repeating it for a week.
   map_tier_forgotten: { tier: "gl2" | "gl1" | "grid"; reason: string };
