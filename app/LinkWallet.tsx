@@ -7,7 +7,7 @@ import { createLogger } from "@/lib/logger";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { useLinkRedeem } from "@/lib/wallet/useLinkRedeem";
 import { forgetOwnerKey, ownerKeyHeaders } from "@/lib/wallet/ownerKey";
-import { useInMiniPay } from "@/lib/wallet/useInMiniPay";
+import { useLinkRedeemOffered } from "@/lib/wallet/useLinkRedeemOffered";
 
 const log = createLogger("ui:linkWallet");
 
@@ -27,8 +27,9 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
   // Redeeming a code sends a 0-value transaction that MiniPay refuses every
   // time (30 days to 13 Nov 2026: 482 tries, 0 linked; 150 tries by 88
   // people in the 48 h to 17 Nov, all permission_denied). Inside MiniPay
-  // only the code is offered, to be entered from the other wallet.
-  const inMiniPay = useInMiniPay();
+  // only the code is offered, to be entered from the other wallet, until
+  // MINIPAY_LINK_REDEEM says MiniPay accepts it (lib/link/redeemFlag).
+  const redeemOffered = useLinkRedeemOffered();
 
   useEffect(() => {
     if (state === "linked") {
@@ -117,7 +118,7 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
         )}
       </div>
 
-      {!inMiniPay && (
+      {redeemOffered && (
         <div className="flex flex-col gap-1">
           <label className="text-xs text-zinc-500">
             {t("me.link.enterLabel")}

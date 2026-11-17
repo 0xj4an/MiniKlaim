@@ -46,6 +46,15 @@ describe.skipIf(!db)("sponsoredLast24h (database)", () => {
     expect(await sponsoredLast24h(db as never, B, "badges")).toBe(0);
   });
 
+  it("adds up every wallet of a player when given them all", async () => {
+    await db!.insert(sponsoredMints).values([
+      { userAddress: A, kind: "tokens", count: 60, txHash: TX },
+      { userAddress: B, kind: "tokens", count: 40, txHash: TX },
+    ]);
+    expect(await sponsoredLast24h(db as never, [A, B], "tokens")).toBe(100);
+    expect(await sponsoredLast24h(db as never, [A.toUpperCase().replace("0X", "0x")], "tokens")).toBe(60);
+  });
+
   it("forgets what is older than a day", async () => {
     await db!.insert(sponsoredMints).values([
       {
