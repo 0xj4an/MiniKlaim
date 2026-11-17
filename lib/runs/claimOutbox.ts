@@ -18,8 +18,13 @@ const RATE_MAX_MS = 60_000;
 
 // A claim that has not answered in this long is given up and sent again.
 // Without a limit one upload sat for 361 s on a dead connection (12 Nov
-// 2026), and nothing else can go up while one is in flight.
-export const CLAIM_TIMEOUT_MS = 20_000;
+// 2026), and nothing else can go up while one is in flight. It was 20 s:
+// in the 48 h to 17 Nov 2026 that cut 59 uploads of 16 players, and in 9
+// of 11 the server did finish, in up to 34 s, so the phone gave up on a
+// batch that was being saved and showed an error for it. Sending it again
+// costs nothing (the server answers "repeat"), but the error was the
+// player's to see.
+export const CLAIM_TIMEOUT_MS = 45_000;
 export type QueuedHex = {
   h3: string;
   distanceMeters: number;
