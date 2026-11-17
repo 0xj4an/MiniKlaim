@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
-import { nextStreakBadge } from "@/lib/runs/streakMath";
+import { daysToNextRestDay, nextStreakBadge } from "@/lib/runs/streakMath";
 import { useUserStats } from "@/lib/wallet/useUserStats";
 
 /**
@@ -19,6 +19,11 @@ import { useUserStats } from "@/lib/wallet/useUserStats";
  * that is alive, but the run summary used to say "start a streak" anyway
  * (2 Nov 2026: `streak_shown` with streak 7 and counted false, twice).
  * Here the streak is simply always shown while it exists.
+ *
+ * The third line is about rest days (lib/runs/streakMath): how many are
+ * saved, that one just covered a missed day, or how far the next one is. A
+ * player has to know the allowance exists for it to take the edge off a
+ * missed day.
  */
 export function StreakCard({
   address,
@@ -30,15 +35,36 @@ export function StreakCard({
   const { t } = useLocale();
   const stats = useUserStats(enabled ? address : null);
   const streak = stats?.streak ?? 0;
+  const restDays = stats?.restDays ?? 0;
+  const restCovering = stats?.restDaysCovering ?? 0;
 
   useEffect(() => {
-    if (streak > 0) track("home_streak_shown", { streak });
-  }, [streak]);
+    if (streak > 0) {
+      track("home_streak_shown", {
+        streak,
+        rest_days: restDays,
+        rest_covering: restCovering,
+      });
+    }
+  }, [streak, restDays, restCovering]);
 
   if (!enabled || !stats || streak === 0) return null;
 
   const badgeDay = nextStreakBadge(streak);
   const toGo = badgeDay === null ? 0 : badgeDay - streak;
+  const toRest = daysToNextRestDay(streak);
+  const restLine =
+    restCovering > 0
+      ? t("home.streak.restCovered")
+      : restDays > 0
+        ? (restDays === 1 ? t("home.streak.rest.one") : t("home.streak.rest")).replace(
+            "{n}",
+            String(restDays),
+          )
+        : (toRest === 1 ? t("home.streak.restEarn.one") : t("home.streak.restEarn")).replace(
+            "{d}",
+            String(toRest),
+          );
 
   return (
     <div className="w-full max-w-xs rounded-xl bg-orange-50 px-4 py-2.5 text-center">
@@ -52,6 +78,10 @@ export function StreakCard({
               .replace("{d}", String(toGo))
               .replace("{m}", String(badgeDay))}
       </p>
+      {/* Old servers send no rest days: say nothing rather than a wrong count. */}
+      {stats.restDays !== undefined && (
+        <p className="mt-0.5 text-[11px] text-orange-700/70">{restLine}</p>
+      )}
     </div>
   );
 }
