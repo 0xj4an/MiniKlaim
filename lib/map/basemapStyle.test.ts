@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { FALLBACK_STYLE, isUsableStyle } from "./basemapStyle";
+import {
+  FALLBACK_STYLE,
+  inlineTileJson,
+  isUsableStyle,
+  isUsableTileJson,
+  tileJsonSources,
+  type BasemapStyle,
+} from "./basemapStyle";
 
 describe("isUsableStyle", () => {
   it("accepts the style the tile host actually serves", () => {
@@ -47,5 +54,71 @@ describe("FALLBACK_STYLE", () => {
     // a fallback.
     expect(Object.keys(FALLBACK_STYLE.sources)).toHaveLength(0);
     expect(JSON.stringify(FALLBACK_STYLE)).not.toContain("http");
+  });
+});
+
+describe("inlineTileJson", () => {
+  const style = {
+    version: 8,
+    sources: {
+      openmaptiles: { type: "vector", url: "https://tiles.example/planet" },
+      shaded: {
+        type: "raster",
+        tiles: ["https://tiles.example/ne/{z}/{x}/{y}.png"],
+        tileSize: 256,
+      },
+    },
+    layers: [{ id: "background", type: "background" }],
+  } as unknown as BasemapStyle;
+  const doc = {
+    tilejson: "3.0.0",
+    tiles: ["https://tiles.example/planet/20261115/{z}/{x}/{y}.pbf"],
+    minzoom: 0,
+    maxzoom: 14,
+    bounds: [-180, -85, 180, 85],
+    attribution: "OpenStreetMap",
+    vector_layers: [{ id: "water" }],
+  };
+
+  it("finds the sources that send the phone to ask where the tiles are", () => {
+    expect(tileJsonSources(style)).toEqual([
+      { id: "openmaptiles", url: "https://tiles.example/planet" },
+    ]);
+  });
+
+  it("writes the tiles into the source and drops the lookup", () => {
+    const out = inlineTileJson(style, { openmaptiles: doc });
+    expect(out.sources.openmaptiles).toEqual({
+      type: "vector",
+      tiles: doc.tiles,
+      minzoom: 0,
+      maxzoom: 14,
+      bounds: [-180, -85, 180, 85],
+      attribution: "OpenStreetMap",
+    });
+    expect(tileJsonSources(out)).toEqual([]);
+    expect(isUsableStyle(out)).toBe(true);
+  });
+
+  it("leaves the other sources and the input alone", () => {
+    const out = inlineTileJson(style, { openmaptiles: doc });
+    expect(out.sources.shaded).toEqual(style.sources.shaded);
+    expect(style.sources.openmaptiles).toEqual({
+      type: "vector",
+      url: "https://tiles.example/planet",
+    });
+  });
+
+  it("keeps the lookup when the server could not get the document", () => {
+    for (const bad of [undefined, null, {}, { tiles: [] }, { tiles: ["ftp://x"] }, "oops"]) {
+      const out = inlineTileJson(style, { openmaptiles: bad });
+      expect(out.sources.openmaptiles).toEqual(style.sources.openmaptiles);
+    }
+  });
+
+  it("only trusts a document that names https tiles", () => {
+    expect(isUsableTileJson(doc)).toBe(true);
+    expect(isUsableTileJson({ tiles: ["http://plain.example/{z}"] })).toBe(false);
+    expect(isUsableTileJson({ tiles: "https://x" })).toBe(false);
   });
 });

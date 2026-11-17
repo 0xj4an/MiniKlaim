@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
 import {
+  inlineTileJson,
   isUsableStyle,
+  tileJsonSources,
   UPSTREAM_STYLE_URL,
   type BasemapStyle,
 } from "@/lib/map/basemapStyle";
@@ -48,8 +50,55 @@ function etagFor(style: BasemapStyle): string {
   // Length plus layer count is enough to change when the style changes and
   // cheap enough to compute on every miss. The point of the ETag is 304s on
   // repeat visits, not content addressing.
+  // The tile address is in the body since the TileJSON is inlined, and it
+  // changes weekly at the same length (a date in the path), so it is part
+  // of the tag: otherwise a phone would keep a 304 on last week's tiles.
   const body = JSON.stringify(style);
-  return `W/"ofm-${body.length}-${style.layers.length}"`;
+  let sum = 0;
+  for (const source of Object.values(style.sources)) {
+    const tiles = (source as { tiles?: unknown }).tiles;
+    if (!Array.isArray(tiles)) continue;
+    for (const ch of String(tiles[0] ?? "")) {
+      sum = (sum * 31 + ch.charCodeAt(0)) >>> 0;
+    }
+  }
+  return `W/"ofm-${body.length}-${style.layers.length}-${sum.toString(36)}"`;
+}
+
+/**
+ * Each source's TileJSON, asked for here so the phone does not have to. See
+ * `inlineTileJson`. A lookup that fails is left out, and that source keeps
+ * its `url` for the phone to follow as before.
+ */
+async function fetchTileJson(
+  style: BasemapStyle,
+): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = {};
+  await Promise.all(
+    tileJsonSources(style).map(async ({ id, url }) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+      try {
+        const res = await fetch(url, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          log.warn("tilejson upstream not ok", { id, status: res.status });
+          return;
+        }
+        out[id] = await res.json();
+      } catch (e) {
+        log.warn("tilejson upstream failed", {
+          id,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    }),
+  );
+  return out;
 }
 
 async function fetchUpstream(): Promise<Cached | null> {
@@ -71,7 +120,8 @@ async function fetchUpstream(): Promise<Cached | null> {
       log.warn("basemap style upstream unusable");
       return null;
     }
-    return { style: json, etag: etagFor(json), fetchedAt: Date.now() };
+    const style = inlineTileJson(json, await fetchTileJson(json));
+    return { style, etag: etagFor(style), fetchedAt: Date.now() };
   } catch (e) {
     log.warn("basemap style upstream failed", {
       message: e instanceof Error ? e.message : String(e),
