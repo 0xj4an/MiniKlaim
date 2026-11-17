@@ -32,6 +32,11 @@ const labels = {
   player: "A MiniKlaim player",
   blocks: "blocks captured",
   place: "Lagos, Nigeria",
+  distance: "distance",
+  time: "time",
+  speed: "avg speed",
+  mode: "On foot",
+  tagline: "Run it. Klaim it.",
 };
 
 describe("run OG image", () => {
@@ -45,7 +50,7 @@ describe("run OG image", () => {
     const png = await render(
       runCard(
         { ...base, username: null, city: null, country: null, h3Ids: [], hexesClaimed: 1, distanceMeters: 0 },
-        { player: "Un jugador de MiniKlaim", blocks: "cuadra capturada", place: "" },
+        { ...labels, player: "Un jugador de MiniKlaim", blocks: "cuadra capturada", place: "", mode: "" },
       ),
     );
     expect([...png.slice(0, 4)]).toEqual(PNG_MAGIC);

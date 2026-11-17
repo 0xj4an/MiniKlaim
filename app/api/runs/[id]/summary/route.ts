@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, runs, users } from "@/lib/db/schema";
@@ -56,6 +56,9 @@ export async function GET(
     .select({ h3Id: hexes.h3Id })
     .from(hexes)
     .where(eq(hexes.runId, id))
+    // In the order they were captured: the card marks where the run
+    // started and where it ended.
+    .orderBy(asc(hexes.claimedAt), asc(hexes.h3Id))
     .limit(MAX_CELLS);
 
   return NextResponse.json({
