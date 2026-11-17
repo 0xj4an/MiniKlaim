@@ -73,7 +73,7 @@ type EventMap = {
   // Home-screen campaign banner. Both events carry the campaign so the next
   // one is measurable on its own instead of being pooled with this one.
   /** Day streak shown on the home screen, before they choose to play. */
-  home_streak_shown: { streak: number };
+  home_streak_shown: { streak: number; rest_days?: number; rest_covering?: number };
   campaign_banner_clicked: { campaign: string };
   campaign_banner_dismissed: { campaign: string };
 
