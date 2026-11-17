@@ -31,7 +31,7 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 | Method + path | Purpose |
 |---|---|
 | `GET /api/users/[address]` | Player profile: username, stats, on-chain state. |
-| `POST /api/users/[address]/username` | Set the player's username. Requires the wallet's owner key in `x-owner-key`; 403 `proof-needed` without it. |
+| `POST /api/users/[address]/username` | Set the player's username. A wallet with no name yet may take one without a key; changing an existing name requires the wallet's owner key in `x-owner-key` (403 `proof-needed` without it). |
 | `POST /api/users/[address]/owner-key` | Hand this phone the wallet's owner key. Body `{ runs?: [{ runId, token }] }`. Free for a wallet with no key, name or runs; otherwise needs the token of a run started before 2026-11-13 20:00 UTC, which also replaces an old key. 403 `proof-needed` otherwise. See `lib/ownerKeyRules.ts`. |
 | `GET /api/users/[address]/stats` | Aggregated stats across all wallets linked to this player. |
 | `GET /api/users/[address]/runs` | Recent runs for the player. |

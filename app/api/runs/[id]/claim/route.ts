@@ -25,6 +25,24 @@ const log = createLogger("api:runs:claim");
 
 export const dynamic = "force-dynamic";
 
+/** A batch slower than this is logged with where its time went. */
+const SLOW_CLAIM_MS = 5_000;
+
+function phaseTimer() {
+  const start = performance.now();
+  let last = start;
+  const ms: Record<string, number> = {};
+  return {
+    mark(name: string) {
+      const now = performance.now();
+      ms[name] = Math.round(now - last);
+      last = now;
+    },
+    total: () => Math.round(performance.now() - start),
+    phases: () => ({ ...ms }),
+  };
+}
+
 /**
  * Claim one or more hexes for a run. Accepts two body shapes:
  *   - Legacy: { h3, distanceMeters?, accuracy? }, one hex per request.
@@ -45,6 +63,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  // Where a slow batch spends its time. Up to 34 s had been seen with every
+  // query fast (pg_stat_statements, 16 Nov 2026), so the time is either in
+  // reading the body off a slow phone or somewhere in here. "body" is the
+  // first: it covers the upload.
+  const timing = phaseTimer();
   const body = (await request.json()) as {
     h3?: string;
     distanceMeters?: number;
@@ -106,6 +129,8 @@ export async function POST(
     return NextResponse.json({ error: "run already ended" }, { status: 409 });
   }
 
+  timing.mark("body+run");
+
   // Prefetch existing rows in a single query. Avoids N sequential SELECTs when
   // a plane-speed ping submits 30+ hexes at once.
   const h3Ids = Array.from(new Set(items.map((h) => h.h3).filter(Boolean)));
@@ -166,6 +191,7 @@ export async function POST(
       queuedSec,
     });
   }
+  timing.mark("prefetch");
   let chain = checkChain({
     lastH3: run.lastH3,
     lastAt,
@@ -396,6 +422,7 @@ export async function POST(
     results.push({ h3, alreadyOwned: false });
   }
 
+  timing.mark("guard");
   if (strengthRows.length > 0) {
     const [actor] = await db
       .select({ timeZone: users.timeZone })
@@ -434,6 +461,7 @@ export async function POST(
     damagedDelta = applied.damaged;
   }
 
+  timing.mark("strength");
   if (toWrite.length > 0) {
     await db
       .insert(hexes)
@@ -536,6 +564,8 @@ export async function POST(
       .where(eq(runs.id, id));
   }
 
+  timing.mark("write");
+
   // Treasures: found on any accepted pass (capture, reinforce, attack or
   // repeat), independent of territory. A failure here never fails the claim.
   let foundDrops: FoundDrop[] = [];
@@ -551,6 +581,17 @@ export async function POST(
     log.error("treasure detection failed", {
       runId: id,
       error: (e instanceof Error ? e.message : String(e)).slice(0, 300),
+    });
+  }
+
+  timing.mark("drops");
+  const total = timing.total();
+  if (total >= SLOW_CLAIM_MS) {
+    log.warn("slow claim batch", {
+      runId: id,
+      submitted: items.length,
+      totalMs: total,
+      ...timing.phases(),
     });
   }
 
