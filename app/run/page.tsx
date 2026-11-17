@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { track, trackLimited } from "@/lib/analytics";
 import { isMoveMode, type MoveMode, moveMode } from "@/lib/runs/moveMode";
 import { captureStatus } from "@/lib/runs/captureStatus";
+import { GPS_STUCK_AFTER_MS, shownDistanceMeters } from "@/lib/runs/runSummaryCopy";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import {
@@ -443,6 +444,24 @@ export default function RunPage() {
   useEffect(() => {
     captureStatusRef.current = capture.kind;
   }, [capture.kind]);
+  // A run that has gone GPS_STUCK_AFTER_MS without an accurate fix gets a
+  // banner with what to do: the status line alone left players walking for
+  // minutes and capturing nothing (lib/runs/runSummaryCopy).
+  const [gpsStuck, setGpsStuck] = useState(false);
+  const searchingInRun = !!runId && capture.kind === "searching";
+  useEffect(() => {
+    if (!searchingInRun) return;
+    const timer = window.setTimeout(() => {
+      setGpsStuck(true);
+      track("run_gps_stuck_shown", {
+        after_sec: Math.round(GPS_STUCK_AFTER_MS / 1000),
+      });
+    }, GPS_STUCK_AFTER_MS);
+    return () => {
+      window.clearTimeout(timer);
+      setGpsStuck(false);
+    };
+  }, [searchingInRun]);
   // The server stopped capturing because this "on foot" run moves at vehicle
   // speed (too-fast-on-foot). Shown until 45 s pass without another one.
   const [footTooFast, setFootTooFast] = useState(false);
@@ -463,6 +482,8 @@ export default function RunPage() {
     hexesDamaged: number;
     hexesStolen: number;
     distanceMeters: number;
+    serverDistanceMeters: number;
+    captureState: string;
     moveMode: MoveMode | null;
   } | null>(null);
   // Gate any wallet-dependent UI so SSR and first-client-render emit the
@@ -1602,6 +1623,7 @@ export default function RunPage() {
         hexesReinforced?: number;
         hexesDamaged?: number;
         distanceMeters: number;
+        serverDistanceMeters?: number;
         startedAt: string;
         endedAt: string;
         moveMode?: string | null;
@@ -1647,7 +1669,13 @@ export default function RunPage() {
         hexesReinforced: data.hexesReinforced ?? 0,
         hexesDamaged: data.hexesDamaged ?? 0,
         hexesStolen: stolenRef.current,
-        distanceMeters: data.distanceMeters,
+        // The larger of the phone's figure and the server's hex path.
+        distanceMeters: shownDistanceMeters(
+          data.distanceMeters,
+          data.serverDistanceMeters,
+        ),
+        serverDistanceMeters: data.serverDistanceMeters ?? 0,
+        captureState: captureStatusRef.current,
         moveMode: isMoveMode(data.moveMode) ? data.moveMode : null,
       });
       // The card lists the blocks and any badges, then the wallet opens
@@ -2755,6 +2783,14 @@ export default function RunPage() {
           className="absolute top-16 right-4 left-4 z-20 rounded-md border border-red-300 bg-red-50 p-3 text-center text-xs font-medium text-red-900 shadow-md"
         >
           {t("run.footTooFast")}
+        </div>
+      )}
+      {runId && gpsStuck && !footTooFast && !claimRefused && (
+        <div
+          role="alert"
+          className="absolute top-16 right-4 left-4 z-20 rounded-md border border-amber-300 bg-amber-50 p-3 text-center text-xs font-medium text-amber-900 shadow-md"
+        >
+          {t("run.gps.stuck")}
         </div>
       )}
       {runId && claimRefused && (
