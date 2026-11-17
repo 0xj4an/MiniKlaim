@@ -18,6 +18,7 @@ import { RunTally } from "./RunTally";
 import { stolenSplit } from "./stolenSplit";
 import { StreakNote } from "./StreakNote";
 import { STREAK_MIN_SERVER_METERS } from "@/lib/runs/streakMath";
+import { emptyRunReason, shareKind } from "@/lib/runs/runSummaryCopy";
 
 const Confetti = dynamic(() => import("react-confetti"), { ssr: false });
 
@@ -31,7 +32,12 @@ export type RunSummary = {
   hexesDamaged?: number;
   /** Of `hexesClaimed`, the blocks taken from another player. */
   hexesStolen?: number;
+  /** What the card shows: the larger of the phone's figure and the server's. */
   distanceMeters: number;
+  /** The server's hex path, which is what the streak counts. */
+  serverDistanceMeters?: number;
+  /** The capture status the run finished in (lib/runs/captureStatus). */
+  captureState?: string;
   /** The run's label from the server (the player's pick when they made one). */
   moveMode?: MoveMode | null;
 };
@@ -89,6 +95,21 @@ export function RunSummaryModal({
   const damaged = summary.hexesDamaged ?? 0;
   const stolen = summary.hexesStolen ?? 0;
   const previewReady = badgeIds !== null;
+  // Why the run captured nothing, and what there is to share (if anything).
+  const emptyReason = emptyRunReason(summary.captureState);
+  const sharing = shareKind({
+    hexesClaimed: summary.hexesClaimed,
+    badgeCount: badgeIds?.length ?? 0,
+  });
+  const caption = shareCaption(
+    sharing,
+    summary,
+    badgeIds ?? [],
+    timeLabel,
+    distLabel,
+    locale,
+    t,
+  );
   // Blocks are already known. Waiting on the badge list held the wallet
   // sheet behind a second copy of the same eligibility query.
   const canClaim =
@@ -266,7 +287,9 @@ export function RunSummaryModal({
           // today, ends with no claim step, and players wrote in asking how
           // to claim (support, 12 Nov 2026). Say there is nothing to claim.
           <p className="mt-2 text-center text-sm text-zinc-600">
-            {t("run.summary.nothingNew")}
+            {emptyReason === null || reinforced > 0 || damaged > 0
+              ? t("run.summary.nothingNew")
+              : t(`run.summary.empty.${emptyReason}`)}
           </p>
         )}
         <StreakNote
@@ -275,7 +298,8 @@ export function RunSummaryModal({
             summary.hexesClaimed > 0 ||
             reinforced > 0 ||
             damaged > 0 ||
-            summary.distanceMeters >= STREAK_MIN_SERVER_METERS
+            (summary.serverDistanceMeters ?? summary.distanceMeters) >=
+              STREAK_MIN_SERVER_METERS
           }
         />
         {hasBadges && (
@@ -414,19 +438,12 @@ export function RunSummaryModal({
             {shareNote && (
               <p className="text-center text-xs text-zinc-500">{shareNote}</p>
             )}
+            {caption && (
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() =>
-                  void shareClaim(
-                    "x",
-                    summary,
-                    timeLabel,
-                    distLabel,
-                    username,
-                    t,
-                    setShareNote,
-                  )
+                  void shareClaim("x", caption, username, t, setShareNote)
                 }
                 className="min-h-11 rounded-full border border-zinc-300 bg-white px-2 py-2 text-sm font-semibold text-zinc-800"
               >
@@ -435,15 +452,7 @@ export function RunSummaryModal({
               <button
                 type="button"
                 onClick={() =>
-                  void shareClaim(
-                    "facebook",
-                    summary,
-                    timeLabel,
-                    distLabel,
-                    username,
-                    t,
-                    setShareNote,
-                  )
+                  void shareClaim("facebook", caption, username, t, setShareNote)
                 }
                 className="min-h-11 rounded-full border border-zinc-300 bg-white px-2 py-2 text-sm font-semibold text-zinc-800"
               >
@@ -452,21 +461,14 @@ export function RunSummaryModal({
               <button
                 type="button"
                 onClick={() =>
-                  void shareClaim(
-                    "instagram",
-                    summary,
-                    timeLabel,
-                    distLabel,
-                    username,
-                    t,
-                    setShareNote,
-                  )
+                  void shareClaim("instagram", caption, username, t, setShareNote)
                 }
                 className="min-h-11 rounded-full border border-zinc-300 bg-white px-2 py-2 text-sm font-semibold text-zinc-800"
               >
                 Instagram
               </button>
             </div>
+            )}
             <button
               onClick={onClose}
               className="min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white"
@@ -532,37 +534,63 @@ function ClaimBurst({ count }: { count: number }) {
   );
 }
 
-function claimCaption(
+type ShareCaption = { text: string; kind: "blocks" | "badges" };
+
+/**
+ * What the share buttons post, or null when the run has nothing worth
+ * sharing (see shareKind). A run that only collected badges talks about the
+ * badges, never about "0 blocks". Time and distance go in only when the run
+ * covered some distance: "00:12 - 0 m route" on a block captured standing
+ * still reads as the game not working.
+ */
+function shareCaption(
+  kind: "blocks" | "badges" | "none",
   summary: RunSummary,
+  badgeIds: number[],
   timeLabel: string,
   distLabel: string,
+  locale: "en" | "es",
   t: (key: TranslationKey) => string,
-): { text: string; url: string } {
+): ShareCaption | null {
+  if (kind === "none") return null;
+  if (kind === "badges") {
+    const text =
+      badgeIds.length === 1
+        ? t("run.share.badge.one").replace("{name}", badgeCopy(badgeIds[0], locale).name)
+        : t("run.share.badge.many").replace("{n}", String(badgeIds.length));
+    return { text, kind };
+  }
   const captured =
     summary.hexesClaimed === 1
       ? t("run.share.text.one")
       : t("run.share.text.many").replace("{n}", String(summary.hexesClaimed));
-  const text = `${captured} ${t("run.share.text.suffix")} ${timeLabel} - ${distLabel} ${t("run.share.text.run")}`;
-  const origin =
-    typeof window !== "undefined"
-      ? window.location.origin
-      : "https://www.miniklaim.fun";
-  return { text, url: origin };
+  const head = `${captured} ${t("run.share.text.suffix")}`;
+  const text =
+    summary.distanceMeters > 0
+      ? `${head} ${timeLabel} - ${distLabel} ${t("run.share.text.run")}`
+      : head;
+  return { text, kind };
 }
 
 async function shareClaim(
   channel: "x" | "facebook" | "instagram",
-  summary: RunSummary,
-  timeLabel: string,
-  distLabel: string,
+  caption: ShareCaption | null,
   username: string | null,
   t: (key: TranslationKey) => string,
   setNote: (note: string | null) => void,
 ): Promise<void> {
-  track("share_button_pressed", { surface: "run_summary", channel });
-  const { text, url: origin } = claimCaption(summary, timeLabel, distLabel, t);
+  if (!caption) return;
+  track("share_button_pressed", {
+    surface: "run_summary",
+    channel,
+    kind: caption.kind,
+  });
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "https://www.miniklaim.fun";
   const url = username ? `${origin}/p/${username}` : origin;
-  const method = await shareTo(channel, text, url);
+  const method = await shareTo(channel, caption.text, url);
   track("share_result", { surface: "run_summary", channel, method });
   if (method === "copied" || (method === "intent" && channel === "instagram")) {
     setNote(t("me.share.copiedPaste"));
