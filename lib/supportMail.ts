@@ -88,17 +88,34 @@ export function parseSupportRequest(fields: {
   };
 }
 
-/** Subject and plain-text body of the message support receives. */
+/** A short id that gives every ticket a subject of its own. */
+export function newTicketId(): string {
+  const bytes = new Uint8Array(4);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
+/**
+ * Subject and plain-text body of the message support receives.
+ *
+ * Every ticket carries its own id in the subject. With the subject fixed per
+ * topic, Gmail threads by subject and participants, and the form always sends
+ * from the same address to the same address, so every ticket of a topic from
+ * anywhere landed in one thread: on 16 Nov 2026 two threads held two
+ * unrelated players each, and answering the thread answered only one of them.
+ */
 export function buildSupportEmail(
   req: SupportRequest,
-  meta: { userAgent?: string | null; screenshot?: boolean },
+  meta: { userAgent?: string | null; screenshot?: boolean; ticketId?: string },
 ): { subject: string; text: string } {
+  const ticket = meta.ticketId ?? newTicketId();
   return {
-    subject: `MiniKlaim support · ${SUPPORT_TOPIC_LABELS[req.topic]}`,
+    subject: `MiniKlaim support · ${SUPPORT_TOPIC_LABELS[req.topic]} · #${ticket}`,
     text: [
       req.description,
       "",
       "---",
+      `Ticket: #${ticket}`,
       `Topic: ${SUPPORT_TOPIC_LABELS[req.topic]}`,
       `Reply to: ${req.email}`,
       `Wallet: ${req.wallet ?? "not connected"}`,
