@@ -45,6 +45,8 @@ export async function POST(request: Request) {
     .values({
       userAddress: address,
       claimTokenHash: hashRunToken(claimToken),
+      // Kept on the run too: its streak day is cut where it was played.
+      timeZone,
       // How the player said they travel. Older clients send nothing.
       declaredMode: isMoveMode(body.mode) ? body.mode : null,
     })
