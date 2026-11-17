@@ -137,24 +137,63 @@ export type EntryCheck =
   | { ok: true; player: string; amount: bigint; blockNumber: bigint; at: Date }
   | { ok: false; reason: "pending" | "reverted" | "no-transfer" | "wrong-amount" | "outside-window" | "excluded" };
 
+/** How long to keep asking for a block the node may not have yet (4 s in all). */
+const BLOCK_READ_TRIES = 8;
+const BLOCK_READ_DELAY_MS = 500;
+
+/**
+ * When a mined block happened. The public RPC is several nodes behind one
+ * address, and one can hand out a receipt before the next one asked has that
+ * block: "Block at number 83021189 could not be found" on 17 Nov 2026, right
+ * after `enterFor` confirmed. The entry was paid onchain and missing from the
+ * table until a sync. So ask again for a few seconds before giving up.
+ */
+async function blockTime(client: ReturnType<typeof dropsPublicClient>, blockNumber: bigint): Promise<Date> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const block = await client.getBlock({ blockNumber });
+      return new Date(Number(block.timestamp) * 1000);
+    } catch (e) {
+      if (attempt >= BLOCK_READ_TRIES) throw e;
+      await new Promise((r) => setTimeout(r, BLOCK_READ_DELAY_MS));
+    }
+  }
+}
+
+/** The parts of a receipt an entry is read from. */
+export type EntryReceipt = {
+  status: "success" | "reverted";
+  blockNumber: bigint;
+  logs: { address: Address; data: Hex; topics: [Hex, ...Hex[]] | [] }[];
+};
+
 /**
  * Read an entry from the chain. Either a `ChallengeEntered` from the drops
  * contract for this challenge (allowance entry), or a successful transfer of
  * exactly the entry amount, in the challenge token, to the deposit address
  * (legacy). Both must be mined inside the entry window. Never trusts the
  * client beyond the tx hash.
+ *
+ * `known` is the receipt of `txHash` when the caller already waited for it
+ * (the relayer's own `enterFor`), so a node that lags behind is not asked for
+ * it a second time and answered "pending".
  */
-export async function checkEntryTx(c: Challenge, txHash: Hex, deposit: Address): Promise<EntryCheck> {
+export async function checkEntryTx(
+  c: Challenge,
+  txHash: Hex,
+  deposit: Address,
+  known?: EntryReceipt,
+): Promise<EntryCheck> {
   const client = dropsPublicClient();
-  const receipt = await client.getTransactionReceipt({ hash: txHash }).catch(() => null);
+  const receipt: EntryReceipt | null =
+    known ?? (await client.getTransactionReceipt({ hash: txHash }).catch(() => null));
   if (!receipt) return { ok: false, reason: "pending" };
   if (receipt.status !== "success") return { ok: false, reason: "reverted" };
   const contract = dropsAddress();
   const viaAllowance = contract ? entryEventsIn(receipt.logs, contract, c)[0] : undefined;
   if (viaAllowance) {
     if (viaAllowance.amount !== BigInt(c.entryAmount)) return { ok: false, reason: "wrong-amount" };
-    const block = await client.getBlock({ blockNumber: receipt.blockNumber });
-    const at = new Date(Number(block.timestamp) * 1000);
+    const at = await blockTime(client, receipt.blockNumber);
     if (at < c.opensAt || at > c.entryClosesAt) return { ok: false, reason: "outside-window" };
     return { ok: true, player: viaAllowance.player, amount: viaAllowance.amount, blockNumber: receipt.blockNumber, at };
   }
@@ -176,8 +215,7 @@ export async function checkEntryTx(c: Challenge, txHash: Hex, deposit: Address):
   if (!found) return { ok: false, reason: "no-transfer" };
   if (found.value !== BigInt(c.entryAmount)) return { ok: false, reason: "wrong-amount" };
   if (excludedSenders().has(found.from)) return { ok: false, reason: "excluded" };
-  const block = await client.getBlock({ blockNumber: receipt.blockNumber });
-  const at = new Date(Number(block.timestamp) * 1000);
+  const at = await blockTime(client, receipt.blockNumber);
   if (at < c.opensAt || at > c.entryClosesAt) return { ok: false, reason: "outside-window" };
   return { ok: true, player: found.from, amount: found.value, blockNumber: receipt.blockNumber, at };
 }
