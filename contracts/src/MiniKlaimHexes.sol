@@ -188,6 +188,29 @@ contract MiniKlaimHexes is
         emit TokensMinted(msg.sender, nonce, minted);
     }
 
+    /// @notice Relayer-paid twin of `mintTokens`: turn `player`'s recorded hexes into tokens
+    ///         owned by `player`, with the relayer paying the gas. For players who cannot pay
+    ///         the fee themselves; the backend limits how many a day. CAPTURER_ROLE can
+    ///         already move any token with `captureBatch`, so this grants it nothing new.
+    ///         Hexes that already exist as tokens are skipped, as in `mintTokens`, so it can
+    ///         never take a token from anyone. Capture counters do not change.
+    function mintTokensFor(address player, uint256[] calldata h3Ids)
+        external
+        onlyRole(CAPTURER_ROLE)
+    {
+        uint256 minted;
+        for (uint256 i = 0; i < h3Ids.length; i++) {
+            if (_ownerOf(h3Ids[i]) == address(0)) {
+                _mint(player, h3Ids[i]);
+                unchecked {
+                    minted++;
+                }
+            }
+        }
+        totalTokensMinted += minted;
+        emit TokensMinted(player, 0, minted);
+    }
+
     /// @notice One-time migration helper: re-mint existing ownership into this contract from a
     ///         trusted off-chain source (the app DB, which is the canonical ownership list).
     ///         Admin-only. `players[i]` becomes the owner of `h3Ids[i]`.

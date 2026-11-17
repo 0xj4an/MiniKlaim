@@ -6,6 +6,7 @@ import {
   http,
   type Address,
   type Hex,
+  type Log,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { withAttribution } from "@/lib/onchain/attribution";
@@ -35,6 +36,16 @@ const HEXES_ABI = [
   {
     type: "function",
     name: "captureBatch",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "player", type: "address" },
+      { name: "h3Ids", type: "uint256[]" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "mintTokensFor",
     stateMutability: "nonpayable",
     inputs: [
       { name: "player", type: "address" },
@@ -172,6 +183,91 @@ export async function captureBatch(
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
     log.error("captureBatch failed", {
+      player,
+      count: h3Ids.length,
+      chainKey,
+      error: error.slice(0, 300),
+    });
+    return { ok: false, reason: "error", error };
+  }
+}
+
+/**
+ * Whether the chain's Hexes contract has `mintTokensFor` (added 17 Nov 2026,
+ * live once the proxy is upgraded). Read by simulating an empty call from the
+ * relayer, which is a no-op on the new implementation and a revert on the old
+ * one, so the sponsored mint switches itself on with the upgrade. Cached for
+ * ten minutes; a failed read counts as not available.
+ */
+const mintForCache = new Map<ChainKey, { ok: boolean; at: number }>();
+export async function mintTokensForAvailable(
+  chainKey: ChainKey = DEFAULT_CHAIN_KEY,
+): Promise<boolean> {
+  if (!isReady(chainKey)) return false;
+  const cached = mintForCache.get(chainKey);
+  if (cached && Date.now() - cached.at < 10 * 60_000) return cached.ok;
+  let ok = false;
+  try {
+    await hexesPublicClient(chainKey).simulateContract({
+      address: getChain(chainKey).hexesAddress,
+      abi: HEXES_ABI,
+      functionName: "mintTokensFor",
+      args: [signerAccount().address, []],
+      account: signerAccount(),
+    });
+    ok = true;
+  } catch {
+    ok = false;
+  }
+  mintForCache.set(chainKey, { ok, at: Date.now() });
+  return ok;
+}
+
+export type MintTokensForResult =
+  | { ok: true; txHash: Hex; receiptLogs: Log[] }
+  | { ok: false; reason: "not-configured" | "empty" | "error"; error?: string };
+
+/**
+ * Relayer-paid NFT mint: turn `h3Ids` into tokens owned by `player` and wait
+ * for the receipt, so the caller can read which ones were minted. Never throws.
+ */
+export async function mintTokensForBatch(
+  player: Address,
+  h3Ids: string[],
+  chainKey: ChainKey = DEFAULT_CHAIN_KEY,
+): Promise<MintTokensForResult> {
+  if (!isReady(chainKey)) return { ok: false, reason: "not-configured" };
+  if (h3Ids.length === 0) return { ok: false, reason: "empty" };
+  const { hexesAddress, chain } = getChain(chainKey);
+  try {
+    const wallet = signerWallet(chainKey);
+    const data = encodeFunctionData({
+      abi: HEXES_ABI,
+      functionName: "mintTokensFor",
+      args: [player, h3Ids.map(h3ToTokenId)],
+    });
+    // Serialised with every other relayer send: they share the nonce.
+    const txHash = await sendExclusive(() =>
+      wallet.sendTransaction({
+        to: hexesAddress,
+        data: withAttribution(data),
+        chain,
+        account: signerAccount(),
+        kzg: undefined,
+      }),
+    );
+    const receipt = await hexesPublicClient(chainKey).waitForTransactionReceipt({
+      hash: txHash,
+      timeout: 60_000,
+    });
+    if (receipt.status !== "success") {
+      return { ok: false, reason: "error", error: `reverted ${txHash}` };
+    }
+    log.info("mintTokensFor done", { player, count: h3Ids.length, chainKey, txHash });
+    return { ok: true, txHash, receiptLogs: receipt.logs };
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    log.error("mintTokensFor failed", {
       player,
       count: h3Ids.length,
       chainKey,

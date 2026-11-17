@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  dailyBadgeCap,
   dailyHexCap,
+  dailyTokenCap,
   estimateClaimGas,
   estimateMintTokensGas,
   MINT_TOKENS_MAX,
@@ -91,6 +93,33 @@ describe("remainingHexAllowance", () => {
   it("reads the cap from the environment", () => {
     process.env.SPONSOR_DAILY_HEX_CAP = "50";
     expect(remainingHexAllowance(20)).toBe(30);
+  });
+});
+
+describe("badge and NFT allowances", () => {
+  afterEach(() => {
+    delete process.env.SPONSOR_DAILY_BADGE_CAP;
+    delete process.env.SPONSOR_DAILY_TOKEN_CAP;
+    delete process.env.SPONSOR_DAILY_BADGE_TX_CAP;
+  });
+
+  it("defaults to 3 badges and 100 NFTs a day", () => {
+    expect(dailyBadgeCap()).toBe(3);
+    expect(dailyTokenCap()).toBe(100);
+  });
+
+  it("ignores the old per-transaction badge setting", () => {
+    // Production still carries SPONSOR_DAILY_BADGE_TX_CAP=2; it counted
+    // transactions and must not become a cap of 2 badges.
+    process.env.SPONSOR_DAILY_BADGE_TX_CAP = "2";
+    expect(dailyBadgeCap()).toBe(3);
+  });
+
+  it("reads both caps from the environment", () => {
+    process.env.SPONSOR_DAILY_BADGE_CAP = "5";
+    process.env.SPONSOR_DAILY_TOKEN_CAP = "40";
+    expect(dailyBadgeCap()).toBe(5);
+    expect(dailyTokenCap()).toBe(40);
   });
 });
 

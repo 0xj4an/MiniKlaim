@@ -7,7 +7,9 @@ import { track } from "@/lib/analytics";
 import { createLogger } from "@/lib/logger";
 import { withAttribution } from "@/lib/onchain/attribution";
 import { getChain } from "@/lib/onchain/chains";
-import { heldFeeAdaptersForWallet } from "@/lib/wallet/feeSupport";
+import { heldFeeAdaptersForWallet, walletPaysGasInToken } from "@/lib/wallet/feeSupport";
+import { nativeOnlyHeaders } from "@/lib/onchain/sponsorHeaders";
+import { latestRunTokenFor, RUN_TOKEN_HEADER } from "@/lib/wallet/runTokens";
 import { HEXES_MINT_TOKENS_ABI } from "@/lib/onchain/hexesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import * as Sentry from "@sentry/nextjs";
@@ -17,7 +19,7 @@ import {
   mintFailureTitle,
   shouldReportMintFailure,
 } from "@/lib/wallet/mintFailure";
-import { errorText, isUserRejection } from "@/lib/wallet/playerFee";
+import { errorText, isUserRejection, playerHasNoFeeBalance } from "@/lib/wallet/playerFee";
 import { sendWithFeeFallback } from "@/lib/wallet/sendWithFees";
 import { useBalances } from "@/lib/wallet/useBalances";
 
@@ -35,6 +37,8 @@ export type TokenStatus = {
   smallBatch: number | null;
   /** What each offered batch costs the player, in dollars. */
   quotes: MintQuote[];
+  /** Free NFTs left today for a player who cannot pay. Absent on old servers. */
+  sponsor?: { available: boolean; freeToday: number };
   /**
    * What finishing the whole pile takes, not just the next tap. A player with
    * a big run had no way of knowing that minting is one signature per batch,
@@ -243,11 +247,74 @@ export function useMintTokens(address: Address | null) {
   );
 
   /**
+   * Relayer-paid mint for a player with no balance to pay the fee, up to the
+   * free NFTs left today. The server checks both again: it refuses (402) a
+   * player who can pay, and then this falls back to the paid mint.
+   */
+  const mintFree = useCallback(async () => {
+    if (!address) return;
+    const proof = latestRunTokenFor(address);
+    if (!proof) {
+      // The server only sponsors the client that played one of this wallet's runs.
+      setState("no_fee");
+      return;
+    }
+    setState("sending");
+    try {
+      const res = await fetch(
+        `/api/users/${address}/tokens/sponsor-mint?chain=${chainKey}&runId=${proof.runId}`,
+        {
+          method: "POST",
+          headers: {
+            [RUN_TOKEN_HEADER]: proof.token,
+            ...nativeOnlyHeaders(!walletPaysGasInToken()),
+          },
+        },
+      );
+      if (res.status === 402) {
+        setState("idle");
+        await mint();
+        return;
+      }
+      if (!res.ok) {
+        track("nft_mint_failed", { reason: `sponsor_${res.status}` });
+        setState(res.status === 429 ? "no_fee" : "error");
+        setRefresh((n) => n + 1);
+        return;
+      }
+      const body = (await res.json()) as { minted?: number; txHash?: string };
+      setLastMinted(body.minted ?? 0);
+      track("nft_mint_sponsored", { count: body.minted ?? 0, tx_hash: body.txHash ?? "" });
+      setState("done");
+      setRefresh((n) => n + 1);
+    } catch (e) {
+      log.warn("sponsored mint failed", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+      track("nft_mint_failed", { reason: "sponsor_network" });
+      setState("error");
+    }
+  }, [address, chainKey, mint]);
+
+  // Offer the free mint when the server has some left today and the player
+  // has nothing to pay the fee with (or the wallet just said so).
+  const chainForFee = getChain(chainKey);
+  const cannotPay =
+    state === "no_fee" ||
+    playerHasNoFeeBalance(
+      chainForFee.feeCurrencies.length,
+      heldFeeAdaptersForWallet(chainForFee.feeCurrencies, balances).length,
+      balances,
+    );
+  const freeToday =
+    status?.sponsor?.available && cannotPay ? Math.min(status.sponsor.freeToday, status.nextBatch) : 0;
+
+  /**
    * Re-read the pending count. The run summary needs this: it mounts before
    * the claim finishes, so the first read predates the blocks the player has
    * just captured.
    */
   const reload = useCallback(() => setRefresh((n) => n + 1), []);
 
-  return { status, state, mint, lastMinted, reload };
+  return { status, state, mint, mintFree, freeToday, lastMinted, reload };
 }
