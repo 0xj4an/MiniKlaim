@@ -446,7 +446,11 @@ type EventMap = {
   share_button_pressed: {
     surface: "run_summary" | "profile";
     channel?: "x" | "facebook" | "instagram";
+    /** What the run summary's caption is about. */
+    kind?: "blocks" | "badges";
   };
+  /** The "still no GPS" banner came up during a run. */
+  run_gps_stuck_shown: { after_sec: number };
   // Which path actually worked: web intent, system sheet, clipboard, none.
   share_result: {
     surface: "run_summary" | "profile";

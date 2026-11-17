@@ -407,6 +407,18 @@ export const dictionaries = {
       "This phone can't save blocks for this run any more. End the run and start a new one.",
     "run.summary.nothingNew":
       "No new blocks this run, so there is nothing to claim.",
+    "run.summary.empty.gps":
+      "Your phone never got an accurate GPS fix, so no blocks were captured. Go outside, turn Location on and set it to precise, then try again.",
+    "run.summary.empty.repeat":
+      "You had already used these blocks today, so nothing new was captured. Move to other blocks or come back tomorrow.",
+    "run.summary.empty.owned":
+      "You stayed on a block that is already yours. Move to capture new ones.",
+    "run.summary.empty.still":
+      "GPS was ready, but you did not move far enough to reach a new block.",
+    "run.gps.stuck":
+      "Still no accurate GPS, so no blocks are being captured. Go outside, away from buildings, and check that Location is on and set to precise for MiniPay.",
+    "run.share.badge.one": "Just earned the {name} badge on @Miniklaim.",
+    "run.share.badge.many": "Just earned {n} badges on @Miniklaim.",
     "challenge.kicker": "Weekly challenge",
     "challenge.pool": "Pool",
     "challenge.entrants": "{n} entered",
@@ -1108,6 +1120,18 @@ export const dictionaries = {
       "Este teléfono ya no puede guardar cuadras en esta corrida. Termínala y empieza una nueva.",
     "run.summary.nothingNew":
       "No hubo cuadras nuevas en esta corrida, así que no hay nada que reclamar.",
+    "run.summary.empty.gps":
+      "Tu teléfono no logró una señal de GPS precisa, así que no se capturaron cuadras. Sal a un lugar abierto, activa la Ubicación en modo preciso e intenta de nuevo.",
+    "run.summary.empty.repeat":
+      "Ya habías usado estas cuadras hoy, así que no se capturó nada nuevo. Muévete a otras cuadras o vuelve mañana.",
+    "run.summary.empty.owned":
+      "Te quedaste en una cuadra que ya es tuya. Muévete para capturar nuevas.",
+    "run.summary.empty.still":
+      "El GPS estaba listo, pero no te moviste lo suficiente para llegar a una cuadra nueva.",
+    "run.gps.stuck":
+      "Sigues sin GPS preciso, así que no se están capturando cuadras. Sal a un lugar abierto, lejos de edificios, y revisa que la Ubicación esté activa y en modo preciso para MiniPay.",
+    "run.share.badge.one": "Acabo de ganar la insignia {name} en @Miniklaim.",
+    "run.share.badge.many": "Acabo de ganar {n} insignias en @Miniklaim.",
     "challenge.kicker": "Challenge semanal",
     "challenge.pool": "Pool",
     "challenge.entrants": "{n} inscritos",
