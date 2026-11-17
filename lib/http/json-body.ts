@@ -1,40 +1,39 @@
 import { createHash } from "node:crypto";
-import { promisify } from "node:util";
-import { gzip, gzipSync } from "node:zlib";
 import { NextResponse } from "next/server";
 
+/**
+ * A JSON body built once and served many times, with the tag that lets a
+ * phone holding the same copy get a 304 instead of the body.
+ *
+ * There is no compressed copy in here, on purpose. This used to keep one
+ * and send it with `Content-Encoding: gzip`, so a 9 MB list was compressed
+ * once and not on every request. Next 16.4 drops `Content-Encoding` from
+ * what a route returns (`FORBIDDEN_HEADERS` in next/dist/server/
+ * send-response.js) and then compresses the response itself. The bytes that
+ * went out were gzip inside gzip under one header: the browser opened one
+ * layer, found binary where it expected JSON, and every map that reads
+ * /api/hexes went blank. 17 Nov 2026, live for hours, and no test caught it
+ * because the header is dropped after the route returns.
+ *
+ * So the body goes out plain and Next compresses it, on a stream, off the
+ * main thread. A route cannot send its own compressed bytes on this
+ * framework, and `jsonBody` must never set `Content-Encoding` again.
+ */
 export type PackedJson = {
   etag: string;
   json: Uint8Array;
-  gzip: Uint8Array;
 };
 
 export function packJson(body: unknown): PackedJson {
-  const json = Buffer.from(JSON.stringify(body));
-  return {
-    etag: createHash("sha1").update(json).digest("hex").slice(0, 20),
-    json,
-    gzip: gzipSync(json),
-  };
+  return packJsonText(JSON.stringify(body));
 }
 
-const gzipOffThread = promisify(gzip);
-
-/**
- * The same as `packJson` for a body that is already text and is large.
- *
- * `gzipSync` on the 9 MB world list held the process for 446 ms, measured
- * on prod on 16 Nov 2026. `gzip` does the same work on a libuv thread, and
- * the longest the process was held while it ran was 17 ms. Small bodies
- * keep `packJson`: for a few kilobytes the thread hop costs more than it
- * saves.
- */
-export async function packJsonText(text: string): Promise<PackedJson> {
+/** The same for a body that is already text, as the world list builds it. */
+export function packJsonText(text: string): PackedJson {
   const json = Buffer.from(text);
   return {
     etag: createHash("sha1").update(json).digest("hex").slice(0, 20),
     json,
-    gzip: await gzipOffThread(json),
   };
 }
 
@@ -59,12 +58,6 @@ export function jsonBody(
   });
   if (noneMatch(request.headers.get("if-none-match"), tag)) {
     return new NextResponse(null, { status: 304, headers });
-  }
-  const gzip = (request.headers.get("accept-encoding") ?? "").includes("gzip");
-  if (gzip) {
-    headers.set("Content-Encoding", "gzip");
-    headers.set("Content-Type", "application/json; charset=utf-8");
-    return new NextResponse(copyBytes(packed.gzip), { status: 200, headers });
   }
   headers.set("Content-Type", "application/json; charset=utf-8");
   return new NextResponse(copyBytes(packed.json), { status: 200, headers });
