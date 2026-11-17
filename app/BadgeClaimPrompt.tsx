@@ -51,8 +51,11 @@ export function BadgeClaimPrompt({
 }) {
   const { t, locale } = useLocale();
   const chainKey = useActiveChainKey();
-  const { claim } = useClaimBadges(address, enabled);
+  const { claim, playerPays } = useClaimBadges(address, enabled);
   const [claimable, setClaimable] = useState<number[]>([]);
+  // Dollars the claim costs a player who pays it, from the voucher. Null when
+  // the chain could not be read: then no price is shown rather than a wrong one.
+  const [feeUsd, setFeeUsd] = useState<number | null>(null);
   const [state, setState] = useState<"idle" | "pending" | "done" | "error">(
     "idle",
   );
@@ -89,7 +92,13 @@ export function BadgeClaimPrompt({
           return;
         }
         if (!vRes.ok) return;
-        const voucher = (await vRes.json()) as { badgeIds: string[] };
+        const voucher = (await vRes.json()) as {
+          badgeIds: string[];
+          feeUsd?: number | null;
+        };
+        if (!cancelled) {
+          setFeeUsd(typeof voucher.feeUsd === "number" ? voucher.feeUsd : null);
+        }
         const heldSet = new Set(held.heldIds);
         // The chain confirms these, so they no longer need suppressing.
         dropBadgeClaims(held.heldIds);
@@ -184,6 +193,12 @@ export function BadgeClaimPrompt({
   };
 
   const show = claimable.length > 0 && !dismissed && state !== "done";
+  // Only when the player's own wallet sends the claim: otherwise the relayer
+  // pays and there is nothing to quote.
+  const feeLine =
+    playerPays && feeUsd !== null
+      ? t("me.badges.claim.fee").replace("{usd}", feeUsd.toFixed(2))
+      : null;
 
   if (variant === "card") {
     const later = () => {
@@ -205,26 +220,17 @@ export function BadgeClaimPrompt({
               ).replace("{n}", String(claimable.length))}
             </p>
             <p className="mt-1 text-xs text-zinc-600">{t("home.badges.body")}</p>
-            <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+            <ul className="mt-3 flex flex-col gap-1.5 text-left">
               {preview.map((id) => (
-                <span
-                  key={id}
-                  className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-orange-700"
-                >
-                  <span
-                    aria-hidden
-                    className="inline-block h-4 w-4"
-                    dangerouslySetInnerHTML={{ __html: badgeSvg(id, 16) }}
-                  />
-                  {badgeCopy(id, locale).name}
-                </span>
+                <BadgeRow key={id} id={id} locale={locale} className="bg-white" />
               ))}
               {more > 0 && (
-                <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-orange-700">
+                <li className="text-center text-[11px] font-semibold text-orange-700">
                   +{more}
-                </span>
+                </li>
               )}
-            </div>
+            </ul>
+            {feeLine && <p className="mt-2 text-[11px] text-zinc-500">{feeLine}</p>}
             {state === "error" && (
               <p className="mt-2 text-xs text-red-600">{t("me.badges.claim.error")}</p>
             )}
@@ -286,21 +292,14 @@ export function BadgeClaimPrompt({
             <p className="mt-2 text-center text-sm text-zinc-500">
               {t("me.badges.claim.body")}
             </p>
-            <div className="mt-3 flex flex-wrap justify-center gap-2">
+            <ul className="mt-3 flex max-h-64 flex-col gap-1.5 overflow-y-auto text-left">
               {claimable.map((id) => (
-                <span
-                  key={id}
-                  className="flex items-center gap-1.5 rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700"
-                >
-                  <span
-                    aria-hidden
-                    className="inline-block h-4 w-4"
-                    dangerouslySetInnerHTML={{ __html: badgeSvg(id, 16) }}
-                  />
-                  {badgeCopy(id, locale).name}
-                </span>
+                <BadgeRow key={id} id={id} locale={locale} className="bg-orange-50" />
               ))}
-            </div>
+            </ul>
+            {feeLine && (
+              <p className="mt-3 text-center text-xs text-zinc-500">{feeLine}</p>
+            )}
             {state === "error" && (
               <p className="mt-3 text-center text-xs text-red-600">
                 {t("me.badges.claim.error")}
@@ -329,7 +328,40 @@ export function BadgeClaimPrompt({
   );
 }
 
-/** Badges shown as chips on the home card before collapsing into "+N". */
+/**
+ * One badge in the claim: its art, its name and what it was earned for, so
+ * the player knows what they are claiming before the wallet opens.
+ */
+function BadgeRow({
+  id,
+  locale,
+  className,
+}: {
+  id: number;
+  locale: "en" | "es";
+  className: string;
+}) {
+  const copy = badgeCopy(id, locale);
+  return (
+    <li className={`flex items-center gap-2.5 rounded-xl px-3 py-2 ${className}`}>
+      <span
+        aria-hidden
+        className="inline-block h-7 w-7 shrink-0"
+        dangerouslySetInnerHTML={{ __html: badgeSvg(id, 28) }}
+      />
+      <span className="min-w-0">
+        <span className="block text-xs font-semibold text-orange-700">{copy.name}</span>
+        {copy.description && (
+          <span className="block text-[11px] leading-snug text-zinc-600">
+            {copy.description}
+          </span>
+        )}
+      </span>
+    </li>
+  );
+}
+
+/** Badges listed on the home card before collapsing into "+N". */
 const CARD_PREVIEW = 6;
 
 /** Session key for "Later" on the home card; a new badge shows the card again. */
