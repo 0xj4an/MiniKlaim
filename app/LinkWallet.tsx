@@ -7,6 +7,7 @@ import { createLogger } from "@/lib/logger";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { useLinkRedeem } from "@/lib/wallet/useLinkRedeem";
 import { forgetOwnerKey, ownerKeyHeaders } from "@/lib/wallet/ownerKey";
+import { useInMiniPay } from "@/lib/wallet/useInMiniPay";
 
 const log = createLogger("ui:linkWallet");
 
@@ -23,6 +24,11 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
   const [code, setCode] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [proofNeeded, setProofNeeded] = useState(false);
+  // Redeeming a code sends a 0-value transaction that MiniPay refuses every
+  // time (30 days to 13 Nov 2026: 482 tries, 0 linked; 150 tries by 88
+  // people in the 48 h to 17 Nov, all permission_denied). Inside MiniPay
+  // only the code is offered, to be entered from the other wallet.
+  const inMiniPay = useInMiniPay();
 
   useEffect(() => {
     if (state === "linked") {
@@ -111,36 +117,38 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
         )}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-xs text-zinc-500">
-          {t("me.link.enterLabel")}
-        </label>
-        <div className="flex gap-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={t("me.link.placeholder")}
-            className="min-w-0 flex-1 rounded-md border border-zinc-300 px-3 py-2 font-mono text-sm uppercase"
-          />
-          <button
-            onClick={() => void redeem(input)}
-            disabled={busy || !input.trim()}
-            className="rounded-full bg-orange-600 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
-          >
-            {state === "sending"
-              ? t("me.link.sending")
-              : state === "confirming"
-                ? t("me.link.confirming")
-                : t("me.link.cta")}
-          </button>
+      {!inMiniPay && (
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-zinc-500">
+            {t("me.link.enterLabel")}
+          </label>
+          <div className="flex gap-2">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={t("me.link.placeholder")}
+              className="min-w-0 flex-1 rounded-md border border-zinc-300 px-3 py-2 font-mono text-sm uppercase"
+            />
+            <button
+              onClick={() => void redeem(input)}
+              disabled={busy || !input.trim()}
+              className="rounded-full bg-orange-600 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
+            >
+              {state === "sending"
+                ? t("me.link.sending")
+                : state === "confirming"
+                  ? t("me.link.confirming")
+                  : t("me.link.cta")}
+            </button>
+          </div>
+          {state === "linked" && (
+            <p className="text-xs text-green-700">{t("me.link.linked")}</p>
+          )}
+          {state === "error" && (
+            <p className="text-xs text-red-600">{t("me.link.error")}</p>
+          )}
         </div>
-        {state === "linked" && (
-          <p className="text-xs text-green-700">{t("me.link.linked")}</p>
-        )}
-        {state === "error" && (
-          <p className="text-xs text-red-600">{t("me.link.error")}</p>
-        )}
-      </div>
+      )}
     </div>
   );
 }
