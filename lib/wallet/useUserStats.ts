@@ -15,6 +15,10 @@ export type UserStats = {
   streak: number;
   /** Longest streak ever (days with at least one block). */
   bestStreak: number;
+  /** Rest days held: each covers one missed day. Absent on old servers. */
+  restDays?: number;
+  /** Missed days a rest day is covering right now. */
+  restDaysCovering?: number;
   lifetimeDistanceMeters: number;
   cityCount: number;
   conquests: number;

@@ -24,6 +24,12 @@ export const dictionaries = {
     "home.streak.days": "You are on a {n}-day streak",
     "home.streak.toBadge": "{d} more to the {m}-day badge.",
     "home.streak.allBadges": "Every streak badge is yours. Keep it going.",
+    "home.streak.rest": "{n} rest days saved. Each covers a day you miss.",
+    "home.streak.rest.one": "1 rest day saved. It covers a day you miss.",
+    "home.streak.restCovered":
+      "A rest day covered the day you missed. Play today to keep going.",
+    "home.streak.restEarn": "{d} more days in a row earn a rest day.",
+    "home.streak.restEarn.one": "1 more day in a row earns a rest day.",
     "home.losses.title": "While you were away",
     "home.losses.captured": "{n} blocks taken from you",
     "home.losses.captured.one": "1 block taken from you",
@@ -713,6 +719,16 @@ export const dictionaries = {
     "home.streak.toBadge": "Te faltan {d} para la insignia de {m} días.",
     "home.streak.allBadges":
       "Ya tienes todas las insignias de racha. No la sueltes.",
+    "home.streak.rest":
+      "Tienes {n} días de descanso. Cada uno cubre un día que faltes.",
+    "home.streak.rest.one":
+      "Tienes 1 día de descanso. Cubre un día que faltes.",
+    "home.streak.restCovered":
+      "Un día de descanso cubrió el día que faltaste. Juega hoy para seguir.",
+    "home.streak.restEarn":
+      "{d} días seguidos más y ganas un día de descanso.",
+    "home.streak.restEarn.one":
+      "1 día seguido más y ganas un día de descanso.",
     "home.losses.title": "Mientras no estabas",
     "home.losses.captured": "Te quitaron {n} cuadras",
     "home.losses.captured.one": "Te quitaron 1 cuadra",
