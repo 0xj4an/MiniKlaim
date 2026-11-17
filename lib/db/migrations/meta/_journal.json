@@ -183,6 +183,13 @@
       "when": 1794649957194,
       "tag": "0025_autovacuum_hex_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794910208100,
+      "tag": "0026_run_time_zone",
+      "breakpoints": true
     }
   ]
 }

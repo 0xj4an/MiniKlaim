@@ -94,6 +94,11 @@ export const runs = pgTable(
       .notNull()
       .defaultNow(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
+    // IANA zone the phone reported when this run started. The streak cuts
+    // this run's day in it, so a later trip does not move past days. Null
+    // for runs from before 17 Nov 2026 that had no saved zone, and from
+    // clients that send none; those use the player's latest zone.
+    timeZone: text("time_zone"),
     hexesClaimed: integer("hexes_claimed").notNull().default(0),
     distanceMeters: integer("distance_meters").notNull().default(0),
     // foot, bike, car, or plane. Null when the run is too short to tell.
