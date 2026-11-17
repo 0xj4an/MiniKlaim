@@ -85,3 +85,80 @@ export function isUsableStyle(value: unknown): value is BasemapStyle {
     (l) => !!l && typeof l === "object" && typeof l.id === "string",
   );
 }
+
+/**
+ * The part of a TileJSON document a source needs: where its tiles are and
+ * how far they go.
+ */
+export type TileJson = {
+  tiles: string[];
+  minzoom?: number;
+  maxzoom?: number;
+  bounds?: [number, number, number, number];
+  attribution?: string;
+};
+
+export function isUsableTileJson(value: unknown): value is TileJson {
+  if (!value || typeof value !== "object") return false;
+  const tiles = (value as { tiles?: unknown }).tiles;
+  return (
+    Array.isArray(tiles) &&
+    tiles.length > 0 &&
+    tiles.every((t) => typeof t === "string" && /^https:\/\//.test(t))
+  );
+}
+
+/** The sources that point at a TileJSON document instead of naming tiles. */
+export function tileJsonSources(
+  style: BasemapStyle,
+): Array<{ id: string; url: string }> {
+  const out: Array<{ id: string; url: string }> = [];
+  for (const [id, source] of Object.entries(style.sources)) {
+    const url = (source as { url?: unknown }).url;
+    const type = (source as { type?: unknown }).type;
+    if ((type === "vector" || type === "raster") && typeof url === "string") {
+      out.push({ id, url });
+    }
+  }
+  return out;
+}
+
+/**
+ * The style with each source's TileJSON written into it.
+ *
+ * The style came from our origin, but its street source still said "ask
+ * tiles.openfreemap.org/planet where the tiles are", so the phone made one
+ * more request to the third party before it could draw a single street. When
+ * that one failed the map reported a render failure (5 of the 20 in the week
+ * to 17 Nov 2026) and drew no streets at all, however many tiles it could
+ * have reached. The server already holds the answer; this puts it in the
+ * style, and the phone goes straight to the tiles.
+ *
+ * A source with no usable document is left as it was, so a failed lookup on
+ * the server costs nothing the phone was not already paying.
+ */
+export function inlineTileJson(
+  style: BasemapStyle,
+  documents: Readonly<Record<string, unknown>>,
+): BasemapStyle {
+  const sources: Record<string, unknown> = { ...style.sources };
+  for (const { id } of tileJsonSources(style)) {
+    const doc = documents[id];
+    if (!isUsableTileJson(doc)) continue;
+    const rest = { ...(style.sources[id] as Record<string, unknown>) };
+    delete rest.url;
+    sources[id] = {
+      ...rest,
+      tiles: doc.tiles,
+      ...(typeof doc.minzoom === "number" ? { minzoom: doc.minzoom } : {}),
+      ...(typeof doc.maxzoom === "number" ? { maxzoom: doc.maxzoom } : {}),
+      ...(Array.isArray(doc.bounds) && doc.bounds.length === 4
+        ? { bounds: doc.bounds }
+        : {}),
+      ...(typeof doc.attribution === "string"
+        ? { attribution: doc.attribution }
+        : {}),
+    };
+  }
+  return { ...style, sources: sources as BasemapStyle["sources"] };
+}
