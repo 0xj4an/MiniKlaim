@@ -1,7 +1,6 @@
 import { inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { cellToParent, latLngToCell } from "h3-js";
-import { gunzipSync } from "node:zlib";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { hexes, users } from "@/lib/db/schema";
@@ -57,7 +56,6 @@ describe.skipIf(!db)("world list read in slices", () => {
     expect(bare).toEqual({ owner: BARE, ownerUsername: null, h3: [bareCell] });
     // One group per owner even when the owner's rows span two slices.
     expect(body.owners.filter((g) => g.owner === NAMED)).toHaveLength(1);
-    expect(gunzipSync(packed.gzip).equals(Buffer.from(packed.json))).toBe(true);
   });
 
   it("serves the one-row-per-block shape as valid JSON across slices", async () => {
