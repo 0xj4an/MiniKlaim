@@ -44,6 +44,13 @@ import {
 import { withOwnFloor, type PaintRow } from "@/lib/map/ownFloor";
 import { RUN_DOT_ZOOM, thinForDots, toPointCollection } from "@/lib/map/runDots";
 import {
+  backoffSeconds,
+  CLAIMED_REFRESH_MIN_MS,
+  mapRunProps,
+  newMapRunStats,
+  noteZoom,
+} from "@/lib/map/refreshBackoff";
+import {
   nextCourse,
   readOrientation,
   writeOrientation,
@@ -326,6 +333,12 @@ export default function RunPage() {
   const lastServerRowsRef = useRef<ClaimedHexRow[]>([]);
   const localPaintTimer = useRef<number | null>(null);
   const moveRefreshTimer = useRef<number | null>(null);
+  // Until when the server asked not to be asked for blocks, and when the
+  // near disk was last downloaded. See lib/map/refreshBackoff.
+  const serverBackoffUntil = useRef(0);
+  const lastDiskFetchAt = useRef(0);
+  // What the map did since the run started; sent with run_finished.
+  const mapStatsRef = useRef(newMapRunStats());
   // Whether the camera keeps the player in the middle. A drag turns it off,
   // the centre button turns it back on.
   const followRef = useRef(true);
@@ -357,6 +370,17 @@ export default function RunPage() {
       }
       // Turning the map to the way the player is going only makes sense
       // around the player, so this also takes the camera back to them.
+      if (!followRef.current) {
+        trackLimited(
+          "map_follow_set",
+          {
+            is_following: true,
+            reason: "orientation",
+            in_run: runIdRef.current !== null,
+          },
+          10,
+        );
+      }
       followRef.current = true;
       setFollowing(true);
       const pos = latestPosRef.current;
@@ -750,12 +774,35 @@ export default function RunPage() {
         // In dot mode keep only the rows a dot stands for. The local repaint
         // runs four times a second on a moving run, and it would otherwise
         // walk every block in a view that can hold the whole world list.
-        const kept =
-          map && map.getZoom() < RUN_DOT_ZOOM
-            ? thinForDots(rows, map.getZoom(), dotRank)
-            : rows;
+        const paintStart = performance.now();
+        const zoom = map ? map.getZoom() : null;
+        const dots = zoom !== null && zoom < RUN_DOT_ZOOM;
+        const kept = dots ? thinForDots(rows, zoom, dotRank) : rows;
         lastServerRowsRef.current = kept;
         const count = drawClaimed(kept);
+        const paintMs = performance.now() - paintStart;
+        const stats = mapStatsRef.current;
+        if (paintMs > stats.slowestPaintMs) stats.slowestPaintMs = paintMs;
+        const inRun = runIdRef.current !== null;
+        if (dots) {
+          stats.dotPaints += 1;
+          trackLimited("map_dots_shown", {
+            zoom: Math.round(zoom * 10) / 10,
+            rows: rows.length,
+            dots: count,
+            ms: Math.round(paintMs),
+            in_run: inRun,
+          });
+        }
+        if (paintMs > 250 && zoom !== null) {
+          trackLimited("map_paint_slow", {
+            ms: Math.round(paintMs),
+            rows: rows.length,
+            zoom: Math.round(zoom * 10) / 10,
+            is_dots: dots,
+            in_run: inRun,
+          });
+        }
         log.debug("claimed-view", {
           count,
           fromServer: rows.length,
@@ -768,21 +815,42 @@ export default function RunPage() {
         url: string,
       ): Promise<ClaimedHexRow[] | null> => {
         const startedAt = Date.now();
+        const stats = mapStatsRef.current;
+        // The server asked for a pause: answer from what the phone has. A
+        // new screen ("fresh") still asks, once, or it would open empty.
+        if (reason !== "fresh" && startedAt < serverBackoffUntil.current) {
+          stats.skipped += 1;
+          return null;
+        }
+        stats.refreshes += 1;
         try {
           const res = await fetch(url);
           if (!res.ok) {
-            const backoff = res.status === 429 || res.status === 504;
-            if (backoff) hexRefreshPauseUntil.current = Date.now() + 20_000;
+            stats.refreshErrors += 1;
+            const seconds = backoffSeconds(
+              res.status,
+              res.headers.get("Retry-After"),
+            );
+            if (seconds !== null) {
+              stats.backoffs += 1;
+              serverBackoffUntil.current = Date.now() + seconds * 1000;
+              hexRefreshPauseUntil.current = serverBackoffUntil.current;
+              trackLimited("hexes_refresh_backoff", {
+                status: res.status,
+                seconds,
+              });
+            }
             log.warn("claimed hexes refresh failed", {
               status: res.status,
-              pace: backoff ? "claim-refresh-504-20s" : "claim-refresh-4s",
+              backoffSeconds: seconds,
             });
-            track("hexes_refresh_error", { status: res.status });
+            trackLimited("hexes_refresh_error", { status: res.status }, 10);
             reportServerError(endpointLabel(url), res.status);
             return null;
           }
           return rowsFromWorldResponse(await res.json());
         } catch (e) {
+          stats.refreshErrors += 1;
           log.error("failed to refresh claimed hexes", {
             message: e instanceof Error ? e.message : String(e),
           });
@@ -818,10 +886,29 @@ export default function RunPage() {
         ) {
           return;
         }
+        // After a saved batch the map is already patched from the claim's
+        // own answer. The download adds what others did nearby, and that
+        // does not need a request per batch.
+        if (
+          reason === "claimed" &&
+          !modeChanged &&
+          Date.now() - lastDiskFetchAt.current < CLAIMED_REFRESH_MIN_MS
+        ) {
+          mapStatsRef.current.skipped += 1;
+          drawClaimed(lastServerRowsRef.current);
+          return;
+        }
         const k = diskKForRadius(radius);
         const near = latLngToCell(centerLat, centerLng, HEX_RESOLUTION);
+        lastDiskFetchAt.current = Date.now();
         const rows = await fetchRows(`/api/hexes?near=${near}&k=${k}`);
-        if (stale() || !rows) return;
+        if (stale()) return;
+        if (!rows) {
+          // Refused or offline: what is on the phone may still need drawing
+          // in the other shape (blocks to dots or back).
+          if (modeChanged) drawClaimed(lastServerRowsRef.current);
+          return;
+        }
         paint(rows);
         diskCoverRef.current = {
           lat: centerLat,
@@ -1545,6 +1632,12 @@ export default function RunPage() {
               damaged: data.hexesDamaged ?? 0,
             }
           : {}),
+        ...(mapRef.current
+          ? {
+              map_orientation: orientationRef.current,
+              ...mapRunProps(mapStatsRef.current),
+            }
+          : {}),
       });
       setLastFinishedRun({
         id,
@@ -1568,6 +1661,8 @@ export default function RunPage() {
       attackedLeftRef.current = new Map();
       setUploadFailing(false);
       passedH3Ref.current = new Set();
+      mapStatsRef.current = newMapRunStats();
+      if (mapRef.current) noteZoom(mapStatsRef.current, mapRef.current.getZoom());
       // Do not await this. The world list is megabytes, and waiting on it
       // kept the wallet sheet from opening.
       void refreshClaimed();
@@ -1939,11 +2034,16 @@ export default function RunPage() {
               !map.isZooming()
             ) {
               try {
+                const course = heading ? courseRef.current.course : null;
+                if (
+                  course !== null &&
+                  Math.abs(((course - map.getBearing() + 540) % 360) - 180) > 5
+                ) {
+                  mapStatsRef.current.turns += 1;
+                }
                 map.easeTo({
                   center: [longitude, latitude],
-                  ...(heading && courseRef.current.course !== null
-                    ? { bearing: courseRef.current.course }
-                    : {}),
+                  ...(course !== null ? { bearing: course } : {}),
                   duration: 600,
                 });
               } catch (e) {
@@ -2318,6 +2418,7 @@ export default function RunPage() {
       map.on("moveend", () => {
         // Blocks to dots or back is a repaint from rows already here when
         // the view is wide, so it does not wait out the pause.
+        noteZoom(mapStatsRef.current, map.getZoom());
         const dots = map.getZoom() < RUN_DOT_ZOOM;
         if (dots !== paintedDotsRef.current) hexRefreshPauseUntil.current = 0;
         refreshAfterMove();
@@ -2326,6 +2427,18 @@ export default function RunPage() {
       // to them until they ask for it with the centre button.
       map.on("dragstart", (e) => {
         if (!e.originalEvent) return;
+        if (followRef.current) {
+          mapStatsRef.current.followBreaks += 1;
+          trackLimited(
+            "map_follow_set",
+            {
+              is_following: false,
+              reason: "drag",
+              in_run: runIdRef.current !== null,
+            },
+            10,
+          );
+        }
         followRef.current = false;
         setFollowing(false);
       });
@@ -2563,6 +2676,17 @@ export default function RunPage() {
           const pos = latestPosRef.current;
           const map = mapRef.current;
           if (!pos || !map) return;
+          if (!followRef.current) {
+            trackLimited(
+              "map_follow_set",
+              {
+                is_following: true,
+                reason: "center",
+                in_run: runIdRef.current !== null,
+              },
+              10,
+            );
+          }
           followRef.current = true;
           setFollowing(true);
           placeCamera(map, pos.lng, pos.lat, FOLLOW_ZOOM);
