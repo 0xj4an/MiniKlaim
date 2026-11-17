@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
@@ -38,9 +38,20 @@ export async function POST(
     );
   }
 
-  // Only the phone that owns the wallet may name it. The address alone let
-  // anyone rename a player, and then take the name that freed up.
-  if (!(await requestHasOwnerKey(request, lower))) {
+  // A wallet with no name yet may take one from any phone. Only changing a
+  // name it already has asks for the owner key: the address alone let anyone
+  // rename a player and take the name that freed up, and a name nobody holds
+  // has nothing to take. Asking for the key on a first name too stopped real
+  // players and protected no one: every blocked attempt in the 48 h to 17 Nov
+  // 2026 (38 on 8 wallets) was a first name, on a wallet that had played
+  // before the key existed and could not get one on a new phone.
+  const [current] = await db
+    .select({ username: users.username })
+    .from(users)
+    .where(eq(users.address, lower))
+    .limit(1);
+  const firstName = !current?.username;
+  if (!firstName && !(await requestHasOwnerKey(request, lower))) {
     log.warn("username change without the owner key", { address: lower });
     return NextResponse.json(
       { error: "this phone cannot change this wallet's name", code: "proof-needed" },
@@ -63,12 +74,22 @@ export async function POST(
       .onConflictDoUpdate({
         target: users.address,
         set: { username },
+        // A first name goes through without the key only while the wallet
+        // still has none, so a second keyless request cannot replace it.
+        ...(firstName ? { setWhere: isNull(users.username) } : {}),
       })
       .returning({
         address: users.address,
         username: users.username,
         createdAt: users.createdAt,
       });
+    if (!user) {
+      // Another request named the wallet between the read and the write.
+      return NextResponse.json(
+        { error: "this phone cannot change this wallet's name", code: "proof-needed" },
+        { status: 403 },
+      );
+    }
 
     // Ensure this wallet has a player so its name is linkable across chains.
     const chainId = getChain(
