@@ -259,12 +259,18 @@ export function WorldMap({
       const parentRes = worldPointParentRes(map.getZoom());
       let rows: HexRow[];
       if (parentRes !== null) {
-        rows = thinWorldRows(all, parentRes, (owner) => {
-          const key = owner.toLowerCase();
-          if (mineSet.has(key)) return 2;
-          if (topColors.has(key)) return 1;
-          return 0;
-        });
+        rows = thinWorldRows(
+          all,
+          parentRes,
+          (owner) => {
+            const key = owner.toLowerCase();
+            if (mineSet.has(key)) return 2;
+            if (topColors.has(key)) return 1;
+            return 0;
+          },
+          // Dots, so each one goes on a real block and not on a cell centre.
+          "block",
+        );
       } else {
         if (placedForRef.current !== all) {
           placedRef.current = placeHexes(all);

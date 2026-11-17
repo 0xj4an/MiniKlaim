@@ -33,7 +33,15 @@ describe("thinToParents", () => {
   it("returns one row per parent cell", () => {
     const out = thinToParents(near.map((h) => row(h, "0xa")), 2, () => 0);
     expect(out).toHaveLength(1);
-    expect(out[0].h3).toBe(cellToParent(near[0], 2));
+    expect(cellToParent(out[0].h3, 2)).toBe(cellToParent(near[0], 2));
+  });
+
+  it("keeps a real block, so the dot sits where somebody captured", () => {
+    // The cell centre is up to 20 km from any block, and dots drawn there
+    // lined up in the lattice of the cells instead of on the cities.
+    const out = thinToParents(near.map((h) => row(h, "0xa")), 2, () => 0);
+    expect(near).toContain(out[0].h3);
+    expect(out[0].h3).toBe([...near].sort()[0]);
   });
 
   it("keeps cells that are genuinely apart", () => {

@@ -22,6 +22,12 @@ export function parseThinRes(raw: string | null): WorldThinRes | null {
 /**
  * One row per parent cell, preferring the owner the map most wants to show.
  *
+ * The row kept is a real block of that cell, not the cell itself. The dot
+ * used to be drawn at the centre of the cell, up to 20 km from anything the
+ * player captured: zoomed out, the dots lined up in the lattice of the cells
+ * instead of on the cities, and some landed in the sea (0xj4an, 17 Nov
+ * 2026). A real block puts the dot on a street somebody walked.
+ *
  * This is the thinning the browser has been doing since the world view
  * existed, moved to the server. The point is not the CPU: it is that the
  * browser could only thin a list it had already downloaded, so every visit
@@ -58,13 +64,7 @@ export function createThinner(
   res: WorldThinRes,
   rank: (owner: string) => number,
 ): { add: (rows: readonly ClaimedHexRow[]) => void; rows: () => ClaimedHexRow[] } {
-  // `child` is the id this cell was won with. The row's own h3 is already
-  // the parent by then, so comparing against it would compare a child to a
-  // parent and the tie-break would depend on arrival order.
-  const best = new Map<
-    string,
-    { row: ClaimedHexRow; rank: number; child: string }
-  >();
+  const best = new Map<string, { row: ClaimedHexRow; rank: number }>();
   const add = (rows: readonly ClaimedHexRow[]) => {
     for (const row of rows) {
       let parent: string;
@@ -81,12 +81,11 @@ export function createThinner(
         // Same rank: the lowest id wins, so the output is deterministic and
         // the ETag does not change just because the rows came back in
         // another order.
-        if (score === prev.rank && row.h3 >= prev.child) continue;
+        if (score === prev.rank && row.h3 >= prev.row.h3) continue;
       }
       best.set(parent, {
         rank: score,
-        child: row.h3,
-        row: { h3: parent, owner: row.owner, ownerUsername: row.ownerUsername },
+        row: { h3: row.h3, owner: row.owner, ownerUsername: row.ownerUsername },
       });
     }
   };

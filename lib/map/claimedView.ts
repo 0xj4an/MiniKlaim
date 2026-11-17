@@ -188,12 +188,18 @@ export function hexesInBounds(
   const east = bounds.east + dLng;
   const south = bounds.south - dLat;
   const north = bounds.north + dLat;
+  // Zoomed out far enough, the view runs past the edge of the world and its
+  // bounds leave -180..180: a view centred on the Pacific reports west as
+  // 150 and east as 210. A block is in view when any copy of it is.
+  const everyLng = east - west >= 360;
   return rows.filter(
     (row) =>
       row.lat >= south &&
       row.lat <= north &&
-      row.lng >= west &&
-      row.lng <= east,
+      (everyLng ||
+        (row.lng >= west && row.lng <= east) ||
+        (row.lng + 360 >= west && row.lng + 360 <= east) ||
+        (row.lng - 360 >= west && row.lng - 360 <= east)),
   );
 }
 

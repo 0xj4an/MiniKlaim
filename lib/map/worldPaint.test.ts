@@ -1,4 +1,4 @@
-import { latLngToCell } from "h3-js";
+import { cellToParent, latLngToCell } from "h3-js";
 import { describe, expect, it } from "vitest";
 import { thinWorldRows, worldPointParentRes } from "./worldPaint";
 
@@ -28,5 +28,23 @@ describe("thinWorldRows", () => {
     const kept = thinned.find((row) => row.owner === "0xmine");
     expect(kept?.ownerUsername).toBe("me");
     expect(kept?.h3).not.toBe(medellin);
+  });
+
+  it("returns the cell for the grid tier and the real block for a dot", () => {
+    const rank = (owner: string) => (owner === "0xmine" ? 2 : 0);
+    const cells = thinWorldRows(rows, 2, rank).map((row) => row.h3);
+    expect(cells).toContain(cellToParent(medellin, 2));
+    const blocks = thinWorldRows(rows, 2, rank, "block").map((row) => row.h3);
+    expect(blocks.sort()).toEqual([medellinNext, nyc].sort());
+  });
+
+  it("breaks a tie on the lowest id, whatever order the rows came in", () => {
+    const a = [
+      { h3: medellin, owner: "0xa", ownerUsername: null },
+      { h3: medellinNext, owner: "0xb", ownerUsername: null },
+    ];
+    const lowest = [medellin, medellinNext].sort()[0];
+    expect(thinWorldRows(a, 2, () => 0, "block")[0].h3).toBe(lowest);
+    expect(thinWorldRows([...a].reverse(), 2, () => 0, "block")[0].h3).toBe(lowest);
   });
 });
