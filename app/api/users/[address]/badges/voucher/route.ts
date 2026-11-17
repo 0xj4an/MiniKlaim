@@ -4,6 +4,8 @@ import { createLogger } from "@/lib/logger";
 import { parseChainKey } from "@/lib/onchain/chains";
 import { claimableBadgeIds } from "@/lib/onchain/claimableBadges";
 import { signBadgeVoucher } from "@/lib/onchain/badgeVoucher";
+import { quoteMintGas } from "@/lib/onchain/mintFee";
+import { estimateClaimGas } from "@/lib/onchain/sponsorRules";
 
 const log = createLogger("api:badges:voucher");
 
@@ -45,5 +47,9 @@ export async function POST(
     );
   }
 
-  return NextResponse.json(result.voucher);
+  // What the claim costs a player who pays it, in dollars, so the prompt can
+  // say so before the wallet opens. Null when the chain cannot be read; the
+  // prompt then shows no price rather than a wrong one.
+  const feeUsd = await quoteMintGas(chainKey, estimateClaimGas(0, badgeIds.length));
+  return NextResponse.json({ ...result.voucher, feeUsd });
 }
