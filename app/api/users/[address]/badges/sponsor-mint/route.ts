@@ -10,6 +10,7 @@ import { runs } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
 import { parseChainKey } from "@/lib/onchain/chains";
 import { claimableBadgeIds } from "@/lib/onchain/claimableBadges";
+import { addressesForPlayer } from "@/lib/players";
 import { mintBadgesBatch } from "@/lib/onchain/badges";
 import {
   checkRelayerBalance,
@@ -18,7 +19,7 @@ import {
   sponsoredLast24h,
 } from "@/lib/onchain/sponsor";
 import {
-  dailyBadgeTxCap,
+  dailyBadgeCap,
   RUN_TOKEN_HEADER,
   runTokenMatches,
 } from "@/lib/onchain/sponsorRules";
@@ -31,7 +32,8 @@ export const dynamic = "force-dynamic";
  * Relayer-mint eligible badges the player does not already hold on any
  * linked wallet. The caller proves it is the player's client with the token
  * of one of the player's runs (`?runId=` plus the run token header). Refused
- * when the player can pay, and limited to a few sponsored txs per wallet a day.
+ * when the player can pay, and limited to `dailyBadgeCap` badges per wallet a
+ * day: a player with more pending gets that many now and the rest later.
  */
 export async function POST(
   request: Request,
@@ -92,15 +94,19 @@ export async function POST(
       { status: 402 },
     );
   }
-  if ((await sponsoredLast24h(db, lower, "badges")) >= dailyBadgeTxCap()) {
+  // Per player, across every linked wallet.
+  const allowance =
+    dailyBadgeCap() - (await sponsoredLast24h(db, await addressesForPlayer(lower), "badges"));
+  if (allowance <= 0) {
     log.warn("badge sponsor refused: daily cap", { player: lower });
     return NextResponse.json(
       { error: "daily limit", reason: "daily_cap" },
       { status: 429 },
     );
   }
+  const batch = candidates.slice(0, allowance);
 
-  const result = await mintBadgesBatch(lower as Address, candidates, chainKey);
+  const result = await mintBadgesBatch(lower as Address, batch, chainKey);
   if (result.ok !== true) {
     log.warn("badge sponsor mint not done", {
       player: lower,
@@ -124,5 +130,7 @@ export async function POST(
   return NextResponse.json({
     txHash: result.txHash,
     minted: result.minted.map((b) => b.toString()),
+    // Badges still pending past today's allowance.
+    remaining: candidates.length - batch.length,
   });
 }

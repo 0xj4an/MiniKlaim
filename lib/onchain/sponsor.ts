@@ -63,11 +63,18 @@ export async function playerCanPay(
   hexCount: number,
   badgeCount: number,
   chainKey: ChainKey,
-  { nativeOnly = false }: { nativeOnly?: boolean } = {},
+  {
+    nativeOnly = false,
+    gas: gasOverride,
+  }: {
+    nativeOnly?: boolean;
+    /** The exact gas of the tx in question, for anything that is not a claim. */
+    gas?: bigint;
+  } = {},
 ): Promise<PayCheck> {
   const recorded = getChain(chainKey).hexesRecords;
-  const gas = estimateClaimGas(hexCount, badgeCount, recorded);
-  if (hexCount > playerTxMaxHexes(recorded)) {
+  const gas = gasOverride ?? estimateClaimGas(hexCount, badgeCount, recorded);
+  if (gasOverride === undefined && hexCount > playerTxMaxHexes(recorded)) {
     // One claim tx cannot carry this many hexes.
     return { canPay: false, feeWei: 0n };
   }
@@ -133,20 +140,22 @@ export async function setMintStatus(db: Db, runId: string, status: MintStatus) {
 /** Hexes (or badge txs) the relayer paid for this wallet in the last 24h. */
 export async function sponsoredLast24h(
   db: Db,
-  address: string,
-  kind: "hexes" | "badges",
+  address: string | string[],
+  kind: "hexes" | "badges" | "tokens",
 ): Promise<number> {
+  // Items, not transactions, for every kind: the caps are in blocks, badges
+  // and NFTs. Pass every wallet of the player (addressesForPlayer) so the cap
+  // is per player: once MiniPay lets wallets link, a player with three
+  // wallets must not get three allowances.
+  const wallets = (Array.isArray(address) ? address : [address]).map((a) => a.toLowerCase());
   const [row] = await db
     .select({
-      total:
-        kind === "hexes"
-          ? sql<number>`coalesce(sum(${sponsoredMints.count}), 0)::int`
-          : sql<number>`count(*)::int`,
+      total: sql<number>`coalesce(sum(${sponsoredMints.count}), 0)::int`,
     })
     .from(sponsoredMints)
     .where(
       and(
-        eq(sponsoredMints.userAddress, address.toLowerCase()),
+        inArray(sponsoredMints.userAddress, wallets),
         eq(sponsoredMints.kind, kind),
         gt(sponsoredMints.createdAt, sql`now() - interval '24 hours'`),
       ),
@@ -159,7 +168,7 @@ export async function recordSponsored(
   entry: {
     address: string;
     runId: string | null;
-    kind: "hexes" | "badges";
+    kind: "hexes" | "badges" | "tokens";
     count: number;
     txHash: string;
   },
@@ -211,7 +220,13 @@ export async function sponsorRunHexes(
   }
 
   const allowance = remainingHexAllowance(
-    await sponsoredLast24h(db, player, "hexes"),
+    // Imported here, not at the top: lib/players opens the app's database at
+    // load, and this module is also loaded by tests that have none.
+    await sponsoredLast24h(
+      db,
+      await (await import("@/lib/players")).addressesForPlayer(player),
+      "hexes",
+    ),
   );
   const ids = all.slice(0, allowance);
   if (ids.length === 0) {

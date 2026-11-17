@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { useLocale } from "@/lib/i18n";
-import { useInMiniPay } from "@/lib/wallet/useInMiniPay";
+import { useLinkRedeemOffered } from "@/lib/wallet/useLinkRedeemOffered";
 import { useLinkRedeem } from "@/lib/wallet/useLinkRedeem";
 
 /**
@@ -18,7 +18,7 @@ export function LinkExisting() {
   const { redeem, state } = useLinkRedeem(address ?? null);
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
-  const inMiniPay = useInMiniPay();
+  const redeemOffered = useLinkRedeemOffered();
 
   useEffect(() => {
     if (state === "linked") {
@@ -28,9 +28,9 @@ export function LinkExisting() {
   }, [state]);
 
   if (!address) return null;
-  // The ownership transaction this path sends is refused by MiniPay every
-  // time (see LinkWallet), so it is not offered there.
-  if (inMiniPay) return null;
+  // The ownership transaction this path sends was refused by MiniPay every
+  // time, so it is not offered there until MINIPAY_LINK_REDEEM is on.
+  if (!redeemOffered) return null;
 
   const busy = state === "sending" || state === "confirming";
 

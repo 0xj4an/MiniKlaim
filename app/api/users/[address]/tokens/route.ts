@@ -5,7 +5,11 @@ import { hexes } from "@/lib/db/schema";
 import { getChain, parseChainKey } from "@/lib/onchain/chains";
 import { quoteMint, quoteMintGas } from "@/lib/onchain/mintFee";
 import { mintPlan } from "@/lib/onchain/mintPlan";
+import { mintTokensForAvailable } from "@/lib/onchain/hexes";
+import { sponsoredLast24h } from "@/lib/onchain/sponsor";
+import { addressesForPlayer } from "@/lib/players";
 import {
+  dailyTokenCap,
   estimateMintTokensGas,
   MINT_TOKENS_MAX,
   MINT_TOKENS_SMALL_BATCH as SMALL_BATCH,
@@ -51,8 +55,19 @@ export async function GET(
   const quotes = nextBatch > 0 ? await quoteMint(chainKey, counts) : [];
   const planQuote =
     plan.signatures > 1 ? await quoteMintGas(chainKey, plan.totalGas) : null;
+  // Free NFTs left today for a player who cannot pay (tokens/sponsor-mint).
+  // Not offered until the contract has mintTokensFor.
+  const sponsorAvailable =
+    enabled && nextBatch > 0 && (await mintTokensForAvailable(chainKey));
+  const freeToday = sponsorAvailable
+    ? Math.max(
+        0,
+        dailyTokenCap() - (await sponsoredLast24h(db, await addressesForPlayer(lower), "tokens")),
+      )
+    : 0;
   return NextResponse.json({
     enabled,
+    sponsor: { available: sponsorAvailable, freeToday },
     recorded,
     tokens: row?.tokens ?? 0,
     maxPerTx: MINT_TOKENS_MAX,

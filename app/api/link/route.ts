@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
+import { minipayLinkRedeemEnabled } from "@/lib/link/redeemFlag";
 import { getChain, parseChainKey } from "@/lib/onchain/chains";
 import { requestHasOwnerKey } from "@/lib/ownerKey";
 import { createLinkCode } from "@/lib/players";
 
 export const dynamic = "force-dynamic";
+
+/** What the link panel may offer. `redeemInMiniPay`: see lib/link/redeemFlag. */
+export async function GET() {
+  return NextResponse.json({ redeemInMiniPay: minipayLinkRedeemEnabled() });
+}
 
 /** Generate a short-lived link code bound to the requesting wallet's player. */
 export async function POST(request: Request) {

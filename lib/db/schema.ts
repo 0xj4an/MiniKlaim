@@ -283,7 +283,7 @@ export const sponsoredMints = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userAddress: text("user_address").notNull(),
     runId: uuid("run_id"),
-    // "hexes" or "badges".
+    // "hexes", "badges", "tokens" (NFT mints) or "backlog".
     kind: text("kind").notNull(),
     count: integer("count").notNull(),
     txHash: text("tx_hash").notNull(),
