@@ -67,6 +67,7 @@ import { useMapTier } from "@/lib/map/useMapTier";
 import { useMaplibre } from "@/lib/map/useMaplibre";
 import {
   mapContextLost,
+  mapContextRestored,
   mapNoticeDismissed,
   mapRenderFailed,
   mapRenderReady,
@@ -2513,6 +2514,13 @@ export default function RunPage() {
       mapRenderFailed(glTier, "maplibre", "/run", "style", e.error ?? e);
     });
     map.on("webglcontextlost", () => mapContextLost(glTier, "/run"));
+    // MapLibre rebuilds itself when the context comes back. Counted so a
+    // loss that never recovers (a blank map for the rest of the run) can be
+    // told from one the player never noticed.
+    map.on("webglcontextrestored", () => {
+      mapContextRestored(glTier, "/run");
+      drawClaimed(lastServerRowsRef.current);
+    });
 
     const resizeTimer = window.setTimeout(() => map.resize(), 100);
 
@@ -2539,6 +2547,7 @@ export default function RunPage() {
       mapRef.current = null;
     };
   }, [
+    drawClaimed,
     mapBoot,
     mapTier,
     isGrid,

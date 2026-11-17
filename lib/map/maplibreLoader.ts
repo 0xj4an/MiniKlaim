@@ -37,6 +37,9 @@ export const MAPLIBRE_MAJOR: Record<"gl2" | "gl1", 6 | 5> = { gl2: 6, gl1: 5 };
 
 const cache = new Map<string, Promise<MaplibreModule>>();
 
+/** How long to wait before asking for the bundle a second time. */
+export const IMPORT_RETRY_MS = 1500;
+
 /**
  * v6 is ESM only and has no default export, so it is imported by name. The
  * v5 alias keeps its default export, which is the namespace, and older
@@ -83,7 +86,22 @@ export function loadMaplibre(tier: MapTier): Promise<MaplibreModule> | null {
   const running = cache.get(key);
   if (running) return running;
 
-  const started = (tier === "gl1" ? importV5() : importV6()).catch((e) => {
+  const load = () => (tier === "gl1" ? importV5() : importV6());
+  // One more try before giving up. The bundle is a separate download of
+  // about 250 KB on a phone connection, and "Failed to load chunk" was the
+  // whole of the import failures in the week to 17 Nov 2026 (8 of 8): a
+  // dropped request, not a missing file. The second try is what a player
+  // would get by reloading the page, without them having to.
+  const started = load()
+    .catch(async (e) => {
+      log.warn("maplibre import failed; retrying once", {
+        tier,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      await new Promise((resolve) => setTimeout(resolve, IMPORT_RETRY_MS));
+      return load();
+    })
+    .catch((e) => {
     // A bundle that will not load is not the GPU refusing, and the tier it
     // happened on is the whole point of the report: `gl1` failing here means
     // the aliased v5 chunk is missing from the build.
