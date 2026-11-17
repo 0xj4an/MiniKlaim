@@ -3,6 +3,7 @@ import {
   emptyRunReason,
   shareKind,
   shownDistanceMeters,
+  startSpot,
 } from "./runSummaryCopy";
 
 describe("shownDistanceMeters", () => {
@@ -47,5 +48,25 @@ describe("emptyRunReason", () => {
     expect(emptyRunReason("acted")).toBeNull();
     expect(emptyRunReason("saved")).toBeNull();
     expect(emptyRunReason(undefined)).toBeNull();
+  });
+});
+
+describe("startSpot", () => {
+  const used = new Set(["8c60b4a3a1a1dff"]);
+  const mine = new Set(["8c60b4a3a1a13ff"]);
+
+  it("warns on a block already used today, with hex strength on", () => {
+    expect(startSpot({ here: "8c60b4a3a1a1dff", strength: true, usedToday: used, mine })).toBe("used");
+  });
+  it("says nothing on an own block not used today: starting reinforces it", () => {
+    expect(startSpot({ here: "8c60b4a3a1a13ff", strength: true, usedToday: used, mine })).toBeNull();
+  });
+  it("warns on an own block when hex strength is off", () => {
+    expect(startSpot({ here: "8c60b4a3a1a13ff", strength: false, usedToday: used, mine })).toBe("owned");
+    expect(startSpot({ here: "8c60b4a3a1a1dff", strength: false, usedToday: used, mine })).toBeNull();
+  });
+  it("says nothing before the first fix or on a fresh block", () => {
+    expect(startSpot({ here: null, strength: true, usedToday: used, mine })).toBeNull();
+    expect(startSpot({ here: "8c60b4a3a1a17ff", strength: true, usedToday: used, mine })).toBeNull();
   });
 });
