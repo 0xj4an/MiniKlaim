@@ -63,11 +63,18 @@ export async function playerCanPay(
   hexCount: number,
   badgeCount: number,
   chainKey: ChainKey,
-  { nativeOnly = false }: { nativeOnly?: boolean } = {},
+  {
+    nativeOnly = false,
+    gas: gasOverride,
+  }: {
+    nativeOnly?: boolean;
+    /** The exact gas of the tx in question, for anything that is not a claim. */
+    gas?: bigint;
+  } = {},
 ): Promise<PayCheck> {
   const recorded = getChain(chainKey).hexesRecords;
-  const gas = estimateClaimGas(hexCount, badgeCount, recorded);
-  if (hexCount > playerTxMaxHexes(recorded)) {
+  const gas = gasOverride ?? estimateClaimGas(hexCount, badgeCount, recorded);
+  if (gasOverride === undefined && hexCount > playerTxMaxHexes(recorded)) {
     // One claim tx cannot carry this many hexes.
     return { canPay: false, feeWei: 0n };
   }
@@ -134,14 +141,13 @@ export async function setMintStatus(db: Db, runId: string, status: MintStatus) {
 export async function sponsoredLast24h(
   db: Db,
   address: string,
-  kind: "hexes" | "badges",
+  kind: "hexes" | "badges" | "tokens",
 ): Promise<number> {
+  // Items, not transactions, for every kind: the caps are in blocks, badges
+  // and NFTs.
   const [row] = await db
     .select({
-      total:
-        kind === "hexes"
-          ? sql<number>`coalesce(sum(${sponsoredMints.count}), 0)::int`
-          : sql<number>`count(*)::int`,
+      total: sql<number>`coalesce(sum(${sponsoredMints.count}), 0)::int`,
     })
     .from(sponsoredMints)
     .where(
@@ -159,7 +165,7 @@ export async function recordSponsored(
   entry: {
     address: string;
     runId: string | null;
-    kind: "hexes" | "badges";
+    kind: "hexes" | "badges" | "tokens";
     count: number;
     txHash: string;
   },

@@ -29,9 +29,23 @@ export function dailyHexCap(): number {
   return intFromEnv("SPONSOR_DAILY_HEX_CAP", 1000);
 }
 
-/** Sponsored badge transactions for one wallet in a rolling 24h window. */
-export function dailyBadgeTxCap(): number {
-  return intFromEnv("SPONSOR_DAILY_BADGE_TX_CAP", 2);
+/**
+ * Badges the relayer mints for one wallet in a rolling 24h window, counted
+ * one by one. It used to count transactions (SPONSOR_DAILY_BADGE_TX_CAP, 2),
+ * and each sponsored transaction carried every badge pending, so the real
+ * figure was 3.3 badges a transaction on average and up to 14. Set to 3
+ * badges on 17 Nov 2026; past it the player pays or comes back tomorrow.
+ */
+export function dailyBadgeCap(): number {
+  return intFromEnv("SPONSOR_DAILY_BADGE_CAP", 3);
+}
+
+/**
+ * NFTs the relayer mints for one wallet in a rolling 24h window (17 Nov
+ * 2026). About $0.04 of gas per 100 at the price of that day.
+ */
+export function dailyTokenCap(): number {
+  return intFromEnv("SPONSOR_DAILY_TOKEN_CAP", 100);
 }
 
 /** Below this the relayer raises an alert. In CELO. */
