@@ -59,6 +59,7 @@ import {
 } from "@/lib/map/course";
 import { haversineMeters } from "@/lib/map/geo";
 import { liveGeoSource } from "@/lib/map/liveSource";
+import { causeOf } from "@/lib/map/mapFailureKind";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
 import { getGridData, resetGridData, setGridData } from "@/lib/map/gridStore";
 import { viewportFromCenter } from "@/lib/map/viewport";
@@ -334,6 +335,9 @@ export default function RunPage() {
   const lastServerRowsRef = useRef<ClaimedHexRow[]>([]);
   const localPaintTimer = useRef<number | null>(null);
   const moveRefreshTimer = useRef<number | null>(null);
+  // Bumped to build the map again after its worker failed to load. Once.
+  const [mapAttempt, setMapAttempt] = useState(0);
+  const workerRetriedRef = useRef(false);
   // Until when the server asked not to be asked for blocks, and when the
   // near disk was last downloaded. See lib/map/refreshBackoff.
   const serverBackoffUntil = useRef(0);
@@ -2509,7 +2513,18 @@ export default function RunPage() {
     });
 
     map.on("error", (e) => {
-      log.error("map error", { message: e.error?.message ?? String(e) });
+      const message = e.error?.message ?? String(e);
+      log.error("map error", { message });
+      // The worker is a separate file, and when its download drops the map
+      // never draws: the run went on with no map at all (MINIKLAIM-1V and
+      // 1R, 3 players). Build the map again, once, which asks for it again.
+      if (causeOf(message) === "worker" && !workerRetriedRef.current) {
+        workerRetriedRef.current = true;
+        log.warn("map worker failed; rebuilding the map once");
+        track("map_worker_retry", { path: "/run" });
+        queueMicrotask(() => setMapAttempt((n) => n + 1));
+        return;
+      }
       // The style or its tiles, not the GPU: the tier stays.
       mapRenderFailed(glTier, "maplibre", "/run", "style", e.error ?? e);
     });
@@ -2548,6 +2563,7 @@ export default function RunPage() {
     };
   }, [
     drawClaimed,
+    mapAttempt,
     mapBoot,
     mapTier,
     isGrid,

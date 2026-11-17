@@ -377,6 +377,9 @@ type EventMap = {
   // The GPU took the context back, usually under memory pressure. Distinct
   // from a failure: the map worked and then stopped.
   map_context_lost: { tier: "gl2" | "gl1" | "grid"; path: string };
+  // The map's worker file did not load and the map was rebuilt once to
+  // ask for it again. A map_render_ready after this is the retry working.
+  map_worker_retry: { path: string };
   // The GPU gave the context back and the map redrew.
   map_context_restored: { tier: "gl2" | "gl1" | "grid"; path: string };
   // A tier was proven wrong by a failure and thrown away, so the next load
