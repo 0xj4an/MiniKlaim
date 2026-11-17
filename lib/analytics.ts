@@ -73,7 +73,7 @@ type EventMap = {
   // Home-screen campaign banner. Both events carry the campaign so the next
   // one is measurable on its own instead of being pooled with this one.
   /** Day streak shown on the home screen, before they choose to play. */
-  home_streak_shown: { streak: number };
+  home_streak_shown: { streak: number; rest_days?: number; rest_covering?: number };
   campaign_banner_clicked: { campaign: string };
   campaign_banner_dismissed: { campaign: string };
 
@@ -121,6 +121,18 @@ type EventMap = {
     // Hex strength only.
     reinforced?: number;
     damaged?: number;
+    // What the map did during the run. See lib/map/refreshBackoff.
+    map_orientation?: "north" | "heading";
+    map_min_zoom?: number;
+    map_max_zoom?: number;
+    map_dot_paints?: number;
+    map_refreshes?: number;
+    map_refresh_errors?: number;
+    map_backoffs?: number;
+    map_refreshes_skipped?: number;
+    map_follow_breaks?: number;
+    map_turns?: number;
+    map_slowest_paint_ms?: number;
   };
   run_capture_milestone: { hex_count: number };
 
@@ -188,6 +200,10 @@ type EventMap = {
   // (MINIKLAIM-T) and the page reloaded itself.
   head_detach_reload: { path: string };
   hexes_refresh_error: { status: number };
+  // The server refused or was restarting, and the run map stopped asking
+  // for `seconds`. One per pause, where hexes_refresh_error was one per
+  // refused request.
+  hexes_refresh_backoff: { status: number; seconds: number };
   /**
    * `elapsed_ms` and `online` tell a request that hung until it timed out
    * (slow server or slow network) from one that never left the phone. The
@@ -370,6 +386,30 @@ type EventMap = {
   map_notice_dismissed: { tier: "gl2" | "gl1" | "grid"; path: string };
   // The player chose which way is up on the run map.
   map_orientation_set: { mode: "north" | "heading" };
+  // The run map drew dots instead of blocks (zoomed out). `rows` is what
+  // was in view, `dots` what was drawn, `ms` the time to group and draw.
+  map_dots_shown: {
+    zoom: number;
+    rows: number;
+    dots: number;
+    ms: number;
+    in_run: boolean;
+  };
+  // A paint of the run map that took long enough to feel.
+  map_paint_slow: {
+    ms: number;
+    rows: number;
+    zoom: number;
+    is_dots: boolean;
+    in_run: boolean;
+  };
+  // The camera stopped following the player (they dragged the map) or went
+  // back to them (centre button, or turning the map to their direction).
+  map_follow_set: {
+    is_following: boolean;
+    reason: "drag" | "center" | "orientation";
+    in_run: boolean;
+  };
   // MiniPay iOS rejects a postMessage in its own bridge (not app code).
   wallet_bridge_rejected: Record<string, never>;
   gps_unavailable: Record<string, never>;

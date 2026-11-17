@@ -121,7 +121,12 @@ export async function GET(
   ]);
 
   const rank = (rankResult as unknown as Array<{ rank: number }>)[0]?.rank ?? 1;
-  const { current: streak, best: bestStreak } = streaksFrom(runDays);
+  const {
+    current: streak,
+    best: bestStreak,
+    restDays,
+    restDaysCovering,
+  } = streaksFrom(runDays);
   const cityCount = new Set(
     ownedHexes.map((h) => cellToParent(h.h3Id, CITY_RESOLUTION)),
   ).size;
@@ -135,6 +140,9 @@ export async function GET(
     rank,
     streak,
     bestStreak,
+    // Rest days held, and missed days one is covering right now (streakMath).
+    restDays,
+    restDaysCovering,
     lifetimeDistanceMeters: Number(lifetimeRow[0]?.total ?? 0),
     cityCount,
     conquests,

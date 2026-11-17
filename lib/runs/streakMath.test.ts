@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   computeBestStreak,
   computeStreak,
+  daysToNextRestDay,
   isValidTimeZone,
   localDay,
   nextStreakBadge,
+  streakState,
 } from "./streakMath";
 
 const NOW = Date.parse("2026-10-23T15:00:00Z");
@@ -155,5 +157,105 @@ describe("legacy IANA aliases", () => {
     expect(isValidTimeZone("America/Buenos_Aires")).toBe(true);
     expect(isValidTimeZone("Mars/Olympus")).toBe(false);
     expect(isValidTimeZone(null)).toBe(false);
+  });
+});
+
+/** `count` consecutive days ending on `last` (yyyy-mm-dd), newest first. */
+function daysEnding(last: string, count: number): string[] {
+  const end = Date.parse(`${last}T00:00:00Z`);
+  return Array.from({ length: count }, (_, i) =>
+    new Date(end - i * 86_400_000).toISOString().slice(0, 10),
+  );
+}
+
+describe("rest days", () => {
+  it("keeps 0xj4an's streak over the Monday he missed", () => {
+    // 26 Oct to 15 Nov 2026 played, 16 Nov missed, 17 Nov played at 04:08 in
+    // Bogota. Strict counting showed 1.
+    const played = daysEnding("2026-11-15", 21);
+    const beforePlaying = Date.parse("2026-11-17T08:00:00Z");
+    expect(streakState(played, beforePlaying, "America/Bogota")).toEqual({
+      current: 21,
+      best: 21,
+      restDays: 1,
+      restDaysCovering: 1,
+    });
+    const afterPlaying = Date.parse("2026-11-17T09:10:00Z");
+    expect(streakState(["2026-11-17", ...played], afterPlaying, "America/Bogota")).toEqual({
+      current: 22,
+      best: 22,
+      restDays: 1,
+      restDaysCovering: 0,
+    });
+  });
+
+  it("gives none in the first week: seven days still have to be seven in a row", () => {
+    const now = Date.parse("2026-11-10T12:00:00Z");
+    const week = daysEnding("2026-11-08", 7);
+    expect(streakState(week, now)).toMatchObject({ current: 0, best: 7, restDays: 0 });
+    // Six days, a gap, then one more: the gap is not covered.
+    expect(computeBestStreak(["2026-11-10", ...daysEnding("2026-11-08", 6)])).toBe(6);
+  });
+
+  it("earns one every ten days played in a row", () => {
+    const now = Date.parse("2026-11-10T12:00:00Z");
+    expect(streakState(daysEnding("2026-11-10", 9), now).restDays).toBe(0);
+    expect(streakState(daysEnding("2026-11-10", 10), now).restDays).toBe(1);
+    expect(streakState(daysEnding("2026-11-10", 29), now).restDays).toBe(2);
+  });
+
+  it("holds three at most", () => {
+    const now = Date.parse("2026-11-10T12:00:00Z");
+    expect(streakState(daysEnding("2026-11-10", 30), now).restDays).toBe(3);
+    expect(streakState(daysEnding("2026-11-10", 65), now).restDays).toBe(3);
+  });
+
+  it("counts the days played, not the rest days", () => {
+    // Ten days, one missed, five more.
+    const days = [...daysEnding("2026-11-16", 5), ...daysEnding("2026-11-10", 10)];
+    const now = Date.parse("2026-11-16T12:00:00Z");
+    expect(streakState(days, now)).toEqual({
+      current: 15,
+      best: 15,
+      restDays: 0,
+      restDaysCovering: 0,
+    });
+  });
+
+  it("ends when the days missed outnumber the rest days held", () => {
+    // Ten days earn one rest day; two days missed in a row is one too many.
+    const days = [...daysEnding("2026-11-16", 4), ...daysEnding("2026-11-10", 10)];
+    const now = Date.parse("2026-11-16T12:00:00Z");
+    expect(streakState(days, now)).toMatchObject({ current: 4, best: 10, restDays: 0 });
+  });
+
+  it("covers a long weekend with three, and no more", () => {
+    const month = daysEnding("2026-11-10", 30);
+    expect(streakState(month, Date.parse("2026-11-14T12:00:00Z"))).toMatchObject({
+      current: 30,
+      restDays: 0,
+      restDaysCovering: 3,
+    });
+    expect(streakState(month, Date.parse("2026-11-15T12:00:00Z"))).toMatchObject({
+      current: 0,
+      best: 30,
+      restDays: 0,
+    });
+  });
+
+  it("does not count today as missed while it is not over", () => {
+    const ten = daysEnding("2026-11-09", 10);
+    expect(streakState(ten, Date.parse("2026-11-10T23:00:00Z"))).toMatchObject({
+      current: 10,
+      restDays: 1,
+      restDaysCovering: 0,
+    });
+  });
+
+  it("says how far the next rest day is", () => {
+    expect(daysToNextRestDay(1)).toBe(9);
+    expect(daysToNextRestDay(9)).toBe(1);
+    expect(daysToNextRestDay(10)).toBe(10);
+    expect(daysToNextRestDay(22)).toBe(8);
   });
 });

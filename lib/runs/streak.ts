@@ -3,10 +3,10 @@ import { db } from "@/lib/db";
 import { addressesForPlayer } from "@/lib/players";
 import {
   STREAK_MIN_SERVER_METERS,
-  computeBestStreak,
-  computeStreak,
+  type StreakState,
   isValidTimeZone,
   localDay,
+  streakState,
 } from "@/lib/runs/streakMath";
 
 export {
@@ -16,6 +16,7 @@ export {
   computeStreak,
   isValidTimeZone,
   nextStreakBadge,
+  streakState,
 } from "@/lib/runs/streakMath";
 
 export type StreakDays = {
@@ -124,15 +125,12 @@ export async function streakDays(
   return { days, timeZone };
 }
 
-/** Current and best streak from the days and zone `streakDays` returned. */
+/** Current and best streak, and rest days, from what `streakDays` returned. */
 export function streaksFrom(
   { days, timeZone }: StreakDays,
   now = Date.now(),
-): { current: number; best: number } {
-  return {
-    current: computeStreak(days, now, timeZone),
-    best: computeBestStreak(days),
-  };
+): StreakState {
+  return streakState(days, now, timeZone);
 }
 
 /**
@@ -142,7 +140,7 @@ export function streaksFrom(
  */
 export async function getPlayerStreaks(
   addressLower: string,
-): Promise<{ current: number; best: number }> {
+): Promise<StreakState> {
   const linked = await addressesForPlayer(addressLower);
   return streaksFrom(await streakDays(linked));
 }
