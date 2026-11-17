@@ -133,7 +133,9 @@ export function TerritoryMap({ address }: { address: string | null }) {
         }
         if (!containerRef.current || !gl || !mapStyle) return;
         const glTier = mapTier === "gl1" ? "gl1" : "gl2";
-        let progress: "import" | "construct" | "style" | "draw" | null = null;
+        // The bundle is loaded by now, so the import is done. Left at null,
+        // every stall on this page was reported as stuck in the import.
+        let progress: "import" | "construct" | "style" | "draw" | null = "import";
         const settle = watchMapRender(glTier, "maplibre", "/me", () => progress);
         settleWatch = settle;
         mapRenderStarted(glTier, "maplibre", "/me");
@@ -167,6 +169,10 @@ export function TerritoryMap({ address }: { address: string | null }) {
           return;
         }
         mapRef.current = map;
+        progress = "construct";
+        map.once("style.load", () => {
+          progress = "style";
+        });
 
         map.on("load", () => {
           if (cancelled) return;
