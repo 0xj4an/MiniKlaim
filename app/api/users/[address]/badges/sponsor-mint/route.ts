@@ -10,6 +10,7 @@ import { runs } from "@/lib/db/schema";
 import { createLogger } from "@/lib/logger";
 import { parseChainKey } from "@/lib/onchain/chains";
 import { claimableBadgeIds } from "@/lib/onchain/claimableBadges";
+import { addressesForPlayer } from "@/lib/players";
 import { mintBadgesBatch } from "@/lib/onchain/badges";
 import {
   checkRelayerBalance,
@@ -93,7 +94,9 @@ export async function POST(
       { status: 402 },
     );
   }
-  const allowance = dailyBadgeCap() - (await sponsoredLast24h(db, lower, "badges"));
+  // Per player, across every linked wallet.
+  const allowance =
+    dailyBadgeCap() - (await sponsoredLast24h(db, await addressesForPlayer(lower), "badges"));
   if (allowance <= 0) {
     log.warn("badge sponsor refused: daily cap", { player: lower });
     return NextResponse.json(

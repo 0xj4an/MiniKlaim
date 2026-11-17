@@ -7,6 +7,7 @@ import { quoteMint, quoteMintGas } from "@/lib/onchain/mintFee";
 import { mintPlan } from "@/lib/onchain/mintPlan";
 import { mintTokensForAvailable } from "@/lib/onchain/hexes";
 import { sponsoredLast24h } from "@/lib/onchain/sponsor";
+import { addressesForPlayer } from "@/lib/players";
 import {
   dailyTokenCap,
   estimateMintTokensGas,
@@ -59,7 +60,10 @@ export async function GET(
   const sponsorAvailable =
     enabled && nextBatch > 0 && (await mintTokensForAvailable(chainKey));
   const freeToday = sponsorAvailable
-    ? Math.max(0, dailyTokenCap() - (await sponsoredLast24h(db, lower, "tokens")))
+    ? Math.max(
+        0,
+        dailyTokenCap() - (await sponsoredLast24h(db, await addressesForPlayer(lower), "tokens")),
+      )
     : 0;
   return NextResponse.json({
     enabled,

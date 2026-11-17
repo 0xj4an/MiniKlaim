@@ -18,6 +18,7 @@ import {
   sponsoredLast24h,
 } from "@/lib/onchain/sponsor";
 import { FEE_NATIVE_ONLY_HEADER } from "@/lib/onchain/sponsorHeaders";
+import { addressesForPlayer } from "@/lib/players";
 import {
   dailyTokenCap,
   estimateMintTokensGas,
@@ -73,7 +74,9 @@ export async function POST(
     return NextResponse.json({ error: "not available yet", reason: "not_upgraded" }, { status: 503 });
   }
 
-  const allowance = dailyTokenCap() - (await sponsoredLast24h(db, lower, "tokens"));
+  // Per player, across every linked wallet.
+  const allowance =
+    dailyTokenCap() - (await sponsoredLast24h(db, await addressesForPlayer(lower), "tokens"));
   if (allowance <= 0) {
     return NextResponse.json({ error: "daily limit", reason: "daily_cap" }, { status: 429 });
   }

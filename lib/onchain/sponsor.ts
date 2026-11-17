@@ -23,6 +23,7 @@ import {
   remainingHexAllowance,
   sponsorClaimsFloorCelo,
 } from "@/lib/onchain/sponsorRules";
+import { addressesForPlayer } from "@/lib/players";
 import { createSharedCache } from "@/lib/sharedCache";
 import { TOKENS } from "@/lib/tokens";
 
@@ -140,11 +141,14 @@ export async function setMintStatus(db: Db, runId: string, status: MintStatus) {
 /** Hexes (or badge txs) the relayer paid for this wallet in the last 24h. */
 export async function sponsoredLast24h(
   db: Db,
-  address: string,
+  address: string | string[],
   kind: "hexes" | "badges" | "tokens",
 ): Promise<number> {
   // Items, not transactions, for every kind: the caps are in blocks, badges
-  // and NFTs.
+  // and NFTs. Pass every wallet of the player (addressesForPlayer) so the cap
+  // is per player: once MiniPay lets wallets link, a player with three
+  // wallets must not get three allowances.
+  const wallets = (Array.isArray(address) ? address : [address]).map((a) => a.toLowerCase());
   const [row] = await db
     .select({
       total: sql<number>`coalesce(sum(${sponsoredMints.count}), 0)::int`,
@@ -152,7 +156,7 @@ export async function sponsoredLast24h(
     .from(sponsoredMints)
     .where(
       and(
-        eq(sponsoredMints.userAddress, address.toLowerCase()),
+        inArray(sponsoredMints.userAddress, wallets),
         eq(sponsoredMints.kind, kind),
         gt(sponsoredMints.createdAt, sql`now() - interval '24 hours'`),
       ),
@@ -217,7 +221,7 @@ export async function sponsorRunHexes(
   }
 
   const allowance = remainingHexAllowance(
-    await sponsoredLast24h(db, player, "hexes"),
+    await sponsoredLast24h(db, await addressesForPlayer(player), "hexes"),
   );
   const ids = all.slice(0, allowance);
   if (ids.length === 0) {
