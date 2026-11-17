@@ -21,9 +21,11 @@ export async function fetchRunCard(id: string): Promise<RunCard | null> {
   return (await res.json()) as RunCard;
 }
 
-/** "1.31 km" or "187 m". */
+/** "187 m", "1.31 km", or "256.7 km" once the hundredths stop mattering. */
 export function distanceLabel(meters: number): string {
-  return meters >= 1000 ? `${(meters / 1000).toFixed(2)} km` : `${Math.round(meters)} m`;
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  const km = meters / 1000;
+  return `${km.toFixed(km >= 100 ? 1 : 2)} km`;
 }
 
 /** "25:25", or "1:05:09" past the hour. */
@@ -33,6 +35,16 @@ export function durationLabel(totalSec: number): string {
   const m = Math.floor((s % 3600) / 60);
   const pad = (v: number) => String(v).padStart(2, "0");
   return h > 0 ? `${h}:${pad(m)}:${pad(s % 60)}` : `${pad(m)}:${pad(s % 60)}`;
+}
+
+/**
+ * Average speed, "59.7 km/h", or "" for a run too short for the figure to
+ * mean anything (6 m in 5 s is "4.3 km/h").
+ */
+export function speedLabel(card: Pick<RunCard, "durationSec" | "distanceMeters">): string {
+  if (card.distanceMeters < 100 || card.durationSec < 30) return "";
+  const kmh = (card.distanceMeters / card.durationSec) * 3.6;
+  return `${kmh >= 100 ? Math.round(kmh) : kmh.toFixed(1)} km/h`;
 }
 
 /** "25:25 - 1.31 km", or just the time for a block captured standing still. */

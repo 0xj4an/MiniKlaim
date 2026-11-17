@@ -1,6 +1,6 @@
 import { latLngToCell } from "h3-js";
 import { describe, expect, it } from "vitest";
-import { cellsForShape, runShapePath, SHAPE_MAX_CELLS } from "./runShape";
+import { cellsForShape, runShape, runShapePath, SHAPE_MAX_CELLS } from "./runShape";
 
 // A straight street in Lagos, one block per ~17 m.
 const street = Array.from({ length: 40 }, (_, i) =>
@@ -59,5 +59,38 @@ describe("cellsForShape", () => {
 
   it("keeps a short run at full detail", () => {
     expect(cellsForShape(street)).toHaveLength(street.length);
+  });
+});
+
+describe("runShape", () => {
+  const box = { width: 540, height: 502, padding: 56 };
+
+  it("marks where the run started and ended, from the capture order", () => {
+    const shape = runShape(street, box)!;
+    expect(shape.start).not.toBeNull();
+    expect(shape.end).not.toBeNull();
+    // The street runs west to east, so it starts on the left.
+    expect(shape.start![0]).toBeLessThan(shape.end![0]);
+    expect(Math.abs(shape.start![1] - shape.end![1])).toBeLessThan(10);
+  });
+
+  it("draws the empty blocks around the run, and none of the run's own", () => {
+    const shape = runShape(street, box)!;
+    const own = shape.cells.match(/M/g)!.length;
+    const around = shape.grid.match(/M/g)!.length;
+    expect(own).toBe(street.length);
+    expect(around).toBeGreaterThan(own);
+  });
+
+  it("keeps a single block block-sized, with no start or end", () => {
+    const shape = runShape([street[0]], box)!;
+    expect(shape.cellPx).toBeLessThanOrEqual(84.5);
+    expect(shape.start).toBeNull();
+    expect(shape.end).toBeNull();
+    expect(shape.grid.match(/M/g)!.length).toBeGreaterThan(20);
+  });
+
+  it("has nothing to draw for no blocks", () => {
+    expect(runShape([], box)).toBeNull();
   });
 });
