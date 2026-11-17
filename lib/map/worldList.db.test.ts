@@ -86,10 +86,12 @@ describe.skipIf(!db)("world list read in slices", () => {
     const [{ n }] = await client!`select count(*)::int as n from hexes`;
     expect(body.total).toBe(n);
     const all = body.owners.flatMap((g) => g.h3);
-    expect(all).toContain(cellToParent(bareCell, 2));
-    expect(all).toContain(cellToParent(namedCells[0], 2));
+    // Each entry is a real block standing for its parent cell.
+    const parents = all.map((h3) => cellToParent(h3, 2));
+    expect(parents).toContain(cellToParent(bareCell, 2));
+    expect(parents).toContain(cellToParent(namedCells[0], 2));
     // Thinned: one entry per parent cell, never one per block.
-    expect(new Set(all).size).toBe(all.length);
+    expect(new Set(parents).size).toBe(parents.length);
     expect(all.length).toBeLessThan(n);
   });
 });

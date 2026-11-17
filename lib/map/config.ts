@@ -5,25 +5,23 @@ export const DEFAULT_ZOOM = 14;
 export const FOLLOW_ZOOM = 17; // zoom level when centered on user position
 
 /**
- * How far out the run map lets a player pinch.
+ * How far out the run map lets a player pinch: all the way.
  *
- * This was 13, on the grounds that low-zoom tiles are enormous. Measured
- * against the real tile host over Medellin, one tile:
+ * This was 13, then 10, both to keep a phone away from the heavy low-zoom
+ * tiles. Measured against the real tile host over Medellin, one tile:
  *
- *   z14 261 KB · z13 163 KB · z12 172 KB · z11 76 KB · z10 77 KB
- *   z9 127 KB · z8 111 KB · z6 183 KB · z4 315 KB · z2 1,267 KB
+ *   z14 261 KB, z13 163 KB, z12 172 KB, z11 76 KB, z10 77 KB,
+ *   z9 127 KB, z8 111 KB, z6 183 KB, z4 315 KB, z2 1,267 KB
  *
- * So the expensive tiles are not where the limit was put. Zooming out to 10
- * or 11 is *cheaper* per tile than the zoom players were locked at, and a
- * screen holds roughly the same number of tiles at any zoom, so the bytes
- * per screen go down too. The real cliff is below 6, and z2 at 1.2 MB is
- * the one worth refusing: a pinch to the whole world, or a camera animation
- * that dips through it, is what costs a phone real data.
- *
- * 10 is about 40 km across on a phone, which is the city and the way out of
- * it. The floor stays, so the cliff is still out of reach.
+ * The floor read as a broken map: a player mid-run pinched out to see where
+ * they were in the city or the country, hit a wall at 10, and below 14 saw
+ * no blocks anyway (0xj4an, 17 Nov 2026). The world map on /community has
+ * always gone to the whole planet on the same tiles. So the floor is gone,
+ * the cost is the player's own pinch, and the tiles are cached after the
+ * first look. Below RUN_DOT_ZOOM the blocks are drawn as dots, see
+ * lib/map/runDots.
  */
-export const RUN_MIN_ZOOM = 10;
+export const RUN_MIN_ZOOM = 0;
 
 /**
  * The floor on /me, whose map exists to show the player their own blocks.

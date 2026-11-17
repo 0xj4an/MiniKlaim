@@ -366,6 +366,8 @@ type EventMap = {
   // this happens on a tier is the closest thing to asking them whether the
   // fallback is acceptable.
   map_notice_dismissed: { tier: "gl2" | "gl1" | "grid"; path: string };
+  // The player chose which way is up on the run map.
+  map_orientation_set: { mode: "north" | "heading" };
   // MiniPay iOS rejects a postMessage in its own bridge (not app code).
   wallet_bridge_rejected: Record<string, never>;
   gps_unavailable: Record<string, never>;
