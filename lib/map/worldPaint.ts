@@ -23,11 +23,19 @@ export function worldPointParentRes(zoom: number): number | null {
 /**
  * One row per parent cell. The player's own block wins the cell, then a
  * top-10 block, so those colors survive the thinning.
+ *
+ * `place` says what the row stands for. "block" keeps the id of the real
+ * block that won, for a dot drawn where somebody captured (see
+ * lib/map/worldThin for why the cell centre was wrong). "cell" returns the
+ * parent, for the grid tier, which draws the cell itself as a shape.
+ *
+ * Ties go to the lowest id, so the same list always thins the same way.
  */
 export function thinWorldRows(
   rows: readonly ClaimedHexRow[],
   parentRes: number,
   rank: (owner: string) => number,
+  place: "cell" | "block" = "cell",
 ): ClaimedHexRow[] {
   const best = new Map<string, { row: ClaimedHexRow; rank: number }>();
   for (const row of rows) {
@@ -39,15 +47,15 @@ export function thinWorldRows(
     }
     const score = rank(row.owner);
     const prev = best.get(parent);
-    if (prev && score <= prev.rank) continue;
-    best.set(parent, {
-      rank: score,
-      row: {
-        h3: parent,
-        owner: row.owner,
-        ownerUsername: row.ownerUsername,
-      },
-    });
+    if (prev) {
+      if (score < prev.rank) continue;
+      if (score === prev.rank && row.h3 >= prev.row.h3) continue;
+    }
+    best.set(parent, { rank: score, row });
   }
-  return [...best.values()].map((entry) => entry.row);
+  return [...best.entries()].map(([parent, entry]) => ({
+    h3: place === "cell" ? parent : entry.row.h3,
+    owner: entry.row.owner,
+    ownerUsername: entry.row.ownerUsername,
+  }));
 }

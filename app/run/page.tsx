@@ -41,7 +41,15 @@ import {
   type LngLatBounds,
   type PlacedHex,
 } from "@/lib/map/claimedView";
-import { withOwnFloor } from "@/lib/map/ownFloor";
+import { withOwnFloor, type PaintRow } from "@/lib/map/ownFloor";
+import { RUN_DOT_ZOOM, thinForDots, toPointCollection } from "@/lib/map/runDots";
+import {
+  nextCourse,
+  readOrientation,
+  writeOrientation,
+  type CourseState,
+  type MapOrientation,
+} from "@/lib/map/course";
 import { haversineMeters } from "@/lib/map/geo";
 import { liveGeoSource } from "@/lib/map/liveSource";
 import { claimedHexesToFeatureCollection, hexesAround } from "@/lib/map/hex";
@@ -141,6 +149,11 @@ const WEAK_FIX_STREAK = 3;
  * over 250 km/h, so on the ground this many means a queue caught up.
  */
 const LATE_BURST_MIN = 10;
+
+const EMPTY_COLLECTION: GeoJSON.FeatureCollection = {
+  type: "FeatureCollection",
+  features: [],
+};
 
 /** The phone's IANA time zone, or undefined when the runtime cannot tell. */
 function currentTimeZone(): string | undefined {
@@ -312,6 +325,53 @@ export default function RunPage() {
   // the moment it is queued without asking the server again.
   const lastServerRowsRef = useRef<ClaimedHexRow[]>([]);
   const localPaintTimer = useRef<number | null>(null);
+  const moveRefreshTimer = useRef<number | null>(null);
+  // Whether the camera keeps the player in the middle. A drag turns it off,
+  // the centre button turns it back on.
+  const followRef = useRef(true);
+  const [following, setFollowing] = useState(true);
+  // Which way is up: north, or the direction of travel. The player's
+  // choice, kept between visits.
+  const orientationRef = useRef<MapOrientation>("north");
+  const [orientation, setOrientation] = useState<MapOrientation>("north");
+  const courseRef = useRef<CourseState>({ anchor: null, course: null });
+  useEffect(() => {
+    const saved = readOrientation();
+    if (saved === "north") return;
+    orientationRef.current = saved;
+    queueMicrotask(() => setOrientation(saved));
+  }, []);
+  const toggleOrientation = useCallback(() => {
+    const next: MapOrientation =
+      orientationRef.current === "north" ? "heading" : "north";
+    orientationRef.current = next;
+    setOrientation(next);
+    writeOrientation(next);
+    track("map_orientation_set", { mode: next });
+    const map = mapRef.current;
+    if (!map) return;
+    try {
+      if (next === "north") {
+        map.easeTo({ bearing: 0, duration: 400 });
+        return;
+      }
+      // Turning the map to the way the player is going only makes sense
+      // around the player, so this also takes the camera back to them.
+      followRef.current = true;
+      setFollowing(true);
+      const pos = latestPosRef.current;
+      const course = courseRef.current.course;
+      map.easeTo({
+        ...(pos ? { center: [pos.lng, pos.lat] as [number, number] } : {}),
+        ...(course !== null ? { bearing: course } : {}),
+        duration: 400,
+      });
+    } catch (e) {
+      log.debug("orientation change skipped", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }, []);
 
   const [geoStatus, setGeoStatus] = useState<GeoStatus>("idle");
   // Set when the last few fixes were all too coarse to capture.
@@ -532,6 +592,22 @@ export default function RunPage() {
   const worldInflight = useRef<Promise<ClaimedHexRow[] | null> | null>(null);
 
   /**
+   * Which block a dot shows when several share a patch of screen: this
+   * run's captures first, then a reinforce, then the player's own, then a
+   * top-ten color.
+   */
+  const dotRank = useCallback((row: PaintRow): number => {
+    if (row.pending || runH3Ref.current.has(row.h3)) return 4;
+    if (reinforcedH3Ref.current.has(row.h3)) return 3;
+    const owner = row.owner.toLowerCase();
+    if (linkedRef.current.has(owner)) return 2;
+    if (topColorsRef.current.has(owner)) return 1;
+    return 0;
+  }, []);
+  /** Whether the last paint was dots. A change of mode forces a repaint. */
+  const paintedDotsRef = useRef(false);
+
+  /**
    * Draw the claimed layer from a set of server rows plus what this phone
    * knows on its own: the player's blocks the answer left out, and the
    * captures still queued. Returns how many blocks went to the map.
@@ -552,8 +628,13 @@ export default function RunPage() {
       address: addressRef.current,
       username: userRef.current,
     });
+    // Zoomed out, a block is smaller than a pixel: draw one dot per patch
+    // of screen instead, on a real block. See lib/map/runDots.
+    const dots = map ? map.getZoom() < RUN_DOT_ZOOM : false;
+    const shown =
+      map && dots ? thinForDots(floored, map.getZoom(), dotRank) : floored;
     const collection = claimedHexesToFeatureCollection(
-      floored,
+      shown,
       linkedRef.current,
       runH3Ref.current,
       topColorsRef.current,
@@ -561,10 +642,17 @@ export default function RunPage() {
       reinforcedH3Ref.current,
       attackedLeftRef.current,
     );
-    if (map) liveGeoSource(map, "claimed-hexes")?.setData(collection);
-    else setGridData({ hexes: collection });
-    return floored.length;
-  }, []);
+    if (map) {
+      paintedDotsRef.current = dots;
+      liveGeoSource(map, "claimed-hexes")?.setData(
+        dots ? EMPTY_COLLECTION : collection,
+      );
+      liveGeoSource(map, "claimed-dots")?.setData(
+        dots ? toPointCollection(collection) : EMPTY_COLLECTION,
+      );
+    } else setGridData({ hexes: collection });
+    return shown.length;
+  }, [dotRank]);
 
   /**
    * Repaint from what the phone already has, with no request.
@@ -594,6 +682,10 @@ export default function RunPage() {
       if (localPaintTimer.current !== null) {
         window.clearTimeout(localPaintTimer.current);
         localPaintTimer.current = null;
+      }
+      if (moveRefreshTimer.current !== null) {
+        window.clearTimeout(moveRefreshTimer.current);
+        moveRefreshTimer.current = null;
       }
     },
     [],
@@ -655,8 +747,15 @@ export default function RunPage() {
         // a hex the moment the server says it changed hands. Only then is it
         // safe to draw from that set.
         rememberOwners(mineH3Ref.current, rows, linkedRef.current);
-        lastServerRowsRef.current = rows;
-        const count = drawClaimed(rows);
+        // In dot mode keep only the rows a dot stands for. The local repaint
+        // runs four times a second on a moving run, and it would otherwise
+        // walk every block in a view that can hold the whole world list.
+        const kept =
+          map && map.getZoom() < RUN_DOT_ZOOM
+            ? thinForDots(rows, map.getZoom(), dotRank)
+            : rows;
+        lastServerRowsRef.current = kept;
+        const count = drawClaimed(kept);
         log.debug("claimed-view", {
           count,
           fromServer: rows.length,
@@ -699,8 +798,14 @@ export default function RunPage() {
       const wide = viewportNeedsWorld(radius);
       if (!wide) {
         const cover = diskCoverRef.current;
+        // Dots on screen at a zoom that draws blocks, or the reverse: the
+        // disk may cover the view, but what is painted is the wrong shape.
+        const modeChanged = map
+          ? map.getZoom() < RUN_DOT_ZOOM !== paintedDotsRef.current
+          : false;
         if (
           reason === "move" &&
+          !modeChanged &&
           cover &&
           diskCoversView(
             cover.lat,
@@ -834,7 +939,7 @@ export default function RunPage() {
       if (!worldRef.current) return;
       paint(hexesInBounds(worldRef.current.rows, bounds));
     },
-    [drawClaimed],
+    [drawClaimed, dotRank],
   );
 
   // Load the blocks already spent today, so the map can mark them before
@@ -1680,6 +1785,16 @@ export default function RunPage() {
           latestPosRef.current = { lat: latitude, lng: longitude };
           writeCachedPosition(latitude, longitude);
           if (map) renderPositionDot(map, latitude, longitude);
+          // Only a fix good enough to capture with is good enough to steer
+          // the map by: a coarse one jumps tens of metres sideways.
+          if (!(typeof accuracy === "number" && accuracy > 30)) {
+            courseRef.current = nextCourse(courseRef.current, {
+              lat: latitude,
+              lng: longitude,
+              heading: pos.coords.heading,
+              speed: pos.coords.speed,
+            });
+          }
 
           if (firstFix) {
             log.info("first fix", { lat: latitude, lng: longitude });
@@ -1811,9 +1926,24 @@ export default function RunPage() {
               );
               void claimHexes(claimList, delta, accuracy);
               if (!alive) return;
+            }
+            // Follow the player: during a run, and whenever the map is
+            // turned to the direction of travel. Not while they are looking
+            // elsewhere, and not under their fingers.
+            const heading = orientationRef.current === "heading";
+            if (
+              map &&
+              (runIdRef.current || heading) &&
+              followRef.current &&
+              !map.dragPan.isActive() &&
+              !map.isZooming()
+            ) {
               try {
                 map.easeTo({
                   center: [longitude, latitude],
+                  ...(heading && courseRef.current.course !== null
+                    ? { bearing: courseRef.current.course }
+                    : {}),
                   duration: 600,
                 });
               } catch (e) {
@@ -1895,8 +2025,15 @@ export default function RunPage() {
         center: initialCenter,
         zoom: initialZoom,
         minZoom: RUN_MIN_ZOOM,
+        // Which way is up is the player's choice, made with the compass
+        // button, and the camera turns the map itself. A pinch that also
+        // twisted or tilted it left a map nobody had asked for.
+        dragRotate: false,
+        pitchWithRotate: false,
+        touchPitch: false,
         attributionControl: { compact: true },
       });
+      map.touchZoomRotate.disableRotation();
     } catch (e) {
       // No WebGL at all: the constructor throws. Track without a map.
       log.warn("map init failed; tracking without map", {
@@ -2095,6 +2232,25 @@ export default function RunPage() {
         },
       });
 
+      // The same blocks as dots, for the zooms where a block is under a
+      // pixel. Filled by drawClaimed in place of the polygons.
+      map.addSource("claimed-dots", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "claimed-dot",
+        type: "circle",
+        source: "claimed-dots",
+        paint: {
+          "circle-color": ownerColor,
+          "circle-opacity": ["case", ["get", "isPending"], 0.5, 0.9],
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 0, 2.5, 8, 3.5, 14, 4.5],
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 1,
+        },
+      });
+
       map.addSource("hexes", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -2139,10 +2295,39 @@ export default function RunPage() {
       }
 
       void refreshClaimed();
-      map.on("moveend", () => {
-        if (Date.now() < hexRefreshPauseUntil.current) return;
+      // At most one refresh every 4 s, but the last move always gets one.
+      // A move inside the pause used to be dropped: pinch out twice in a
+      // row and the second view kept the first one's blocks, with the new
+      // edges empty until the player touched the map again.
+      const refreshAfterMove = () => {
+        if (moveRefreshTimer.current !== null) {
+          window.clearTimeout(moveRefreshTimer.current);
+          moveRefreshTimer.current = null;
+        }
+        const wait = hexRefreshPauseUntil.current - Date.now();
+        if (wait > 0) {
+          moveRefreshTimer.current = window.setTimeout(() => {
+            moveRefreshTimer.current = null;
+            if (alive) refreshAfterMove();
+          }, wait);
+          return;
+        }
         hexRefreshPauseUntil.current = Date.now() + 4_000;
         void refreshClaimed("move");
+      };
+      map.on("moveend", () => {
+        // Blocks to dots or back is a repaint from rows already here when
+        // the view is wide, so it does not wait out the pause.
+        const dots = map.getZoom() < RUN_DOT_ZOOM;
+        if (dots !== paintedDotsRef.current) hexRefreshPauseUntil.current = 0;
+        refreshAfterMove();
+      });
+      // A drag is the player looking around: stop pulling the camera back
+      // to them until they ask for it with the centre button.
+      map.on("dragstart", (e) => {
+        if (!e.originalEvent) return;
+        followRef.current = false;
+        setFollowing(false);
       });
 
       const popupRef = { current: null as maplibregl.Popup | null };
@@ -2323,15 +2508,71 @@ export default function RunPage() {
         onRetry={retryLocation}
         weakAccuracyM={runId ? weakAccuracyM : null}
       />
+      {mapTier !== null && mapTier !== "grid" && !mapUnavailable && (
+        <button
+          onClick={toggleOrientation}
+          aria-label={t(
+            orientation === "north"
+              ? "run.map.orientation.north"
+              : "run.map.orientation.heading",
+          )}
+          aria-pressed={orientation === "heading"}
+          className="absolute right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-zinc-800 shadow-md hover:bg-white"
+          style={
+            isActive
+              ? {
+                  // One button above the centre button, same column.
+                  bottom:
+                    "calc(max(1.5rem, env(safe-area-inset-bottom)) + 14.75rem)",
+                }
+              : { bottom: "calc(env(safe-area-inset-bottom) + 20.25rem)" }
+          }
+        >
+          {orientation === "north" ? (
+            // A compass needle, north half in the app's orange, with an N.
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
+              <polygon points="12,5 15.5,13 8.5,13" fill="#FF6B35" />
+              <polygon points="12,21 15.5,13 8.5,13" fill="#a1a1aa" />
+              <text
+                x="12"
+                y="4.2"
+                textAnchor="middle"
+                fontSize="5.5"
+                fontWeight="700"
+                fill="#18181b"
+              >
+                N
+              </text>
+            </svg>
+          ) : (
+            // The arrow navigation apps use for "the way I am going".
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
+              <polygon
+                points="12,2.5 19.5,20.5 12,16.5 4.5,20.5"
+                fill="#FF6B35"
+                stroke="#FF6B35"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+        </button>
+      )}
       <button
         onClick={() => {
           const pos = latestPosRef.current;
           const map = mapRef.current;
           if (!pos || !map) return;
+          followRef.current = true;
+          setFollowing(true);
           placeCamera(map, pos.lng, pos.lat, FOLLOW_ZOOM);
         }}
-        aria-label="Center on my position"
-        className="absolute right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-zinc-800 shadow-md hover:bg-white"
+        aria-label={t("run.map.center")}
+        // Orange while the camera is not following: the player moved the
+        // map away, and this is the way back.
+        className={`absolute right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 shadow-md hover:bg-white ${
+          following ? "text-zinc-800" : "text-orange-700"
+        }`}
         style={
           isActive
             ? {

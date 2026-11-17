@@ -47,6 +47,24 @@ describe("claimed view", () => {
     expect(visible.map((row) => row.h3)).toEqual([here]);
   });
 
+  test("keeps a block when the view runs past the edge of the world", () => {
+    // Zoomed out and centred on the Pacific, MapLibre reports west as 150
+    // and east as 210. A block at -175 is on screen, as its copy at 185.
+    const fiji = placeHexes([
+      { h3: latLngToCell(-17.7, 178.0, 12), owner: "0xabc", ownerUsername: null },
+      { h3: latLngToCell(-13.8, -171.8, 12), owner: "0xdef", ownerUsername: null },
+      { h3: latLngToCell(MDE_LAT, MDE_LNG, 12), owner: "0x123", ownerUsername: null },
+    ]);
+    const pacific = { west: 150, east: 210, south: -40, north: 10 };
+    expect(hexesInBounds(fiji, pacific).map((row) => row.owner)).toEqual([
+      "0xabc",
+      "0xdef",
+    ]);
+    // Wider than the world: every longitude is on screen.
+    const world = { west: -300, east: 300, south: -80, north: 80 };
+    expect(hexesInBounds(fiji, world)).toHaveLength(3);
+  });
+
   test("a fresh claim replaces the cached owner", () => {
     const h3 = latLngToCell(MDE_LAT, MDE_LNG, 12);
     const [lat, lng] = cellToLatLng(h3);
