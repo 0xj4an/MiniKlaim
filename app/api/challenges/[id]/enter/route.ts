@@ -14,6 +14,7 @@ import { challengeEntriesPaused } from "@/lib/challenges/paused";
 import {
   checkEntryTx,
   challengeDepositAddress,
+  type EntryReceipt,
   hasEntered,
   recordEntry,
 } from "@/lib/challenges/server";
@@ -112,7 +113,15 @@ export async function POST(
       return fail("reverted", 502, { txHash });
     }
     const deposit = challengeDepositAddress() ?? contract;
-    const check = await checkEntryTx(c, txHash, deposit);
+    // The receipt in hand, not a second read: another node of the public RPC
+    // may not have this transaction yet. viem types the logs of a waited
+    // receipt without `topics`, which the node does send.
+    const check = await checkEntryTx(
+      c,
+      txHash,
+      deposit,
+      receipt as unknown as EntryReceipt,
+    );
     if ("reason" in check) {
       Sentry.captureMessage(
         `Challenge enterFor not readable: ${check.reason}`,
