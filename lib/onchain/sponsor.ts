@@ -23,7 +23,6 @@ import {
   remainingHexAllowance,
   sponsorClaimsFloorCelo,
 } from "@/lib/onchain/sponsorRules";
-import { addressesForPlayer } from "@/lib/players";
 import { createSharedCache } from "@/lib/sharedCache";
 import { TOKENS } from "@/lib/tokens";
 
@@ -221,7 +220,13 @@ export async function sponsorRunHexes(
   }
 
   const allowance = remainingHexAllowance(
-    await sponsoredLast24h(db, await addressesForPlayer(player), "hexes"),
+    // Imported here, not at the top: lib/players opens the app's database at
+    // load, and this module is also loaded by tests that have none.
+    await sponsoredLast24h(
+      db,
+      await (await import("@/lib/players")).addressesForPlayer(player),
+      "hexes",
+    ),
   );
   const ids = all.slice(0, allowance);
   if (ids.length === 0) {
