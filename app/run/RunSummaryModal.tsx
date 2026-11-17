@@ -25,6 +25,8 @@ const Confetti = dynamic(() => import("react-confetti"), { ssr: false });
 const log = createLogger("ui:runSummary");
 
 export type RunSummary = {
+  /** The run's id: a shared run links to its own page, /r/<id>. */
+  id?: string;
   durationMs: number;
   hexesClaimed: number;
   /** Hex strength: own blocks raised a level, others' blocks lowered. */
@@ -534,7 +536,12 @@ function ClaimBurst({ count }: { count: number }) {
   );
 }
 
-type ShareCaption = { text: string; kind: "blocks" | "badges" };
+type ShareCaption = {
+  text: string;
+  kind: "blocks" | "badges";
+  /** Path the post links to: the run's page, which carries its picture. */
+  path: string | null;
+};
 
 /**
  * What the share buttons post, or null when the run has nothing worth
@@ -558,7 +565,7 @@ function shareCaption(
       badgeIds.length === 1
         ? t("run.share.badge.one").replace("{name}", badgeCopy(badgeIds[0], locale).name)
         : t("run.share.badge.many").replace("{n}", String(badgeIds.length));
-    return { text, kind };
+    return { text, kind, path: null };
   }
   const captured =
     summary.hexesClaimed === 1
@@ -569,7 +576,7 @@ function shareCaption(
     summary.distanceMeters > 0
       ? `${head} ${timeLabel} - ${distLabel} ${t("run.share.text.run")}`
       : head;
-  return { text, kind };
+  return { text, kind, path: summary.id ? `/r/${summary.id}` : null };
 }
 
 async function shareClaim(
@@ -589,7 +596,13 @@ async function shareClaim(
     typeof window !== "undefined"
       ? window.location.origin
       : "https://www.miniklaim.fun";
-  const url = username ? `${origin}/p/${username}` : origin;
+  // A run links to its own page, whose preview is a picture of the run
+  // (app/r/[id]/opengraph-image). Badges link to the profile, as before.
+  const url = caption.path
+    ? `${origin}${caption.path}`
+    : username
+      ? `${origin}/p/${username}`
+      : origin;
   const method = await shareTo(channel, caption.text, url);
   track("share_result", { surface: "run_summary", channel, method });
   if (method === "copied" || (method === "intent" && channel === "instagram")) {
