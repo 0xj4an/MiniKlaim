@@ -39,7 +39,8 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 | `GET /api/users/[address]/runs/pending-claim` | Runs whose hexes have not yet been minted; drives the `/me` pending-claim prompt. |
 | `GET /api/users/[address]/badges` | Which badges the player currently qualifies for. |
 | `POST /api/users/[address]/badges/voucher` | Issue an EIP-712 voucher for `claimBadges`. |
-| `POST /api/users/[address]/badges/sponsor-mint` | Relayer badge mint, decided server-side. Needs `?runId=` of one of the player's runs plus its `x-run-token`. 402 when the player can pay, 429 past `SPONSOR_DAILY_BADGE_TX_CAP` (default 2) txs per day. |
+| `POST /api/users/[address]/badges/sponsor-mint` | Relayer badge mint, decided server-side. Needs `?runId=` of one of the player's runs plus its `x-run-token`. 402 when the player can pay, 429 past `SPONSOR_DAILY_BADGE_CAP` (default 3) badges per day; with more pending it mints up to what is left and returns `remaining`. |
+| `POST /api/users/[address]/tokens/sponsor-mint` | Relayer NFT mint (`mintTokensFor`) for a player who cannot pay the fee. Same `?runId=` plus `x-run-token` gate. Up to `SPONSOR_DAILY_TOKEN_CAP` (default 100) NFTs per wallet per day. 402 when the player can pay, 429 past the cap, 503 until the Hexes contract has `mintTokensFor`. |
 | `POST /api/users/[address]/rewards/voucher` | (Dormant) EIP-712 voucher for USDm rewards. Returns 503 unless `NEXT_PUBLIC_CELO_REWARDS_ADDRESS` is set, or when the chain cannot say which badges were claimed. A badge claimed by any linked wallet is not offered again. |
 | `GET /api/users/[address]/linked` | All wallets linked to this player's identity. |
 | `GET /api/users/[address]/tokens` | Blocks of this wallet recorded on-chain without a token vs tokens. `?chain=`. Returns `{ enabled, recorded, tokens, maxPerTx, nextBatch, nextBatchGas }`; `enabled` is false until the chain's Hexes contract records (v2). |

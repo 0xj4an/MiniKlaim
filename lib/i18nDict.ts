@@ -152,6 +152,8 @@ export const dictionaries = {
       "Your wallet turned down the request. Tap the button again; this usually clears on a second try.",
     "me.nfts.noFee":
       "Not enough balance to pay the network fee. Add a little USDT, USDC, or USDm and try again.",
+    "me.nfts.mintFree": "Mint {count} as NFTs for free",
+    "me.nfts.freeNote": "With no balance for the fee, MiniKlaim pays for up to 100 NFTs a day.",
     "me.link.title": "🔗 Link another wallet",
     "me.link.desc":
       "Use the same MiniKlaim identity (name, profile) across chains.",
@@ -838,6 +840,8 @@ export const dictionaries = {
       "Tu wallet rechazó la solicitud. Vuelve a tocar el botón: casi siempre se arregla al segundo intento.",
     "me.nfts.noFee":
       "No tienes saldo suficiente para la tarifa de red. Agrega un poco de USDT, USDC o USDm e intenta de nuevo.",
+    "me.nfts.mintFree": "Mintear {count} como NFT gratis",
+    "me.nfts.freeNote": "Sin saldo para la comisión, MiniKlaim te paga hasta 100 NFT al día.",
     "me.link.title": "🔗 Vincular otra wallet",
     "me.link.desc":
       "Usa la misma identidad MiniKlaim (nombre, perfil) en todas las chains.",

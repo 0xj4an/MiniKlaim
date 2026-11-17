@@ -303,6 +303,36 @@ contract MiniKlaimHexesTest is Test {
         assertEq(hexes.totalTokensMinted(), 2);
     }
 
+    // --- mintTokensFor (relayer-paid) -----------------------------------------------
+
+    function test_mintTokensForMintsToPlayerWithoutRecounting() public {
+        vm.prank(admin);
+        hexes.captureBatch(alice, _twoHexes());
+        vm.prank(signer);
+        hexes.mintTokensFor(alice, _twoHexes());
+        assertEq(hexes.ownerOf(HEX_A), alice);
+        assertEq(hexes.ownerOf(HEX_B), alice);
+        assertEq(hexes.totalTokensMinted(), 2);
+        assertEq(hexes.totalCaptures(), 2);
+    }
+
+    function test_mintTokensForSkipsExistingTokens() public {
+        uint256[] memory one = new uint256[](1);
+        one[0] = HEX_A;
+        _mintFor(bob, one, 1);
+        vm.prank(signer);
+        hexes.mintTokensFor(alice, _twoHexes());
+        assertEq(hexes.ownerOf(HEX_A), bob);
+        assertEq(hexes.ownerOf(HEX_B), alice);
+        assertEq(hexes.totalTokensMinted(), 2);
+    }
+
+    function test_mintTokensForOnlyCapturer() public {
+        vm.prank(alice);
+        vm.expectRevert();
+        hexes.mintTokensFor(alice, _twoHexes());
+    }
+
     function test_mintTokensRejectsExpiredVoucher() public {
         uint256[] memory ids = _twoHexes();
         uint256 deadline = block.timestamp + 60;
