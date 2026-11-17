@@ -345,6 +345,10 @@ export const dictionaries = {
     "run.start.button": "Start",
     "run.start.hint":
       "Walk, ride, or drive. The blocks you cross become yours.",
+    "run.start.usedBlock":
+      "You already used this block today. Start and move to another block to capture.",
+    "run.start.ownedBlock":
+      "This block is already yours. Start and move to a new one to capture.",
     "run.finish.finishing": "Finishing...",
     "run.finish.button": "Finish",
     "run.needName.kicker": "One more thing",
@@ -1057,6 +1061,10 @@ export const dictionaries = {
     "run.start.button": "Empezar",
     "run.start.hint":
       "Camina, ve en bici o en carro. Las cuadras que cruzas quedan tuyas.",
+    "run.start.usedBlock":
+      "Ya usaste esta cuadra hoy. Empieza y muévete a otra cuadra para capturar.",
+    "run.start.ownedBlock":
+      "Esta cuadra ya es tuya. Empieza y muévete a una nueva para capturar.",
     "run.finish.finishing": "Terminando...",
     "run.finish.button": "Terminar",
     "run.needName.kicker": "Una cosa más",
