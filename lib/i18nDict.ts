@@ -676,6 +676,10 @@ export const dictionaries = {
     "r.blocks": "blocks captured",
     "r.blocks.one": "block captured",
     "r.tagline": "Walk, bike, or drive. The blocks you cross are yours.",
+    "r.stat.distance": "distance",
+    "r.stat.time": "time",
+    "r.stat.speed": "avg speed",
+    "r.card.tagline": "Run it. Klaim it.",
     "p.badges.header": "Badges",
     "p.badges.of": "of",
     "dashboard.metadata.desc":
@@ -1400,6 +1404,10 @@ export const dictionaries = {
     "r.blocks": "cuadras capturadas",
     "r.blocks.one": "cuadra capturada",
     "r.tagline": "Camina, ve en bici o en carro. Las cuadras que cruzas son tuyas.",
+    "r.stat.distance": "distancia",
+    "r.stat.time": "tiempo",
+    "r.stat.speed": "velocidad",
+    "r.card.tagline": "Recórrelo. Klaimealo.",
     "p.badges.header": "Insignias",
     "p.badges.of": "de",
     "dashboard.metadata.desc":
