@@ -20,9 +20,9 @@ export {
 } from "@/lib/runs/streakMath";
 
 export type StreakDays = {
-  /** Distinct run days, yyyy-mm-dd in `timeZone`, newest first. */
+  /** Distinct run days, yyyy-mm-dd, each in the zone its run was played in, newest first. */
   days: string[];
-  /** IANA zone the days are in ("UTC" when the player never sent one). */
+  /** IANA zone "today" is taken in: the player's latest ("UTC" when none). */
   timeZone: string;
 };
 
@@ -34,9 +34,14 @@ export type StreakDays = {
  * territory captures nothing new). Runs opened and closed without moving
  * still do not count.
  *
- * The zone is the one saved on the wallet that ran most recently (sent by the
- * client when a run starts). Days used to be cut at UTC midnight, which split
- * an evening run in Mexico onto the next day and broke real streaks.
+ * Each run's day is cut in the zone the phone reported when that run
+ * started (`runs.time_zone`). Runs without one use the zone saved on the
+ * wallet that ran most recently, which is also where "today" is taken. Until
+ * 17 Nov 2026 that latest zone cut every run, so the whole history moved when
+ * the player travelled: 0xj4an's 6 Nov counted as played in Bogota time and
+ * not in India, where he was that day. Days used to be cut at UTC midnight
+ * before that, which split an evening run in Mexico onto the next day and
+ * broke real streaks.
  *
  * The day boundary is cut in JS, not in SQL, and that is the whole point of
  * how this is written.
@@ -79,6 +84,7 @@ export async function streakDays(
   const rows = await db.execute(sql`
     SELECT
       r.ended_at AS ended_at,
+      r.time_zone AS run_tz,
       (
         SELECT u.time_zone
         FROM runs r2
@@ -100,6 +106,7 @@ export async function streakDays(
   `);
   const runRows = rows as unknown as Array<{
     ended_at: string | Date;
+    run_tz: string | null;
     tz: string | null;
   }>;
 
@@ -116,7 +123,7 @@ export async function streakDays(
         ? row.ended_at.getTime()
         : Date.parse(String(row.ended_at));
     if (Number.isNaN(at)) continue;
-    const day = localDay(at, timeZone);
+    const day = localDay(at, isValidTimeZone(row.run_tz) ? row.run_tz : timeZone);
     if (seen.has(day)) continue;
     seen.add(day);
     days.push(day);
