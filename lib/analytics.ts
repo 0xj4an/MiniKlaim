@@ -454,6 +454,8 @@ type EventMap = {
   };
   /** The "still no GPS" banner came up during a run. */
   run_gps_stuck_shown: { after_sec: number };
+  /** Before Start: the block under the player will not count if they stay. */
+  start_spot_hint_shown: { kind: "used" | "owned" };
   // Which path actually worked: web intent, system sheet, clipboard, none.
   share_result: {
     surface: "run_summary" | "profile";
