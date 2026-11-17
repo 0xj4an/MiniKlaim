@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { headers } from "next/headers";
+import { fetchOwnApi } from "@/lib/server/ownApi";
 import { serverT } from "@/lib/i18nServer";
 
 export const alt = "MiniKlaim player profile";
@@ -14,13 +14,7 @@ type PublicProfile = {
 };
 
 async function fetchProfile(username: string): Promise<PublicProfile | null> {
-  const h = await headers();
-  const host = h.get("host");
-  const proto = h.get("x-forwarded-proto") ?? "http";
-  const base = host ? `${proto}://${host}` : "";
-  const res = await fetch(`${base}/api/profile/${username}`, {
-    cache: "no-store",
-  });
+  const res = await fetchOwnApi(`/api/profile/${username}`);
   if (!res.ok) return null;
   return (await res.json()) as PublicProfile;
 }

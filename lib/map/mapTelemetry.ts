@@ -1,7 +1,7 @@
 "use client";
 
 import * as Sentry from "@sentry/nextjs";
-import { track } from "@/lib/analytics";
+import { track, trackLimited } from "@/lib/analytics";
 import { createLogger } from "@/lib/logger";
 import {
   causeOf,
@@ -179,7 +179,11 @@ export function mapRenderFailed(
   // that never drew. See `drawn` above for the count that made this obvious.
   if (drawn.has(path)) {
     log.warn("map asset failed after render", { tier, path, cause, message });
-    track("map_tiles_degraded", {
+    // A handful per visit. One phone without signal asked for the same
+    // tile 37 times in a run and sent 37 of these (584 events from 13
+    // players in a week), which made the count a measure of one player's
+    // coverage.
+    trackLimited("map_tiles_degraded", {
       tier,
       path,
       cause,
@@ -250,6 +254,20 @@ export function mapContextLost(tier: MapTier, path: string): void {
     data: { tier, path },
   });
   track("map_context_lost", { tier, path });
+}
+
+/**
+ * The context came back and MapLibre redrew. Paired with `mapContextLost`:
+ * a loss with no restore after it is a map that stayed blank.
+ */
+export function mapContextRestored(tier: MapTier, path: string): void {
+  Sentry.addBreadcrumb({
+    category: "map",
+    level: "info",
+    message: "webgl context restored",
+    data: { tier, path },
+  });
+  track("map_context_restored", { tier, path });
 }
 
 export function mapNoticeDismissed(tier: MapTier, path: string): void {
