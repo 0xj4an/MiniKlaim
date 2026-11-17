@@ -9,6 +9,8 @@ import { challengeEntries, challenges } from "@/lib/db/schema";
 const chain = vi.hoisted(() => ({
   receipts: new Map<string, unknown>(),
   blockTime: new Map<bigint, bigint>(),
+  /** Blocks a lagging node does not have yet: reads left to fail, by block. */
+  blockMisses: new Map<bigint, number>(),
 }));
 vi.mock("@/lib/drops/claim", () => ({
   dropsPublicClient: () => ({
@@ -17,9 +19,14 @@ vi.mock("@/lib/drops/claim", () => ({
       if (!r) throw new Error("not found");
       return r;
     },
-    getBlock: async ({ blockNumber }: { blockNumber: bigint }) => ({
-      timestamp: chain.blockTime.get(blockNumber) ?? 0n,
-    }),
+    getBlock: async ({ blockNumber }: { blockNumber: bigint }) => {
+      const misses = chain.blockMisses.get(blockNumber) ?? 0;
+      if (misses > 0) {
+        chain.blockMisses.set(blockNumber, misses - 1);
+        throw new Error(`Block at number "${blockNumber}" could not be found.`);
+      }
+      return { timestamp: chain.blockTime.get(blockNumber) ?? 0n };
+    },
   }),
 }));
 
@@ -81,6 +88,7 @@ describe.skipIf(!db)("challenges (database)", () => {
   beforeEach(async () => {
     chain.receipts.clear();
     chain.blockTime.clear();
+    chain.blockMisses.clear();
     await db!.delete(challengeEntries).where(eq(challengeEntries.challengeId, ID));
     await db!.delete(challenges).where(eq(challenges.id, ID));
     [c] = await db!
@@ -153,6 +161,30 @@ describe.skipIf(!db)("challenges (database)", () => {
       r.push("reason" in x ? x.reason : "ok");
     }
     expect(r).toEqual(["no-transfer", "no-transfer", "outside-window"]);
+  });
+
+  it("waits for a block the node does not have yet", async () => {
+    fakeEnterFor(h(30), {});
+    const receipt = chain.receipts.get(h(30)) as { blockNumber: bigint };
+    chain.blockMisses.set(receipt.blockNumber, 2);
+    expect(await checkEntryTx(c, h(30), DEPOSIT)).toMatchObject({ ok: true, player: PLAYER, amount: 1_000_000n });
+    expect(chain.blockMisses.get(receipt.blockNumber)).toBe(0);
+  });
+
+  it("gives up on a block that never shows", async () => {
+    fakeEnterFor(h(31), {});
+    const receipt = chain.receipts.get(h(31)) as { blockNumber: bigint };
+    chain.blockMisses.set(receipt.blockNumber, 1000);
+    await expect(checkEntryTx(c, h(31), DEPOSIT)).rejects.toThrow("could not be found");
+  }, 10_000);
+
+  it("reads the receipt it is handed instead of asking the node again", async () => {
+    fakeEnterFor(h(32), {});
+    const receipt = chain.receipts.get(h(32)) as Parameters<typeof checkEntryTx>[3];
+    // The node asked for the receipt does not have the transaction yet.
+    chain.receipts.delete(h(32));
+    expect(await checkEntryTx(c, h(32), DEPOSIT)).toEqual({ ok: false, reason: "pending" });
+    expect(await checkEntryTx(c, h(32), DEPOSIT, receipt)).toMatchObject({ ok: true, player: PLAYER });
   });
 
   it("one entry per player: a second payment is not an entry", async () => {
