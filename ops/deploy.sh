@@ -217,5 +217,28 @@ echo "==> env skew (nothing below this line is good news)"
 docker logs --since 2m miniklaim 2>&1 | grep -i "env:skew" || echo "none"
 docker logs --since 2m miniklaim-standby 2>&1 | grep -i "env:skew" || echo "none"
 
+# A 200 is not a working answer. On 17 Nov 2026 Next 16.4 started compressing
+# what /api/hexes had already compressed, every response went out as gzip
+# inside gzip with a 200, and the maps were blank for 5.5 h: the health check
+# and every alert look at the status code, not the body. So open one body the
+# way a browser does (one layer of decoding) and check it is JSON. Asks each
+# container directly, so it says which one, and never fails the deploy: the
+# containers are already serving, and this is where you find out.
+echo "==> body check (a browser must be able to read the map data)"
+body_check() {
+  local name="$1" ip first
+  ip="$(docker inspect -f '{{.NetworkSettings.Networks.shared.IPAddress}}' "$name" 2>/dev/null || true)"
+  [ -n "$ip" ] || { echo "    $name: no ip, not checked"; return 0; }
+  first="$(curl -sS -m 30 --compressed "http://$ip:3000/api/hexes?res=2" 2>/dev/null | head -c 1 | od -An -c | tr -d ' ')"
+  if [ "$first" = "{" ]; then
+    echo "    $name: ok"
+  else
+    echo "    $name: BROKEN, /api/hexes?res=2 does not open as JSON (first byte: '${first:-none}')"
+    echo "    !!! the maps will be blank. Two layers of gzip looks like first byte 037."
+  fi
+}
+body_check miniklaim-standby
+body_check miniklaim
+
 echo "==> running"
 docker ps --format '{{.Names}}\t{{.Status}}' | grep miniklaim
