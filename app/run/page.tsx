@@ -316,6 +316,7 @@ export default function RunPage() {
     ts: number;
     lat: number;
     lng: number;
+    kept: boolean;
   } | null>(null);
   // Most recent GPS coordinate from any fix, regardless of run state. Used by
   // the "center on me" button so it works before/after a run too.
@@ -488,7 +489,9 @@ export default function RunPage() {
       }),
     );
   }, []);
+  const spotRef = useRef<"used" | "owned" | null>(null);
   useEffect(() => {
+    spotRef.current = spot;
     if (spot && !runId) track("start_spot_hint_shown", { kind: spot });
   }, [spot, runId]);
   // The server stopped capturing because this "on foot" run moves at vehicle
@@ -587,14 +590,26 @@ export default function RunPage() {
     const onVisibility = () => {
       if (document.visibilityState !== "visible") return;
       if (!runIdRef.current) return;
-      // Snapshot the pre-nuke anchor so the next fix can report the actual
-      // gap size to analytics. Then reset so no interpolation happens.
+      // A glance away of a few seconds (a notification, the wallet sheet)
+      // is no different from a normal gap between pings: keep the anchor and
+      // let the usual stale-gap rule decide. Dropping it here cost the cells
+      // in between even for a 4 s blip at car speed (19 Nov 2026: 58 m).
+      const sinceFix =
+        lastPosTsRef.current > 0 ? Date.now() - lastPosTsRef.current : Infinity;
+      const keep = sinceFix <= GPS_GAP_STALE_SECONDS * 1000;
+      // Snapshot the anchor so the next fix can report the actual gap size
+      // to analytics.
       if (lastPosRef.current && lastPosTsRef.current > 0) {
         visibilityResetRef.current = {
           ts: lastPosTsRef.current,
           lat: lastPosRef.current.lat,
           lng: lastPosRef.current.lng,
+          kept: keep,
         };
+      }
+      if (keep) {
+        void flushClaimQueueRef.current();
+        return;
       }
       log.info("visibility returned, dropping stale GPS anchor");
       lastPosRef.current = null;
@@ -1572,6 +1587,7 @@ export default function RunPage() {
         {
           ...(declaredModeRef.current ? { mode: declaredModeRef.current } : {}),
           fix_ready: fixReadyRef.current,
+          start_hint: spotRef.current ?? "none",
         },
       );
       setRunId(data.id);
@@ -2014,6 +2030,7 @@ export default function RunPage() {
               trigger: "visibility",
               gap_seconds: Math.round(visGapSec),
               segment_distance_m: Math.round(visDist),
+              anchor_kept: visReset.kept,
             });
             visibilityResetRef.current = null;
           } else if (runIdRef.current && staleGap && previousPos) {
