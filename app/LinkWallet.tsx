@@ -107,7 +107,7 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
             </p>
           </div>
         ) : proofNeeded ? (
-          <p className="text-xs text-red-600">{t("me.link.proofNeeded")}</p>
+          <p className="text-xs text-zinc-600">{t("me.link.proofNeeded")}</p>
         ) : (
           <button
             onClick={generate}

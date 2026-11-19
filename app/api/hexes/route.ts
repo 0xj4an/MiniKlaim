@@ -1,10 +1,11 @@
-import { eq, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { gridDisk, isValidCell } from "h3-js";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { hexes, users } from "@/lib/db/schema";
+import { hexes } from "@/lib/db/schema";
 import { jsonBody, packJson } from "@/lib/http/json-body";
 import { createLogger } from "@/lib/logger";
+import { withOwnerNames } from "@/lib/ownerNames";
 import { addressesForPlayer } from "@/lib/players";
 import { isHexStrengthEnabled, strengthSql } from "@/lib/runs/hexStrength";
 import { parseThinRes } from "@/lib/map/worldThin";
@@ -59,14 +60,14 @@ export async function GET(request: Request) {
     ? Math.min(MAX_DISK, Math.max(1, Math.floor(kRaw)))
     : 50;
 
+  // Usernames are added after the read (lib/ownerNames): joining users here
+  // made Postgres hash the whole users table for every run-screen refresh.
   const base = db
     .select({
       h3: hexes.h3Id,
       owner: hexes.ownerAddress,
-      ownerUsername: users.username,
     })
-    .from(hexes)
-    .leftJoin(users, eq(hexes.ownerAddress, users.address));
+    .from(hexes);
   // Scoped lists (run map, own territory) carry each block's level. The world
   // list does not: ~250k more numbers for a map that does not draw levels.
   const scoped = isHexStrengthEnabled()
@@ -74,7 +75,6 @@ export async function GET(request: Request) {
         .select({
           h3: hexes.h3Id,
           owner: hexes.ownerAddress,
-          ownerUsername: users.username,
           strength: strengthSql(
             hexes.baseStrength,
             hexes.damage,
@@ -82,7 +82,6 @@ export async function GET(request: Request) {
           ),
         })
         .from(hexes)
-        .leftJoin(users, eq(hexes.ownerAddress, users.address))
     : base;
 
   // Territory asks for one player, including every linked wallet. The world
@@ -92,7 +91,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "invalid address" }, { status: 400 });
     }
     const linked = await addressesForPlayer(owner);
-    const rows = await scoped.where(inArray(hexes.ownerAddress, linked));
+    const rows = await withOwnerNames(
+      await scoped.where(inArray(hexes.ownerAddress, linked)),
+    );
     log.info("hexes fetched", { count: rows.length, scoped: "owner" });
     return jsonBody(request, packJson({ hexes: rows }), SCOPED_CACHE);
   }
@@ -123,7 +124,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "invalid h3" }, { status: 400 });
   }
 
-  const rows = await scoped.where(inArray(hexes.h3Id, gridDisk(near, k)));
+  const rows = await withOwnerNames(
+    await scoped.where(inArray(hexes.h3Id, gridDisk(near, k))),
+  );
   log.info("hexes fetched", { count: rows.length, scoped: "near", k });
   return jsonBody(request, packJson({ hexes: rows }), SCOPED_CACHE);
 }

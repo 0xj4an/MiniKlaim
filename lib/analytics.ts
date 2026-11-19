@@ -85,6 +85,12 @@ type EventMap = {
      * a run that begins blind: 17 of 42 zero-block runs on 10 Nov 2026.
      */
     fix_ready?: boolean;
+    /**
+     * The "this block will not count" hint on screen when Start was tapped
+     * (P149): "used" today already, "owned" at full strength, or "none".
+     * Read against the run's blocks to see whether the hint changes anything.
+     */
+    start_hint?: "used" | "owned" | "none";
   };
   /** The home screen told the player what others took or attacked. */
   loss_notice_shown: { captured: number; attacked: number; players: number };
@@ -170,6 +176,18 @@ type EventMap = {
    */
   run_claim_player_pays: { reason: string };
   run_claim_failed: { trigger: string };
+  /**
+   * One router claim, timed by step: the voucher, the relayer's answer, the
+   * wallet sheet. `reached` is the last step it got to, so a claim that the
+   * relayer settled stops at "sponsor".
+   */
+  run_claim_phases: {
+    reached: "voucher" | "sponsor" | "wallet" | "submitted";
+    voucher_ms: number;
+    sponsor_ms: number;
+    wallet_ms: number;
+    total_ms: number;
+  };
   // Signature requested from the finish card. `auto_finish` is the sheet
   // that opens by itself. `button` is a retry after they declined.
   run_summary_claim_tapped: { blocks: number; via: "auto_finish" | "button" };
@@ -440,6 +458,8 @@ type EventMap = {
     trigger: "time" | "visibility";
     gap_seconds: number;
     segment_distance_m: number;
+    /** Visibility only: the app was away briefly and kept the path. */
+    anchor_kept?: boolean;
   };
   wallet_missing: { env: string };
   sponsor_mint_failed: { reason: string };
