@@ -83,6 +83,14 @@ type Voucher = {
  * and caps each wallet per day. A declined signature is reported and never
  * sponsored, not even by the retry cron.
  */
+type ClaimPhases = {
+  /** The last step the claim got to. */
+  reached: "voucher" | "sponsor" | "wallet" | "submitted";
+  voucher_ms: number;
+  sponsor_ms: number;
+  wallet_ms: number;
+};
+
 export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
   const { data: walletClient } = useWalletClient();
   const chainKey = useActiveChainKey();
@@ -260,6 +268,15 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
 
       markRunClaiming(runId);
       track("run_claim_started", { path: "router" });
+      // Where the time goes between "Claim" and done (P150): the voucher,
+      // the relayer's answer, and the wallet sheet. Sent once, at the end.
+      const claimStart = Date.now();
+      const phases: ClaimPhases = {
+        reached: "voucher",
+        voucher_ms: 0,
+        sponsor_ms: 0,
+        wallet_ms: 0,
+      };
       try {
         let voucher: Voucher;
         let voucherStatus = 0;
@@ -276,6 +293,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           voucherStatus = res.status;
           if (!res.ok) throw new Error(`voucher status ${res.status}`);
           voucher = (await res.json()) as Voucher;
+          phases.voucher_ms = Date.now() - claimStart;
         } catch (e) {
           log.warn("claimAll voucher fetch failed", {
             runId,
@@ -338,7 +356,10 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
         // The server only pays while its balance is above the claim floor,
         // and hands the claim back otherwise, so this promise unwinds by
         // itself instead of breaking.
+        phases.reached = "sponsor";
+        const sponsorStart = Date.now();
         const free = await sponsorWithBadges("free_claim");
+        phases.sponsor_ms = Date.now() - sponsorStart;
         if (free !== "player-pays") return free === "refused" ? "failed" : free;
         if (
           minipay &&
@@ -369,6 +390,8 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           ],
         });
         let lastError: unknown;
+        phases.reached = "wallet";
+        const walletStart = Date.now();
         try {
           const { result: txHash, fee } = await sendWithFeeFallback(
             minipay ? held.slice(0, 1) : held,
@@ -389,6 +412,8 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
               }),
             { native: !minipay },
           );
+          phases.wallet_ms = Date.now() - walletStart;
+          phases.reached = "submitted";
           log.info("claimAll submitted by player", {
             runId,
             chainKey,
@@ -416,6 +441,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           return "claimed";
         } catch (e) {
           lastError = e;
+          phases.wallet_ms = Date.now() - walletStart;
         }
         if (isUserRejection(lastError)) {
           log.warn("player claimAll declined", {
@@ -445,6 +471,10 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
           : outcome;
       } finally {
         clearRunClaiming(runId);
+        track("run_claim_phases", {
+          ...phases,
+          total_ms: Date.now() - claimStart,
+        });
       }
     },
     // Individual balance fields are memoized in useBalances; listing them keeps
