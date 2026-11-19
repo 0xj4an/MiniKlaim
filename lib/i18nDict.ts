@@ -44,7 +44,7 @@ export const dictionaries = {
     "me.username.proofNeeded":
       "Your name stays as it is, and you can keep playing and capturing blocks. To change it, use the phone where you first set it, or write to support from this screen.",
     "me.link.proofNeeded":
-      "This phone can't confirm this wallet is yours, so it can't make a link code. Use the phone where you started playing, or write to support.",
+      "You can keep playing and capturing blocks with this wallet. Only linking another wallet needs the phone where you started playing. If you no longer have it, write to support from this screen.",
     "home.return.body":
       "It's been a few days. The blocks you cross are still yours.",
     "home.env.minipay.connecting": "Connecting to MiniPay...",
@@ -769,7 +769,7 @@ export const dictionaries = {
     "me.username.proofNeeded":
       "Tu nombre se queda como está, y puedes seguir jugando y capturando cuadras. Para cambiarlo, usa el teléfono donde lo pusiste, o escribe a soporte desde esta pantalla.",
     "me.link.proofNeeded":
-      "Este teléfono no puede confirmar que esta wallet es tuya, así que no puede crear un código de enlace. Usa el teléfono donde empezaste a jugar, o escribe a soporte.",
+      "Puedes seguir jugando y capturando cuadras con esta wallet. Solo vincular otra wallet necesita el teléfono donde empezaste a jugar. Si ya no lo tienes, escribe a soporte desde esta pantalla.",
     "home.return.body":
       "Hace unos días. Las cuadras que cruzas siguen siendo tuyas.",
     "home.env.minipay.connecting": "Conectando a MiniPay...",
