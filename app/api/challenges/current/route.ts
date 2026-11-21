@@ -3,6 +3,7 @@ import type { Address } from "viem";
 import { db } from "@/lib/db";
 import { approveAmount, readEntryFunds } from "@/lib/challenges/allowance";
 import { challengeEntriesPaused } from "@/lib/challenges/paused";
+import { qualifiedCount } from "@/lib/challenges/qualifiedCount";
 import {
   challengeDepositAddress,
   currentChallenge,
@@ -35,12 +36,16 @@ export async function GET(request: Request) {
   try {
     const c = await currentChallenge(db, new Date());
     if (!c) return NextResponse.json({ challenge: null });
-    const view = await viewOf(db, c);
+    const [view, qualified] = await Promise.all([
+      viewOf(db, c),
+      qualifiedCount(db, c),
+    ]);
     const spender = dropsAddress();
     const sym = dropTokenByAddress(c.token);
     const token = sym ? DROP_TOKENS[sym] : null;
     const body: Record<string, unknown> = {
-      challenge: view,
+      // `qualified`: entrants holding every badge right now; null if unknown.
+      challenge: { ...view, qualified },
       deposit: challengeDepositAddress(),
       spender,
       approveAmount: token ? approveAmount(token.decimals).toString() : null,
