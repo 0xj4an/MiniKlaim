@@ -16,6 +16,7 @@ import {
 } from "@/lib/wallet/environment";
 import { LinkExisting } from "@/app/LinkExisting";
 import { BadgeClaimPrompt } from "@/app/BadgeClaimPrompt";
+import { ChallengeReminder } from "@/app/ChallengeReminder";
 import { WeeklyChallenge } from "@/app/WeeklyChallenge";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
 import { NeedCeloNote } from "@/app/NeedCeloNote";
@@ -102,6 +103,10 @@ export function HomeClient() {
 
       {mounted && isConnected && !isWrongChain && user?.username && (
         <LossNotice address={address ?? null} />
+      )}
+
+      {mounted && isConnected && !isWrongChain && user?.username && (
+        <ChallengeReminder address={address ?? null} />
       )}
 
       {mounted && (

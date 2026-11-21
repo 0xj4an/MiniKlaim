@@ -429,6 +429,16 @@ export const dictionaries = {
     "challenge.winners": "{n} winners",
     "challenge.qualified":
       "{n} of {m} entrants already hold the badges for the draw.",
+    "challenge.reminder.kicker": "Weekly challenge",
+    "challenge.reminder.title": "You entered, but {n} badges are missing",
+    "challenge.reminder.title.one": "You entered, but 1 badge is missing",
+    "challenge.reminder.claimWhy":
+      "You already earned them: claim them and you are in the draw.",
+    "challenge.reminder.runWhy":
+      "One run that claims a block earns them. Then claim them.",
+    "challenge.reminder.until": "You have until {date}.",
+    "challenge.reminder.claim": "Claim my badges",
+    "challenge.reminder.run": "Go run",
     "challenge.rule": "Hold these badges when the week ends to enter the draw.",
     "challenge.enter": "Enter for {amount}",
     "challenge.approveEnter": "Approve and enter for {amount}",
@@ -1158,6 +1168,16 @@ export const dictionaries = {
     "challenge.winners": "{n} ganadores",
     "challenge.qualified":
       "{n} de {m} inscritos ya tienen las badges para el sorteo.",
+    "challenge.reminder.kicker": "Challenge semanal",
+    "challenge.reminder.title": "Te inscribiste, pero te faltan {n} badges",
+    "challenge.reminder.title.one": "Te inscribiste, pero te falta 1 badge",
+    "challenge.reminder.claimWhy":
+      "Ya las ganaste: reclámalas y entras al sorteo.",
+    "challenge.reminder.runWhy":
+      "Una corrida que capture una cuadra las gana. Luego reclámalas.",
+    "challenge.reminder.until": "Tienes hasta el {date}.",
+    "challenge.reminder.claim": "Reclamar mis badges",
+    "challenge.reminder.run": "Ir a correr",
     "challenge.rule":
       "Ten estas badges al cierre de la semana para entrar al sorteo.",
     "challenge.enter": "Entrar por {amount}",
