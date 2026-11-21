@@ -235,31 +235,16 @@ export function badgesContractAddress(
 /**
  * Read which badges this player currently holds on-chain. Returns the set
  * of badge IDs (as numbers) where the on-chain balance is non-zero.
+ *
+ * A failed read comes back as "holds none". Use `onchainBadgeIdsHeldOrThrow`
+ * where that would be said to the player as a fact.
  */
 export async function onchainBadgeIdsHeld(
   player: Address,
   chainKey: ChainKey = DEFAULT_CHAIN_KEY,
 ): Promise<number[]> {
-  if (!isChainConfigured(chainKey)) return [];
-  const allIds = Object.values(BADGE_IDS);
-  const accounts: Address[] = Array(allIds.length).fill(player);
   try {
-    const balances = (await badgesPublicClient(chainKey).readContract({
-      address: getChain(chainKey).badgesAddress,
-      abi: BADGES_ABI,
-      functionName: "balanceOfBatch",
-      args: [accounts, allIds],
-      // viem 2.50.4's readContract type requires `authorizationList`, but passing
-      // an empty array makes the RPC reject the call ("Missing or invalid
-      // parameters"), which silently returned no held badges. `undefined`
-      // satisfies the type and is ignored at runtime. Do not change to [].
-      authorizationList: undefined,
-    })) as readonly bigint[];
-    const held: number[] = [];
-    balances.forEach((bal, i) => {
-      if (bal > BigInt(0)) held.push(Number(allIds[i]));
-    });
-    return held;
+    return await onchainBadgeIdsHeldOrThrow(player, chainKey);
   } catch (e) {
     log.warn("onchainBadgeIdsHeld failed", {
       player,
@@ -267,4 +252,30 @@ export async function onchainBadgeIdsHeld(
     });
     return [];
   }
+}
+
+/** Same read, but a failure is a failure, not an empty list. */
+export async function onchainBadgeIdsHeldOrThrow(
+  player: Address,
+  chainKey: ChainKey = DEFAULT_CHAIN_KEY,
+): Promise<number[]> {
+  if (!isChainConfigured(chainKey)) return [];
+  const allIds = Object.values(BADGE_IDS);
+  const accounts: Address[] = Array(allIds.length).fill(player);
+  const balances = (await badgesPublicClient(chainKey).readContract({
+    address: getChain(chainKey).badgesAddress,
+    abi: BADGES_ABI,
+    functionName: "balanceOfBatch",
+    args: [accounts, allIds],
+    // viem 2.50.4's readContract type requires `authorizationList`, but passing
+    // an empty array makes the RPC reject the call ("Missing or invalid
+    // parameters"), which silently returned no held badges. `undefined`
+    // satisfies the type and is ignored at runtime. Do not change to [].
+    authorizationList: undefined,
+  })) as readonly bigint[];
+  const held: number[] = [];
+  balances.forEach((bal, i) => {
+    if (bal > BigInt(0)) held.push(Number(allIds[i]));
+  });
+  return held;
 }
