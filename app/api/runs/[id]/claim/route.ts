@@ -20,6 +20,11 @@ import {
   pathFitsReported,
   reachableFromPrevious,
 } from "@/lib/runs/movementGuard";
+import {
+  phaseTimer,
+  watchClaim,
+  type PhaseTimer,
+} from "@/lib/runs/claimTiming";
 
 const log = createLogger("api:runs:claim");
 
@@ -27,21 +32,6 @@ export const dynamic = "force-dynamic";
 
 /** A batch slower than this is logged with where its time went. */
 const SLOW_CLAIM_MS = 5_000;
-
-function phaseTimer() {
-  const start = performance.now();
-  let last = start;
-  const ms: Record<string, number> = {};
-  return {
-    mark(name: string) {
-      const now = performance.now();
-      ms[name] = Math.round(now - last);
-      last = now;
-    },
-    total: () => Math.round(performance.now() - start),
-    phases: () => ({ ...ms }),
-  };
-}
 
 /**
  * Claim one or more hexes for a run. Accepts two body shapes:
@@ -63,11 +53,27 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const timing = phaseTimer();
+  // A request that is cut off or hangs never reaches the "slow claim batch"
+  // line below; the watch speaks for it (lib/runs/claimTiming.ts).
+  const stopWatch = watchClaim(
+    timing,
+    id,
+    (message, data) => log.warn(message, data),
+    request.signal,
+  );
+  try {
+    return await claimBatch(request, id, timing);
+  } finally {
+    stopWatch();
+  }
+}
+
+async function claimBatch(request: Request, id: string, timing: PhaseTimer) {
   // Where a slow batch spends its time. Up to 34 s had been seen with every
   // query fast (pg_stat_statements, 16 Nov 2026), so the time is either in
   // reading the body off a slow phone or somewhere in here. "body" is the
   // first: it covers the upload.
-  const timing = phaseTimer();
   const body = (await request.json()) as {
     h3?: string;
     distanceMeters?: number;
