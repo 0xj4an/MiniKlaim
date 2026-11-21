@@ -262,6 +262,14 @@ type EventMap = {
   drop_heat: { level: number };
   // Weekly challenges (paid entry by token transfer).
   challenge_viewed: { challenge: string; entered: boolean };
+  /** An entrant without the badges was told they are not in the draw yet. */
+  challenge_reminder_shown: {
+    challenge: string;
+    state: "claim" | "missing";
+    missing: number;
+  };
+  /** What they did with it: went to claim or run, or put it off. */
+  challenge_reminder_action: { challenge: string; action: "go" | "later" };
   challenge_enter_started: { challenge: string; needs_approval?: boolean };
   challenge_approve_started: { challenge: string; amount: string };
   challenge_approve_sent: { challenge: string; tx_hash: string; fee: string };
