@@ -37,3 +37,26 @@ export async function withOwnerNames<T extends { owner: string | null }>(
     ownerUsername: r.owner ? (names.get(r.owner) ?? null) : null,
   }));
 }
+
+/** Owners asked for per query: well under Postgres' parameter limit. */
+const NAME_CHUNK = 1_000;
+
+/**
+ * address -> username for a set of owners, by primary key, in chunks.
+ *
+ * For lists too large to carry a join (the world list: every block on the
+ * map, a few thousand owners). Owners without a users row are simply absent.
+ */
+export async function ownerNameMap(
+  owners: Iterable<string>,
+  load: OwnerNameLoader = loadFromDb,
+): Promise<Map<string, string | null>> {
+  const all = [...new Set(owners)];
+  const names = new Map<string, string | null>();
+  for (let i = 0; i < all.length; i += NAME_CHUNK) {
+    for (const u of await load(all.slice(i, i + NAME_CHUNK))) {
+      names.set(u.address, u.username);
+    }
+  }
+  return names;
+}
