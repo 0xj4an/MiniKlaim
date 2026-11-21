@@ -427,6 +427,8 @@ export const dictionaries = {
     "challenge.pool": "Pool",
     "challenge.entrants": "{n} entered",
     "challenge.winners": "{n} winners",
+    "challenge.qualified":
+      "{n} of {m} entrants already hold the badges for the draw.",
     "challenge.rule": "Hold these badges when the week ends to enter the draw.",
     "challenge.enter": "Enter for {amount}",
     "challenge.approveEnter": "Approve and enter for {amount}",
@@ -1154,6 +1156,8 @@ export const dictionaries = {
     "challenge.pool": "Pool",
     "challenge.entrants": "{n} inscritos",
     "challenge.winners": "{n} ganadores",
+    "challenge.qualified":
+      "{n} de {m} inscritos ya tienen las badges para el sorteo.",
     "challenge.rule":
       "Ten estas badges al cierre de la semana para entrar al sorteo.",
     "challenge.enter": "Entrar por {amount}",
