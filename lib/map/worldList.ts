@@ -10,6 +10,7 @@ import {
   type WorldOwnerGroup,
 } from "@/lib/map/worldHexes";
 import { createThinner, type WorldThinRes } from "@/lib/map/worldThin";
+import { ownerNameMap } from "@/lib/ownerNames";
 import { createSharedCache } from "@/lib/sharedCache";
 
 const log = createLogger("map:worldList");
@@ -68,20 +69,39 @@ const WORLD_BATCH = 5_000;
  *
  * Raw SQL because drizzle has no cursor. The column aliases are the row
  * shape the rest of the app uses; a test reads them back.
+ *
+ * No join to `users`. The join made Postgres hash the whole users table on
+ * every rebuild, 13.6 times an hour for each list, and held that work inside
+ * the cursor: the query's worst case grew from 2.9 s to 4.1 s between 19 and
+ * 21 Nov 2026 as both tables grew. Names are looked up afterwards, by
+ * primary key, for the few thousand owners that actually hold blocks
+ * (`namesFor`). Rows leave here with `ownerUsername: null`.
  */
 async function eachWorldBatch(
   onBatch: (rows: ClaimedHexRow[]) => void,
 ): Promise<number> {
   let count = 0;
   const query = pg<ClaimedHexRow[]>`
-    select h.h3_id as h3, h.owner_address as owner, u.username as "ownerUsername"
-    from hexes h
-    left join users u on h.owner_address = u.address`;
+    select h.h3_id as h3, h.owner_address as owner, null::text as "ownerUsername"
+    from hexes h`;
   for await (const batch of query.cursor(WORLD_BATCH)) {
     onBatch(batch);
     count += batch.length;
   }
   return count;
+}
+
+/**
+ * A build that takes this long is worth a line in the log. `info` is
+ * dropped in production (lib/logger.ts), which is why "world list built"
+ * never showed up there; a slow build logs at `warn` with its timing.
+ */
+const SLOW_BUILD_MS = 2_000;
+
+function logBuild(started: number, data: Record<string, unknown>): void {
+  const ms = Date.now() - started;
+  if (ms >= SLOW_BUILD_MS) log.warn("world list built slowly", { ms, ...data });
+  else log.info("world list built", { ms, ...data });
 }
 
 /** The ten owners the world map colours, lowercased. */
@@ -100,19 +120,32 @@ async function topOwners(): Promise<Set<string>> {
 export function worldList(shape: WorldShape): Promise<PackedJson> {
   return worldShared.get(shape, async () => {
     if (shape === "owners") {
+      const started = Date.now();
       const groups = new Map<string, WorldOwnerGroup>();
       const count = await eachWorldBatch((rows) => addToOwners(groups, rows));
-      log.info("world list built", { count, shape });
+      const names = await ownerNameMap(groups.keys());
+      for (const g of groups.values()) {
+        g.ownerUsername = names.get(g.owner) ?? null;
+      }
+      logBuild(started, { count, shape, owners: groups.size });
       return packJsonText(await ownersJson([...groups.values()]));
     }
     // One row per block. Nothing asks for it (the route logs a warning when
     // something does); written slice by slice all the same, so a scraper
     // cannot freeze the process by asking.
+    // Names first here: each slice is written as text as it arrives, so
+    // the name has to be known by then.
+    const started = Date.now();
+    const owners = await pg<{ owner: string }[]>`
+      select distinct owner_address as owner from hexes`;
+    const names = await ownerNameMap(owners.map((o) => o.owner));
     const slices: string[] = [];
     const count = await eachWorldBatch((rows) => {
-      if (rows.length > 0) slices.push(JSON.stringify(rows).slice(1, -1));
+      if (rows.length === 0) return;
+      for (const r of rows) r.ownerUsername = names.get(r.owner) ?? null;
+      slices.push(JSON.stringify(rows).slice(1, -1));
     });
-    log.info("world list built", { count, shape });
+    logBuild(started, { count, shape });
     return packJsonText(`{"hexes":[${slices.join(",")}]}`);
   });
 }
@@ -121,13 +154,16 @@ export function thinnedWorldList(res: WorldThinRes): Promise<PackedJson> {
   return thinShared.get(String(res), async () => {
     // A top-ten block wins its cell: those ten colours are the only thing
     // distinguishing the world map from a grey smear.
+    const started = Date.now();
     const top = await topOwners();
     const thinner = createThinner(res, (owner) =>
       top.has(owner.toLowerCase()) ? 1 : 0,
     );
     const count = await eachWorldBatch(thinner.add);
     const thinned = thinner.rows();
-    log.info("world list built", { count, thinned: thinned.length, res });
+    const names = await ownerNameMap(thinned.map((r) => r.owner));
+    for (const r of thinned) r.ownerUsername = names.get(r.owner) ?? null;
+    logBuild(started, { count, thinned: thinned.length, res });
     // The header counts every captured block, not the dots drawn, so the
     // real total travels with the thinned list.
     return packJsonText(
