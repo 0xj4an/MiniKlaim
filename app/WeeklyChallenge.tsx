@@ -21,6 +21,8 @@ type View = {
   closesAt: string;
   status: string;
   entrants: number;
+  /** Entrants holding every badge right now; null or absent when unknown. */
+  qualified?: number | null;
   pool: string;
   result: { winners?: string[]; perWinner?: string } | null;
 };
@@ -166,6 +168,14 @@ export function WeeklyChallenge() {
           </p>
         </div>
       </div>
+
+      {typeof c.qualified === "number" && c.entrants > 0 && (
+        <p className="text-center text-xs font-semibold text-violet-900">
+          {t("challenge.qualified")
+            .replace("{n}", String(c.qualified))
+            .replace("{m}", String(c.entrants))}
+        </p>
+      )}
 
       <p className="text-center text-xs text-violet-800">
         {t("challenge.rule")}
