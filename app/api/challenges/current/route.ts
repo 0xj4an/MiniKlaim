@@ -17,7 +17,7 @@ import {
 } from "@/lib/drops/config";
 import { createLogger } from "@/lib/logger";
 import { computeEligibleBadgeIds } from "@/lib/onchain/badgeEligibility";
-import { badgeIdsHeldByPlayer } from "@/lib/onchain/playerHeldBadges";
+import { onchainBadgeIdsHeldOrThrow } from "@/lib/onchain/badges";
 import { addressesForPlayer } from "@/lib/players";
 
 const log = createLogger("api:challenges:current");
@@ -52,11 +52,20 @@ export async function GET(request: Request) {
       entriesPaused: challengeEntriesPaused(),
     };
     if (address) {
-      const [linked, held, eligible] = await Promise.all([
-        addressesForPlayer(address),
-        badgeIdsHeldByPlayer(address).catch(() => [] as number[]),
+      const linked = await addressesForPlayer(address);
+      // `heldKnown` false: the chain could not be read. The card then says
+      // nothing about being in or out of the draw, instead of telling a
+      // player who holds every badge that they are missing all of them.
+      const [heldRead, eligible] = await Promise.all([
+        Promise.all(
+          linked.map((w) => onchainBadgeIdsHeldOrThrow(w as Address)),
+        ).then(
+          (lists) => Array.from(new Set(lists.flat())),
+          () => null,
+        ),
         computeEligibleBadgeIds(address as Address).catch(() => [] as bigint[]),
       ]);
+      const held = heldRead ?? [];
       const wanted = new Set(c.badgeIds);
       const heldHere = held.filter((id) => wanted.has(id));
       const claimable = eligible
@@ -72,6 +81,7 @@ export async function GET(request: Request) {
       body.player = {
         entered: await hasEntered(db, c.id, linked),
         held: heldHere,
+        heldKnown: heldRead !== null,
         claimable,
         allowance: funds ? funds.allowance.toString() : null,
         balance: funds ? funds.balance.toString() : null,

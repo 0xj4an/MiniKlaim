@@ -6,6 +6,8 @@ import type { Address } from "viem";
 import { track } from "@/lib/analytics";
 import { useEnterChallenge } from "@/lib/challenges/useEnterChallenge";
 import { formatPrize } from "@/lib/drops/format";
+import { ChallengeReminder } from "@/app/ChallengeReminder";
+import { entryStanding } from "@/lib/challenges/standing";
 import { useLocale } from "@/lib/i18n";
 import { badgeCopy } from "@/lib/onchain/badgeArt";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -36,6 +38,8 @@ type Payload = {
   player?: {
     entered: boolean;
     held: number[];
+    /** False when the chain could not be read: `held` is then not a fact. */
+    heldKnown?: boolean;
     claimable: number[];
     allowance: string | null;
     balance: string | null;
@@ -133,6 +137,12 @@ export function WeeklyChallenge() {
   );
   const won =
     !!address && (c.result?.winners ?? []).includes(address.toLowerCase());
+  // Paid is not in the draw. Only said when the server told us where the
+  // player stands (`data.player`), never from an entry made this second.
+  const standing =
+    entered && data?.player && data.player.heldKnown !== false
+      ? entryStanding({ badgeIds: c.badgeIds, held, claimable })
+      : null;
   const perWinner = c.result?.perWinner
     ? formatPrize(c.token, c.result.perWinner, locale)
     : null;
@@ -233,9 +243,39 @@ export function WeeklyChallenge() {
                     .replace("{amount}", perWinner)
                 : t("challenge.result.pending")}
         </p>
+      ) : entered && standing && standing.state !== "in" ? (
+        <div className="flex flex-col items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
+          <p className="text-center text-sm font-semibold text-amber-900">
+            ⚠️{" "}
+            {t("challenge.notInYet").replace("{n}", String(standing.missing))}
+          </p>
+          <p className="text-center text-xs text-amber-900">
+            {t(
+              standing.state === "claim"
+                ? "challenge.reminder.claim"
+                : "challenge.reminder.run",
+            )}
+          </p>
+          <Link
+            href={standing.state === "claim" ? "/me" : "/run"}
+            className="text-xs font-semibold text-violet-700 underline"
+          >
+            {t(
+              standing.state === "claim"
+                ? "challenge.reminder.ctaClaim"
+                : "challenge.reminder.ctaRun",
+            )}
+          </Link>
+          <ChallengeReminder
+            challengeId={c.id}
+            standing={standing}
+            total={c.badgeIds.length}
+            closesLabel={fmtDate(c.closesAt)}
+          />
+        </div>
       ) : entered ? (
         <p className="text-center text-sm font-medium text-emerald-800">
-          ✅ {t("challenge.entered")}
+          ✅ {t(standing ? "challenge.inDraw" : "challenge.entered")}
         </p>
       ) : entriesOpen ? (
         <>
