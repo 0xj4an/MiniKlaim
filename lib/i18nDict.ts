@@ -439,6 +439,19 @@ export const dictionaries = {
     "challenge.oneTap": "One tap: {amount} comes from your approved balance.",
     "challenge.entered":
       "You are in the draw if you hold the badges at the close.",
+    "challenge.inDraw": "You are in the draw: you hold every badge.",
+    "challenge.notInYet":
+      "You paid the entry, but you are not in the draw yet: {n} badges to go.",
+    "challenge.reminder.title": "You are not in the draw yet",
+    "challenge.reminder.body":
+      "You paid the entry for the weekly challenge, but {n} of its {m} badges are still missing. Only players holding all of them enter the draw.",
+    "challenge.reminder.claim":
+      "You already earned them: claim them and you are in.",
+    "challenge.reminder.run":
+      "One run that claims a block earns them. Then claim them.",
+    "challenge.reminder.ctaClaim": "Claim my badges",
+    "challenge.reminder.ctaRun": "Start a run",
+    "challenge.reminder.later": "Later",
     "challenge.noFunds": "You need {amount} in your wallet to enter.",
     "challenge.failed":
       "Could not enter right now. Nothing was charged; try again in a minute.",
@@ -1168,6 +1181,19 @@ export const dictionaries = {
     "challenge.entering": "Inscribiendo...",
     "challenge.oneTap": "Un toque: {amount} sale de tu saldo aprobado.",
     "challenge.entered": "Estás en el sorteo si tienes las badges al cierre.",
+    "challenge.inDraw": "Ya estás en el sorteo: tienes todas las badges.",
+    "challenge.notInYet":
+      "Pagaste la entrada, pero aún no estás en el sorteo: te faltan {n} badges.",
+    "challenge.reminder.title": "Aún no estás en el sorteo",
+    "challenge.reminder.body":
+      "Pagaste la entrada del challenge semanal, pero te faltan {n} de sus {m} badges. Solo entra al sorteo quien las tiene todas.",
+    "challenge.reminder.claim":
+      "Ya te las ganaste: reclámalas y quedas dentro.",
+    "challenge.reminder.run":
+      "Una corrida que capture un bloque te las da. Después reclámalas.",
+    "challenge.reminder.ctaClaim": "Reclamar mis badges",
+    "challenge.reminder.ctaRun": "Empezar una corrida",
+    "challenge.reminder.later": "Después",
     "challenge.noFunds": "Necesitas {amount} en tu wallet para entrar.",
     "challenge.failed":
       "No pudimos inscribirte ahora. No se cobró nada; intenta en un minuto.",
