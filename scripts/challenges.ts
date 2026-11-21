@@ -8,6 +8,7 @@ import postgres from "postgres";
 import { type Address, encodeFunctionData, type Hex, keccak256, parseUnits, toBytes } from "viem";
 import { challengeEntries, challenges, dropFinds, drops } from "../lib/db/schema";
 import { blockAfter, drawWinners, prizePerWinner } from "../lib/challenges/math";
+import { resolveQualified } from "../lib/challenges/qualified";
 import { challengeDepositAddress, challengePool, entriesTotal, syncEntries } from "../lib/challenges/server";
 import { CHALLENGE_ABI, challengeKey } from "../lib/challenges/allowance";
 import { DROPS_ABI, DROPS_READ_ABI, dropsPublicClient, sendDropsTx, sendRelayerTokenTransfer } from "../lib/drops/claim";
@@ -204,25 +205,15 @@ async function draw(id: string) {
   const seed = (await pub.getBlock({ blockNumber: BigInt(c.drawBlock) })).hash as Hex;
   const entries = await db.select().from(challengeEntries).where(eq(challengeEntries.challengeId, c.id));
 
-  const qualified: string[] = [];
-  const detail: Array<{ player: string; held: number[] }> = [];
-  // One ticket per player: linked wallets that each entered count once.
-  const seenPlayers = new Set<string>();
-  for (const e of entries) {
-    // Holding the badge is what counts, whenever it was minted.
-    const wallets = (await addressesForPlayer(e.player)) as Address[];
-    const person = [e.player, ...wallets].map((w) => w.toLowerCase()).sort()[0];
-    if (seenPlayers.has(person)) {
-      detail.push({ player: e.player, held: [] });
-      continue;
-    }
-    seenPlayers.add(person);
-    const owned = new Set<number>();
-    for (const w of wallets) for (const b of await onchainBadgeIdsHeld(w)) owned.add(b);
-    const held = c.badgeIds.filter((b) => owned.has(b));
-    detail.push({ player: e.player, held });
-    if (held.length === c.badgeIds.length) qualified.push(e.player);
-  }
+  // The same rule the challenge card counts with (lib/challenges/qualified).
+  const { qualified, detail } = await resolveQualified(
+    entries.map((e) => e.player),
+    c.badgeIds,
+    {
+      walletsOf: (a) => addressesForPlayer(a),
+      heldOf: (w) => onchainBadgeIdsHeld(w as Address),
+    },
+  );
   const { total } = await entriesTotal(db, c.id);
   const pool = challengePool(c, total);
   const winners = drawWinners(qualified, seed, c.id, c.winners);
