@@ -132,3 +132,33 @@ describe("createThinner", () => {
     expect(createThinner(2, rank).rows()).toEqual([]);
   });
 });
+
+describe("thinning a coarser list from a finer one", () => {
+  it("gives the same winners as thinning the table directly", () => {
+    // Blocks spread over a few hundred km, with a ranked owner mixed in, so
+    // cells at every resolution have several candidates.
+    const rows = Array.from({ length: 4_000 }, (_, i) => ({
+      h3: latLngToCell(4 + (i % 80) * 0.05, -74 + Math.floor(i / 80) * 0.07, 12),
+      owner: i % 7 === 0 ? "0xtop" : `0x${i % 13}`,
+      ownerUsername: null,
+    }));
+    const rank = (owner: string) => (owner === "0xtop" ? 1 : 0);
+    const direct = (res: 2 | 3 | 4) => {
+      const t = createThinner(res, rank);
+      t.add(rows);
+      return t.rows();
+    };
+    const fine = direct(4);
+    for (const res of [3, 2] as const) {
+      const viaFine = createThinner(res, rank);
+      viaFine.add(fine);
+      expect(viaFine.rows()).toEqual(direct(res));
+    }
+    // And through both steps, as the world scan does it.
+    const three = createThinner(3, rank);
+    three.add(fine);
+    const two = createThinner(2, rank);
+    two.add(three.rows());
+    expect(two.rows()).toEqual(direct(2));
+  });
+});

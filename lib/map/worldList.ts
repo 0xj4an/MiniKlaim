@@ -9,7 +9,11 @@ import {
   ownersJson,
   type WorldOwnerGroup,
 } from "@/lib/map/worldHexes";
-import { createThinner, type WorldThinRes } from "@/lib/map/worldThin";
+import {
+  createThinner,
+  WORLD_THIN_RES,
+  type WorldThinRes,
+} from "@/lib/map/worldThin";
 import { ownerNameMap } from "@/lib/ownerNames";
 import { createSharedCache } from "@/lib/sharedCache";
 
@@ -41,10 +45,72 @@ const worldShared = createSharedCache<PackedJson>(WORLD_TTL_MS, {
   serveStaleWhileRevalidating: true,
 });
 
-/** The thinned world, one entry per resolution, on the same terms. */
-const thinShared = createSharedCache<PackedJson>(WORLD_TTL_MS, {
+/**
+ * The grouped list and every thinned list, from one read of the table.
+ *
+ * Each list used to read all of `hexes` on its own: the grouped list and
+ * the three thinned resolutions, every five minutes each. First timings
+ * (21 Nov 2026, 592,641 blocks, slow builds logged for the first time):
+ * 3.2 s for the grouped list and 4.2 to 7.3 s for each thinned one, so up
+ * to four full reads and about 20 s of work per five minutes for data that
+ * is the same rows every time.
+ *
+ * One read now feeds all of them. The coarser thinned lists are thinned
+ * from the finest one instead of from the table: the winner of a cell is
+ * the best of its children's winners (highest rank, then lowest id, a total
+ * order), so thinning 900 winners gives the same answer as thinning 600k
+ * rows.
+ */
+type WorldScan = {
+  owners: PackedJson;
+  thin: Record<WorldThinRes, PackedJson>;
+};
+
+const scanShared = createSharedCache<WorldScan>(WORLD_TTL_MS, {
   serveStaleWhileRevalidating: true,
 });
+
+/** Finest first: each coarser list is thinned from the one before it. */
+const THIN_FINE_TO_COARSE = [...WORLD_THIN_RES].sort((a, b) => b - a);
+
+function worldScan(): Promise<WorldScan> {
+  return scanShared.get("scan", async () => {
+    const started = Date.now();
+    // A top-ten block wins its cell: those ten colours are the only thing
+    // distinguishing the world map from a grey smear.
+    const top = await topOwners();
+    const rank = (owner: string) => (top.has(owner.toLowerCase()) ? 1 : 0);
+    const groups = new Map<string, WorldOwnerGroup>();
+    const finest = createThinner(THIN_FINE_TO_COARSE[0], rank);
+    const count = await eachWorldBatch((rows) => {
+      addToOwners(groups, rows);
+      finest.add(rows);
+    });
+    const names = await ownerNameMap(groups.keys());
+    for (const g of groups.values()) {
+      g.ownerUsername = names.get(g.owner) ?? null;
+    }
+    const owners = packJsonText(await ownersJson([...groups.values()]));
+
+    const thin = {} as Record<WorldThinRes, PackedJson>;
+    let rows = finest.rows();
+    for (const res of THIN_FINE_TO_COARSE) {
+      if (res !== THIN_FINE_TO_COARSE[0]) {
+        const coarser = createThinner(res, rank);
+        coarser.add(rows);
+        rows = coarser.rows();
+      }
+      for (const r of rows) r.ownerUsername = names.get(r.owner) ?? null;
+      // The header counts every captured block, not the dots drawn, so the
+      // real total travels with the thinned list.
+      thin[res] = packJsonText(
+        await ownersJson(groupByOwner(rows), { total: count }),
+      );
+    }
+    logBuild(started, { count, owners: groups.size });
+    return { owners, thin };
+  });
+}
 
 /** Rows per slice. 5,000 is 2 ms to group and 11 ms to thin. */
 const WORLD_BATCH = 5_000;
@@ -118,18 +184,8 @@ async function topOwners(): Promise<Set<string>> {
 }
 
 export function worldList(shape: WorldShape): Promise<PackedJson> {
+  if (shape === "owners") return worldScan().then((scan) => scan.owners);
   return worldShared.get(shape, async () => {
-    if (shape === "owners") {
-      const started = Date.now();
-      const groups = new Map<string, WorldOwnerGroup>();
-      const count = await eachWorldBatch((rows) => addToOwners(groups, rows));
-      const names = await ownerNameMap(groups.keys());
-      for (const g of groups.values()) {
-        g.ownerUsername = names.get(g.owner) ?? null;
-      }
-      logBuild(started, { count, shape, owners: groups.size });
-      return packJsonText(await ownersJson([...groups.values()]));
-    }
     // One row per block. Nothing asks for it (the route logs a warning when
     // something does); written slice by slice all the same, so a scraper
     // cannot freeze the process by asking.
@@ -151,42 +207,15 @@ export function worldList(shape: WorldShape): Promise<PackedJson> {
 }
 
 export function thinnedWorldList(res: WorldThinRes): Promise<PackedJson> {
-  return thinShared.get(String(res), async () => {
-    // A top-ten block wins its cell: those ten colours are the only thing
-    // distinguishing the world map from a grey smear.
-    const started = Date.now();
-    const top = await topOwners();
-    const thinner = createThinner(res, (owner) =>
-      top.has(owner.toLowerCase()) ? 1 : 0,
-    );
-    const count = await eachWorldBatch(thinner.add);
-    const thinned = thinner.rows();
-    const names = await ownerNameMap(thinned.map((r) => r.owner));
-    for (const r of thinned) r.ownerUsername = names.get(r.owner) ?? null;
-    logBuild(started, { count, thinned: thinned.length, res });
-    // The header counts every captured block, not the dots drawn, so the
-    // real total travels with the thinned list.
-    return packJsonText(
-      await ownersJson(groupByOwner(thinned), { total: count }),
-    );
-  });
+  return worldScan().then((scan) => scan.thin[res]);
 }
 
 /**
  * Fill the caches at startup, so the first player after a deploy is served
  * from memory instead of paying the 2.6 s build.
  *
- * Only the two lists the app actually asks for: res 2 is the world view's
- * own resolution, and `owners` is the full list the deeper zooms fetch. The
- * other resolutions are built on demand, which is cheap once warm.
- *
- * They are built one after the other, thin first, not concurrently. Measured
- * on prod: warming both at once took 9.2 s, and a player arriving inside
- * that window waits for it, because the cache is single-flight and the
- * request attaches to the build already running. Thin first means the list
- * the world map actually opens with is ready in about a third of that, and
- * the full list, which only a zoomed-in player needs, finishes behind it
- * instead of competing with it for the same database.
+ * One read of the table builds the grouped list and every thinned
+ * resolution (see `worldScan`), so there is nothing to order or to choose.
  *
  * Failures are logged and dropped. A cold cache is the state this is trying
  * to improve on, not a reason to refuse to boot.
@@ -203,26 +232,13 @@ export async function warmWorldList(): Promise<void> {
   // "started and failed". Without this line the only evidence of a failed
   // warm is a slow first request, which is what it is meant to prevent.
   log.warn("world list warm started");
-  const failed: unknown[] = [];
-  // Sequential and thin first: see the note above. One failure must not stop
-  // the other, so each is caught on its own.
+  // One build fills the grouped list and every thinned one.
   try {
-    await thinnedWorldList(2);
-    log.warn("world list warm thin ready", { ms: Date.now() - started });
+    await worldScan();
   } catch (e) {
-    failed.push(e);
-  }
-  try {
-    await worldList("owners");
-  } catch (e) {
-    failed.push(e);
-  }
-  if (failed.length > 0) {
     log.warn("world list warm incomplete", {
-      failed: failed.length,
       ms: Date.now() - started,
-      message:
-        failed[0] instanceof Error ? failed[0].message : String(failed[0]),
+      message: e instanceof Error ? e.message : String(e),
     });
     return;
   }
