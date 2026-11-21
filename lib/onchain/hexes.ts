@@ -20,6 +20,7 @@ import {
 import { createLogger } from "@/lib/logger";
 import { getSignerKey } from "@/lib/onchain/signer";
 
+import { describeRpcFailure } from "@/lib/onchain/rpcFailure";
 const log = createLogger("onchain:hexes");
 
 const HEXES_ABI = [
@@ -187,6 +188,8 @@ export async function captureBatch(
       count: h3Ids.length,
       chainKey,
       error: error.slice(0, 300),
+      // The node's reply in full; `error` above is cut before it gets there.
+      rpc: describeRpcFailure(e),
     });
     return { ok: false, reason: "error", error };
   }
