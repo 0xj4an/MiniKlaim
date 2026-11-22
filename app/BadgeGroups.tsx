@@ -99,7 +99,7 @@ export function BadgeGroups({
                       {top.name}
                     </span>
                   ) : null}
-                  {top && nextGoal ? " · " : null}
+                  {top ? " · " : null}
                   {nextGoal
                     ? `${copy.next} ${nextGoal.description}`
                     : copy.done}

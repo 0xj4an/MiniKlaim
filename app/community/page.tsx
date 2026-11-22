@@ -227,7 +227,7 @@ function Leaderboard({
 
               {/* Badges count */}
               {e.badges.length > 0 && (
-                <span className="flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
                   🏅 {e.badges.length}
                 </span>
               )}
