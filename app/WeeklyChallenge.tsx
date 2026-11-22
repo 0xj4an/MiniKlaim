@@ -8,6 +8,7 @@ import { useEnterChallenge } from "@/lib/challenges/useEnterChallenge";
 import { formatPrize } from "@/lib/drops/format";
 import { ChallengeReminder } from "@/app/ChallengeReminder";
 import { entryStanding } from "@/lib/challenges/standing";
+import { countdownLabel } from "@/lib/challenges/countdown";
 import { useLocale } from "@/lib/i18n";
 import { badgeCopy } from "@/lib/onchain/badgeArt";
 import { useWallet } from "@/lib/wallet/useWallet";
@@ -56,6 +57,13 @@ export function WeeklyChallenge() {
   const { address } = useWallet();
   const [data, setData] = useState<Payload | null>(null);
   const [refresh, setRefresh] = useState(0);
+  // Ticks once a minute so the countdown moves and the card flips to
+  // "closed" on its own when the deadline passes.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const load = useCallback(() => setRefresh((n) => n + 1), []);
 
@@ -110,7 +118,6 @@ export function WeeklyChallenge() {
   // server refuses entry independently, so this is presentation only. See
   // lib/challenges/paused.
   if (data?.entriesPaused === true) return null;
-  const now = Date.now();
   const entriesOpen =
     now < new Date(c.entryClosesAt).getTime() &&
     now < new Date(c.closesAt).getTime();
@@ -156,14 +163,37 @@ export function WeeklyChallenge() {
         <h2 className="text-base font-bold text-violet-950">
           {locale === "es" ? c.title.es : c.title.en}
         </h2>
-        {/* When it ends, always in view: entered or not, open or closed. */}
-        <p className="mt-0.5 text-xs font-medium text-violet-800">
-          {closed
-            ? t("challenge.closedAt").replace("{date}", fmtDate(c.closesAt))
-            : entriesOpen && !entered
-              ? `${t("challenge.entriesUntil").replace("{date}", fmtDate(c.entryClosesAt))} · ${t("challenge.endsAt").replace("{date}", fmtDate(c.closesAt))}`
-              : t("challenge.endsAt").replace("{date}", fmtDate(c.closesAt))}
-        </p>
+        {/* How long is left, always in view: entered or not, open or
+            closed. The exact time is in the tooltip. */}
+        {closed ? (
+          <p className="mt-0.5 text-xs font-medium text-violet-800">
+            {t("challenge.closedAt").replace("{date}", fmtDate(c.closesAt))}
+          </p>
+        ) : (
+          <p
+            className="mt-1 inline-block rounded-full bg-violet-100 px-3 py-0.5 text-xs font-semibold text-violet-900"
+            title={
+              entriesOpen && !entered
+                ? t("challenge.entriesUntil").replace(
+                    "{date}",
+                    fmtDate(c.entryClosesAt),
+                  )
+                : t("challenge.endsAt").replace("{date}", fmtDate(c.closesAt))
+            }
+          >
+            ⏳{" "}
+            {entriesOpen && !entered
+              ? t("challenge.entriesLeft").replace(
+                  "{left}",
+                  countdownLabel(new Date(c.entryClosesAt).getTime() - now) ??
+                    "",
+                )
+              : t("challenge.closesIn").replace(
+                  "{left}",
+                  countdownLabel(new Date(c.closesAt).getTime() - now) ?? "",
+                )}
+          </p>
+        )}
       </div>
 
       <div className="flex items-center justify-around text-center text-sm text-violet-950">
