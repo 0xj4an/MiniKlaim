@@ -12,6 +12,8 @@ export type LeaderboardEntry = {
   runCount: number;
   countries: string[];
   badges: string[];
+  /** On-chain ids of the badges earned (missing on an older cached page). */
+  badgeIds?: number[];
   /** Other wallets linked to this player (lowercase). */
   linked?: string[];
 };

@@ -14,6 +14,9 @@ import {
 } from "@/lib/useLeaderboard";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { ActiveTreasures } from "@/app/ActiveTreasures";
+import { BadgeGroups } from "@/app/BadgeGroups";
+import { badgeCopy } from "@/lib/onchain/badgeArt";
+import { BADGE_GROUPS, type EvaluatedBadge } from "@/lib/onchain/badgeCatalog";
 import { WeeklyChallenge } from "@/app/WeeklyChallenge";
 import { LegalFooter } from "@/app/LegalFooter";
 import { MoveModeIcon } from "@/app/MoveModeIcon";
@@ -138,7 +141,8 @@ function Leaderboard({
   hasMore: boolean;
   onShowMore: () => void;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
+  const badgeLocale = locale === "es" ? "es" : "en";
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
 
   if (!entries || entries.length === 0) return null;
@@ -260,19 +264,13 @@ function Leaderboard({
                     </div>
                   </div>
                 )}
-                {e.badges.length > 0 && (
-                  <div className="flex flex-col gap-0.5">
+                {e.badgeIds && e.badgeIds.length > 0 && (
+                  <div className="flex flex-col gap-1">
                     <span className="text-zinc-500">Badges:</span>
-                    <div className="flex flex-wrap gap-1">
-                      {e.badges.map((badge) => (
-                        <span
-                          key={badge}
-                          className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700"
-                        >
-                          {getBadgeEmoji(badge)} {badge}
-                        </span>
-                      ))}
-                    </div>
+                    <BadgeGroups
+                      badges={allBadges(e.badgeIds, badgeLocale)}
+                      locale={badgeLocale}
+                    />
                   </div>
                 )}
                 {profileUrl && (
@@ -301,17 +299,16 @@ function getCountryFlag(iso3: string): string {
   return String.fromCodePoint(...codePoints);
 }
 
-// Helper: Get badge emoji
-function getBadgeEmoji(badge: string): string {
-  const emojis: Record<string, string> = {
-    first: "🥇",
-    explorer: "🗺️",
-    streak: "🔥",
-    country: "🌍",
-    distance: "🏃",
-    collector: "📦",
-  };
-  return emojis[badge.toLowerCase()] || "🏅";
+/** Every badge in the catalog, marked earned or not, for BadgeGroups. */
+function allBadges(earnedIds: number[], locale: "en" | "es"): EvaluatedBadge[] {
+  const earned = new Set(earnedIds);
+  return BADGE_GROUPS.flatMap((g) =>
+    g.ids.map((id) => ({
+      onchainId: id,
+      ...badgeCopy(id, locale),
+      unlocked: earned.has(id),
+    })),
+  );
 }
 
 function ActivityFeed({
