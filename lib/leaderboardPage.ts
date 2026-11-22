@@ -11,6 +11,8 @@ export type LeaderboardEntry = {
   runCount: number;
   countries: string[];
   badges: string[];
+  /** On-chain ids of the badges earned, so the client can group them. */
+  badgeIds: number[];
   linked: string[];
 };
 
@@ -213,7 +215,7 @@ async function build(): Promise<LeaderboardEntry[]> {
     conquests: number;
   };
 
-  const badgesMap = new Map<string, string[]>();
+  const badgesMap = new Map<string, { names: string[]; ids: number[] }>();
   for (const row of badgeStatsRaw as unknown as StatsRow[]) {
     const stats: BadgeStats = {
       hexesOwned: row.hex_count,
@@ -226,12 +228,11 @@ async function build(): Promise<LeaderboardEntry[]> {
       countryCount: row.country_count,
       streak: 0, // A streak costs a query of its own and no badge here shows it.
     };
-    badgesMap.set(
-      row.address.toLowerCase(),
-      evaluateBadges(stats, "en")
-        .filter((b) => b.unlocked)
-        .map((b) => b.name),
-    );
+    const earned = evaluateBadges(stats, "en").filter((b) => b.unlocked);
+    badgesMap.set(row.address.toLowerCase(), {
+      names: earned.map((b) => b.name),
+      ids: earned.map((b) => b.onchainId),
+    });
   }
 
   return rows.map((row) => {
@@ -242,7 +243,8 @@ async function build(): Promise<LeaderboardEntry[]> {
       hexCount: row.hexCount,
       runCount: runCounts.get(addr) ?? 0,
       countries: countriesMap.get(addr) ?? [],
-      badges: badgesMap.get(addr) ?? [],
+      badges: badgesMap.get(addr)?.names ?? [],
+      badgeIds: badgesMap.get(addr)?.ids ?? [],
       linked: linkedMap.get(addr) ?? [],
     };
   });
