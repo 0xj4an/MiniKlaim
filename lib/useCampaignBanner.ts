@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 /**
  * The #MiniPayInMyDay contest banner on the home screen.
  *
- * Celo Communities Guild runs it from 24 Oct to 24 Nov 2026: show how you
- * use MiniPay day to day and share 1000 CELO. MiniKlaim players are MiniPay
+ * Celo Communities Guild runs it from 24 Oct 2026: show how you use MiniPay
+ * day to day. On 22 Nov they raised the pool from 1,000 to 1,500 CELO and
+ * moved the deadline from 24 Nov to 6 Dec. MiniKlaim players are MiniPay
  * users almost by definition, so the overlap is the whole point.
  *
  * Two things keep this from rotting into the "Coming Soon / Rewards
@@ -16,13 +17,15 @@ import { useEffect, useState } from "react";
  * campaign name, so the next campaign is not silenced by someone who
  * closed this one.
  */
-const KEY = "miniklaim.seenCampaign.minipay-in-my-day";
+// v2 since the 22 Nov extension: a bigger pool and two more weeks is news,
+// so players who closed the first banner see it once more.
+const KEY = "miniklaim.seenCampaign.minipay-in-my-day-v2";
 
-/** Last moment the contest accepts entries (24 Nov 2026, end of day UTC). */
-export const CAMPAIGN_ENDS_AT = Date.parse("2026-11-24T23:59:59Z");
+/** Last moment the contest accepts entries (6 Dec 2026, end of day UTC). */
+export const CAMPAIGN_ENDS_AT = Date.parse("2026-12-06T23:59:59Z");
 
 export const CAMPAIGN_URL =
-  "https://x.com/CeloCommunities/status/2113914307364995287";
+  "https://x.com/CeloCommunities/status/2124515801638035590";
 
 /** True while the contest is still open. */
 export function campaignIsOpen(now = Date.now()): boolean {

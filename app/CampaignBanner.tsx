@@ -11,7 +11,7 @@ import { CAMPAIGN_URL, useCampaignBanner } from "@/lib/useCampaignBanner";
  * It is a link, not a modal: the first thing a player wants on the home
  * screen is the Capture button, and a contest that interrupts that costs
  * more than it brings in. The prize is in the copy because "a campaign" is
- * not a reason to tap and "1000 CELO" is.
+ * not a reason to tap and "1,500 CELO" is.
  */
 export function CampaignBanner() {
   const { showCampaign, dismiss } = useCampaignBanner();

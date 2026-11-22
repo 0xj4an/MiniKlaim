@@ -13,11 +13,15 @@ describe("campaignIsOpen", () => {
   it("closes itself once the contest ends", () => {
     // The point of the date: nobody has to remember to take the banner
     // down, so it cannot invite players to something that already ended.
-    expect(campaignIsOpen(Date.parse("2026-11-25T00:00:01Z"))).toBe(false);
+    expect(campaignIsOpen(Date.parse("2026-12-07T00:00:01Z"))).toBe(false);
   });
 
   it("still counts the last day as open", () => {
-    expect(campaignIsOpen(Date.parse("2026-11-24T23:00:00Z"))).toBe(true);
+    expect(campaignIsOpen(Date.parse("2026-12-06T23:00:00Z"))).toBe(true);
+  });
+
+  it("stays open past the original 24 Nov deadline (extended 22 Nov)", () => {
+    expect(campaignIsOpen(Date.parse("2026-11-25T12:00:00Z"))).toBe(true);
   });
 
   it("has a parseable end date and a real link", () => {
