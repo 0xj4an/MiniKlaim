@@ -156,6 +156,14 @@ export function WeeklyChallenge() {
         <h2 className="text-base font-bold text-violet-950">
           {locale === "es" ? c.title.es : c.title.en}
         </h2>
+        {/* When it ends, always in view: entered or not, open or closed. */}
+        <p className="mt-0.5 text-xs font-medium text-violet-800">
+          {closed
+            ? t("challenge.closedAt").replace("{date}", fmtDate(c.closesAt))
+            : entriesOpen && !entered
+              ? `${t("challenge.entriesUntil").replace("{date}", fmtDate(c.entryClosesAt))} · ${t("challenge.endsAt").replace("{date}", fmtDate(c.closesAt))}`
+              : t("challenge.endsAt").replace("{date}", fmtDate(c.closesAt))}
+        </p>
       </div>
 
       <div className="flex items-center justify-around text-center text-sm text-violet-950">
@@ -316,18 +324,10 @@ export function WeeklyChallenge() {
               {t("challenge.entriesClosed")}
             </p>
           )}
-          <p className="text-center text-xs text-violet-700">
-            {t("challenge.entriesUntil").replace(
-              "{date}",
-              fmtDate(c.entryClosesAt),
-            )}{" "}
-            · {t("challenge.endsAt").replace("{date}", fmtDate(c.closesAt))}
-          </p>
         </>
       ) : (
         <p className="text-center text-xs text-violet-700">
-          {t("challenge.entriesClosed")}{" "}
-          {t("challenge.endsAt").replace("{date}", fmtDate(c.closesAt))}
+          {t("challenge.entriesClosed")}
         </p>
       )}
     </section>
