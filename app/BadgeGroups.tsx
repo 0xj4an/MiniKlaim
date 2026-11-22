@@ -99,7 +99,7 @@ export function BadgeGroups({
                       {top.name}
                     </span>
                   ) : null}
-                  {top && nextGoal ? " · " : null}
+                  {top ? " · " : null}
                   {nextGoal
                     ? `${copy.next} ${nextGoal.description}`
                     : copy.done}
@@ -138,6 +138,45 @@ export function BadgeGroups({
                 ))}
               </div>
             )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Compact summary for a leaderboard row: one cell per category with the
+ * highest badge earned (grey when none), the category name and how many of
+ * its badges are earned. The full grouped view stays on the profile.
+ */
+export function CompactBadgeGroups({
+  earnedIds,
+  locale,
+}: {
+  earnedIds: number[];
+  locale: "en" | "es";
+}) {
+  const earned = new Set(earnedIds);
+  return (
+    <div className="grid grid-cols-4 gap-x-1 gap-y-2">
+      {BADGE_GROUPS.map((group) => {
+        const got = group.ids.filter((id) => earned.has(id));
+        const top = got[got.length - 1];
+        const name = locale === "es" ? group.es : group.en;
+        return (
+          <div
+            key={group.en}
+            className="flex flex-col items-center gap-0.5 text-center"
+            title={name}
+          >
+            <BadgeArt id={top ?? group.ids[0]} unlocked={top !== undefined} />
+            <span className="w-full truncate text-[10px] leading-tight text-zinc-600">
+              {name}
+            </span>
+            <span className="font-mono text-[10px] leading-none text-zinc-400">
+              {got.length}/{group.ids.length}
+            </span>
           </div>
         );
       })}

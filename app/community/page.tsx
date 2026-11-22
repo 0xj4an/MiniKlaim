@@ -14,9 +14,7 @@ import {
 } from "@/lib/useLeaderboard";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { ActiveTreasures } from "@/app/ActiveTreasures";
-import { BadgeGroups } from "@/app/BadgeGroups";
-import { badgeCopy } from "@/lib/onchain/badgeArt";
-import { BADGE_GROUPS, type EvaluatedBadge } from "@/lib/onchain/badgeCatalog";
+import { CompactBadgeGroups } from "@/app/BadgeGroups";
 import { WeeklyChallenge } from "@/app/WeeklyChallenge";
 import { LegalFooter } from "@/app/LegalFooter";
 import { MoveModeIcon } from "@/app/MoveModeIcon";
@@ -227,7 +225,7 @@ function Leaderboard({
 
               {/* Badges count */}
               {e.badges.length > 0 && (
-                <span className="flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
                   🏅 {e.badges.length}
                 </span>
               )}
@@ -267,8 +265,8 @@ function Leaderboard({
                 {e.badgeIds && e.badgeIds.length > 0 && (
                   <div className="flex flex-col gap-1">
                     <span className="text-zinc-500">Badges:</span>
-                    <BadgeGroups
-                      badges={allBadges(e.badgeIds, badgeLocale)}
+                    <CompactBadgeGroups
+                      earnedIds={e.badgeIds}
                       locale={badgeLocale}
                     />
                   </div>
@@ -299,17 +297,6 @@ function getCountryFlag(iso3: string): string {
   return String.fromCodePoint(...codePoints);
 }
 
-/** Every badge in the catalog, marked earned or not, for BadgeGroups. */
-function allBadges(earnedIds: number[], locale: "en" | "es"): EvaluatedBadge[] {
-  const earned = new Set(earnedIds);
-  return BADGE_GROUPS.flatMap((g) =>
-    g.ids.map((id) => ({
-      onchainId: id,
-      ...badgeCopy(id, locale),
-      unlocked: earned.has(id),
-    })),
-  );
-}
 
 function ActivityFeed({
   entries,
