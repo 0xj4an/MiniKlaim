@@ -38,7 +38,7 @@ export function StreakNote({
   // screen said start one. Only a player with no streak is starting one.
   if (streak === 0) {
     return (
-      <p className="border-b border-zinc-200 py-3 text-[13px] leading-snug text-zinc-500">
+      <p className="border-b border-zinc-200 py-2 text-[13px] leading-snug text-zinc-500">
         {t("run.streak.start")}
       </p>
     );
@@ -46,7 +46,7 @@ export function StreakNote({
 
   if (!countedThisRun) {
     return (
-      <div className="border-b border-zinc-200 py-3">
+      <div className="border-b border-zinc-200 py-2">
         <p className="text-[15px] leading-tight font-medium text-zinc-900">
           🔥 {t("run.streak.today").replace("{n}", String(streak))}
         </p>
@@ -63,7 +63,7 @@ export function StreakNote({
     .replaceAll("{m}", String(tomorrow));
 
   return (
-    <div className="border-b border-zinc-200 py-3">
+    <div className="border-b border-zinc-200 py-2">
       <p className="text-[15px] leading-tight font-medium text-zinc-900">
         🔥 {t("run.streak.today").replace("{n}", String(streak))}
       </p>
