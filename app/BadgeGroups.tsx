@@ -93,7 +93,7 @@ export function BadgeGroups({
                       items.some((b) =>
                         challengeIds?.includes(b.onchainId),
                       ) && (
-                        <span className="truncate rounded-full bg-violet-100 px-1.5 py-px text-[10px] font-semibold text-violet-700">
+                        <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-px text-[10px] font-semibold text-violet-700">
                           {challengeLabel}
                         </span>
                       )}

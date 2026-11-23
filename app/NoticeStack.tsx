@@ -55,7 +55,7 @@ export function NoticeStack({ children }: { children: ReactNode }) {
     picked !== null && filled.includes(picked) ? picked : (filled[0] ?? null);
 
   return (
-    <div ref={root} className={`flex w-full max-w-xs flex-col items-center`}>
+    <div ref={root} className={`flex w-full flex-col items-center`}>
       {items.map((child, i) => (
         <div
           key={i}

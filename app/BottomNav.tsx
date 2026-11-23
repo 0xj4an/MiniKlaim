@@ -12,6 +12,7 @@ type Tab = {
 };
 
 const TABS: Tab[] = [
+  { href: "/", key: "nav.home", Icon: HexIcon },
   { href: "/me", key: "nav.you", Icon: PersonIcon },
   { href: "/community", key: "nav.community", Icon: UsersIcon },
   { href: "/stats", key: "nav.stats", Icon: ChartIcon },
@@ -19,7 +20,9 @@ const TABS: Tab[] = [
 ];
 
 /**
- * Persistent bottom tab bar mounted in the root layout. Hidden on `/run`
+ * Persistent bottom tab bar mounted in the root layout. Home is the first
+ * tab: before it was added no tab lit up on the home screen and the only way
+ * back to it was each page's own back button. Hidden on `/run`
  * where the fullscreen map already claims the bottom area for the
  * Start/Finish button. Each tab is a min 44x44 tap target, uses a
  * translated label, and highlights the current route. Renders `bottom-0`
@@ -44,7 +47,7 @@ export function BottomNav() {
       className="fixed right-0 bottom-0 left-0 z-30 border-t border-zinc-200 bg-white/95 backdrop-blur"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0)" }}
       aria-label="Primary"
-      data-tab-order="you-community-stats-help"
+      data-tab-order="home-you-community-stats-help"
     >
       <div className="mx-auto flex max-w-2xl items-stretch">
         {TABS.map((tab) => {
@@ -56,7 +59,7 @@ export function BottomNav() {
             <Link
               key={tab.href}
               href={tab.href}
-              className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-medium tracking-wide uppercase transition-colors ${
+              className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors ${
                 isActive
                   ? "text-orange-700"
                   : "text-zinc-500 hover:text-zinc-900"
@@ -64,7 +67,7 @@ export function BottomNav() {
               aria-current={isActive ? "page" : undefined}
             >
               <Icon className="h-6 w-6" />
-              <span>{t(tab.key)}</span>
+              <span className="max-w-full truncate px-0.5">{t(tab.key)}</span>
             </Link>
           );
         })}
@@ -109,6 +112,25 @@ export function BottomNav() {
         </button>
       </div>
     </nav>
+  );
+}
+
+// The game's own shape: a flat-top hex, the block on the map.
+function HexIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M7.5 4h9l4.5 8-4.5 8h-9L3 12z" />
+      <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none" />
+    </svg>
   );
 }
 

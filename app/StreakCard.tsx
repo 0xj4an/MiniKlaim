@@ -67,7 +67,7 @@ export function StreakCard({
           );
 
   return (
-    <div className="w-full max-w-xs rounded-md border border-orange-200 bg-orange-50 px-4 py-3 text-center">
+    <div className="w-full rounded-md border border-orange-200 bg-orange-50 px-4 py-3 text-center">
       <p className="text-sm font-semibold text-orange-700">
         🔥 {t("home.streak.days").replace("{n}", String(streak))}
       </p>
