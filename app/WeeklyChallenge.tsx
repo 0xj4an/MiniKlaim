@@ -243,7 +243,7 @@ export function WeeklyChallenge() {
             pending_result: resultPending,
           });
         }}
-        className="relative flex w-full items-center gap-3 rounded-lg border border-zinc-200 bg-white px-3.5 py-3 text-left active:bg-zinc-50"
+        className="relative flex w-full items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-left active:bg-zinc-100"
       >
         <span
           aria-hidden

@@ -133,7 +133,7 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
             <button
               onClick={() => void redeem(input)}
               disabled={busy || !input.trim()}
-              className="rounded-full bg-orange-600 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
+              className="rounded-full bg-orange-700 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
             >
               {state === "sending"
                 ? t("me.link.sending")

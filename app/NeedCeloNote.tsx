@@ -25,7 +25,7 @@ export function NeedCeloNote({
   if (!enabled || !address) return null;
   if (!needsCeloForGas(getChain(chainKey).feeCurrencies, balances)) return null;
   return (
-    <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    <div className="w-full max-w-xs rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
       <p className="font-semibold">{t("fee.needCelo.title")}</p>
       <p className="mt-1">{t("fee.needCelo.body")}</p>
     </div>

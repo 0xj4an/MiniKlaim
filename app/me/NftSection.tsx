@@ -45,7 +45,7 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
     state === "confirming";
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-white px-4 py-3 text-sm">
+    <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
       <p className="text-center text-xs font-semibold text-zinc-800">
         {t("me.nfts.header")}
       </p>

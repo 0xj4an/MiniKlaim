@@ -75,7 +75,7 @@ export function LossCard({
   return (
     <div
       role="status"
-      className="loss-card relative w-full max-w-xs rounded-xl border border-orange-200 bg-white p-3 pr-9 text-left shadow-sm"
+      className="loss-card relative w-full max-w-xs rounded-md border border-orange-200 bg-orange-50 px-4 py-3 pr-9 text-left"
     >
       <CloseButton
         onClick={onClose}
