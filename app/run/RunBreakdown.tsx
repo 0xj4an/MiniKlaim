@@ -37,6 +37,9 @@ type Row = {
  * place, which in English also collided with claiming blocks to the
  * wallet.
  *
+ * Every line is one line of text. As ruled rows with a sentence under each
+ * they made the sheet taller than the phone (0xj4an, 23 Nov 2026).
+ *
  * The first section is silent when nothing was stolen: then every block
  * had no owner and the headline says all there is to say.
  */
@@ -59,10 +62,17 @@ export function RunBreakdown({
   const { t } = useLocale();
   const word = (key: TranslationKey, count: number) =>
     t(count === 1 ? (`${key}.one` as TranslationKey) : key);
-  const now = (range?: LevelRange | null) =>
+  // Whose the blocks are and where their level went: to a level when the
+  // phone saw it, by one level when it did not.
+  const moved = (
+    to: "run.breakdown.reinforcedTo" | "run.breakdown.attackedTo",
+    by: "run.breakdown.reinforcedBy" | "run.breakdown.attackedBy",
+    count: number,
+    range?: LevelRange | null,
+  ) =>
     range
-      ? ` ${t("run.breakdown.nowLevel").replace("{l}", levelRangeLabel(range))}`
-      : "";
+      ? word(to, count).replace("{l}", levelRangeLabel(range))
+      : word(by, count);
 
   const free = Math.max(0, blocks - stolen);
   const captured: Row[] =
@@ -88,16 +98,24 @@ export function RunBreakdown({
       n: reinforced,
       color: HEX_COLORS.reinforced,
       label: word("run.tally.reinforced", reinforced),
-      note:
-        word("run.breakdown.reinforcedNote", reinforced) +
-        now(reinforcedLevels),
+      note: moved(
+        "run.breakdown.reinforcedTo",
+        "run.breakdown.reinforcedBy",
+        reinforced,
+        reinforcedLevels,
+      ),
     },
     {
       key: "attacked",
       n: attacked,
       color: LEVEL_DARK.others,
       label: word("run.tally.attacked", attacked),
-      note: word("run.breakdown.attackedNote", attacked) + now(attackedLevels),
+      note: moved(
+        "run.breakdown.attackedTo",
+        "run.breakdown.attackedBy",
+        attacked,
+        attackedLevels,
+      ),
     },
   ].filter((row) => row.n > 0);
   if (captured.length === 0 && levels.length === 0) return null;
@@ -113,16 +131,16 @@ export function RunBreakdown({
 
   return (
     <>
-      {captured.length > 0 && <Rows rows={captured} className="mt-3" />}
+      {captured.length > 0 && <Rows rows={captured} className="mt-1" />}
       {levels.length > 0 && (
-        <div className="mt-4">
-          <p className="flex items-baseline gap-2 text-zinc-900">
-            <span className="mk-num text-[2rem] leading-none">
+        <div className="mt-2">
+          <p className="flex items-baseline gap-1.5 text-zinc-900">
+            <span className="mk-num text-[1.625rem] leading-none">
               {reinforced + attacked}
             </span>
-            <span className="mk-title text-xl">{levelsTitle}</span>
+            <span className="mk-title text-lg leading-none">{levelsTitle}</span>
           </p>
-          <Rows rows={levels} className="mt-2" />
+          <Rows rows={levels} className="mt-0.5" />
         </div>
       )}
     </>
@@ -131,35 +149,30 @@ export function RunBreakdown({
 
 function Rows({ rows, className }: { rows: Row[]; className: string }) {
   return (
-    <ul className={`border-t border-zinc-200 ${className}`}>
+    <ul className={className}>
       {rows.map((row) => (
-        <li
-          key={row.key}
-          className="flex items-start gap-2.5 border-b border-zinc-200 py-2"
-        >
+        <li key={row.key} className="flex items-baseline gap-2 py-[3px]">
           <svg
             aria-hidden
-            width={14}
-            height={14}
+            width={11}
+            height={11}
             viewBox="0 0 100 100"
-            className="mt-1.5 shrink-0"
+            className="shrink-0"
           >
             <polygon
               points="50,5 89,27.5 89,72.5 50,95 11,72.5 11,27.5"
               fill={row.color}
             />
           </svg>
-          <span className="mk-num min-w-7 text-[1.625rem] leading-none text-zinc-900">
-            {row.n}
-          </span>
-          <span className="min-w-0 flex-1 self-center">
-            <span className="block text-[15px] leading-tight font-semibold text-zinc-900">
-              {row.label}
+          <span className="min-w-0 flex-1 text-[15px] leading-snug text-zinc-900">
+            <span className="mk-num mr-1.5 text-[1.1875rem] leading-none">
+              {row.n}
             </span>
+            <span className="font-semibold">{row.label}</span>
+            {/* Lighter and smaller, so it reads on as one phrase: "2
+                reforzadas tuyas, suben a nivel 3". */}
             {row.note && (
-              <span className="mt-0.5 block text-[13px] leading-tight text-zinc-600">
-                {row.note}
-              </span>
+              <span className="text-[13px] text-zinc-600"> {row.note}</span>
             )}
           </span>
         </li>

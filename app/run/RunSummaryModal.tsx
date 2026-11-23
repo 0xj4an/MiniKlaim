@@ -241,15 +241,20 @@ export function RunSummaryModal({
           phase === "done" || (previewReady && !canClaim) ? onClose : undefined
         }
       >
+      {/* Three parts: the close button and the last button never move, and
+          only the middle scrolls. As one scrolling column the sheet ran
+          taller than the phone, and reaching "Done" scrolled the result
+          off the top, cut in half (0xj4an, 23 Nov 2026). dvh where the
+          browser has it: vh counts the space behind MiniPay's own bars. */}
       <div
         data-claim-sheet="finish"
-        className="sheet-up relative flex max-h-[88vh] w-full max-w-md flex-col overflow-y-auto rounded-t-3xl bg-white px-4 pt-5 text-left shadow-2xl sm:rounded-3xl"
-        style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
+        className="sheet-up relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white text-left shadow-2xl sm:rounded-3xl"
+        style={{ maxHeight: "90dvh" }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-2.5 right-2.5 z-10 flex h-11 w-11 items-center justify-center rounded-full text-zinc-500"
+          className="absolute top-1 right-1 z-10 flex h-11 w-11 items-center justify-center rounded-full text-zinc-500"
           aria-label="Close"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -257,22 +262,27 @@ export function RunSummaryModal({
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
-        <p className="pr-10 text-sm font-medium text-zinc-500">
-          {t("run.summary.header")}
-        </p>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-4 pb-1.5">
+        {/* The count is the sheet's title. A run with no new blocks has
+            none, so it gets the plain one. */}
+        {summary.hexesClaimed === 0 && (
+          <p className="mk-title pr-9 text-2xl text-zinc-900">
+            {t("run.summary.header")}
+          </p>
+        )}
         {summary.hexesClaimed > 0 && (
-          <div className="relative mt-1 flex items-baseline gap-2 text-mine">
+          <div className="relative flex flex-wrap items-baseline gap-x-2 pr-8 text-mine">
             {phase === "done" && (
               <ClaimBurst count={summary.hexesClaimed} />
             )}
             <span
-              className={`mk-num text-[4.75rem] leading-[0.9] ${
+              className={`mk-num text-[3.5rem] leading-[0.9] ${
                 phase === "done" ? "claim-count" : ""
               }`}
             >
               {groupNumber(summary.hexesClaimed, locale)}
             </span>
-            <span className="mk-title text-[1.75rem]">
+            <span className="mk-title text-2xl">
               {t(
                 summary.hexesClaimed === 1
                   ? "run.summary.yours.one"
@@ -290,46 +300,33 @@ export function RunSummaryModal({
           reinforcedLevels={summary.reinforcedLevels}
           attackedLevels={summary.attackedLevels}
         />
-        {/* The run's own facts sit with its result, not at the bottom of
-            the sheet between the NFT offer and the share buttons, where
-            they read as a footnote to something else. */}
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <div className="mk-well px-2.5 py-2">
-            <span className="mk-num block text-[1.375rem] leading-tight text-zinc-900">
-              {timeLabel}
+        {/* The run's own facts sit with its result, on one line: as three
+            boxes they cost the sheet a fifth of a small phone. */}
+        <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[13px] leading-tight text-zinc-500">
+          <span className="mk-num text-[1.0625rem] text-zinc-900">
+            {timeLabel}
+          </span>
+          <span className="mk-num text-[1.0625rem] text-zinc-900">
+            {distLabel}
+          </span>
+          <span>{speedLabel}</span>
+          {mode && (
+            <span>
+              {moveModeIcon(mode)} {t(moveModeLabelKey(mode))}
             </span>
-            <span className="block text-[13px] leading-tight text-zinc-500">
-              {t("run.summary.time")}
-            </span>
-          </div>
-          <div className="mk-well px-2.5 py-2">
-            <span className="mk-num block text-[1.375rem] leading-tight text-zinc-900">
-              {distLabel}
-            </span>
-            <span className="block truncate text-[13px] leading-tight text-zinc-500">
-              {speedLabel}
-            </span>
-          </div>
-          <div className="mk-well px-2.5 py-2">
-            <span className="mk-num block truncate text-[1.375rem] leading-tight text-zinc-900">
-              {mode ? t(moveModeLabelKey(mode)) : "-"}
-            </span>
-            <span className="block text-[13px] leading-tight text-zinc-500">
-              {mode ? moveModeIcon(mode) : ""} {t("run.summary.mode")}
-            </span>
-          </div>
-        </div>
+          )}
+        </p>
         {summary.hexesClaimed === 0 && previewReady && !hasBadges && (
           // A run that only reinforced, or only passed blocks already used
           // today, ends with no claim step, and players wrote in asking how
           // to claim (support, 12 Nov 2026). Say there is nothing to claim.
-          <p className="mt-3 text-[15px] leading-snug text-zinc-700">
+          <p className="mt-2 text-[15px] leading-snug text-zinc-700">
             {emptyReason === null || reinforced > 0 || damaged > 0
               ? t("run.summary.nothingNew")
               : t(`run.summary.empty.${emptyReason}`)}
           </p>
         )}
-        <div className="mt-3 border-t border-zinc-200">
+        <div className="mt-2.5 border-t border-zinc-200">
         <StreakNote
           address={address}
           countedThisRun={
@@ -383,7 +380,7 @@ export function RunSummaryModal({
         )}
         {(summary.hexesClaimed > 0 || hasBadges) && (
           <p
-            className={`mt-3 flex items-center gap-1.5 text-[13px] leading-tight ${
+            className={`mt-2.5 flex items-center gap-1.5 text-[13px] leading-tight ${
               phase === "error" ? "text-red-600" : "text-zinc-500"
             }`}
           >
@@ -408,8 +405,17 @@ export function RunSummaryModal({
           !nftDismissed &&
           tokenStatus?.enabled &&
           tokenStatus.recorded > 0 && (
-            <div className="mk-well mt-3 p-3">
-              <p className="text-[13px] leading-snug text-zinc-700">
+            // One row: what it is, what it costs the player, and the two
+            // answers. As a paragraph over two buttons it was the tallest
+            // thing on the sheet.
+            <div className="mk-well mt-2.5 flex items-center gap-2 py-2 pr-1 pl-3">
+              <p className="min-w-0 flex-1 text-[13px] leading-tight text-zinc-600">
+                <span className="block text-sm font-semibold text-zinc-900">
+                  {t("run.summary.nftTitle").replace(
+                    "{count}",
+                    groupNumber(tokenStatus.recorded, locale),
+                  )}
+                </span>
                 {(() => {
                   const usd =
                     tokenStatus.plan?.usd ??
@@ -417,67 +423,69 @@ export function RunSummaryModal({
                       (q) => q.count === tokenStatus.nextBatch,
                     )?.usd ??
                     null;
-                  return (
-                    usd === null
-                      ? t("run.summary.nftOfferNoPrice")
-                      : t("run.summary.nftOffer").replace(
-                          "{usd}",
-                          usd.toFixed(2),
-                        )
-                  ).replace(
-                    "{count}",
-                    tokenStatus.recorded.toLocaleString(),
-                  );
+                  return usd === null
+                    ? t("run.summary.nftOfferNoPrice")
+                    : t("run.summary.nftOffer").replace(
+                        "{usd}",
+                        usd.toFixed(2),
+                      );
                 })()}
-              </p>
-              {(tokenStatus.plan?.signatures ?? 1) > 1 && (
-                <p className="mt-1 text-[13px] leading-snug text-zinc-500">
-                  {t("run.summary.nftBatches").replaceAll(
+                {(tokenStatus.plan?.signatures ?? 1) > 1 &&
+                  ` ${t("run.summary.nftBatches").replaceAll(
                     "{signatures}",
                     String(tokenStatus.plan.signatures),
-                  )}
-                </p>
-              )}
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  className="mk-btn mk-btn-sm mk-btn-ink flex-1 px-3 disabled:opacity-60"
-                  disabled={
-                    mintState === "fetching-voucher" ||
-                    mintState === "sending" ||
-                    mintState === "confirming"
-                  }
-                  onClick={() => {
-                    track("run_summary_nft_tapped", {
-                      pending: tokenStatus.recorded,
-                      signatures: tokenStatus.plan?.signatures ?? 1,
-                    });
-                    void mint();
-                  }}
+                  )}`}
+              </p>
+              <button
+                type="button"
+                className="mk-btn mk-btn-sm mk-btn-ink shrink-0 px-3.5 disabled:opacity-60"
+                disabled={
+                  mintState === "fetching-voucher" ||
+                  mintState === "sending" ||
+                  mintState === "confirming"
+                }
+                onClick={() => {
+                  track("run_summary_nft_tapped", {
+                    pending: tokenStatus.recorded,
+                    signatures: tokenStatus.plan?.signatures ?? 1,
+                  });
+                  void mint();
+                }}
+              >
+                {mintState === "fetching-voucher" || mintState === "sending"
+                  ? t("me.nfts.minting")
+                  : mintState === "confirming"
+                    ? t("me.nfts.confirming")
+                    : t("run.summary.nftGo")}
+              </button>
+              <button
+                type="button"
+                aria-label={t("run.summary.nftLater")}
+                className="flex h-11 w-9 shrink-0 items-center justify-center text-zinc-500"
+                onClick={() => {
+                  track("run_summary_nft_skipped", {
+                    pending: tokenStatus.recorded,
+                  });
+                  setNftDismissed(true);
+                }}
+              >
+                <svg
+                  aria-hidden
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
                 >
-                  {mintState === "fetching-voucher" || mintState === "sending"
-                    ? t("me.nfts.minting")
-                    : mintState === "confirming"
-                      ? t("me.nfts.confirming")
-                      : t("run.summary.nftGo")}
-                </button>
-                <button
-                  type="button"
-                  className="min-h-11 px-3 text-sm font-medium text-zinc-600"
-                  onClick={() => {
-                    track("run_summary_nft_skipped", {
-                      pending: tokenStatus.recorded,
-                    });
-                    setNftDismissed(true);
-                  }}
-                >
-                  {t("run.summary.nftLater")}
-                </button>
-              </div>
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           )}
         {phase === "done" && nftDismissed && (
-          <p className="mt-3 text-[13px] text-zinc-500">
+          <p className="mt-2.5 text-[13px] leading-tight text-zinc-500">
             {t("run.summary.nftSkipped")}
           </p>
         )}
@@ -485,7 +493,7 @@ export function RunSummaryModal({
             already hold, and only once the claim is settled: leaving the
             sheet mid-claim would strand it. */}
         {!username && (phase === "done" || (previewReady && !canClaim)) && (
-          <div className="mk-well mt-3 flex items-center justify-between gap-3 px-3 py-2.5">
+          <div className="mk-well mt-2.5 flex items-center justify-between gap-3 px-3 py-2">
             <p className="min-w-0 text-[13px] leading-snug text-zinc-700">
               {t("run.summary.nameless")}
             </p>
@@ -497,72 +505,73 @@ export function RunSummaryModal({
             </Link>
           </div>
         )}
-        {phase === "done" ? (
-          <div className="mt-4 flex flex-col gap-2">
-            {shareNote && (
-              <p className="text-[13px] text-zinc-500">{shareNote}</p>
-            )}
-            {caption && (
-              <p className="text-sm font-medium text-zinc-500">
-                {t("run.summary.share")}
-              </p>
-            )}
-            {caption && (
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  void shareClaim("x", caption, username, t, setShareNote)
-                }
-                className="mk-btn mk-btn-sm mk-btn-ghost px-2"
-              >
-                X
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  void shareClaim("facebook", caption, username, t, setShareNote)
-                }
-                className="mk-btn mk-btn-sm mk-btn-ghost px-2"
-              >
-                Facebook
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  void shareClaim("instagram", caption, username, t, setShareNote)
-                }
-                className="mk-btn mk-btn-sm mk-btn-ghost px-2"
-              >
-                Instagram
-              </button>
-            </div>
-            )}
+        {phase === "done" && shareNote && (
+          <p className="mt-2.5 text-[13px] leading-tight text-zinc-500">
+            {shareNote}
+          </p>
+        )}
+        {phase === "done" && caption && (
+          // The word and the three places on one line. The narrowest phones
+          // drop the word: the names say what the buttons are.
+          <div className="mt-2.5 flex items-center gap-2">
+            <span className="hidden shrink-0 text-sm font-medium text-zinc-500 min-[350px]:block">
+              {t("run.summary.share")}
+            </span>
             <button
-              onClick={onClose}
-              className="mk-btn mt-1 w-full px-4"
+              type="button"
+              aria-label={`${t("run.summary.share")} X`}
+              onClick={() =>
+                void shareClaim("x", caption, username, t, setShareNote)
+              }
+              className="mk-btn mk-btn-sm mk-btn-ghost w-11 shrink-0 px-0"
             >
-              {t("run.summary.done")}
+              X
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                void shareClaim("facebook", caption, username, t, setShareNote)
+              }
+              className="mk-btn mk-btn-sm mk-btn-ghost min-w-0 flex-1 px-1"
+            >
+              Facebook
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                void shareClaim("instagram", caption, username, t, setShareNote)
+              }
+              className="mk-btn mk-btn-sm mk-btn-ghost min-w-0 flex-1 px-1"
+            >
+              Instagram
             </button>
           </div>
-        ) : canClaim ? (
-          <button
-            onClick={() => claim("button")}
-            disabled={phase === "pending"}
-            className="mk-btn mt-4 w-full px-4 disabled:opacity-70"
-          >
-            {phase === "pending"
-              ? t("run.summary.claiming")
-              : t("pendingClaim.cta")}
-          </button>
-        ) : previewReady ? (
-          <button
-            onClick={onClose}
-            className="mk-btn mt-4 w-full px-4"
-          >
-            {t("run.summary.done")}
-          </button>
-        ) : null}
+        )}
+        </div>
+        <div
+          className="shrink-0 px-4 pt-2.5"
+          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+        >
+          {phase === "done" ? (
+            <button onClick={onClose} className="mk-btn w-full px-4">
+              {t("run.summary.done")}
+            </button>
+          ) : canClaim ? (
+            <button
+              onClick={() => claim("button")}
+              disabled={phase === "pending"}
+              className="mk-btn w-full px-4 disabled:opacity-70"
+            >
+              {phase === "pending"
+                ? t("run.summary.claiming")
+                : t("pendingClaim.cta")}
+            </button>
+          ) : previewReady ? (
+            <button onClick={onClose} className="mk-btn w-full px-4">
+              {t("run.summary.done")}
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
     </>

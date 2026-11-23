@@ -156,7 +156,7 @@ export function ChallengeMovedNote({ address }: { address: string | null }) {
   return (
     // Not a link: the claim for this run may still be open in the wallet, and
     // leaving the card mid-claim would strand it.
-    <div className="flex items-center gap-2.5 border-b border-zinc-200 py-3 text-left">
+    <div className="flex items-center gap-2.5 border-b border-zinc-200 py-2 text-left">
       <HexRing className="h-5 w-[18px] shrink-0 text-reto" />
       <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-zinc-900">
         {t("challenge.kicker")}

@@ -411,14 +411,12 @@ export const dictionaries = {
     "run.summary.claiming": "Claiming...",
     "run.summary.claimed": "Blocks claimed.",
     "run.summary.claimedFree": "Blocks claimed, and we paid the network fee.",
-    "run.summary.nftOffer":
-      "You have {count} blocks without an NFT. Want them in your wallet? That part is yours to pay: about ${usd}.",
-    "run.summary.nftOfferNoPrice":
-      "You have {count} blocks without an NFT. Want them in your wallet? That part is yours to pay.",
-    "run.summary.nftBatches":
-      "They go in {signatures} transactions, so your wallet will ask you to sign {signatures} times.",
+    "run.summary.nftTitle": "NFTs for your {count} blocks",
+    "run.summary.nftOffer": "You pay this part: about ${usd}.",
+    "run.summary.nftOfferNoPrice": "You pay this part.",
+    "run.summary.nftBatches": "{signatures} signatures in your wallet.",
     "run.summary.nftLater": "Not now",
-    "run.summary.nftGo": "Mint them",
+    "run.summary.nftGo": "Mint",
     "run.summary.nftSkipped":
       "Your run is claimed. The NFTs stay available in your profile whenever you want them.",
     "run.summary.claimedBoth": "Blocks and badges claimed.",
@@ -444,13 +442,14 @@ export const dictionaries = {
     "run.breakdown.levels.reinforced.one": "reinforcement",
     "run.breakdown.levels.attacked": "attacks",
     "run.breakdown.levels.attacked.one": "attack",
-    "run.breakdown.reinforcedNote": "Already yours. Each went up one level.",
-    "run.breakdown.reinforcedNote.one": "Already yours. It went up one level.",
-    "run.breakdown.attackedNote":
-      "Still other players'. Each went down one level.",
-    "run.breakdown.attackedNote.one":
-      "Still another player's. It went down one level.",
-    "run.breakdown.nowLevel": "Now level {l}.",
+    "run.breakdown.reinforcedTo": "of yours, up to level {l}",
+    "run.breakdown.reinforcedTo.one": "of yours, up to level {l}",
+    "run.breakdown.reinforcedBy": "of yours, up one level",
+    "run.breakdown.reinforcedBy.one": "of yours, up one level",
+    "run.breakdown.attackedTo": "of other players, down to level {l}",
+    "run.breakdown.attackedTo.one": "of another player, down to level {l}",
+    "run.breakdown.attackedBy": "of other players, down one level",
+    "run.breakdown.attackedBy.one": "of another player, down one level",
     "run.footTooFast":
       "Too fast to be on foot. Blocks at this speed do not count. Finish and start a new run with the right mode.",
     "run.claimRefused":
@@ -1253,16 +1252,13 @@ export const dictionaries = {
     "run.summary.claimBoth": "Reclama tus cuadras y tus insignias.",
     "run.summary.claiming": "Reclamando...",
     "run.summary.claimed": "Cuadras reclamadas.",
-    "run.summary.claimedFree":
-      "Cuadras reclamadas, y la comisión de red la pagamos nosotros.",
-    "run.summary.nftOffer":
-      "Tienes {count} cuadras sin NFT. ¿Las quieres en tu wallet? Esa parte sí la pagas tú: unos ${usd}.",
-    "run.summary.nftOfferNoPrice":
-      "Tienes {count} cuadras sin NFT. ¿Las quieres en tu wallet? Esa parte sí la pagas tú.",
-    "run.summary.nftBatches":
-      "Van en {signatures} transacciones, así que tu wallet te va a pedir {signatures} firmas.",
+    "run.summary.claimedFree": "Reclamadas. La comisión la pagamos nosotros.",
+    "run.summary.nftTitle": "NFT de tus {count} cuadras",
+    "run.summary.nftOffer": "Esta parte la pagas tú: unos ${usd}.",
+    "run.summary.nftOfferNoPrice": "Esta parte la pagas tú.",
+    "run.summary.nftBatches": "{signatures} firmas en tu wallet.",
     "run.summary.nftLater": "Ahora no",
-    "run.summary.nftGo": "Mintearlas",
+    "run.summary.nftGo": "Mintear",
     "run.summary.nftSkipped":
       "Tu ruta quedó reclamada. Los NFTs quedan disponibles en tu perfil cuando los quieras.",
     "run.summary.claimedBoth": "Cuadras e insignias reclamadas.",
@@ -1288,13 +1284,14 @@ export const dictionaries = {
     "run.breakdown.levels.reinforced.one": "refuerzo",
     "run.breakdown.levels.attacked": "ataques",
     "run.breakdown.levels.attacked.one": "ataque",
-    "run.breakdown.reinforcedNote": "Ya eran tuyas. Cada una subió un nivel.",
-    "run.breakdown.reinforcedNote.one": "Ya era tuya. Subió un nivel.",
-    "run.breakdown.attackedNote":
-      "Siguen siendo de otros. Cada una bajó un nivel.",
-    "run.breakdown.attackedNote.one":
-      "Sigue siendo de otro jugador. Bajó un nivel.",
-    "run.breakdown.nowLevel": "Ahora nivel {l}.",
+    "run.breakdown.reinforcedTo": "tuyas, suben a nivel {l}",
+    "run.breakdown.reinforcedTo.one": "tuya, sube a nivel {l}",
+    "run.breakdown.reinforcedBy": "tuyas, suben un nivel",
+    "run.breakdown.reinforcedBy.one": "tuya, sube un nivel",
+    "run.breakdown.attackedTo": "de otros, bajan a nivel {l}",
+    "run.breakdown.attackedTo.one": "de otro jugador, baja a nivel {l}",
+    "run.breakdown.attackedBy": "de otros, bajan un nivel",
+    "run.breakdown.attackedBy.one": "de otro jugador, baja un nivel",
     "run.footTooFast":
       "Vas muy rápido para ir a pie. A esta velocidad las cuadras no cuentan. Termina y empieza otra ruta con el modo correcto.",
     "run.claimRefused":
