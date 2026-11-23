@@ -144,6 +144,7 @@ import {
   readCachedWorld,
 } from "@/lib/map/worldCache";
 import { RunSummaryModal } from "./RunSummaryModal";
+import { ChallengeRunChip } from "./ChallengeRunBits";
 
 const log = createLogger("page:run");
 // Hex strength switch, inlined at build (NEXT_PUBLIC_HEX_STRENGTH).
@@ -2714,6 +2715,13 @@ export default function RunPage() {
             <span className="font-medium">{user.username}</span>
           </span>
         </div>
+      )}
+      {mounted && isActive && (
+        <ChallengeRunChip
+          address={address ?? null}
+          blocks={hexCount}
+          stolen={stolenCount}
+        />
       )}
       <GeoStatusBanner
         status={geoStatus}

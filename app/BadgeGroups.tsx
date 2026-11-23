@@ -36,9 +36,14 @@ export function BadgeArt({
 export function BadgeGroups({
   badges,
   locale,
+  challengeIds,
+  challengeLabel,
 }: {
   badges: EvaluatedBadge[];
   locale: "en" | "es";
+  /** Badges this week's challenge asks for: their group gets a small tag. */
+  challengeIds?: number[];
+  challengeLabel?: string;
 }) {
   const copy = COPY[locale];
   const byId = new Map(badges.map((b) => [b.onchainId, b]));
@@ -80,10 +85,20 @@ export function BadgeGroups({
               />
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold tracking-wide text-zinc-700 uppercase">
-                    {name}
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="text-xs font-semibold tracking-wide text-zinc-700 uppercase">
+                      {name}
+                    </span>
+                    {challengeLabel &&
+                      items.some((b) =>
+                        challengeIds?.includes(b.onchainId),
+                      ) && (
+                        <span className="truncate rounded-full bg-violet-100 px-1.5 py-px text-[10px] font-semibold text-violet-700">
+                          {challengeLabel}
+                        </span>
+                      )}
                   </span>
-                  <span className="font-mono text-xs text-zinc-500">
+                  <span className="shrink-0 font-mono text-xs text-zinc-500">
                     {copy.level} {earned.length} {copy.of} {items.length}
                   </span>
                 </span>
