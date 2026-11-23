@@ -52,7 +52,7 @@ export function TreasuresSection({ address }: { address: `0x${string}` | null })
   const ready = treasures.filter((x) => !x.claimTx && !x.claimedAt);
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
+    <div className="flex flex-col gap-2 mk-flat px-4 py-3 text-sm">
       <p className="text-center text-xs text-zinc-500">{t("prizes.h")}</p>
       <ul className="flex flex-col gap-1">
         {treasures.map((x) => (
@@ -78,7 +78,7 @@ export function TreasuresSection({ address }: { address: `0x${string}` | null })
               void claim(ready.length).then((ok) => ok && setRefresh((n) => n + 1))
             }
             disabled={state === "claiming"}
-            className="mx-auto rounded-full bg-orange-700 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
+            className="mk-btn mk-btn-sm mx-auto px-6 disabled:opacity-60"
           >
             {state === "claiming" ? t("treasure.claiming") : t("treasure.claim")}
           </button>

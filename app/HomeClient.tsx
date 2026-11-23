@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
+import { groupNumber } from "@/lib/formatNumber";
 import { useFirstVisit } from "@/lib/useFirstVisit";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { useRecoveryNotice } from "@/lib/useRecoveryNotice";
@@ -20,15 +21,17 @@ import { WeeklyChallenge } from "@/app/WeeklyChallenge";
 import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
 import { NeedCeloNote } from "@/app/NeedCeloNote";
 import { ReturnNote } from "@/app/ReturnNote";
-import { LossNotice } from "@/app/LossNotice";
+import { type Losses, useLosses } from "@/app/LossNotice";
+import { LogoWordmark } from "@/app/Logo";
+import { TerritoryMini } from "@/app/TerritoryMini";
 import { StreakCard } from "@/app/StreakCard";
 import { NoticeStack } from "@/app/NoticeStack";
 import { useUser } from "@/lib/wallet/useUser";
-import { useUserStats } from "@/lib/wallet/useUserStats";
+import { type UserStats, useUserStats } from "@/lib/wallet/useUserStats";
 import { NAMED_COOKIE } from "@/lib/namedCookie";
 import { useWallet } from "@/lib/wallet/useWallet";
 
-export function HomeClient() {
+export function HomeClient({ namedHint = false }: { namedHint?: boolean }) {
   const {
     address,
     isConnected,
@@ -49,7 +52,7 @@ export function HomeClient() {
   const { showRecovery, dismiss: dismissRecovery } = useRecoveryNotice(
     user ?? null,
   );
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const env = useWalletEnvironment();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -86,6 +89,14 @@ export function HomeClient() {
     }
   }, [isConnected, isWrongChain, user?.username, router]);
 
+  // The band shows the player as soon as the server knows this browser has
+  // one (the cookie), so nothing jumps when the wallet connects.
+  const showPlayer = named || (namedHint && !mounted);
+  const stats = useUserStats(named ? address : null);
+  const { losses, clear: clearLosses } = useLosses(
+    named ? (address ?? null) : null,
+  );
+
   return (
     <>
       {/* The outage notice comes first: a returning player whose name is
@@ -95,96 +106,134 @@ export function HomeClient() {
       ) : (
         showOnboarding && <OnboardingModal onClose={dismiss} />
       )}
-      {named ? (
-        <PlayerCard username={user?.username ?? ""} address={address ?? null} />
-      ) : (
-        <p className="text-xs text-zinc-500">
-          {globalStats ? (
+
+      <header className="mk-band w-full">
+        <div
+          className={`mx-auto w-full max-w-md px-4 pt-4 ${showPlayer ? "pb-14" : "pb-12"}`}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <LogoWordmark height={20} tone="white" />
+            {named && user?.username && (
+              <Link
+                href="/me"
+                className="min-w-0 truncate py-1 text-sm font-semibold text-white"
+              >
+                @{user.username}
+              </Link>
+            )}
+          </div>
+          {showPlayer ? (
             <>
-              <span className="font-semibold text-zinc-600">
-                {globalStats.totalHexes}
-              </span>{" "}
-              {t("home.stats.blocks")} -{" "}
-              <span className="font-semibold text-zinc-600">
-                {globalStats.totalPlayers}
-              </span>{" "}
-              {globalStats.totalPlayers === 1
-                ? t("home.stats.player")
-                : t("home.stats.players")}
+              <h1 className="sr-only">{t("home.tagline")}</h1>
+              <PlayerNumbers stats={stats} />
             </>
           ) : (
-            <span className="opacity-0">.</span>
+            <>
+              <h1 className="mk-title mt-5 text-[2.125rem] text-balance text-white">
+                {t("home.tagline")}
+              </h1>
+              <p className="mt-2 min-h-5 text-sm text-white">
+                {globalStats && (
+                  <>
+                    <span className="font-semibold">
+                      {groupNumber(globalStats.totalHexes, locale)}
+                    </span>{" "}
+                    {t("home.stats.blocks")},{" "}
+                    <span className="font-semibold">
+                      {groupNumber(globalStats.totalPlayers, locale)}
+                    </span>{" "}
+                    {globalStats.totalPlayers === 1
+                      ? t("home.stats.player")
+                      : t("home.stats.players")}
+                  </>
+                )}
+              </p>
+            </>
           )}
-        </p>
-      )}
+        </div>
+      </header>
 
-      {mounted ? (
-        <PrimaryCTA
-          isConnected={isConnected}
-          isConnecting={isConnecting}
-          isMiniPay={isMiniPay}
-          isWrongChain={isWrongChain}
-          isSwitchingChain={isSwitchingChain}
-          username={user?.username ?? null}
-          lastRunAt={user?.lastRunAt ?? null}
-          hasActiveRun={activeRun !== null}
-          env={env}
-          connect={requestSignInAndRun}
-          switchToCelo={switchToCelo}
-        />
-      ) : (
-        <WelcomePlaceholder />
-      )}
-
-      {mounted && (
-        <NoticeStack>
-          {isConnected && !isWrongChain && user?.username ? (
-            <LossNotice address={address ?? null} />
-          ) : null}
-          <BadgeClaimPrompt
-            address={address ?? null}
-            enabled={isConnected && !isWrongChain && !!user?.username}
-            variant="card"
-            surface="home"
+      <div className="relative z-10 mx-auto -mt-9 flex w-full max-w-md flex-col items-center gap-3 px-4">
+        {showPlayer && (
+          <LandCard
+            stats={stats}
+            losses={losses}
+            onGo={() => {
+              track("loss_notice_action", { action: "go" });
+              clearLosses();
+            }}
           />
-          <NeedCeloNote
+        )}
+
+        {mounted ? (
+          <div
+            className={
+              showPlayer
+                ? "flex w-full flex-col items-center"
+                : "mk-tile flex w-full flex-col items-center px-4 py-5 text-center"
+            }
+          >
+            <PrimaryCTA
+              isConnected={isConnected}
+              isConnecting={isConnecting}
+              isMiniPay={isMiniPay}
+              isWrongChain={isWrongChain}
+              isSwitchingChain={isSwitchingChain}
+              username={user?.username ?? null}
+              lastRunAt={user?.lastRunAt ?? null}
+              hasActiveRun={activeRun !== null}
+              env={env}
+              connect={requestSignInAndRun}
+              switchToCelo={switchToCelo}
+            />
+          </div>
+        ) : (
+          <WelcomePlaceholder />
+        )}
+
+        {mounted && (
+          <NoticeStack>
+            <BadgeClaimPrompt
+              address={address ?? null}
+              enabled={isConnected && !isWrongChain && !!user?.username}
+              variant="card"
+              surface="home"
+            />
+            <NeedCeloNote
+              address={address ?? null}
+              enabled={isConnected && !isWrongChain}
+            />
+            <StreakCard
+              address={address ?? null}
+              enabled={isConnected && !isWrongChain && !!user?.username}
+            />
+          </NoticeStack>
+        )}
+
+        {mounted && <WeeklyChallenge />}
+
+        {named && stats && stats.totalRuns > 0 && <PlayerPair stats={stats} />}
+
+        {mounted && (
+          <PendingClaimPrompt
             address={address ?? null}
             enabled={isConnected && !isWrongChain}
           />
-          <StreakCard
-            address={address ?? null}
-            enabled={isConnected && !isWrongChain && !!user?.username}
-          />
-        </NoticeStack>
-      )}
-
-      {mounted && <WeeklyChallenge />}
-
-      {mounted && (
-        <PendingClaimPrompt
-          address={address ?? null}
-          enabled={isConnected && !isWrongChain}
-        />
-      )}
+        )}
+      </div>
     </>
   );
 }
 
 /**
- * The signed-in player's own numbers, where the pitch used to be: name,
- * blocks, world rank and streak. Opens the profile.
+ * The player's three numbers on the orange band: blocks, world rank and
+ * streak. Dashes hold their place until the stats arrive, so the band is its
+ * final height from the first paint.
  */
-function PlayerCard({
-  username,
-  address,
-}: {
-  username: string;
-  address: string | null;
-}) {
+function PlayerNumbers({ stats }: { stats: UserStats | null }) {
   const { t, locale } = useLocale();
-  const stats = useUserStats(address);
   const n = (v: number | undefined) =>
-    typeof v === "number" ? v.toLocaleString(locale) : "-";
+    typeof v === "number" ? groupNumber(v, locale) : "-";
   const cells: [string, string][] = [
     [n(stats?.hexesOwned), t("me.stat.blocks")],
     [stats && stats.rank > 0 ? `#${n(stats.rank)}` : "-", t("home.card.rank")],
@@ -194,22 +243,144 @@ function PlayerCard({
     ],
   ];
   return (
-    <Link
-      href="/me"
-      className="flex w-full flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 active:bg-zinc-100"
-    >
-      <span className="text-base font-bold text-zinc-900">@{username}</span>
-      <span className="grid grid-cols-3 gap-2">
-        {cells.map(([value, label]) => (
-          <span key={label} className="flex flex-col">
-            <span className="text-2xl leading-tight font-bold text-zinc-900 tabular-nums">
-              {value}
-            </span>
-            <span className="text-xs text-zinc-500">{label}</span>
-          </span>
-        ))}
-      </span>
+    <Link href="/me" className="mt-4 flex gap-5 text-left text-white">
+      {cells.map(([value, label]) => (
+        <span key={label} className="flex min-w-0 flex-col">
+          <span className="mk-num text-[2.5rem] leading-[0.95]">{value}</span>
+          <span className="mt-0.5 text-[13px] leading-tight">{label}</span>
+        </span>
+      ))}
     </Link>
+  );
+}
+
+/**
+ * The player's land beside whatever there is to say about it: blocks taken
+ * while they were away, with the way to take them back, or how far it
+ * reaches. The raid notice used to be a card of its own further down; here
+ * it sits next to the thing it is about.
+ */
+function LandCard({
+  stats,
+  losses,
+  onGo,
+}: {
+  stats: UserStats | null;
+  losses: Losses | null;
+  onGo: () => void;
+}) {
+  const { t, locale } = useLocale();
+  const count = (
+    key: "home.land.cities" | "home.land.countries",
+    value: number,
+  ) =>
+    t(value === 1 ? `${key}.one` : key).replace(
+      "{n}",
+      groupNumber(value, locale),
+    );
+  const plural = (
+    key:
+      | "home.losses.captured"
+      | "home.losses.attacked"
+      | "home.losses.attacks",
+    value: number,
+  ) => t(value === 1 ? `${key}.one` : key).replace("{n}", String(value));
+
+  let title: string;
+  let line: string | null;
+  let action: { href: string; label: string; onClick?: () => void } | null;
+  if (losses) {
+    const onlyAttacks = losses.captured === 0;
+    title = onlyAttacks
+      ? plural("home.losses.attacked", losses.attacked)
+      : plural("home.losses.captured", losses.captured);
+    const named = losses.by.slice(0, 2).map((p) => {
+      const name = p.username ? `@${p.username}` : t("common.anonymous");
+      const lost = onlyAttacks ? p.attacked : p.captured;
+      return lost > 0 ? `${name} ${lost}` : name;
+    });
+    const others = losses.by.length - named.length;
+    line = [
+      ...named,
+      others > 0 ? t("home.losses.more").replace("{n}", String(others)) : null,
+      !onlyAttacks && losses.attacked > 0
+        ? plural("home.losses.attacks", losses.attacked)
+        : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
+    action = { href: "/run", label: t("home.losses.go"), onClick: onGo };
+  } else if (stats && stats.hexesOwned === 0) {
+    title = t("home.land.empty");
+    line = t("home.land.emptyHint");
+    action = null;
+  } else {
+    title = t("home.land.title");
+    line = stats
+      ? [
+          stats.cityCount > 0 ? count("home.land.cities", stats.cityCount) : null,
+          stats.countryCount > 0
+            ? count("home.land.countries", stats.countryCount)
+            : null,
+        ]
+          .filter(Boolean)
+          .join(", ")
+      : null;
+    action = { href: "/me", label: t("home.land.see") };
+  }
+
+  return (
+    <div
+      role={losses ? "status" : undefined}
+      className="mk-tile flex w-full items-center gap-3 p-2 pr-3 text-left"
+    >
+      <Link href="/me" aria-label={t("home.land.title")} className="shrink-0">
+        <TerritoryMini
+          cells={stats?.mini?.cells}
+          className="mk-well block h-[84px] w-[104px]"
+        />
+      </Link>
+      <div className="min-w-0 flex-1">
+        <p className="text-[15px] leading-tight font-semibold text-zinc-900">
+          {title}
+        </p>
+        <p className="mt-0.5 line-clamp-2 min-h-4 text-[13px] leading-tight text-zinc-500">
+          {line}
+        </p>
+        {action && (
+          <Link
+            href={action.href}
+            onClick={action.onClick}
+            className="mk-btn mk-btn-sm mk-btn-ghost mt-2 px-4"
+          >
+            {action.label}
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Two numbers the band has no room for: the best route and how many. */
+function PlayerPair({ stats }: { stats: UserStats }) {
+  const { t, locale } = useLocale();
+  const cells: [string, string][] = [
+    [groupNumber(stats.bestRunHexes, locale), t("home.pair.bestRun")],
+    [groupNumber(stats.totalRuns, locale), t("home.pair.runs")],
+  ];
+  return (
+    <div className="grid w-full grid-cols-2 gap-3 text-left">
+      {cells.map(([value, label]) => (
+        <div key={label} className="mk-flat px-3 py-2.5">
+          <span className="mk-num block text-2xl leading-none text-zinc-900">
+            {value}
+          </span>
+          <span className="mt-1 block text-[13px] leading-tight text-zinc-500">
+            {label}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -231,9 +402,27 @@ function MovementModes() {
 
 function WelcomePlaceholder() {
   return (
-    <div className="h-12 w-44 rounded-full bg-zinc-100" aria-hidden="true" />
+    <div className="h-14 w-full rounded-[0.875rem] bg-zinc-200" aria-hidden="true" />
   );
 }
+
+const ONBOARDING_STEPS = [
+  {
+    icon: "🗺️",
+    title: "onboarding.step1.title",
+    body: "onboarding.step1.body",
+  },
+  {
+    icon: "👤",
+    title: "onboarding.step2.title",
+    body: "onboarding.step2.body",
+  },
+  {
+    icon: "🏆",
+    title: "onboarding.step3.title",
+    body: "onboarding.step3.body",
+  },
+] as const;
 
 function OnboardingModal({ onClose }: { onClose: () => void }) {
   const { t } = useLocale();
@@ -247,44 +436,38 @@ function OnboardingModal({ onClose }: { onClose: () => void }) {
       onClick={() => closeWith("backdrop")}
     >
       <div
-        className="mx-6 flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-white p-6 shadow-2xl"
+        className="mx-6 flex w-full max-w-sm flex-col gap-5 rounded-2xl bg-white p-6 text-left shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-center text-2xl font-bold">
+        <h2 className="mk-title text-center text-2xl text-zinc-900">
           {t("onboarding.title")}
         </h2>
-        <ol className="flex flex-col gap-3 text-sm text-zinc-700">
-          <li className="flex gap-3">
-            <span className="font-mono text-zinc-500">1.</span>
-            <span>
-              <span className="font-semibold text-zinc-900">
-                {t("onboarding.step1.title")}.
-              </span>{" "}
-              {t("onboarding.step1.body")}
-            </span>
-          </li>
-          <li className="flex gap-3">
-            <span className="font-mono text-zinc-500">2.</span>
-            <span>
-              <span className="font-semibold text-zinc-900">
-                {t("onboarding.step2.title")}.
-              </span>{" "}
-              {t("onboarding.step2.body")}
-            </span>
-          </li>
-          <li className="flex gap-3">
-            <span className="font-mono text-zinc-500">3.</span>
-            <span>
-              <span className="font-semibold text-zinc-900">
-                {t("onboarding.step3.title")}.
-              </span>{" "}
-              {t("onboarding.step3.body")}
-            </span>
-          </li>
+        {/* One row per idea: a tile and two short lines, read top to bottom.
+            The old list was centered text beside numbers in another
+            typeface, which read as three paragraphs rather than three steps. */}
+        <ol className="flex flex-col gap-4">
+          {ONBOARDING_STEPS.map((step) => (
+            <li key={step.title} className="flex items-start gap-3">
+              <span
+                aria-hidden
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-xl leading-none"
+              >
+                {step.icon}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-zinc-900">
+                  {t(step.title)}
+                </span>
+                <span className="block text-[13px] leading-snug text-zinc-600">
+                  {t(step.body)}
+                </span>
+              </span>
+            </li>
+          ))}
         </ol>
         <button
           onClick={() => closeWith("cta")}
-          className="mt-2 rounded-full bg-orange-700 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-800"
+          className="mk-btn w-full px-6"
         >
           {t("onboarding.start.old")}
         </button>
@@ -341,10 +524,10 @@ function PrimaryCTA({
       return <NoWalletBlock isMobile={env === "mobile-no-wallet"} />;
     }
     return (
-      <div className="flex flex-col items-center gap-2">
+      <div className="flex w-full flex-col items-center gap-3">
         <button
           onClick={connect}
-          className="rounded-full bg-zinc-900 px-8 py-4 text-lg font-semibold text-white hover:bg-zinc-800"
+          className="mk-btn mk-btn-ink w-full px-6"
         >
           {t("home.cta.signIn")}
         </button>
@@ -373,17 +556,24 @@ function PrimaryCTA({
   }
 
   if (!username) {
+    // Capture first, name after. The name used to be a gate on another
+    // screen: of 1,576 players who picked one in 14 days, 720 never opened
+    // the map (PostHog, to 23 Nov 2026). The first block is the reason to
+    // want a name on it, so the block comes first.
     return (
-      <div className="flex w-full max-w-xs flex-col items-center gap-3">
+      <div className="flex w-full flex-col items-center gap-3">
+        <Link
+          href="/run"
+          className="mk-btn min-h-14 w-full px-6 text-[1.375rem]"
+        >
+          {t("home.cta.start")}
+        </Link>
         <Link
           href="/me"
-          className="w-full rounded-full bg-orange-700 px-8 py-4 text-center text-lg font-semibold text-white shadow-md hover:bg-orange-800"
+          className="py-1 text-sm font-semibold text-orange-700 underline"
         >
-          {t("home.cta.pickName")}
+          {t("home.cta.nameLater")}
         </Link>
-        <span className="text-xs tracking-wide text-zinc-400 uppercase">
-          {t("link.or")}
-        </span>
         <LinkExisting />
       </div>
     );
@@ -391,14 +581,7 @@ function PrimaryCTA({
 
   return (
     <div className="flex w-full flex-col items-center gap-3">
-      <Link
-        href="/run"
-        className={`w-full rounded-full px-8 py-4 text-lg font-semibold text-white shadow-md ${
-          hasActiveRun
-            ? "bg-red-600 hover:bg-red-700"
-            : "bg-orange-700 hover:bg-orange-800"
-        }`}
-      >
+      <Link href="/run" className="mk-btn min-h-14 w-full px-6 text-[1.375rem]">
         {hasActiveRun ? t("home.cta.continue") : t("home.cta.start")}
       </Link>
       <ReturnNote lastRunAt={lastRunAt} hasActiveRun={hasActiveRun} />
@@ -445,7 +628,7 @@ function NoWalletBlock({ isMobile }: { isMobile: boolean }) {
       : "www.miniklaim.fun";
   const mmDeepLink = `https://metamask.app.link/dapp/${host}`;
   return (
-    <div className="flex flex-col items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-5 py-4 text-center">
+    <div className="flex w-full flex-col items-center gap-3 text-center">
       <p className="text-base font-semibold text-zinc-900">
         {t("home.env.noWallet.h")}
       </p>
@@ -453,7 +636,7 @@ function NoWalletBlock({ isMobile }: { isMobile: boolean }) {
       {isMobile && (
         <a
           href={mmDeepLink}
-          className="rounded-full bg-orange-700 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-orange-800"
+          className="mk-btn mk-btn-sm px-6"
         >
           {t("home.env.noWallet.openMm")}
         </a>

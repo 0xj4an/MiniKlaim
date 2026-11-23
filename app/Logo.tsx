@@ -10,7 +10,8 @@ const BRAND = "#FF6B35";
 type LogoMarkProps = {
   size?: number;
   className?: string;
-  variant?: "solid" | "outline";
+  /** "white" is the mark on the orange band: a white block, orange letters. */
+  variant?: "solid" | "outline" | "white";
 };
 
 export function LogoMark({
@@ -18,9 +19,11 @@ export function LogoMark({
   className,
   variant = "solid",
 }: LogoMarkProps) {
-  const fill = variant === "solid" ? BRAND : "none";
-  const stroke = variant === "solid" ? BRAND : BRAND;
-  const text = variant === "solid" ? "#ffffff" : BRAND;
+  const fill =
+    variant === "solid" ? BRAND : variant === "white" ? "#ffffff" : "none";
+  const stroke = BRAND;
+  const text =
+    variant === "solid" ? "#ffffff" : variant === "white" ? "#e64a12" : BRAND;
   return (
     <svg
       width={size}
@@ -34,7 +37,7 @@ export function LogoMark({
         points="50,5 89,27.5 89,72.5 50,95 11,72.5 11,27.5"
         fill={fill}
         stroke={stroke}
-        strokeWidth={variant === "solid" ? 0 : 6}
+        strokeWidth={variant === "outline" ? 6 : 0}
         strokeLinejoin="round"
       />
       <text
@@ -56,23 +59,30 @@ export function LogoMark({
 type WordmarkProps = {
   height?: number;
   className?: string;
+  /** "white" for the orange band. */
+  tone?: "ink" | "white";
 };
 
-export function LogoWordmark({ height = 40, className }: WordmarkProps) {
+export function LogoWordmark({
+  height = 40,
+  className,
+  tone = "ink",
+}: WordmarkProps) {
   // Hex + "MiniKlaim" side by side. Hex height matches text cap height.
   return (
     <div
       className={className}
       style={{ display: "inline-flex", alignItems: "center", gap: height * 0.25 }}
     >
-      <LogoMark size={height} />
+      <LogoMark size={height} variant={tone === "white" ? "white" : "solid"} />
       <span
         style={{
+          fontFamily: "var(--font-display)",
           fontWeight: 800,
-          letterSpacing: -1.5,
-          fontSize: height * 1.1,
+          letterSpacing: 0,
+          fontSize: height * 1.12,
           lineHeight: 1,
-          color: "#18181b",
+          color: tone === "white" ? "#ffffff" : "#141a22",
         }}
       >
         MiniKlaim

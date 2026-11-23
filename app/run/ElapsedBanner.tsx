@@ -68,14 +68,14 @@ export function ElapsedBanner({
   const speedLabel = formatRollingSpeed(samplesRef.current);
   const split = stolenSplit(t, hexCount, stolenCount);
   return (
-    <div className="rounded-md bg-white/95 px-4 py-2 text-center shadow-md backdrop-blur">
+    <div className="mk-flat w-full px-4 py-2 text-center">
       {/* Three lines, as before: time and pace, the numbers, and the note
           about stolen blocks when there is one. */}
       <div className="flex items-baseline justify-center gap-2">
-        <span className="font-mono text-xl font-bold text-zinc-900">
+        <span className="mk-num text-[1.75rem] leading-none text-zinc-900">
           {time}
         </span>
-        <span className="text-xs text-zinc-600">
+        <span className="text-[13px] text-zinc-500">
           {distLabel} · {speedLabel}
         </span>
       </div>
@@ -85,7 +85,7 @@ export function ElapsedBanner({
         attacked={attackedCount}
       />
       {split && (
-        <div className="text-xs font-semibold text-orange-700">{split}</div>
+        <div className="text-[13px] font-semibold text-orange-700">{split}</div>
       )}
     </div>
   );

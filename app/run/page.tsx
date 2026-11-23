@@ -27,6 +27,7 @@ import {
   HEX_RESOLUTION,
   RUN_MIN_ZOOM,
 } from "@/lib/map/config";
+import { foldAttributionLater } from "@/lib/map/attribution";
 import { reportGpuSupport } from "@/lib/map/gpuSupport";
 import {
   diskCoversView,
@@ -130,7 +131,6 @@ import {
   readGeolocationPermission,
   shouldExplainGps,
 } from "./gpsPrimer";
-import { NeedNameOverlay } from "./NeedNameOverlay";
 import { CaptureBursts, type CaptureBurst } from "./CaptureBursts";
 import { MapLegend } from "./MapLegend";
 import { readCachedPosition, writeCachedPosition } from "./positionCache";
@@ -2248,6 +2248,7 @@ export default function RunPage() {
 
     map.on("load", () => {
       log.info("map loaded");
+      foldAttributionLater(map);
       const now =
         typeof performance === "undefined" ? Date.now() : performance.now();
       mapRenderReady(glTier, "maplibre", "/run", now - mapStartedAt);
@@ -2308,7 +2309,7 @@ export default function RunPage() {
         source: "claimed-hexes",
         paint: {
           "line-color": ownerColor,
-          "line-width": levelLineWidth(2, 4),
+          "line-width": levelLineWidth(1.4, 3),
           "line-opacity": [
             "case",
             ["get", "isPending"],
@@ -2703,12 +2704,12 @@ export default function RunPage() {
       )}
       <Link
         href="/"
-        className="absolute top-4 left-4 z-10 rounded-md bg-white/90 px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-md backdrop-blur hover:bg-white"
+        className="mk-tile absolute top-3 left-3 z-10 px-3 py-1.5 text-sm font-semibold text-zinc-900"
       >
-        ← Back
+        ← {t("common.back")}
       </Link>
       {mounted && address && user?.username && (
-        <div className="absolute top-4 right-4 z-10 rounded-md bg-white/90 px-3 py-1.5 text-xs text-zinc-700 shadow-md backdrop-blur">
+        <div className="mk-flat absolute top-3 right-3 z-10 px-3 py-1.5 text-sm text-zinc-700">
           <span>
             <span className="text-zinc-500">@</span>
             <span className="font-medium">{user.username}</span>
@@ -2738,15 +2739,15 @@ export default function RunPage() {
               : "run.map.orientation.heading",
           )}
           aria-pressed={orientation === "heading"}
-          className="absolute right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-zinc-800 shadow-md hover:bg-white"
+          className="mk-tile absolute right-3 z-20 flex h-11 w-11 items-center justify-center text-zinc-800"
           style={
             isActive
               ? {
                   // One button above the centre button, same column.
                   bottom:
-                    "calc(max(1.5rem, env(safe-area-inset-bottom)) + 14.75rem)",
+                    "calc(max(1.5rem, env(safe-area-inset-bottom)) + 15.25rem)",
                 }
-              : { bottom: "calc(env(safe-area-inset-bottom) + 20.25rem)" }
+              : { bottom: "calc(env(safe-area-inset-bottom) + 21.75rem)" }
           }
         >
           {orientation === "north" ? (
@@ -2802,7 +2803,7 @@ export default function RunPage() {
         aria-label={t("run.map.center")}
         // Orange while the camera is not following: the player moved the
         // map away, and this is the way back.
-        className={`absolute right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 shadow-md hover:bg-white ${
+        className={`mk-tile absolute right-3 z-20 flex h-11 w-11 items-center justify-center ${
           following ? "text-zinc-800" : "text-orange-700"
         }`}
         style={
@@ -2812,9 +2813,9 @@ export default function RunPage() {
                 // line), not beside it: at 8rem this button sat on the
                 // counter's corner whenever the counter had three numbers.
                 bottom:
-                  "calc(max(1.5rem, env(safe-area-inset-bottom)) + 11.75rem)",
+                  "calc(max(1.5rem, env(safe-area-inset-bottom)) + 12rem)",
               }
-            : { bottom: "calc(env(safe-area-inset-bottom) + 17.25rem)" }
+            : { bottom: "calc(env(safe-area-inset-bottom) + 18.5rem)" }
         }
       >
         <svg
@@ -2894,7 +2895,9 @@ export default function RunPage() {
         startSpot={spot}
       />
       {isActive && <CaptureBursts bursts={bursts} />}
-      {!isActive && !gpsExplain && <MapLegend strength={HEX_STRENGTH} />}
+      {!isActive && !gpsExplain && !lastFinishedRun && (
+        <MapLegend strength={HEX_STRENGTH} />
+      )}
       {gpsExplain && <GpsExplainer onAllow={allowLocation} />}
       {lastFinishedRun && (
         <RunSummaryModal
@@ -2914,9 +2917,6 @@ export default function RunPage() {
             return outcome;
           }}
         />
-      )}
-      {mounted && isConnected && !isWrongChain && user && !user.username && (
-        <NeedNameOverlay />
       )}
       <BadgeClaimPrompt
         address={address ?? null}

@@ -35,7 +35,7 @@ export function GpsExplainer({ onAllow }: { onAllow: () => void }) {
         <button
           type="button"
           onClick={onAllow}
-          className="mt-5 w-full rounded-full bg-orange-700 px-6 py-3 text-sm font-semibold text-white hover:bg-orange-800"
+          className="mk-btn mt-5 w-full px-6"
         >
           {t("run.gps.explain.allow")}
         </button>
