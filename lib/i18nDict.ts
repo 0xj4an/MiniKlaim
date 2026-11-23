@@ -142,6 +142,10 @@ export const dictionaries = {
     "me.badges.claim.done": "Badges claimed!",
     "me.badges.claim.viewTx": "View transaction",
     "me.badges.claim.error": "Could not claim. Please try again.",
+    "me.badges.claim.errorDailyCap":
+      "You reached today's limit of free badge claims. Claim the rest tomorrow, or keep a little balance in your wallet to pay the network fee yourself.",
+    "me.badges.claim.errorNeedsFee":
+      "This claim needs a small network fee and your wallet has no balance for it. Finish a run on this phone to claim for free, or add a little balance.",
     "me.badges.claim.fee": "Network fee about ${usd}, paid from your balance.",
     "me.rewards.header": "💰 Rewards",
     "me.rewards.pending": "You have {amount} USDm from {count} unclaimed",
@@ -364,7 +368,7 @@ export const dictionaries = {
     "run.start.hint":
       "Walk, ride, or drive. The blocks you cross become yours.",
     "run.start.usedBlock":
-      "You already used this block today. Start and move to another block to capture.",
+      "You already used this block today. Blocks you used today count again tomorrow: head for streets you have not walked today to add more.",
     "run.start.ownedBlock":
       "This block is already yours. Start and move to a new one to capture.",
     "run.finish.finishing": "Finishing...",
@@ -961,6 +965,10 @@ export const dictionaries = {
     "me.badges.claim.done": "Insignias reclamadas!",
     "me.badges.claim.viewTx": "Ver transacción",
     "me.badges.claim.error": "No se pudo reclamar. Intenta de nuevo.",
+    "me.badges.claim.errorDailyCap":
+      "Llegaste al límite de hoy de reclamos gratis de insignias. Reclama el resto mañana, o ten un poco de saldo en tu wallet para pagar tú la comisión de red.",
+    "me.badges.claim.errorNeedsFee":
+      "Este reclamo necesita una pequeña comisión de red y tu wallet no tiene saldo para pagarla. Termina una corrida en este teléfono para reclamar gratis, o agrega un poco de saldo.",
     "me.badges.claim.fee":
       "Comisión de red de unos ${usd}, que sale de tu saldo.",
     "me.rewards.header": "💰 Recompensas",
@@ -1184,7 +1192,7 @@ export const dictionaries = {
     "run.start.hint":
       "Camina, ve en bici o en carro. Las cuadras que cruzas quedan tuyas.",
     "run.start.usedBlock":
-      "Ya usaste esta cuadra hoy. Empieza y muévete a otra cuadra para capturar.",
+      "Ya usaste esta cuadra hoy. Las cuadras que ya usaste hoy vuelven a contar mañana: ve por calles que hoy no hayas recorrido para sumar más.",
     "run.start.ownedBlock":
       "Esta cuadra ya es tuya. Empieza y muévete a una nueva para capturar.",
     "run.finish.finishing": "Terminando...",
