@@ -96,7 +96,7 @@ export default function MePage() {
       {mounted && !isConnected && (
         <p className="text-center text-sm text-zinc-500">
           {t("me.signInPrompt.before")}{" "}
-          <Link href="/" className="text-blue-600 underline">
+          <Link href="/" className="text-orange-700 underline">
             {t("me.signInPrompt.link")}
           </Link>{" "}
           {t("me.signInPrompt.after")}

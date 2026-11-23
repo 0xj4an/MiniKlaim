@@ -119,7 +119,7 @@ export function ChallengeMovedNote({ address }: { address: string | null }) {
   return (
     // Not a link: the claim for this run may still be open in the wallet, and
     // leaving the card mid-claim would strand it.
-    <div className="mt-3 flex items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 text-left">
+    <div className="mt-3 flex items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-left">
       <span
         aria-hidden
         className="hex-cell h-[26px] w-[30px] shrink-0 bg-violet-600"

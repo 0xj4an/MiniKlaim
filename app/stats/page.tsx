@@ -79,17 +79,17 @@ export default function StatsPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-zinc-50">
+    <main className="min-h-screen bg-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-3 py-4 pb-24 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <Link
               href="/"
-              className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm"
+              className="flex items-center gap-1.5 rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
             >
               ← {t("common.home")}
             </Link>
-            <div className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white">
+            <div className="flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">
               <span className="h-1.5 w-1.5 rounded-full bg-white"></span>
               LIVE
             </div>
@@ -107,7 +107,7 @@ export default function StatsPage() {
 
         {!data && (
           <div className="flex flex-col items-center gap-3 py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-200 border-t-blue-600"></div>
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-200 border-t-orange-600"></div>
             <p className="text-xs font-medium text-zinc-500">
               {t("common.loading")}
             </p>
@@ -199,7 +199,7 @@ export default function StatsPage() {
             />
           )}
 
-          <section className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
+          <section className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
             <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
               <span className="text-base">📄</span>
               {t("stats.section.contracts")}
@@ -211,7 +211,7 @@ export default function StatsPage() {
                   href={`https://celoscan.io/address/${data.hexesContract}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="break-all text-right font-mono text-blue-600"
+                  className="break-all text-right font-mono text-orange-700"
                 >
                   {data.hexesContract}
                 </a>
@@ -222,7 +222,7 @@ export default function StatsPage() {
                   href={`https://celoscan.io/address/${data.badgesContract}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="break-all text-right font-mono text-blue-600"
+                  className="break-all text-right font-mono text-orange-700"
                 >
                   {data.badgesContract}
                 </a>
@@ -291,7 +291,7 @@ function RunsSection({ data }: { data: Analytics }) {
         {t("stats.section.runs")}
       </h2>
 
-      <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm">
+      <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
           {t("stats.runs.byMode")}
         </p>
@@ -310,8 +310,8 @@ function RunsSection({ data }: { data: Analytics }) {
                 </span>
               </div>
               <div className="flex items-center gap-2 text-[10px] tabular-nums text-zinc-400">
-                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100">
-                  <span className="block h-full rounded-full bg-blue-500" style={{ width: `${runPct}%` }} />
+                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200">
+                  <span className="block h-full rounded-full bg-orange-600" style={{ width: `${runPct}%` }} />
                 </span>
                 <span className="shrink-0 whitespace-nowrap text-right">
                   {runPct}% {t("stats.runs.ofRuns")} · {blockPct}% {t("stats.runs.ofBlocks")}
@@ -353,7 +353,7 @@ function RunsSection({ data }: { data: Analytics }) {
       </div>
 
       {days.length > 0 && (
-        <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
             {t("stats.runs.perDay")}
           </p>
@@ -362,7 +362,7 @@ function RunsSection({ data }: { data: Analytics }) {
               <div key={d.day} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
                 <span className="text-[9px] tabular-nums text-zinc-500">{d.runs > 0 ? d.runs : ""}</span>
                 <span
-                  className="w-full rounded-t bg-blue-500"
+                  className="w-full rounded-t bg-orange-600"
                   style={{ height: `${Math.max(2, (d.runs / maxDay) * 100)}%` }}
                   title={`${d.day}: ${d.runs}`}
                 />
@@ -391,9 +391,9 @@ function StatCard({
   subtitle?: string;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-3 text-center shadow-sm">
+    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-center">
       <div className="flex flex-col items-center gap-1">
-        <span className="text-xl font-bold tabular-nums text-blue-600">
+        <span className="text-xl font-bold tabular-nums text-zinc-900">
           {value.toLocaleString()}
           {suffix && <span className="text-sm">{suffix}</span>}
         </span>
@@ -444,15 +444,15 @@ function TopCountriesSection({
         <span className="text-base">🌍</span>
         {t("stats.section.countries")}
       </h2>
-      <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
+      <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
         {visibleCountries.map((country, idx) => {
           const cities = citiesMap.get(country.country) ?? [];
           const isExpanded = expandedCountries.has(country.country);
           return (
             <div key={country.country} className="flex flex-col gap-2">
-              <div className="flex items-center justify-between rounded-lg border border-zinc-100 bg-white p-2.5">
+              <div className="flex items-center justify-between rounded-md border border-zinc-200 bg-white p-2.5">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-600">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-bold text-zinc-800">
                     {idx + 1}
                   </span>
                   <span className="text-lg">{getFlag(country.country)}</span>
@@ -461,7 +461,7 @@ function TopCountriesSection({
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-600">
+                  <span className="rounded-full bg-zinc-200 px-2.5 py-0.5 text-xs font-bold text-zinc-800">
                     {country.count.toLocaleString()}
                   </span>
                   {/* Always show expand button - every country should be expandable */}

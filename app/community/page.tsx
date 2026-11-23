@@ -110,7 +110,7 @@ function ShowMoreButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="mt-2 self-center rounded-md px-3 py-1 text-xs font-medium text-blue-600 hover:bg-zinc-100"
+      className="mt-2 self-center rounded-md px-3 py-1 text-xs font-medium text-orange-700 hover:bg-zinc-100"
     >
       {t("community.showMore")}
     </button>
@@ -198,7 +198,7 @@ function Leaderboard({
               {/* Player name - clickable */}
               <button
                 onClick={() => setExpandedPlayer(isExpanded ? null : e.address)}
-                className="flex flex-1 items-center gap-1.5 text-left hover:text-blue-600"
+                className="flex flex-1 items-center gap-1.5 text-left hover:text-orange-700"
               >
                 {e.username ? `@${e.username}` : fallback}
               </button>
@@ -274,7 +274,7 @@ function Leaderboard({
                 {profileUrl && (
                   <Link
                     href={profileUrl}
-                    className="mt-1 text-center text-blue-600 hover:underline"
+                    className="mt-1 text-center text-orange-700 hover:underline"
                   >
                     View full profile →
                   </Link>
