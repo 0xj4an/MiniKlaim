@@ -393,11 +393,11 @@ export function WeeklyChallenge() {
             </section>
           )}
           <div className="flex flex-col gap-3">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="mk-title min-w-0 text-[1.75rem] text-zinc-900">
+            <div>
+              <h2 className="mk-title text-[1.75rem] text-zinc-900">
                 {locale === "es" ? c.title.es : c.title.en}
               </h2>
-              <p className="shrink-0 text-[13px] text-zinc-500">
+              <p className="mt-1 text-[13px] text-zinc-500">
                 {closed
                   ? t("challenge.closedAt").replace(
                       "{date}",

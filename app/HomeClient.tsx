@@ -153,7 +153,11 @@ export function HomeClient({ namedHint = false }: { namedHint?: boolean }) {
         </div>
       </header>
 
-      <div className="relative z-10 mx-auto -mt-9 flex w-full max-w-md flex-col items-center gap-3 px-4">
+      {/* `relative` with no z-index: it has to paint over the band it
+          overlaps, but a z-index here would trap the sheets and modals that
+          open from inside it (the challenge sheet, the claim prompts) under
+          the bottom bar. */}
+      <div className="relative mx-auto -mt-9 flex w-full max-w-md flex-col items-center gap-3 px-4">
         {showPlayer && (
           <LandCard
             stats={stats}
