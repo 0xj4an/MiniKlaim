@@ -451,6 +451,18 @@ type EventMap = {
     reason: "drag" | "center" | "orientation";
     in_run: boolean;
   };
+  // In-app directions (app/run/Destination). Started says how the player
+  // moves and how long the trip is; ended says how it finished, which is the
+  // number that tells whether people actually follow it to the end.
+  nav_route_started: {
+    mode: "walk" | "bicycle" | "drive";
+    distance_m: number;
+    in_run: boolean;
+  };
+  nav_route_ended: {
+    reason: "arrived" | "cancelled";
+    reroutes: number;
+  };
   // MiniPay iOS rejects a postMessage in its own bridge (not app code).
   wallet_bridge_rejected: Record<string, never>;
   gps_unavailable: Record<string, never>;
