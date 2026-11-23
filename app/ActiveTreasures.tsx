@@ -41,7 +41,7 @@ export function ActiveTreasures() {
   if (!hints || hints.length === 0) return null;
 
   return (
-    <section className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 py-3">
+    <section className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3">
       <div className="flex items-center gap-3">
         <span
           aria-hidden
