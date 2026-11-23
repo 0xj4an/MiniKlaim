@@ -18,19 +18,19 @@ export function CampaignBanner() {
   const { t } = useLocale();
   if (!showCampaign) return null;
   return (
-    <div className="relative w-full rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 p-[2px] shadow-lg">
+    <div className="relative w-full rounded-md border border-zinc-200 bg-zinc-50">
       <a
         href={CAMPAIGN_URL}
         target="_blank"
         rel="noopener noreferrer"
         onClick={() => track("campaign_banner_clicked", { campaign: "minipay_in_my_day" })}
-        className="flex items-center gap-3 rounded-[10px] bg-white px-4 py-3 pr-9 text-left"
+        className="flex items-center gap-3 rounded-md px-4 py-3 pr-9 text-left"
       >
         <span className="text-2xl" aria-hidden>
           🎬
         </span>
         <span className="flex flex-col">
-          <span className="text-xs font-semibold tracking-wide text-orange-600 uppercase">
+          <span className="text-xs font-semibold text-orange-700">
             {t("campaign.tag")}
           </span>
           <span className="text-sm font-bold text-zinc-900">
