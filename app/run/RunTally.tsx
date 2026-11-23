@@ -17,41 +17,30 @@ import { HEX_COLORS, LEVEL_DARK } from "@/lib/map/hexColors";
  * block count. Before this, "44 blocks" sat next to "40 stolen" and read as
  * two numbers to add.
  *
- * The small size is one line of text, the height of the line it replaced.
+ * This is the run screen's row. The finished-run sheet has room to say
+ * each of these in words: see RunBreakdown.
  */
 export function RunTally({
   blocks,
   reinforced,
   attacked,
-  size = "sm",
-  showBlocks = true,
 }: {
   /** New blocks this run, stolen ones included. */
   blocks: number;
   reinforced: number;
   attacked: number;
-  size?: "sm" | "md";
-  /**
-   * Whether the block count is a column here. The finished-run card shows
-   * it as its headline already.
-   */
-  showBlocks?: boolean;
 }) {
   const { t } = useLocale();
   const word = (key: TranslationKey, count: number) =>
     t(count === 1 ? (`${key}.one` as TranslationKey) : key);
 
   const stats: Stat[] = [
-    ...(showBlocks
-      ? [
-          {
-            key: "blocks",
-            n: blocks,
-            label: word("run.tally.blocks", blocks),
-            color: HEX_COLORS.run,
-          },
-        ]
-      : []),
+    {
+      key: "blocks",
+      n: blocks,
+      label: word("run.tally.blocks", blocks),
+      color: HEX_COLORS.run,
+    },
     ...(reinforced > 0
       ? [
           {
@@ -73,40 +62,18 @@ export function RunTally({
         ]
       : []),
   ];
-  if (stats.length === 0) return null;
-
-  const md = size === "md";
-  if (!md) {
-    // One line of text, the height of the line this replaced: on the run
-    // screen the map is the game and every row here is a row of map lost.
-    return (
-      <div className="mt-1 flex flex-wrap items-center justify-center gap-x-3.5 text-[13px] leading-tight text-zinc-500">
-        {stats.map((s) => (
-          <span key={s.key} className="flex items-center gap-1 whitespace-nowrap">
-            <Hexagon color={s.color} size={9} />
-            <span className="mk-num text-[17px] leading-none text-zinc-900">
-              {s.n}
-            </span>
-            {s.label}
-          </span>
-        ))}
-      </div>
-    );
-  }
+  // One line of text, the height of the line this replaced: on the run
+  // screen the map is the game and every row here is a row of map lost.
   return (
-    <div className="flex items-start justify-center gap-6">
+    <div className="mt-1 flex flex-wrap items-center justify-center gap-x-3.5 text-[13px] leading-tight text-zinc-500">
       {stats.map((s) => (
-        <div key={s.key} className="flex flex-col">
-          <span className="flex items-center gap-1.5">
-            <Hexagon color={s.color} size={13} />
-            <span className="mk-num text-[1.75rem] leading-none text-zinc-900">
-              {s.n}
-            </span>
+        <span key={s.key} className="flex items-center gap-1 whitespace-nowrap">
+          <Hexagon color={s.color} size={9} />
+          <span className="mk-num text-[17px] leading-none text-zinc-900">
+            {s.n}
           </span>
-          <span className="mt-1 text-[13px] leading-none text-zinc-600">
-            {s.label}
-          </span>
-        </div>
+          {s.label}
+        </span>
       ))}
     </div>
   );
