@@ -44,12 +44,11 @@ export const dictionaries = {
     "home.losses.title": "While you were away",
     "home.losses.captured": "{n} blocks taken from you",
     "home.losses.captured.one": "1 block taken from you",
-    "home.losses.attacked": "{n} attacks on your blocks",
-    "home.losses.attacked.one": "1 attack on your blocks",
-    "home.losses.attacks": "{n} attacks",
-    "home.losses.attacks.one": "1 attack",
+    "home.losses.levels": "You lost {n} levels",
+    "home.losses.levels.one": "You lost 1 level",
     "home.losses.more": "+{n} more",
     "home.losses.go": "Take them back",
+    "home.losses.goDefend": "Reinforce them",
     "me.username.taken":
       "That name already exists and belongs to wallet {wallet}. If that wallet is yours, open the game with it. To add this wallet to the same account, use Link wallet.",
     "me.username.proofNeeded":
@@ -432,6 +431,21 @@ export const dictionaries = {
     "run.tally.split": "Blocks: {s} stolen + {f} unclaimed",
     "run.tally.allStolen": "Blocks: all {n} stolen from others",
     "run.tally.allStolen.one": "Block: stolen from another player",
+    "run.breakdown.free": "unclaimed",
+    "run.breakdown.free.one": "unclaimed",
+    "run.breakdown.freeNote": "Nobody held them. Now they are yours.",
+    "run.breakdown.freeNote.one": "Nobody held it. Now it is yours.",
+    "run.breakdown.stolen": "stolen",
+    "run.breakdown.stolen.one": "stolen",
+    "run.breakdown.stolenNote": "Other players held them. Now they are yours.",
+    "run.breakdown.stolenNote.one": "Another player held it. Now it is yours.",
+    "run.breakdown.reinforcedNote": "Already yours. Each went up one level.",
+    "run.breakdown.reinforcedNote.one": "Already yours. It went up one level.",
+    "run.breakdown.attackedNote":
+      "Still other players'. Each went down one level.",
+    "run.breakdown.attackedNote.one":
+      "Still another player's. It went down one level.",
+    "run.breakdown.nowLevel": "Now level {l}.",
     "run.footTooFast":
       "Too fast to be on foot. Blocks at this speed do not count. Finish and start a new run with the right mode.",
     "run.claimRefused":
@@ -866,12 +880,11 @@ export const dictionaries = {
     "home.losses.title": "Mientras no estabas",
     "home.losses.captured": "Te quitaron {n} cuadras",
     "home.losses.captured.one": "Te quitaron 1 cuadra",
-    "home.losses.attacked": "{n} ataques a tus cuadras",
-    "home.losses.attacked.one": "1 ataque a tus cuadras",
-    "home.losses.attacks": "{n} ataques",
-    "home.losses.attacks.one": "1 ataque",
+    "home.losses.levels": "Te bajaron {n} niveles",
+    "home.losses.levels.one": "Te bajaron 1 nivel",
     "home.losses.more": "+{n} más",
     "home.losses.go": "Recuperarlas",
+    "home.losses.goDefend": "Reforzarlas",
     "me.username.taken":
       "Ese nombre ya existe y es de la wallet {wallet}. Si esa wallet es tuya, entra al juego con ella. Para sumar esta wallet a la misma cuenta, usa Vincular wallet.",
     "me.username.proofNeeded":
@@ -1257,6 +1270,21 @@ export const dictionaries = {
     "run.tally.split": "Cuadras: {s} robadas + {f} libres",
     "run.tally.allStolen": "Cuadras: las {n} robadas a otros",
     "run.tally.allStolen.one": "Cuadra: robada a otro jugador",
+    "run.breakdown.free": "libres",
+    "run.breakdown.free.one": "libre",
+    "run.breakdown.freeNote": "No eran de nadie. Ahora son tuyas.",
+    "run.breakdown.freeNote.one": "No era de nadie. Ahora es tuya.",
+    "run.breakdown.stolen": "robadas",
+    "run.breakdown.stolen.one": "robada",
+    "run.breakdown.stolenNote": "Eran de otros jugadores. Ahora son tuyas.",
+    "run.breakdown.stolenNote.one": "Era de otro jugador. Ahora es tuya.",
+    "run.breakdown.reinforcedNote": "Ya eran tuyas. Cada una subió un nivel.",
+    "run.breakdown.reinforcedNote.one": "Ya era tuya. Subió un nivel.",
+    "run.breakdown.attackedNote":
+      "Siguen siendo de otros. Cada una bajó un nivel.",
+    "run.breakdown.attackedNote.one":
+      "Sigue siendo de otro jugador. Bajó un nivel.",
+    "run.breakdown.nowLevel": "Ahora nivel {l}.",
     "run.footTooFast":
       "Vas muy rápido para ir a pie. A esta velocidad las cuadras no cuentan. Termina y empieza otra ruta con el modo correcto.",
     "run.claimRefused":

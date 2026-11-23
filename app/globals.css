@@ -264,11 +264,12 @@ summary.mk-tile:active {
   border-radius: 9999px;
   background: var(--c);
   color: #fff;
-  padding: 1px 10px;
-  font-size: 0.7rem;
+  padding: 2px 10px;
+  font-size: 0.8125rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 .capture-burst-ring {
   position: absolute;
@@ -361,7 +362,7 @@ summary.mk-tile:active {
   .claim-count, .claim-badge { animation: none; }
   .claim-plus, .claim-hex { display: none; }
   /* Still shown, since it is the feedback itself: it just does not move. */
-  .capture-burst { animation: none; transform: translateX(-50%); }
+  .capture-burst { animation: none; transform: translateX(calc(-50% + var(--dx))); }
   .capture-burst-ring { display: none; }
   .signal-pulse { animation: none; opacity: 1; }
   .chest-wobble, .prize-pop, .mission-ring, .ticket-in { animation: none; }

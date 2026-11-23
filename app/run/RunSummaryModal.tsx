@@ -22,8 +22,8 @@ import { isBadgeClaimPending } from "@/lib/wallet/claimInFlight";
 import type { ClaimAllOutcome } from "@/lib/wallet/useClaimAll";
 import { useMintTokens } from "@/lib/wallet/useMintTokens";
 import { ChallengeMovedNote } from "./ChallengeRunBits";
-import { RunTally } from "./RunTally";
-import { stolenSplit } from "./stolenSplit";
+import { RunBreakdown } from "./RunBreakdown";
+import type { LevelRange } from "@/lib/runs/levelRange";
 import { StreakNote } from "./StreakNote";
 import { STREAK_MIN_SERVER_METERS } from "@/lib/runs/streakMath";
 import { emptyRunReason, shareKind } from "@/lib/runs/runSummaryCopy";
@@ -42,6 +42,10 @@ export type RunSummary = {
   hexesDamaged?: number;
   /** Of `hexesClaimed`, the blocks taken from another player. */
   hexesStolen?: number;
+  /** The levels the reinforced blocks reached, when the phone saw them. */
+  reinforcedLevels?: LevelRange | null;
+  /** The levels the attacked blocks were left at. */
+  attackedLevels?: LevelRange | null;
   /** What the card shows: the larger of the phone's figure and the server's. */
   distanceMeters: number;
   /** The server's hex path, which is what the streak counts. */
@@ -277,29 +281,15 @@ export function RunSummaryModal({
             </span>
           </div>
         )}
-        {/* Stolen blocks are part of the headline number, so they are a
-            note under it. Reinforces and attacks are not blocks gained and
-            get a line of their own. See RunTally. */}
-        {/* What the run did to other players' blocks and to the player's
-            own is the news of a run, so it is set large: in the first pass
-            of this sheet it had shrunk to one grey line and read as gone
-            (0xj4an, 23 Nov 2026). */}
-        {stolen > 0 && (
-          <p className="mt-2 text-base leading-tight font-semibold text-orange-700">
-            {stolenSplit(t, summary.hexesClaimed, stolen)}
-          </p>
-        )}
-        {(reinforced > 0 || damaged > 0) && (
-          <div className="mt-3 [&>div]:justify-start [&>div]:gap-7">
-            <RunTally
-              blocks={summary.hexesClaimed}
-              reinforced={reinforced}
-              attacked={damaged}
-              size="md"
-              showBlocks={false}
-            />
-          </div>
-        )}
+        {/* What the run did, a line per kind of thing: see RunBreakdown. */}
+        <RunBreakdown
+          blocks={summary.hexesClaimed}
+          stolen={stolen}
+          reinforced={reinforced}
+          attacked={damaged}
+          reinforcedLevels={summary.reinforcedLevels}
+          attackedLevels={summary.attackedLevels}
+        />
         {/* The run's own facts sit with its result, not at the bottom of
             the sheet between the NFT offer and the share buttons, where
             they read as a footnote to something else. */}
