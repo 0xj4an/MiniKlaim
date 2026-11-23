@@ -433,7 +433,9 @@ export const dictionaries = {
     "challenge.enter": "Enter for {amount}",
     "challenge.approveEnter": "Approve and enter for {amount}",
     "challenge.approveWhy":
-      "First time only: approve {approve} for MiniKlaim challenges. Each entry takes {amount} from it with one tap, and we pay the network fee. Nothing else is ever charged.",
+      "First time only: your wallet asks you to approve {approve}. Approving moves no money, it is only a limit. Each entry takes {amount} with one tap, and we pay the network fee.",
+    "challenge.approveRejected":
+      "You cancelled the approval, so nothing was charged. Approving {approve} does not move money: it only lets each entry take {amount}. Tap again when you are ready.",
     "challenge.approving": "Approve in your wallet...",
     "challenge.entering": "Entering...",
     "challenge.oneTap": "One tap: {amount} comes from your approved balance.",
@@ -1192,7 +1194,9 @@ export const dictionaries = {
     "challenge.enter": "Entrar por {amount}",
     "challenge.approveEnter": "Aprobar y entrar por {amount}",
     "challenge.approveWhy":
-      "Solo la primera vez: aprueba {approve} para los challenges de MiniKlaim. Cada entrada toma {amount} de ahí con un toque y nosotros pagamos la comisión de red. Nunca se cobra nada más.",
+      "Solo la primera vez: tu wallet te pide aprobar {approve}. Aprobar no mueve dinero, es solo un límite. Cada entrada toma {amount} con un toque y nosotros pagamos la comisión de red.",
+    "challenge.approveRejected":
+      "Cancelaste la aprobación, así que no se cobró nada. Aprobar {approve} no mueve dinero: solo permite que cada entrada tome {amount}. Toca de nuevo cuando quieras.",
     "challenge.approving": "Aprueba en tu wallet...",
     "challenge.entering": "Inscribiendo...",
     "challenge.oneTap": "Un toque: {amount} sale de tu saldo aprobado.",
