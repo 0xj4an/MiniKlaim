@@ -289,9 +289,13 @@ type EventMap = {
     balance?: string;
     status?: number;
   };
-  drop_claim_started: { count: number; surface: "run" | "me" };
-  drop_claim_sent: { count: number; tx_hash: string };
-  drop_claim_failed: { reason: string };
+  drop_claim_started: { count: number; surface: "run" | "me" | "challenge" };
+  /** `by`: who paid the network fee. */
+  drop_claim_sent: { count: number; tx_hash: string; by?: "player" | "relayer" };
+  drop_claim_failed: { reason: string; by?: "player" | "relayer" };
+  drop_claim_rejected: { count: number };
+  /** Tapped the MiniPay add-cash link after "not enough funds". */
+  challenge_add_cash_tapped: { challenge: string };
   // Support form (in-app form posted to /api/support).
   support_form_opened: { source?: "direct_link" };
   support_sent: { topic: string; chars: number; screenshot: boolean };

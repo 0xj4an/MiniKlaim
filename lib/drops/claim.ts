@@ -134,6 +134,125 @@ export type ClaimResult =
   | { ok: false; reason: "not-configured" | "nothing" | "in-flight" | "error"; error?: string };
 
 /**
+ * Reserve this wallet's won and unpaid finds for one claim. Free to take:
+ * never requested, requested long enough ago to retry, or handed to the
+ * player as a voucher (`nonce` set) that never became a tx. A relayer send in
+ * flight (`nonce` null, requested recently) is not taken twice.
+ */
+async function reserveFinds(database: Db, lower: string, now: Date, nonce: bigint | null) {
+  const reserved = await database
+    .update(dropFinds)
+    .set({ claimRequestedAt: now, nonce: nonce === null ? null : nonce.toString() })
+    .where(
+      and(
+        eq(dropFinds.player, lower),
+        eq(dropFinds.review, "ok"),
+        isNull(dropFinds.claimedAt),
+        isNull(dropFinds.claimTx),
+        or(
+          isNull(dropFinds.claimRequestedAt),
+          lt(dropFinds.claimRequestedAt, new Date(now.getTime() - CLAIM_RETRY_MS)),
+          isNotNull(dropFinds.nonce),
+        ),
+      ),
+    )
+    .returning({ id: dropFinds.id, dropId: dropFinds.dropId });
+
+  if (reserved.length === 0) {
+    const [pending] = await database
+      .select({ id: dropFinds.id })
+      .from(dropFinds)
+      .where(and(eq(dropFinds.player, lower), eq(dropFinds.review, "ok"), isNull(dropFinds.claimedAt)))
+      .limit(1);
+    return { reserved, reason: pending ? ("in-flight" as const) : ("nothing" as const) };
+  }
+  return { reserved, reason: null };
+}
+
+export type ClaimVoucher = {
+  contract: Address;
+  dropIds: string[];
+  nonce: string;
+  deadline: string;
+  signature: Hex;
+};
+
+/**
+ * The player pays the fee: reserve the finds and hand back a signed voucher
+ * for `claimDropsFor`. The player's tx is then recorded with
+ * `recordPlayerClaimTx`. A voucher that never becomes a tx can be taken over
+ * by the relayer, and the contract pays each drop to a player only once.
+ */
+export async function claimVoucherForPlayer(
+  database: Db,
+  player: string,
+  now = new Date(),
+): Promise<{ ok: true; voucher: ClaimVoucher } | { ok: false; reason: "not-configured" | "nothing" | "in-flight" }> {
+  const contract = dropsAddress();
+  if (!contract || !isSignerConfigured()) return { ok: false, reason: "not-configured" };
+  const lower = player.toLowerCase();
+  const nonce = newNonce();
+  const { reserved, reason } = await reserveFinds(database, lower, now, nonce);
+  if (reason) return { ok: false, reason };
+  const ids = reserved.map((r) => dropIdToUint(r.dropId));
+  const deadline = BigInt(Math.floor(now.getTime() / 1000) + DROP_VOUCHER_TTL_SECONDS);
+  const signature = await signClaimVoucher({ contract, player: lower as Address, dropIds: ids, nonce, deadline });
+  return {
+    ok: true,
+    voucher: {
+      contract,
+      dropIds: ids.map(String),
+      nonce: nonce.toString(),
+      deadline: deadline.toString(),
+      signature,
+    },
+  };
+}
+
+/**
+ * The player sent the voucher's tx: record it so the receipt settles the finds.
+ * The tx must exist and go from the player to the drops contract, so a made-up
+ * hash cannot park someone's prize on a tx that never settles.
+ */
+export async function recordPlayerClaimTx(
+  database: Db,
+  player: string,
+  nonce: string,
+  txHash: Hex,
+): Promise<number> {
+  const contract = dropsAddress();
+  if (!contract) return 0;
+  const client = dropsPublicClient();
+  let tx = null;
+  for (let i = 0; i < 5 && !tx; i++) {
+    tx = await client.getTransaction({ hash: txHash }).catch(() => null);
+    if (!tx) await new Promise((r) => setTimeout(r, 1500));
+  }
+  if (
+    !tx ||
+    tx.from.toLowerCase() !== player.toLowerCase() ||
+    tx.to?.toLowerCase() !== contract.toLowerCase()
+  ) {
+    log.warn("player claim tx rejected", { player: player.toLowerCase(), txHash, found: !!tx });
+    return 0;
+  }
+  const rows = await database
+    .update(dropFinds)
+    .set({ claimTx: txHash })
+    .where(
+      and(
+        eq(dropFinds.player, player.toLowerCase()),
+        eq(dropFinds.nonce, nonce),
+        isNull(dropFinds.claimTx),
+        isNull(dropFinds.claimedAt),
+      ),
+    )
+    .returning({ id: dropFinds.id });
+  if (rows.length > 0) log.warn("treasure claim sent by player", { player: player.toLowerCase(), count: rows.length, txHash });
+  return rows.length;
+}
+
+/**
  * Tap + relayer: the player tapped "Claim". Take this wallet's won and unpaid
  * finds, sign one voucher and let the relayer submit `claimDropsFor`. The
  * player signs nothing and pays no fee; the contract always pays `player`.
@@ -146,30 +265,8 @@ export async function claimDropsForPlayer(database: Db, player: string, now = ne
   if (!contract || !isSignerConfigured()) return { ok: false, reason: "not-configured" };
   const lower = player.toLowerCase();
 
-  const reserved = await database
-    .update(dropFinds)
-    .set({ claimRequestedAt: now })
-    .where(
-      and(
-        eq(dropFinds.player, lower),
-        eq(dropFinds.review, "ok"),
-        isNull(dropFinds.claimedAt),
-        or(
-          isNull(dropFinds.claimRequestedAt),
-          lt(dropFinds.claimRequestedAt, new Date(now.getTime() - CLAIM_RETRY_MS)),
-        ),
-      ),
-    )
-    .returning({ id: dropFinds.id, dropId: dropFinds.dropId });
-
-  if (reserved.length === 0) {
-    const [pending] = await database
-      .select({ id: dropFinds.id })
-      .from(dropFinds)
-      .where(and(eq(dropFinds.player, lower), eq(dropFinds.review, "ok"), isNull(dropFinds.claimedAt)))
-      .limit(1);
-    return { ok: false, reason: pending ? "in-flight" : "nothing" };
-  }
+  const { reserved, reason } = await reserveFinds(database, lower, now, null);
+  if (reason) return { ok: false, reason };
 
   const ids = reserved.map((r) => dropIdToUint(r.dropId));
   const nonce = newNonce();
