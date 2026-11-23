@@ -194,10 +194,20 @@ export default function MePage() {
                 <RunsList runs={recentRuns} />
               )}
 
+              {/* Countries and cities are part of what the player has, not
+              a setting: they stay in the open, where they were before the
+              profile was shortened (0xj4an, 23 Nov 2026). */}
+              {!isWrongChain &&
+                geoSummary &&
+                (geoSummary.byCountry.length > 0 ||
+                  geoSummary.byCity.length > 0) && (
+                  <GeoSummarySection summary={geoSummary} />
+                )}
+
               <LinkWallet address={address ?? null} />
 
               {/* The rarely needed sections sit behind one row, so the profile
-              ends at the routes instead of running three more screens. */}
+              does not run two more screens past the wallet link. */}
               {!isWrongChain && (
                 <details className="group flex flex-col">
                   <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between mk-flat px-4 text-sm font-medium text-zinc-900 [&::-webkit-details-marker]:hidden">
@@ -216,11 +226,6 @@ export default function MePage() {
                   </summary>
                   <div className="mt-6 flex flex-col gap-6">
                     {stats && <NftSection address={address ?? null} />}
-                    {geoSummary &&
-                      (geoSummary.byCountry.length > 0 ||
-                        geoSummary.byCity.length > 0) && (
-                        <GeoSummarySection summary={geoSummary} />
-                      )}
                     {balances && <BalancesCard balances={balances} />}
                   </div>
                 </details>
@@ -576,7 +581,7 @@ function GeoSummarySection({
                   )}
                 </div>
                 <span className="font-mono text-xs font-semibold text-zinc-900">
-                  {country.count}
+                  {groupNumber(country.count, locale)}
                 </span>
               </div>
               {isExpanded && cities.length > 0 && (
@@ -588,7 +593,7 @@ function GeoSummarySection({
                     >
                       <span className="text-zinc-600">{city.city}</span>
                       <span className="font-mono text-zinc-900">
-                        {city.count}
+                        {groupNumber(city.count, locale)}
                       </span>
                     </div>
                   ))}
