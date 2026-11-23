@@ -1,6 +1,7 @@
 import { type Address, decodeEventLog, encodeFunctionData, erc20Abi, type Hex, keccak256, parseAbi, toBytes } from "viem";
 import type { Challenge } from "@/lib/db/schema";
 import { dropsPublicClient, sendDropsTx } from "@/lib/drops/claim";
+import { findEntryTx } from "@/lib/challenges/recover";
 
 /**
  * Challenge entry by allowance (MiniKlaimDrops v2).
@@ -98,4 +99,25 @@ export function entryEventsIn(
     }
   }
   return out;
+}
+
+/**
+ * The transaction of this player's entry, found from the contract's own
+ * event, newest blocks first. For an entry the contract has and we never
+ * recorded (lib/challenges/recover). Null when it is older than the reach.
+ */
+export async function findEntryTxOnchain(contract: Address, c: Challenge, player: Address): Promise<Hex | null> {
+  const client = dropsPublicClient();
+  const event = CHALLENGE_ABI.find((x) => x.type === "event" && x.name === "ChallengeEntered") as Extract<
+    (typeof CHALLENGE_ABI)[number],
+    { type: "event" }
+  >;
+  return findEntryTx(await client.getBlockNumber(), (range) =>
+    client.getLogs({
+      address: contract,
+      event,
+      args: { challengeId: challengeKey(c.id), player },
+      ...range,
+    }),
+  );
 }
