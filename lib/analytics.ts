@@ -300,6 +300,8 @@ type EventMap = {
   challenge_result_revealed: { challenge: string; won: boolean };
   /** Shared a challenge win from the card. */
   challenge_win_shared: { challenge: string };
+  /** Opened the weekly challenge sheet from its compact card. */
+  challenge_opened: { challenge: string; pending_result: boolean };
   // Support form (in-app form posted to /api/support).
   support_form_opened: { source?: "direct_link" };
   support_sent: { topic: string; chars: number; screenshot: boolean };
