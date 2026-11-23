@@ -77,7 +77,7 @@ export function Sheet({
       <div
         role="dialog"
         aria-modal="true"
-        className="sheet-up relative mx-auto max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white px-5 pt-2 pb-8 shadow-2xl"
+        className="sheet-up relative mx-auto max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white px-5 pt-2 pb-8 shadow-2xl"
       >
         <div className="sticky top-0 z-10 -mx-4 flex items-center justify-between bg-white px-2 pb-1">
           <span className="w-11" />
