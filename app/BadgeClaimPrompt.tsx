@@ -212,7 +212,7 @@ export function BadgeClaimPrompt({
     return (
       <>
         {show && (
-          <section className="w-full max-w-xs rounded-md border border-orange-200 bg-orange-50 px-4 py-3 text-center">
+          <section className="w-full rounded-md border border-orange-200 bg-orange-50 px-4 py-3 text-center">
             <p className="text-sm font-bold text-zinc-900">
               {(claimable.length === 1
                 ? t("home.badges.title.one")

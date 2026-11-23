@@ -53,6 +53,10 @@ export default function MePage() {
   const { t } = useLocale();
   const userInfo = useUser(isConnected ? address : null);
   const stats = useUserStats(isConnected && !isWrongChain ? address : null);
+  // A player with no name yet sees only the name field: zeros, an empty map
+  // and 55 locked badges are noise before the one step that matters.
+  const naming =
+    isConnected && !userInfo.isLoading && !userInfo.user?.username;
   const recentRuns = useUserRuns(
     isConnected && !isWrongChain ? address : null,
     50,
@@ -109,74 +113,118 @@ export default function MePage() {
             <UsernameBlock userInfo={userInfo} />
           </div>
 
-          {stats && !isWrongChain && (
+          {naming ? (
+            <p className="text-center text-sm text-zinc-600">
+              {t("me.naming.hint")}
+            </p>
+          ) : (
             <>
-              <div className="flex justify-center gap-8 text-center">
-                <BigStat label={t("me.stat.blocks")} value={stats.hexesOwned} />
-                <BigStat label={t("me.stat.runs")} value={stats.totalRuns} />
-                <BigStat
-                  label={
-                    stats.streak === 1
-                      ? t("me.stat.dayStreak")
-                      : t("me.stat.daysStreak")
-                  }
-                  value={stats.streak}
-                />
-              </div>
+              {stats && !isWrongChain && (
+                <>
+                  <div className="flex justify-center gap-8 text-center">
+                    <BigStat
+                      label={t("me.stat.blocks")}
+                      value={stats.hexesOwned}
+                    />
+                    <BigStat
+                      label={t("me.stat.runs")}
+                      value={stats.totalRuns}
+                    />
+                    <BigStat
+                      label={
+                        stats.streak === 1
+                          ? t("me.stat.dayStreak")
+                          : t("me.stat.daysStreak")
+                      }
+                      value={stats.streak}
+                    />
+                  </div>
 
-              {(stats.bestRunHexes > 0 || stats.hexesOwned > 0) && (
-                <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 text-xs text-zinc-500">
-                  {stats.bestRunHexes > 0 && (
-                    <span>
-                      {t("me.bestRun.label")}{" "}
-                      <span className="font-semibold text-zinc-900">
-                        {stats.bestRunHexes} {t("me.bestRun.suffix")}
-                      </span>
-                    </span>
+                  {(stats.bestRunHexes > 0 || stats.hexesOwned > 0) && (
+                    <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 text-xs text-zinc-500">
+                      {stats.bestRunHexes > 0 && (
+                        <span>
+                          {t("me.bestRun.label")}{" "}
+                          <span className="font-semibold text-zinc-900">
+                            {stats.bestRunHexes} {t("me.bestRun.suffix")}
+                          </span>
+                        </span>
+                      )}
+                      {stats.hexesOwned > 0 && (
+                        <span>
+                          {t("me.rank.before")}{" "}
+                          <span className="font-semibold text-zinc-900">
+                            #{stats.rank}
+                          </span>{" "}
+                          {t("me.rank.after")}
+                        </span>
+                      )}
+                    </div>
                   )}
-                  {stats.hexesOwned > 0 && (
-                    <span>
-                      {t("me.rank.before")}{" "}
-                      <span className="font-semibold text-zinc-900">
-                        #{stats.rank}
-                      </span>{" "}
-                      {t("me.rank.after")}
-                    </span>
-                  )}
-                </div>
+                </>
+              )}
+
+              {stats && !isWrongChain && stats.totalRuns === 0 && (
+                <Link
+                  href="/run"
+                  className="self-center rounded-full bg-orange-700 px-8 py-3 text-base font-semibold text-white shadow-md hover:bg-orange-800"
+                >
+                  {t("me.firstRoute")}
+                </Link>
+              )}
+
+              {address && <TerritoryMap address={address} />}
+
+              {stats && !isWrongChain && (
+                <>
+                  <Achievements stats={stats} />
+                  <BadgeClaimPrompt
+                    address={address ?? null}
+                    surface="me"
+                    enabled={isConnected && !isWrongChain}
+                  />
+                  <TreasuresSection address={address ?? null} />
+                  <RewardsSection address={address ?? null} />
+                </>
+              )}
+
+              {recentRuns && recentRuns.length > 0 && (
+                <RunsList runs={recentRuns} />
+              )}
+
+              <LinkWallet address={address ?? null} />
+
+              {/* The rarely needed sections sit behind one row, so the profile
+              ends at the routes instead of running three more screens. */}
+              {!isWrongChain && (
+                <details className="group flex flex-col">
+                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between rounded-md border border-zinc-200 bg-zinc-50 px-4 text-sm font-medium text-zinc-900 [&::-webkit-details-marker]:hidden">
+                    {t("me.more")}
+                    <svg
+                      aria-hidden
+                      viewBox="0 0 24 24"
+                      className="h-4 w-4 text-zinc-500 transition-transform group-open:rotate-180"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    >
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </summary>
+                  <div className="mt-6 flex flex-col gap-6">
+                    {stats && <NftSection address={address ?? null} />}
+                    {geoSummary &&
+                      (geoSummary.byCountry.length > 0 ||
+                        geoSummary.byCity.length > 0) && (
+                        <GeoSummarySection summary={geoSummary} />
+                      )}
+                    {balances && <BalancesCard balances={balances} />}
+                  </div>
+                </details>
               )}
             </>
           )}
-
-          {address && <TerritoryMap address={address} />}
-
-          {stats && !isWrongChain && (
-            <>
-              <Achievements stats={stats} />
-              <BadgeClaimPrompt
-                address={address ?? null}
-                surface="me"
-                enabled={isConnected && !isWrongChain}
-              />
-              <TreasuresSection address={address ?? null} />
-              <RewardsSection address={address ?? null} />
-              <NftSection address={address ?? null} />
-            </>
-          )}
-
-          {recentRuns && recentRuns.length > 0 && (
-            <RunsList runs={recentRuns} />
-          )}
-
-          {geoSummary &&
-            (geoSummary.byCountry.length > 0 ||
-              geoSummary.byCity.length > 0) && (
-              <GeoSummarySection summary={geoSummary} />
-            )}
-
-          <LinkWallet address={address ?? null} />
-
-          {balances && !isWrongChain && <BalancesCard balances={balances} />}
 
           {!isMiniPay && (
             <button
