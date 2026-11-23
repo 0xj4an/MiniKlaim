@@ -22,6 +22,7 @@ import { NeedCeloNote } from "@/app/NeedCeloNote";
 import { ReturnNote } from "@/app/ReturnNote";
 import { LossNotice } from "@/app/LossNotice";
 import { StreakCard } from "@/app/StreakCard";
+import { NoticeStack } from "@/app/NoticeStack";
 import { useUser } from "@/lib/wallet/useUser";
 import { useWallet } from "@/lib/wallet/useWallet";
 
@@ -100,17 +101,6 @@ export function HomeClient() {
         )}
       </p>
 
-      {mounted && isConnected && !isWrongChain && user?.username && (
-        <LossNotice address={address ?? null} />
-      )}
-
-      {mounted && (
-        <StreakCard
-          address={address ?? null}
-          enabled={isConnected && !isWrongChain && !!user?.username}
-        />
-      )}
-
       {mounted ? (
         <PrimaryCTA
           isConnected={isConnected}
@@ -130,22 +120,28 @@ export function HomeClient() {
       )}
 
       {mounted && (
-        <BadgeClaimPrompt
-          address={address ?? null}
-          enabled={isConnected && !isWrongChain && !!user?.username}
-          variant="card"
-          surface="home"
-        />
+        <NoticeStack>
+          {isConnected && !isWrongChain && user?.username ? (
+            <LossNotice address={address ?? null} />
+          ) : null}
+          <BadgeClaimPrompt
+            address={address ?? null}
+            enabled={isConnected && !isWrongChain && !!user?.username}
+            variant="card"
+            surface="home"
+          />
+          <NeedCeloNote
+            address={address ?? null}
+            enabled={isConnected && !isWrongChain}
+          />
+          <StreakCard
+            address={address ?? null}
+            enabled={isConnected && !isWrongChain && !!user?.username}
+          />
+        </NoticeStack>
       )}
 
       {mounted && <WeeklyChallenge />}
-
-      {mounted && (
-        <NeedCeloNote
-          address={address ?? null}
-          enabled={isConnected && !isWrongChain}
-        />
-      )}
 
       {mounted && (
         <PendingClaimPrompt
@@ -175,10 +171,7 @@ function MovementModes() {
 
 function WelcomePlaceholder() {
   return (
-    <div
-      className="h-12 w-44 rounded-full bg-zinc-100"
-      aria-hidden="true"
-    />
+    <div className="h-12 w-44 rounded-full bg-zinc-100" aria-hidden="true" />
   );
 }
 
@@ -276,7 +269,9 @@ function PrimaryCTA({
   if (!isConnected) {
     if (isMiniPay || env === "minipay") {
       return (
-        <p className="text-sm text-zinc-700">{t("home.env.minipay.connecting")}</p>
+        <p className="text-sm text-zinc-700">
+          {t("home.env.minipay.connecting")}
+        </p>
       );
     }
     if (env === "telegram-webview") {
@@ -326,7 +321,7 @@ function PrimaryCTA({
         >
           {t("home.cta.pickName")}
         </Link>
-        <span className="text-xs uppercase tracking-wide text-zinc-400">
+        <span className="text-xs tracking-wide text-zinc-400 uppercase">
           {t("link.or")}
         </span>
         <LinkExisting />
@@ -417,7 +412,9 @@ function NoWalletBlock({ isMobile }: { isMobile: boolean }) {
         {t("home.env.noWallet.installMm")}
       </a>
       {isMobile && (
-        <p className="text-xs text-zinc-500">{t("home.env.noWallet.minipay")}</p>
+        <p className="text-xs text-zinc-500">
+          {t("home.env.noWallet.minipay")}
+        </p>
       )}
     </div>
   );
