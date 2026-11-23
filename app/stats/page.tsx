@@ -80,29 +80,26 @@ export default function StatsPage() {
 
   return (
     <main className="min-h-screen bg-white">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-3 py-4 pb-24 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-3">
+      <div className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-8 pb-24">
+        <header className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <Link
               href="/"
-              className="flex items-center gap-1.5 rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
+              className="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
             >
               ← {t("common.home")}
             </Link>
-            <div className="flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">
-              <span className="h-1.5 w-1.5 rounded-full bg-white"></span>
-              LIVE
-            </div>
+            <h1 className="text-xl font-bold">{t("stats.title")}</h1>
+            <span className="flex w-16 justify-end">
+              <span className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                LIVE
+              </span>
+            </span>
           </div>
-          
-          <div className="flex flex-col items-center gap-1 pt-2">
-            <h1 className="text-2xl font-bold text-zinc-900">
-              {t("stats.title")}
-            </h1>
-            <p className="text-center text-xs text-zinc-600">
-              {t("stats.subtitle")}
-            </p>
-          </div>
+          <p className="text-center text-xs text-zinc-500">
+            {t("stats.subtitle")}
+          </p>
         </header>
 
         {!data && (
@@ -117,7 +114,7 @@ export default function StatsPage() {
       {data && (
         <>
           <section className="flex flex-col gap-2">
-            <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+            <h2 className="flex items-center justify-center gap-1.5 text-xs text-zinc-500">
               <span className="text-base">🏆</span>
               {t("stats.section.lifetime")}
             </h2>
@@ -151,7 +148,7 @@ export default function StatsPage() {
           <RunsSection data={data} />
 
           <section className="flex flex-col gap-2">
-            <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+            <h2 className="flex items-center justify-center gap-1.5 text-xs text-zinc-500">
               <span className="text-base">👥</span>
               {t("stats.section.active")}
             </h2>
@@ -165,7 +162,7 @@ export default function StatsPage() {
           <RetentionSection data={data} />
 
           <section className="flex flex-col gap-2">
-            <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+            <h2 className="flex items-center justify-center gap-1.5 text-xs text-zinc-500">
               <span className="text-base">⛓️</span>
               {t("stats.section.onchain")}
             </h2>
@@ -200,7 +197,7 @@ export default function StatsPage() {
           )}
 
           <section className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
-            <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+            <h3 className="flex items-center justify-center gap-1.5 text-xs text-zinc-500">
               <span className="text-base">📄</span>
               {t("stats.section.contracts")}
             </h3>
@@ -257,7 +254,7 @@ function RetentionSection({ data }: { data: Analytics }) {
   if (cards.length === 0) return null;
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+      <h2 className="flex items-center justify-center gap-1.5 text-xs text-zinc-500">
         <span className="text-base">📈</span>
         {t("stats.section.retention")}
       </h2>
@@ -286,13 +283,13 @@ function RunsSection({ data }: { data: Analytics }) {
   const maxDay = Math.max(1, ...days.map((d) => d.runs));
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+      <h2 className="flex items-center justify-center gap-1.5 text-xs text-zinc-500">
         <span className="text-base">🏃</span>
         {t("stats.section.runs")}
       </h2>
 
       <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
+        <p className="text-xs text-zinc-500">
           {t("stats.runs.byMode")}
         </p>
         {MODE_ORDER.map((mode) => {
@@ -322,7 +319,7 @@ function RunsSection({ data }: { data: Analytics }) {
         })}
       </div>
 
-      <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
+      <p className="mt-1 text-xs text-zinc-500">
         {t("stats.runs.typical")}
       </p>
       <div className="grid w-full grid-cols-3 gap-2">
@@ -354,7 +351,7 @@ function RunsSection({ data }: { data: Analytics }) {
 
       {days.length > 0 && (
         <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
+          <p className="text-xs text-zinc-500">
             {t("stats.runs.perDay")}
           </p>
           <div className="flex h-24 items-end gap-1">
@@ -397,7 +394,7 @@ function StatCard({
           {value.toLocaleString()}
           {suffix && <span className="text-sm">{suffix}</span>}
         </span>
-        <span className="break-words text-[10px] font-semibold uppercase tracking-wide text-zinc-600">{label}</span>
+        <span className="break-words text-xs text-zinc-500">{label}</span>
         {subtitle && (
           <span className="break-words text-[9px] font-medium text-zinc-400">{subtitle}</span>
         )}
@@ -440,7 +437,7 @@ function TopCountriesSection({
 
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-700">
+      <h2 className="flex items-center justify-center gap-1.5 text-xs text-zinc-500">
         <span className="text-base">🌍</span>
         {t("stats.section.countries")}
       </h2>
