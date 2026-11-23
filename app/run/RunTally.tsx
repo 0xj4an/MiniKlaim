@@ -80,11 +80,13 @@ export function RunTally({
     // One line of text, the height of the line this replaced: on the run
     // screen the map is the game and every row here is a row of map lost.
     return (
-      <div className="flex flex-wrap items-center justify-center gap-x-3 text-xs text-zinc-600">
+      <div className="mt-1 flex flex-wrap items-center justify-center gap-x-3.5 text-[13px] leading-tight text-zinc-500">
         {stats.map((s) => (
           <span key={s.key} className="flex items-center gap-1 whitespace-nowrap">
             <Hexagon color={s.color} size={9} />
-            <span className="font-bold text-zinc-900 tabular-nums">{s.n}</span>
+            <span className="mk-num text-[17px] leading-none text-zinc-900">
+              {s.n}
+            </span>
             {s.label}
           </span>
         ))}
@@ -97,7 +99,7 @@ export function RunTally({
         <div key={s.key} className="flex flex-col items-center">
           <span className="flex items-center gap-1">
             <Hexagon color={s.color} size={12} />
-            <span className="font-mono text-2xl leading-none font-bold text-zinc-900 tabular-nums">
+            <span className="mk-num text-2xl leading-none text-zinc-900">
               {s.n}
             </span>
           </span>

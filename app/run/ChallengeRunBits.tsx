@@ -1,8 +1,10 @@
 "use client";
 
+import { HexRing, Pips } from "@/app/Hex";
 import { useEffect, useState } from "react";
 import { badgeCopy } from "@/lib/onchain/badgeArt";
 import { useLocale } from "@/lib/i18n";
+import { useUserStats } from "@/lib/wallet/useUserStats";
 
 /**
  * The weekly challenge inside a run: a chip with the mission the run can move,
@@ -64,7 +66,19 @@ function live(p: Progress, blocks: number, stolen: number): number {
 
 const LIVE = ["bestRunHexes", "hexesOwned", "conquests"];
 
-/** During a run: the first unfinished mission, counting this run's blocks. */
+/** Badge 16, "Big run": five blocks in one run (lib/onchain/badgeRules). */
+const FIRST_MISSION = { id: 16, need: 5 };
+
+/**
+ * During a run: one goal the blocks of this run move, with pips that fill
+ * as they are captured.
+ *
+ * A weekly-challenge mission comes first when the player has one open. With
+ * none, a player who has never captured five blocks in a run gets that badge
+ * as the goal. The typical run was 75 seconds and one block (PostHog, 14
+ * days to 23 Nov 2026): the player tried the button, saw one block and left
+ * with nothing to aim for. Five blocks is a street, and it ends in a badge.
+ */
 export function ChallengeRunChip({
   address,
   blocks,
@@ -76,29 +90,52 @@ export function ChallengeRunChip({
 }) {
   const { t, locale } = useLocale();
   const data = useChallenge(address);
+  const stats = useUserStats(address);
   const open = (data?.player?.progress ?? []).filter((p) => {
     const held = data?.player?.held ?? [];
     const claimable = data?.player?.claimable ?? [];
     return !held.includes(p.id) && !claimable.includes(p.id) && p.have < p.need;
   });
-  const p = open.find((x) => LIVE.includes(x.metric));
-  if (!p) return null;
-  const have = live(p, blocks, stolen);
+  const mission = open.find((x) => LIVE.includes(x.metric));
+  const first =
+    !mission && stats && stats.bestRunHexes < FIRST_MISSION.need
+      ? FIRST_MISSION
+      : null;
+  if (!mission && !first) return null;
+
+  const id = mission ? mission.id : FIRST_MISSION.id;
+  const need = mission ? mission.need : FIRST_MISSION.need;
+  const have = mission
+    ? live(mission, blocks, stolen)
+    : Math.min(need, blocks);
+  const done = have >= need;
+  const name = badgeCopy(id, locale === "es" ? "es" : "en").name;
   return (
     <div
       role="status"
-      className="absolute top-[3.25rem] right-4 z-10 w-40 rounded-md bg-white/90 px-2.5 py-1.5 shadow-md backdrop-blur"
+      className={`absolute top-[3.75rem] right-3 left-3 z-10 mx-auto flex max-w-md items-center justify-between gap-3 rounded-[0.875rem] border-[1.5px] px-3 py-2 text-sm leading-tight ${
+        done
+          ? "border-emerald-700 bg-emerald-700 font-semibold text-white"
+          : `border-zinc-200 bg-white font-medium text-zinc-900 ${mission ? "" : ""}`
+      }`}
     >
-      <p className="truncate text-[11px] font-semibold text-violet-700">
-        {t("challenge.run.chip")}:{" "}
-        {badgeCopy(p.id, locale === "es" ? "es" : "en").name} {have}/{p.need}
-      </p>
-      <span className="mt-1 block h-1 overflow-hidden rounded-full bg-zinc-200">
-        <span
-          className="block h-full rounded-full bg-violet-600 transition-[width] duration-500"
-          style={{ width: `${(have / p.need) * 100}%` }}
-        />
+      <span className="min-w-0 truncate">
+        {done
+          ? t("run.mission.done").replace("{name}", name)
+          : `${t(mission ? "challenge.run.chip" : "run.mission.badge")}: ${name}`}
       </span>
+      {need <= 10 ? (
+        <Pips
+          n={need}
+          on={have}
+          className={done ? "text-white" : mission ? "text-reto" : "text-mine"}
+          label={`${have}/${need}`}
+        />
+      ) : (
+        <span className="shrink-0 tabular-nums">
+          {have}/{need}
+        </span>
+      )}
     </div>
   );
 }
@@ -119,24 +156,19 @@ export function ChallengeMovedNote({ address }: { address: string | null }) {
   return (
     // Not a link: the claim for this run may still be open in the wallet, and
     // leaving the card mid-claim would strand it.
-    <div className="mt-3 flex items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-left">
-      <span
-        aria-hidden
-        className="hex-cell h-[26px] w-[30px] shrink-0 bg-violet-600"
-      />
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="text-sm font-semibold text-zinc-900">
-          {t("challenge.moved")
-            .replace("{n}", String(n))
-            .replace("{m}", String(total))}
-        </span>
-        <span className="block h-1.5 overflow-hidden rounded-full bg-zinc-200">
-          <span
-            className="block h-full rounded-full bg-violet-600"
-            style={{ width: `${(n / total) * 100}%` }}
-          />
-        </span>
+    <div className="flex items-center gap-2.5 border-b border-zinc-200 py-3 text-left">
+      <HexRing className="h-5 w-[18px] shrink-0 text-reto" />
+      <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-zinc-900">
+        {t("challenge.kicker")}
       </span>
+      <Pips
+        n={total}
+        on={n}
+        className="text-reto"
+        label={t("challenge.teaser.count")
+          .replace("{n}", String(n))
+          .replace("{m}", String(total))}
+      />
     </div>
   );
 }

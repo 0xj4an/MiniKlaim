@@ -22,14 +22,14 @@ export default function GlobalError({
     <html lang="en">
       <body className="bg-white text-zinc-900">
         <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
-          <h1 className="text-2xl font-bold">Something broke</h1>
+          <h1 className="mk-title text-[1.75rem]">Something broke</h1>
           <p className="text-sm text-zinc-600">
             We couldn&apos;t load this page. Try again, or head back home.
           </p>
           <div className="flex gap-3">
             <button
               onClick={reset}
-              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+              className="mk-btn mk-btn-sm mk-btn-ink px-4"
             >
               Try again
             </button>

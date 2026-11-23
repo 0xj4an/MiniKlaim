@@ -79,19 +79,19 @@ export default function StatsPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-white">
-      <div className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-8 pb-24">
+    <main className="min-h-screen">
+      <div className="mx-auto flex max-w-2xl flex-col gap-5 px-4 py-6 pb-24">
         <header className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <Link
               href="/"
-              className="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
+              className="mk-tile px-3 py-1.5 text-sm font-semibold text-zinc-900"
             >
               ← {t("common.home")}
             </Link>
-            <h1 className="text-xl font-bold">{t("stats.title")}</h1>
+            <h1 className="mk-title text-2xl">{t("stats.title")}</h1>
             <span className="flex w-16 justify-end">
-              <span className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-700">
+              <span className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[12px] font-semibold text-zinc-700">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                 LIVE
               </span>
@@ -196,12 +196,12 @@ export default function StatsPage() {
             />
           )}
 
-          <section className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+          <section className="flex flex-col gap-2 mk-flat p-3">
             <h3 className="flex items-center justify-center gap-1.5 text-xs text-zinc-500">
               <span className="text-base">📄</span>
               {t("stats.section.contracts")}
             </h3>
-            <div className="flex flex-col gap-2 text-[10px]">
+            <div className="flex flex-col gap-2 text-[12px]">
               <div className="flex justify-between gap-2">
                 <span className="text-zinc-500">{t("stats.card.hexesContract")}:</span>
                 <a
@@ -288,7 +288,7 @@ function RunsSection({ data }: { data: Analytics }) {
         {t("stats.section.runs")}
       </h2>
 
-      <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+      <div className="flex flex-col gap-2 mk-flat p-3">
         <p className="text-xs text-zinc-500">
           {t("stats.runs.byMode")}
         </p>
@@ -306,7 +306,7 @@ function RunsSection({ data }: { data: Analytics }) {
                   {t("stats.runs.blocks")} · {formatMeters(row.meters)}
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-[10px] tabular-nums text-zinc-400">
+              <div className="flex items-center gap-2 text-[12px] tabular-nums text-zinc-400">
                 <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200">
                   <span className="block h-full rounded-full bg-orange-600" style={{ width: `${runPct}%` }} />
                 </span>
@@ -350,14 +350,14 @@ function RunsSection({ data }: { data: Analytics }) {
       </div>
 
       {days.length > 0 && (
-        <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+        <div className="flex flex-col gap-2 mk-flat p-3">
           <p className="text-xs text-zinc-500">
             {t("stats.runs.perDay")}
           </p>
           <div className="flex h-24 items-end gap-1">
             {days.map((d) => (
               <div key={d.day} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
-                <span className="text-[9px] tabular-nums text-zinc-500">{d.runs > 0 ? d.runs : ""}</span>
+                <span className="text-[12px] tabular-nums text-zinc-500">{d.runs > 0 ? d.runs : ""}</span>
                 <span
                   className="w-full rounded-t bg-orange-600"
                   style={{ height: `${Math.max(2, (d.runs / maxDay) * 100)}%` }}
@@ -366,7 +366,7 @@ function RunsSection({ data }: { data: Analytics }) {
               </div>
             ))}
           </div>
-          <div className="flex justify-between text-[9px] text-zinc-400">
+          <div className="flex justify-between text-[12px] text-zinc-400">
             <span>{new Date(`${days[0].day}T12:00:00Z`).toLocaleDateString(locale, { month: "short", day: "numeric" })}</span>
             <span>{new Date(`${days[days.length - 1].day}T12:00:00Z`).toLocaleDateString(locale, { month: "short", day: "numeric" })}</span>
           </div>
@@ -388,15 +388,15 @@ function StatCard({
   subtitle?: string;
 }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-center">
+    <div className="mk-flat p-3 text-center">
       <div className="flex flex-col items-center gap-1">
-        <span className="text-xl font-bold tabular-nums text-zinc-900">
+        <span className="mk-num text-2xl leading-tight text-zinc-900">
           {value.toLocaleString()}
           {suffix && <span className="text-sm">{suffix}</span>}
         </span>
         <span className="break-words text-xs text-zinc-500">{label}</span>
         {subtitle && (
-          <span className="break-words text-[9px] font-medium text-zinc-400">{subtitle}</span>
+          <span className="break-words text-[12px] font-medium text-zinc-400">{subtitle}</span>
         )}
       </div>
     </div>
@@ -441,7 +441,7 @@ function TopCountriesSection({
         <span className="text-base">🌍</span>
         {t("stats.section.countries")}
       </h2>
-      <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+      <div className="flex flex-col gap-2 mk-flat p-3">
         {visibleCountries.map((country, idx) => {
           const cities = citiesMap.get(country.country) ?? [];
           const isExpanded = expandedCountries.has(country.country);
@@ -449,7 +449,7 @@ function TopCountriesSection({
             <div key={country.country} className="flex flex-col gap-2">
               <div className="flex items-center justify-between rounded-md border border-zinc-200 bg-white p-2.5">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-bold text-zinc-800">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-[12px] font-bold text-zinc-800">
                     {idx + 1}
                   </span>
                   <span className="text-lg">{getFlag(country.country)}</span>

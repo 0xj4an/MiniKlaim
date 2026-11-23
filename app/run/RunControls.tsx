@@ -85,15 +85,15 @@ export function RunControls({
         className="absolute inset-x-0 bottom-0 z-20"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="mx-auto w-full max-w-md rounded-t-[1.75rem] bg-white px-4 pt-5 pb-4 shadow-[0_-10px_30px_rgba(0,0,0,0.12)]">
+        <div className="mx-auto w-full max-w-md rounded-t-3xl border-t-[1.5px] border-zinc-200 bg-white px-4 pt-4 pb-4">
           {canStart ? (
             <>
-              <h2 className="text-center text-[15px] font-semibold tracking-tight text-zinc-900">
+              {/* One line, not a title and a paragraph: on a 664 px tall
+                  phone the old sheet covered the player's own dot. What the
+                  blocks are is said in the welcome and under Help. */}
+              <h2 className="mk-title text-[1.375rem] text-zinc-900">
                 {t("run.mode.ask")}
               </h2>
-              <p className="mx-auto mt-1 max-w-[17rem] text-center text-[13px] leading-snug text-zinc-500">
-                {t("run.start.hint")}
-              </p>
               <div
                 role="radiogroup"
                 aria-label={t("run.mode.ask")}
@@ -109,17 +109,17 @@ export function RunControls({
                       role="radio"
                       aria-checked={on}
                       onClick={() => onModeChange(m)}
-                      className={`flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl border px-0.5 py-1.5 ${
+                      className={`flex min-h-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-xl border-[1.5px] px-0.5 py-1 ${
                         on
-                          ? "border-orange-600 bg-orange-50 ring-2 ring-orange-600"
-                          : "border-zinc-200 bg-zinc-50"
+                          ? "border-orange-600 bg-orange-50"
+                          : "border-zinc-200 bg-white"
                       }`}
                     >
                       <span aria-hidden className="text-xl leading-none">
                         {moveModeIcon(m)}
                       </span>
                       <span
-                        className={`max-w-full truncate text-[11px] leading-tight ${
+                        className={`max-w-full truncate text-[12px] leading-tight ${
                           on ? "font-semibold text-orange-800" : "text-zinc-600"
                         }`}
                       >
@@ -159,7 +159,7 @@ export function RunControls({
             disabled={
               !canStart || !locationReady || isBusy || !mode || holdStart
             }
-            className="mt-3 w-full rounded-full bg-orange-700 py-3 text-base font-semibold text-white hover:bg-orange-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
+            className="mk-btn mt-3 w-full px-4"
             aria-label={
               !canStart ? t("run.start.signIn") : t("run.start.button")
             }
@@ -182,7 +182,7 @@ export function RunControls({
   }
   return (
     <div
-      className="absolute right-4 left-4 z-20 flex flex-col items-center gap-3"
+      className="absolute right-3 left-3 z-20 mx-auto flex max-w-md flex-col items-center gap-2.5"
       style={{ bottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
     >
       <CaptureLine capture={capture} />
@@ -197,7 +197,7 @@ export function RunControls({
       <button
         onClick={onFinish}
         disabled={isBusy}
-        className="rounded-full bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-lg hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
+        className="mk-btn mk-btn-ink w-full px-6"
         aria-label={t("run.finish.button")}
       >
         {isBusy ? t("run.finish.finishing") : t("run.finish.button")}
@@ -251,7 +251,7 @@ function SignalRow({
     <div
       role="status"
       aria-live="polite"
-      className={`mt-3 flex items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-semibold ${
+      className={`mt-3 flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-[13px] leading-tight font-semibold ${
         ready
           ? "bg-emerald-50 text-emerald-800"
           : blocked
@@ -312,12 +312,12 @@ function CaptureLine({ capture }: { capture: CaptureStatus }) {
     <div
       role="status"
       aria-live="polite"
-      className={`max-w-[19rem] rounded-full px-4 py-1.5 text-center text-xs font-semibold shadow-md ${
+      className={`max-w-[19rem] rounded-full px-3.5 py-1.5 text-center text-[13px] leading-tight font-semibold ${
         good
           ? "bg-emerald-700 text-white"
           : waiting
-            ? "bg-amber-100 text-amber-950"
-            : "bg-white/95 text-zinc-800"
+            ? "border-[1.5px] border-amber-300 bg-amber-100 text-amber-950"
+            : "border-[1.5px] border-zinc-200 bg-white text-zinc-800"
       }`}
     >
       {text}

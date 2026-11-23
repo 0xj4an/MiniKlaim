@@ -17,7 +17,7 @@ export function BackButton() {
         }
         router.push("/");
       }}
-      className="min-h-11 rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
+      className="min-h-11 mk-tile px-3 py-1.5 text-sm font-semibold text-zinc-900"
     >
       {"<- "}
       {t("common.back")}

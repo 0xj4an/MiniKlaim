@@ -2,7 +2,7 @@
 // player thinks the game only exists there.
 export const DEFAULT_CENTER: [number, number] = [0, 0];
 export const DEFAULT_ZOOM = 14;
-export const FOLLOW_ZOOM = 17; // zoom level when centered on user position
+export const FOLLOW_ZOOM = 16.6; // zoom level when centered on user position
 
 /**
  * How far out the run map lets a player pinch: all the way.
