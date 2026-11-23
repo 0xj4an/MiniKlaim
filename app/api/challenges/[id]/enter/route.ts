@@ -6,11 +6,13 @@ import { db } from "@/lib/db";
 import { challenges } from "@/lib/db/schema";
 import {
   enteredOnchain,
+  findEntryTxOnchain,
   isRegisteredOnchain,
   readEntryFunds,
   sendEnterFor,
 } from "@/lib/challenges/allowance";
 import { challengeEntriesPaused } from "@/lib/challenges/paused";
+import { withLaggingNodeRetry } from "@/lib/challenges/recover";
 import {
   checkEntryTx,
   challengeDepositAddress,
@@ -86,7 +88,27 @@ export async function POST(
       });
       return fail("not-registered", 503);
     }
-    if (await enteredOnchain(contract, c, player)) return fail("entered", 409);
+    if (await enteredOnchain(contract, c, player)) {
+      // The contract has the entry and we hold no row (checked above): the
+      // player paid and an earlier request lost the receipt. Find the
+      // transaction and record it now, instead of answering "entered" to
+      // someone the app then shows as not in. See lib/challenges/recover.
+      const deposit = challengeDepositAddress() ?? contract;
+      const lost = await findEntryTxOnchain(contract, c, player).catch(() => null);
+      const check = lost ? await checkEntryTx(c, lost, deposit) : null;
+      if (lost && check && !("reason" in check)) {
+        const outcome = await recordEntry(db, c, lost, check);
+        log.warn("challenge entry recovered", { id: c.id, player: raw, txHash: lost, outcome });
+        return NextResponse.json({ ok: true, outcome, txHash: lost, recovered: true });
+      }
+      Sentry.captureMessage("Challenge entry onchain but not recorded", {
+        level: "error",
+        tags,
+        fingerprint: ["challenge-entry-unrecorded", c.id],
+        extra: { player: raw, txHash: lost, reason: check && "reason" in check ? check.reason : "tx-not-found" },
+      });
+      return fail("entered", 409);
+    }
     const fee = BigInt(c.entryAmount);
     const { allowance, balance } = await readEntryFunds(
       c.token as Address,
@@ -99,10 +121,16 @@ export async function POST(
       return fail("needs-approval", 409, { allowance: allowance.toString() });
 
     const txHash = await sendEnterFor(c, player);
-    const receipt = await dropsPublicClient().waitForTransactionReceipt({
-      hash: txHash,
-      timeout: 60_000,
-    });
+    // The transaction is sent: from here a node that is a block behind is a
+    // reason to ask again, never to drop a paid entry (BlockNotFoundError,
+    // 23 Nov 2026).
+    log.warn("challenge enterFor sent", { id: c.id, player: raw, txHash });
+    const receipt = await withLaggingNodeRetry(() =>
+      dropsPublicClient().waitForTransactionReceipt({
+        hash: txHash,
+        timeout: 60_000,
+      }),
+    );
     if (receipt.status !== "success") {
       Sentry.captureMessage("Challenge enterFor reverted", {
         level: "error",
