@@ -280,17 +280,22 @@ export function RunSummaryModal({
         {/* Stolen blocks are part of the headline number, so they are a
             note under it. Reinforces and attacks are not blocks gained and
             get a line of their own. See RunTally. */}
+        {/* What the run did to other players' blocks and to the player's
+            own is the news of a run, so it is set large: in the first pass
+            of this sheet it had shrunk to one grey line and read as gone
+            (0xj4an, 23 Nov 2026). */}
         {stolen > 0 && (
-          <p className="mt-2 text-[15px] leading-tight font-medium text-zinc-900">
+          <p className="mt-2 text-base leading-tight font-semibold text-orange-700">
             {stolenSplit(t, summary.hexesClaimed, stolen)}
           </p>
         )}
         {(reinforced > 0 || damaged > 0) && (
-          <div className="mt-2 [&>div]:justify-start">
+          <div className="mt-3 [&>div]:justify-start [&>div]:gap-7">
             <RunTally
               blocks={summary.hexesClaimed}
               reinforced={reinforced}
               attacked={damaged}
+              size="md"
               showBlocks={false}
             />
           </div>
