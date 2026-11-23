@@ -7,27 +7,38 @@ import { type LevelRange, levelRangeLabel } from "@/lib/runs/levelRange";
 /** The burst's color for a block taken from someone (CaptureBursts). */
 const STOLEN = "#be185d";
 
+type Row = {
+  key: string;
+  n: number;
+  color: string;
+  label: string;
+  note?: string;
+};
+
 /**
- * What a finished run did, one line per kind of thing and each said in
- * words: blocks nobody held, blocks taken from someone, the player's own
- * blocks raised a level, other players' blocks lowered a level.
+ * What a finished run did, as two sums that each add up.
  *
- * The sheet used to print "Blocks: 3 stolen + 9 unclaimed" and two bare
- * numbers, "2 reinforced" and "3 attacked". Nothing said whose blocks
- * those were, that a level had moved, or where it ended up, and the level
- * a block is left at is what tells the player whether it falls on the next
- * pass (0xj4an, 23 Nov 2026: show all of it, and show it well).
+ * Under the sheet's headline, "12 blocks captured", come the two kinds of
+ * captured block: the ones nobody held and the ones taken from another
+ * player. Then a second section with its own total, "5 reinforcements and
+ * attacks": the player's own blocks raised a level and other players'
+ * blocks lowered one, with whose they are and the level they were left at.
+ * That level is what tells the player whether a block falls on the next
+ * pass.
  *
- * The first line used to read "unclaimed" ("libres"), which nobody could
- * place (0xj4an, 23 Nov 2026), and in English it collided with claiming
- * blocks to the wallet. It names the thing itself now: no owner.
+ * It was four lines under the one headline, and 9 + 3 + 2 + 3 is not 12:
+ * reinforced and attacked blocks are not blocks gained, so listed with the
+ * captured ones the count looked wrong (0xj4an, 23 Nov 2026). Before that
+ * the sheet printed "Blocks: 3 stolen + 9 unclaimed" and two bare numbers.
  *
- * The first two lines add up to the headline count and the last two do
- * not, so each line says whose the blocks are now. See stolenSplit for why
- * both halves of the count are always printed together.
+ * The first section's lines are whole phrases under a headline that
+ * already says "captured". A line reading "captured" there would bring the
+ * sum problem back, and "unclaimed" ("libres") was a word nobody could
+ * place, which in English also collided with claiming blocks to the
+ * wallet.
  *
- * Nothing when the run only took blocks with no owner: the headline already
- * says all there is to say.
+ * The first section is silent when nothing was stolen: then every block
+ * had no owner and the headline says all there is to say.
  */
 export function RunBreakdown({
   blocks,
@@ -46,8 +57,6 @@ export function RunBreakdown({
   attackedLevels?: LevelRange | null;
 }) {
   const { t } = useLocale();
-  if (stolen <= 0 && reinforced <= 0 && attacked <= 0) return null;
-
   const word = (key: TranslationKey, count: number) =>
     t(count === 1 ? (`${key}.one` as TranslationKey) : key);
   const now = (range?: LevelRange | null) =>
@@ -56,21 +65,24 @@ export function RunBreakdown({
       : "";
 
   const free = Math.max(0, blocks - stolen);
-  const rows = [
-    {
-      key: "free",
-      n: free,
-      color: HEX_COLORS.run,
-      label: word("run.breakdown.free", free),
-      note: word("run.breakdown.freeNote", free),
-    },
-    {
-      key: "stolen",
-      n: stolen,
-      color: STOLEN,
-      label: word("run.breakdown.stolen", stolen),
-      note: word("run.breakdown.stolenNote", stolen),
-    },
+  const captured: Row[] =
+    stolen > 0
+      ? [
+          {
+            key: "free",
+            n: free,
+            color: HEX_COLORS.run,
+            label: word("run.breakdown.free", free),
+          },
+          {
+            key: "stolen",
+            n: stolen,
+            color: STOLEN,
+            label: word("run.breakdown.stolen", stolen),
+          },
+        ].filter((row) => row.n > 0)
+      : [];
+  const levels: Row[] = [
     {
       key: "reinforced",
       n: reinforced,
@@ -88,9 +100,38 @@ export function RunBreakdown({
       note: word("run.breakdown.attackedNote", attacked) + now(attackedLevels),
     },
   ].filter((row) => row.n > 0);
+  if (captured.length === 0 && levels.length === 0) return null;
+
+  // The second section's title names only what happened, so a run with
+  // nothing but reinforces does not read "reinforcements and attacks".
+  const levelsTitle =
+    reinforced > 0 && attacked > 0
+      ? t("run.breakdown.levels")
+      : reinforced > 0
+        ? word("run.breakdown.levels.reinforced", reinforced)
+        : word("run.breakdown.levels.attacked", attacked);
 
   return (
-    <ul className="mt-3 border-t border-zinc-200">
+    <>
+      {captured.length > 0 && <Rows rows={captured} className="mt-3" />}
+      {levels.length > 0 && (
+        <div className="mt-4">
+          <p className="flex items-baseline gap-2 text-zinc-900">
+            <span className="mk-num text-[2rem] leading-none">
+              {reinforced + attacked}
+            </span>
+            <span className="mk-title text-xl">{levelsTitle}</span>
+          </p>
+          <Rows rows={levels} className="mt-2" />
+        </div>
+      )}
+    </>
+  );
+}
+
+function Rows({ rows, className }: { rows: Row[]; className: string }) {
+  return (
+    <ul className={`border-t border-zinc-200 ${className}`}>
       {rows.map((row) => (
         <li
           key={row.key}
@@ -111,13 +152,15 @@ export function RunBreakdown({
           <span className="mk-num min-w-7 text-[1.625rem] leading-none text-zinc-900">
             {row.n}
           </span>
-          <span className="min-w-0 flex-1">
+          <span className="min-w-0 flex-1 self-center">
             <span className="block text-[15px] leading-tight font-semibold text-zinc-900">
               {row.label}
             </span>
-            <span className="mt-0.5 block text-[13px] leading-tight text-zinc-600">
-              {row.note}
-            </span>
+            {row.note && (
+              <span className="mt-0.5 block text-[13px] leading-tight text-zinc-600">
+                {row.note}
+              </span>
+            )}
           </span>
         </li>
       ))}
