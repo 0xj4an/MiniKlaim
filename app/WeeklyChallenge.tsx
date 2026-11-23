@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Address } from "viem";
 import { track } from "@/lib/analytics";
 import { useEnterChallenge } from "@/lib/challenges/useEnterChallenge";
+import { useClaimTreasures } from "@/lib/drops/useClaimTreasures";
 import { formatPrize } from "@/lib/drops/format";
 import { ChallengeReminder } from "@/app/ChallengeReminder";
 import { entryStanding } from "@/lib/challenges/standing";
@@ -30,8 +31,19 @@ type View = {
   result: { winners?: string[]; perWinner?: string } | null;
 };
 
+type Progress = { id: number; have: number; need: number; metric: string };
+
+type Previous = View & {
+  winnerNames?: { address: string; name: string | null }[];
+};
+
+/** MiniPay's add-cash screen, scoped to the token the entry is paid in. */
+const ADD_CASH_URL = "https://link.minipay.xyz/add_cash?tokens=USDT";
+
 type Payload = {
   challenge: View | null;
+  /** Last week's challenge, shown beside a live one. */
+  previous?: Previous | null;
   spender?: Address | null;
   approveAmount?: string | null;
   /** Server-side pause on entering. See lib/challenges/paused. */
@@ -42,6 +54,12 @@ type Payload = {
     /** False when the chain could not be read: `held` is then not a fact. */
     heldKnown?: boolean;
     claimable: number[];
+    progress?: Progress[];
+    previous?: {
+      entered: boolean;
+      won: boolean;
+      prize: "unpaid" | "claimable" | "pending" | "claimed" | null;
+    } | null;
     allowance: string | null;
     balance: string | null;
   };
@@ -109,6 +127,7 @@ export function WeeklyChallenge() {
     allowance,
     onEntered: load,
   });
+  const prize = useClaimTreasures(address ?? null, "challenge");
 
   if (!c) return null;
   // Paused: the whole card goes, not just its button. Entering is the only
@@ -153,213 +172,366 @@ export function WeeklyChallenge() {
   const perWinner = c.result?.perWinner
     ? formatPrize(c.token, c.result.perWinner, locale)
     : null;
+  const progress = new Map(
+    (data?.player?.progress ?? []).map((p) => [p.id, p]),
+  );
+  // Distances are kept in meters; show km.
+  const amount = (p: Progress, v: number) =>
+    p.metric === "bestRunDistance" || p.metric === "lifetimeDistance"
+      ? `${Math.floor(v / 100) / 10} km`
+      : String(v);
+  const prev = data?.previous ?? null;
+  const prevMine = data?.player?.previous ?? null;
+  const prevPerWinner = prev?.result?.perWinner
+    ? formatPrize(prev.token, prev.result.perWinner, locale)
+    : null;
+  const prevNamed = (prev?.winnerNames ?? [])
+    .map((w) => w.name)
+    .filter((n): n is string => !!n);
+  const prevCount = prev?.result?.winners?.length ?? 0;
 
   return (
-    <section className="flex flex-col gap-3 rounded-md border border-violet-200 bg-violet-50 px-4 py-3">
-      <div className="text-center">
-        <p className="text-xs font-semibold tracking-wide text-violet-700 uppercase">
-          🏆 {t("challenge.kicker")}
-        </p>
-        <h2 className="text-base font-bold text-violet-950">
-          {locale === "es" ? c.title.es : c.title.en}
-        </h2>
-        {/* How long is left, always in view: entered or not, open or
-            closed. The exact time is in the tooltip. */}
-        {closed ? (
-          <p className="mt-0.5 text-xs font-medium text-violet-800">
-            {t("challenge.closedAt").replace("{date}", fmtDate(c.closesAt))}
+    <div className="flex flex-col gap-3">
+      {prev && prevMine?.entered && (
+        <section
+          className={`flex flex-col items-center gap-2 rounded-md border px-4 py-3 text-center ${
+            prevMine.won
+              ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+              : "border-zinc-200 bg-zinc-50 text-zinc-800"
+          }`}
+        >
+          <p className="text-xs font-semibold tracking-wide uppercase opacity-80">
+            {t("challenge.prev.kicker").replace(
+              "{title}",
+              locale === "es" ? prev.title.es : prev.title.en,
+            )}
           </p>
-        ) : (
-          <p
-            className="mt-1 inline-block rounded-full bg-violet-100 px-3 py-0.5 text-xs font-semibold text-violet-900"
-            title={
-              entriesOpen && !entered
-                ? t("challenge.entriesUntil").replace(
-                    "{date}",
-                    fmtDate(c.entryClosesAt),
-                  )
-                : t("challenge.endsAt").replace("{date}", fmtDate(c.closesAt))
-            }
-          >
-            ⏳{" "}
-            {entriesOpen && !entered
-              ? t("challenge.entriesLeft").replace(
-                  "{left}",
-                  countdownLabel(new Date(c.entryClosesAt).getTime() - now) ??
-                    "",
-                )
-              : t("challenge.closesIn").replace(
-                  "{left}",
-                  countdownLabel(new Date(c.closesAt).getTime() - now) ?? "",
-                )}
+          {prevMine.won && prevPerWinner ? (
+            <>
+              <p className="text-base font-bold">
+                🎉 {t("challenge.prev.won").replace("{amount}", prevPerWinner)}
+              </p>
+              {prevMine.prize === "claimed" || prize.state === "sent" ? (
+                <p className="text-sm font-medium">
+                  ✅{" "}
+                  {t(
+                    prevMine.prize === "claimed"
+                      ? "challenge.prev.claimed"
+                      : "challenge.prev.sent",
+                  )}
+                </p>
+              ) : prevMine.prize === "pending" ? (
+                <p className="text-sm font-medium">
+                  ⏳ {t("challenge.prev.sent")}
+                </p>
+              ) : prevMine.prize === "claimable" ? (
+                <>
+                  <button
+                    onClick={() =>
+                      void prize.claim(1).then((ok) => ok && load())
+                    }
+                    disabled={prize.state === "claiming"}
+                    className="rounded-full bg-emerald-600 px-8 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {prize.state === "claiming"
+                      ? t("challenge.prev.claiming")
+                      : t("challenge.prev.claim").replace(
+                          "{amount}",
+                          prevPerWinner,
+                        )}
+                  </button>
+                  {prize.state === "error" && (
+                    <p className="text-xs text-red-700">
+                      {t("challenge.prev.failed")}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm">{t("challenge.prev.unpaid")}</p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm">
+              {prevPerWinner && prevCount > 0
+                ? t("challenge.prev.lost")
+                    .replace("{n}", String(prevCount))
+                    .replace("{amount}", prevPerWinner)
+                : t("challenge.result.pending")}
+            </p>
+          )}
+        </section>
+      )}
+      <section className="flex flex-col gap-3 rounded-md border border-violet-200 bg-violet-50 px-4 py-3">
+        {prev && !prevMine?.entered && prevCount > 0 && prevPerWinner && (
+          <p className="rounded-md bg-emerald-50 px-3 py-2 text-center text-xs font-medium text-emerald-900">
+            🎉{" "}
+            {t("challenge.prev.proof")
+              .replace("{n}", String(prevCount))
+              .replace("{amount}", prevPerWinner)}
+            {prevNamed.length > 0 && (
+              <>
+                {" "}
+                <span className="font-semibold">
+                  {prevNamed
+                    .slice(0, 5)
+                    .map((n) => `@${n}`)
+                    .join(", ")}
+                  {prevCount > Math.min(5, prevNamed.length)
+                    ? " " +
+                      t("challenge.prev.more").replace(
+                        "{n}",
+                        String(prevCount - Math.min(5, prevNamed.length)),
+                      )
+                    : ""}
+                </span>
+              </>
+            )}
           </p>
         )}
-      </div>
-
-      <div className="flex items-center justify-around text-center text-sm text-violet-950">
-        <div>
-          <p className="text-lg font-bold">
-            {formatPrize(c.token, c.pool, locale)}
+        <div className="text-center">
+          <p className="text-xs font-semibold tracking-wide text-violet-700 uppercase">
+            🏆 {t("challenge.kicker")}
           </p>
-          <p className="text-xs text-violet-700">{t("challenge.pool")}</p>
-        </div>
-        <div>
-          <p className="text-lg font-bold">{c.entrants}</p>
-          <p className="text-xs text-violet-700">
-            {t("challenge.entrants").replace("{n} ", "")}
-          </p>
-        </div>
-        <div>
-          <p className="text-lg font-bold">{c.winners}</p>
-          <p className="text-xs text-violet-700">
-            {t("challenge.winners").replace("{n} ", "")}
-          </p>
-        </div>
-      </div>
-
-      {typeof c.qualified === "number" && c.entrants > 0 && (
-        <p className="text-center text-xs font-semibold text-violet-900">
-          {t("challenge.qualified")
-            .replace("{n}", String(c.qualified))
-            .replace("{m}", String(c.entrants))}
-        </p>
-      )}
-
-      <p className="text-center text-xs text-violet-800">
-        {t("challenge.rule")}
-      </p>
-      <ul className="flex flex-col gap-1 text-sm">
-        {c.badgeIds.map((id) => {
-          const name = badgeCopy(id, locale === "es" ? "es" : "en").name;
-          const status = held.has(id)
-            ? "held"
-            : claimable.has(id)
-              ? "claim"
-              : "missing";
-          return (
-            <li
-              key={id}
-              className="flex items-center justify-between gap-2 text-zinc-800"
+          <h2 className="text-base font-bold text-violet-950">
+            {locale === "es" ? c.title.es : c.title.en}
+          </h2>
+          {/* How long is left, always in view: entered or not, open or
+            closed. The exact time is in the tooltip. */}
+          {closed ? (
+            <p className="mt-0.5 text-xs font-medium text-violet-800">
+              {t("challenge.closedAt").replace("{date}", fmtDate(c.closesAt))}
+            </p>
+          ) : (
+            <p
+              className="mt-1 inline-block rounded-full bg-violet-100 px-3 py-0.5 text-xs font-semibold text-violet-900"
+              title={
+                entriesOpen && !entered
+                  ? t("challenge.entriesUntil").replace(
+                      "{date}",
+                      fmtDate(c.entryClosesAt),
+                    )
+                  : t("challenge.endsAt").replace("{date}", fmtDate(c.closesAt))
+              }
             >
-              <span className="truncate">
-                {status === "held" ? "✅" : status === "claim" ? "🟡" : "⬜"}{" "}
-                {name}
-              </span>
-              {status === "claim" ? (
-                <Link
-                  href="/me"
-                  className="shrink-0 text-xs font-semibold text-violet-700 underline"
-                >
-                  {t("challenge.badge.claim")}
-                </Link>
-              ) : (
-                <span className="shrink-0 text-xs text-zinc-600">
-                  {status === "held"
-                    ? t("challenge.badge.held")
-                    : t("challenge.badge.missing")}
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      {address && anyMissing && !closed && (
-        <p className="text-center text-xs text-violet-800">
-          {t("challenge.howToFirst")}
-        </p>
-      )}
-
-      {closed ? (
-        <p className="text-center text-sm font-medium text-violet-950">
-          {won && perWinner
-            ? t("challenge.result.won").replace("{amount}", perWinner)
-            : c.status === "rolled"
-              ? t("challenge.result.rolled")
-              : c.result?.winners && perWinner
-                ? t("challenge.result.done")
-                    .replace("{n}", String(c.result.winners.length))
-                    .replace("{amount}", perWinner)
-                : t("challenge.result.pending")}
-        </p>
-      ) : entered && standing && standing.state !== "in" ? (
-        <div className="flex flex-col items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
-          <p className="text-center text-sm font-semibold text-amber-900">
-            ⚠️{" "}
-            {t("challenge.notInYet").replace("{n}", String(standing.missing))}
-          </p>
-          <p className="text-center text-xs text-amber-900">
-            {t(
-              standing.state === "claim"
-                ? "challenge.reminder.claim"
-                : "challenge.reminder.run",
-            )}
-          </p>
-          <Link
-            href={standing.state === "claim" ? "/me" : "/run"}
-            className="text-xs font-semibold text-violet-700 underline"
-          >
-            {t(
-              standing.state === "claim"
-                ? "challenge.reminder.ctaClaim"
-                : "challenge.reminder.ctaRun",
-            )}
-          </Link>
-          <ChallengeReminder
-            challengeId={c.id}
-            standing={standing}
-            total={c.badgeIds.length}
-            closesLabel={fmtDate(c.closesAt)}
-          />
+              ⏳{" "}
+              {entriesOpen && !entered
+                ? t("challenge.entriesLeft").replace(
+                    "{left}",
+                    countdownLabel(new Date(c.entryClosesAt).getTime() - now) ??
+                      "",
+                  )
+                : t("challenge.closesIn").replace(
+                    "{left}",
+                    countdownLabel(new Date(c.closesAt).getTime() - now) ?? "",
+                  )}
+            </p>
+          )}
         </div>
-      ) : entered ? (
-        <p className="text-center text-sm font-medium text-emerald-800">
-          ✅ {t(standing ? "challenge.inDraw" : "challenge.entered")}
+
+        <div className="flex items-center justify-around text-center text-sm text-violet-950">
+          <div>
+            <p className="text-lg font-bold">
+              {formatPrize(c.token, c.pool, locale)}
+            </p>
+            <p className="text-xs text-violet-700">{t("challenge.pool")}</p>
+          </div>
+          <div>
+            <p className="text-lg font-bold">{c.entrants}</p>
+            <p className="text-xs text-violet-700">
+              {t("challenge.entrants").replace("{n} ", "")}
+            </p>
+          </div>
+          <div>
+            <p className="text-lg font-bold">{c.winners}</p>
+            <p className="text-xs text-violet-700">
+              {t("challenge.winners").replace("{n} ", "")}
+            </p>
+          </div>
+        </div>
+
+        {typeof c.qualified === "number" && c.entrants > 0 && (
+          <p className="text-center text-xs font-semibold text-violet-900">
+            {t("challenge.qualified")
+              .replace("{n}", String(c.qualified))
+              .replace("{m}", String(c.entrants))}
+          </p>
+        )}
+
+        <p className="text-center text-xs text-violet-800">
+          {t("challenge.rule")}
         </p>
-      ) : entriesOpen ? (
-        <>
-          {address && (
-            <p className="text-center text-xs text-violet-800">
-              {needsApproval
-                ? t("challenge.approveWhy")
-                    .replace("{approve}", approveLabel)
-                    .replace("{amount}", price)
-                : t("challenge.oneTap").replace("{amount}", price)}
+        <ul className="flex flex-col gap-1 text-sm">
+          {c.badgeIds.map((id) => {
+            const name = badgeCopy(id, locale === "es" ? "es" : "en").name;
+            const status = held.has(id)
+              ? "held"
+              : claimable.has(id)
+                ? "claim"
+                : "missing";
+            const p = status === "missing" ? progress.get(id) : undefined;
+            return (
+              <li key={id} className="flex flex-col gap-1">
+                <div className="flex items-center justify-between gap-2 text-zinc-800">
+                  <span className="truncate">
+                    {status === "held"
+                      ? "✅"
+                      : status === "claim"
+                        ? "🟡"
+                        : "⬜"}{" "}
+                    {name}
+                  </span>
+                  {status === "claim" ? (
+                    <Link
+                      href="/me"
+                      className="shrink-0 text-xs font-semibold text-violet-700 underline"
+                    >
+                      {t("challenge.badge.claim")}
+                    </Link>
+                  ) : (
+                    <span className="shrink-0 text-xs text-zinc-600 tabular-nums">
+                      {status === "held"
+                        ? t("challenge.badge.held")
+                        : p
+                          ? `${amount(p, p.have)} / ${amount(p, p.need)}`
+                          : t("challenge.badge.missing")}
+                    </span>
+                  )}
+                </div>
+                {p && (
+                  <div
+                    className="h-1.5 w-full overflow-hidden rounded-full bg-violet-100"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={p.need}
+                    aria-valuenow={p.have}
+                    aria-label={name}
+                  >
+                    <div
+                      className="h-full rounded-full bg-violet-600"
+                      style={{
+                        width: `${Math.round((p.have / p.need) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        {address && anyMissing && !closed && (
+          <p className="text-center text-xs text-violet-800">
+            {t("challenge.howToFirst")}
+          </p>
+        )}
+
+        {closed ? (
+          <p className="text-center text-sm font-medium text-violet-950">
+            {won && perWinner
+              ? t("challenge.result.won").replace("{amount}", perWinner)
+              : c.status === "rolled"
+                ? t("challenge.result.rolled")
+                : c.result?.winners && perWinner
+                  ? t("challenge.result.done")
+                      .replace("{n}", String(c.result.winners.length))
+                      .replace("{amount}", perWinner)
+                  : t("challenge.result.pending")}
+          </p>
+        ) : entered && standing && standing.state !== "in" ? (
+          <div className="flex flex-col items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
+            <p className="text-center text-sm font-semibold text-amber-900">
+              ⚠️{" "}
+              {t("challenge.notInYet").replace("{n}", String(standing.missing))}
             </p>
-          )}
-          <button
-            onClick={() => void enter()}
-            disabled={!address || state === "approving" || state === "entering"}
-            className="mx-auto rounded-full bg-violet-700 px-8 py-2 text-sm font-semibold text-white hover:bg-violet-800 disabled:opacity-60"
-          >
-            {state === "approving"
-              ? t("challenge.approving")
-              : state === "entering"
-                ? t("challenge.entering")
-                : needsApproval
-                  ? t("challenge.approveEnter").replace("{amount}", price)
-                  : t("challenge.enter").replace("{amount}", price)}
-          </button>
-          {state === "no-funds" && (
-            <p className="text-center text-xs text-red-700">
-              {t("challenge.noFunds").replace("{amount}", price)}
+            <p className="text-center text-xs text-amber-900">
+              {t(
+                standing.state === "claim"
+                  ? "challenge.reminder.claim"
+                  : "challenge.reminder.run",
+              )}
             </p>
-          )}
-          {state === "error" && (
-            <p className="text-center text-xs text-red-700">
-              {t("challenge.failed")}
-            </p>
-          )}
-          {state === "closed" && (
-            <p className="text-center text-xs text-red-700">
-              {t("challenge.entriesClosed")}
-            </p>
-          )}
-        </>
-      ) : (
-        <p className="text-center text-xs text-violet-700">
-          {t("challenge.entriesClosed")}
-        </p>
-      )}
-    </section>
+            <Link
+              href={standing.state === "claim" ? "/me" : "/run"}
+              className="text-xs font-semibold text-violet-700 underline"
+            >
+              {t(
+                standing.state === "claim"
+                  ? "challenge.reminder.ctaClaim"
+                  : "challenge.reminder.ctaRun",
+              )}
+            </Link>
+            <ChallengeReminder
+              challengeId={c.id}
+              standing={standing}
+              total={c.badgeIds.length}
+              closesLabel={fmtDate(c.closesAt)}
+            />
+          </div>
+        ) : entered ? (
+          <p className="text-center text-sm font-medium text-emerald-800">
+            ✅ {t(standing ? "challenge.inDraw" : "challenge.entered")}
+          </p>
+        ) : entriesOpen ? (
+          <>
+            {address && (
+              <p className="text-center text-xs text-violet-800">
+                {needsApproval
+                  ? t("challenge.approveWhy")
+                      .replace("{approve}", approveLabel)
+                      .replace("{amount}", price)
+                  : t("challenge.oneTap").replace("{amount}", price)}
+              </p>
+            )}
+            <button
+              onClick={() => void enter()}
+              disabled={
+                !address || state === "approving" || state === "entering"
+              }
+              className="mx-auto rounded-full bg-violet-700 px-8 py-2 text-sm font-semibold text-white hover:bg-violet-800 disabled:opacity-60"
+            >
+              {state === "approving"
+                ? t("challenge.approving")
+                : state === "entering"
+                  ? t("challenge.entering")
+                  : needsApproval
+                    ? t("challenge.approveEnter").replace("{amount}", price)
+                    : t("challenge.enter").replace("{amount}", price)}
+            </button>
+            {state === "no-funds" && (
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-center text-xs text-red-700">
+                  {t("challenge.noFunds").replace("{amount}", price)}
+                </p>
+                <a
+                  href={ADD_CASH_URL}
+                  onClick={() =>
+                    track("challenge_add_cash_tapped", { challenge: c.id })
+                  }
+                  className="rounded-full border border-violet-700 px-5 py-1.5 text-xs font-semibold text-violet-800"
+                >
+                  {t("challenge.addCash").replace("{amount}", price)}
+                </a>
+                <p className="text-center text-xs text-violet-800">
+                  {t("challenge.addCashThen")}
+                </p>
+              </div>
+            )}
+            {state === "error" && (
+              <p className="text-center text-xs text-red-700">
+                {t("challenge.failed")}
+              </p>
+            )}
+            {state === "closed" && (
+              <p className="text-center text-xs text-red-700">
+                {t("challenge.entriesClosed")}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-center text-xs text-violet-700">
+            {t("challenge.entriesClosed")}
+          </p>
+        )}
+      </section>
+    </div>
   );
 }
