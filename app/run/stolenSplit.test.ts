@@ -3,7 +3,7 @@ import { stolenSplit } from "./stolenSplit";
 
 // The real strings, so the test reads as what the player sees.
 const en: Record<string, string> = {
-  "run.tally.split": "Blocks: {s} stolen + {f} unclaimed",
+  "run.tally.split": "Blocks: {s} stolen + {f} with no owner",
   "run.tally.allStolen": "Blocks: all {n} stolen from others",
   "run.tally.allStolen.one": "Block: stolen from another player",
 };
@@ -15,7 +15,7 @@ describe("stolenSplit", () => {
   });
 
   it("accounts for every block: the stolen ones and the rest", () => {
-    expect(stolenSplit(t, 44, 40)).toBe("Blocks: 40 stolen + 4 unclaimed");
+    expect(stolenSplit(t, 44, 40)).toBe("Blocks: 40 stolen + 4 with no owner");
   });
 
   it("does not print a zero when every block was stolen", () => {

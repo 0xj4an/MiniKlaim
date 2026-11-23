@@ -18,11 +18,15 @@ const STOLEN = "#be185d";
  * a block is left at is what tells the player whether it falls on the next
  * pass (0xj4an, 23 Nov 2026: show all of it, and show it well).
  *
+ * The first line used to read "unclaimed" ("libres"), which nobody could
+ * place (0xj4an, 23 Nov 2026), and in English it collided with claiming
+ * blocks to the wallet. It names the thing itself now: no owner.
+ *
  * The first two lines add up to the headline count and the last two do
  * not, so each line says whose the blocks are now. See stolenSplit for why
  * both halves of the count are always printed together.
  *
- * Nothing when the run only took unclaimed blocks: the headline already
+ * Nothing when the run only took blocks with no owner: the headline already
  * says all there is to say.
  */
 export function RunBreakdown({
