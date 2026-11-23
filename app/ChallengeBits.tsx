@@ -77,7 +77,7 @@ export function Sheet({
       <div
         role="dialog"
         aria-modal="true"
-        className="sheet-up relative mx-auto max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white px-5 pt-2 pb-8 shadow-2xl"
+        className="sheet-up relative mx-auto max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white px-5 pt-2 pb-8 shadow-2xl"
       >
         <div className="sticky top-0 z-10 -mx-4 flex items-center justify-between bg-white px-2 pb-1">
           <span className="w-11" />
@@ -186,7 +186,7 @@ export function MissionRows({
   claimLabel: string;
 }) {
   return (
-    <ul className="rounded-lg border border-zinc-200 px-3.5">
+    <ul className="rounded-md border border-zinc-200 bg-zinc-50 px-4">
       {items.map((m) => {
         const pct = Math.round(
           (m.status === "missing" ? Math.max(0, Math.min(1, m.fraction)) : 1) *
@@ -195,7 +195,7 @@ export function MissionRows({
         return (
           <li
             key={m.id}
-            className="flex items-center gap-3 border-t border-zinc-100 py-2.5 first:border-t-0"
+            className="flex items-center gap-3 border-t border-zinc-200 py-2.5 first:border-t-0"
           >
             <BadgeArt id={m.id} unlocked={m.status !== "missing"} size={34} />
             <span className="flex min-w-0 flex-1 flex-col gap-1">

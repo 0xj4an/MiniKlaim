@@ -212,7 +212,7 @@ export function BadgeClaimPrompt({
     return (
       <>
         {show && (
-          <section className="w-full max-w-xs rounded-2xl border border-orange-200 bg-orange-50 p-4 text-center">
+          <section className="w-full max-w-xs rounded-md border border-orange-200 bg-orange-50 px-4 py-3 text-center">
             <p className="text-sm font-bold text-zinc-900">
               {(claimable.length === 1
                 ? t("home.badges.title.one")
@@ -237,7 +237,7 @@ export function BadgeClaimPrompt({
             <button
               onClick={runClaim}
               disabled={state === "pending"}
-              className="mt-3 min-h-11 w-full rounded-full bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
+              className="mt-3 min-h-11 w-full rounded-full bg-orange-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
             >
               {state === "pending"
                 ? t("me.badges.claim.pending")
@@ -309,7 +309,7 @@ export function BadgeClaimPrompt({
               <button
                 onClick={runClaim}
                 disabled={state === "pending"}
-                className="min-h-11 w-full rounded-full bg-orange-600 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
+                className="min-h-11 w-full rounded-full bg-orange-700 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
               >
                 {state === "pending"
                   ? t("me.badges.claim.pending")

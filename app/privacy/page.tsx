@@ -7,10 +7,10 @@ import { useLocale } from "@/lib/i18n";
 export default function PrivacyPage() {
   const { t } = useLocale();
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-12 pb-24">
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-8 pb-24">
       <header className="flex items-center justify-between">
         <BackButton />
-        <h1 className="text-2xl font-bold">{t("privacy.title")}</h1>
+        <h1 className="text-xl font-bold">{t("privacy.title")}</h1>
         <span className="w-16" />
       </header>
 
