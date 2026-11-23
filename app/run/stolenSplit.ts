@@ -9,7 +9,7 @@ import type { TranslationKey } from "@/lib/i18n";
  * four? (0xj4an, 15 Nov 2026.) A number that is part of a total has to come
  * with the rest of it, or the total looks wrong.
  *
- * Null when nothing was stolen: then every block was unclaimed and the
+ * Null when nothing was stolen: then no block had an owner and the
  * count already says all there is to say.
  */
 export function stolenSplit(
