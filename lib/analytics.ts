@@ -6,6 +6,7 @@ import { clientWalletHost } from "@/lib/client/walletHost";
 import { isBrowserNoise } from "@/lib/errors/browserNoise";
 import { createLogger } from "@/lib/logger";
 
+import { replaySampled } from "@/lib/replaySample";
 const log = createLogger("analytics");
 
 // Typed event catalog. Adding a new event = adding an entry here. Everything
@@ -577,7 +578,9 @@ export function initAnalytics(): PostHog | null {
     // Replay pulls a ~150 KB recorder script and records every DOM change.
     // On 2 GB Android phones and data-saver proxies (Opera Mini on itel, 15
     // Oct) the script arrived broken and threw (MINIKLAIM-Y). Skip it there.
-    disable_session_recording: isConstrainedDevice(),
+    // And only a sample of the rest, so the monthly quota lasts the month
+    // (lib/replaySample).
+    disable_session_recording: isConstrainedDevice() || !replaySampled(),
     persistence: "localStorage+cookie",
     loaded: (ph) => {
       if (process.env.NODE_ENV !== "production") ph.debug(false);
@@ -753,7 +756,10 @@ export function capturePageview(url: string): void {
 export function syncSessionRecording(pathname: string): void {
   if (!initialized) return;
   if (pathname === "/run") posthog.stopSessionRecording();
-  else posthog.startSessionRecording();
+  // Leaving /run must not start a recording on a device that was never
+  // meant to record: starting it by hand overrides the init option.
+  else if (!isConstrainedDevice() && replaySampled())
+    posthog.startSessionRecording();
 }
 
 /**

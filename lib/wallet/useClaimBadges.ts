@@ -29,7 +29,19 @@ export type BadgeClaimOutcome =
   | { status: "sponsored" }
   | { status: "none" }
   | { status: "rejected" }
-  | { status: "error" };
+  /**
+   * `why` says what stopped it, for the message and for analytics: the
+   * card used to say "could not claim, try again" for a daily limit that no
+   * retry clears, and `badge_claim_failed` carried nothing to tell them
+   * apart (17 events from 7 players on 22 Nov 2026, none explainable).
+   */
+  | { status: "error"; why: BadgeClaimFailure };
+
+export type BadgeClaimFailure =
+  | "daily_cap"
+  | "no_run_token"
+  | "network"
+  | `sponsor_${number}`;
 
 type Voucher = {
   badgeIds: string[];
@@ -56,7 +68,7 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
       const proof = latestRunTokenFor(addr);
       if (!proof) {
         log.warn("no run token for badge sponsor; player must pay");
-        return { status: "error" };
+        return { status: "error", why: "no_run_token" };
       }
       try {
         const res = await fetchWithRetry(
@@ -78,7 +90,16 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
               tags: { claim: "badge-sponsor" },
               extra: { status: res.status },
             });
-          return { status: "error" };
+          const refusal = (await res.json().catch(() => null)) as {
+            reason?: string;
+          } | null;
+          return {
+            status: "error",
+            why:
+              res.status === 429 || refusal?.reason === "daily_cap"
+                ? "daily_cap"
+                : `sponsor_${res.status}`,
+          };
         }
         log.info("sponsored badge mint done", { addr });
         return { status: "sponsored" };
@@ -87,7 +108,7 @@ export function useClaimBadges(address: Address | null, enabled: boolean) {
           message: e instanceof Error ? e.message : String(e),
         });
         Sentry.captureException(e, { tags: { claim: "badge-sponsor" } });
-        return { status: "error" };
+        return { status: "error", why: "network" };
       }
     },
     [chainKey],

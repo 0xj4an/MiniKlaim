@@ -37,7 +37,11 @@ const log = createLogger("map:worldList");
  * the first player arrives: a route module is only evaluated on its first
  * request, which is exactly the request that was paying the 2.6 s.
  */
-export const WORLD_TTL_MS = 5 * 60_000;
+// Fifteen minutes since 23 Nov 2026 (it was five): every rebuild reads all
+// of `hexes` and takes 5 to 10 s, and 22 of 22 rebuilds in 48 h were slow.
+// The world view is a far zoom of 600k blocks: a quarter of an hour of lag
+// there is invisible, and it is a third of the database work.
+export const WORLD_TTL_MS = 15 * 60_000;
 
 export type WorldShape = "flat" | "owners";
 
