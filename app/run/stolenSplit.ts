@@ -24,7 +24,14 @@ export function stolenSplit(
       stolen === 1 ? "run.tally.allStolen.one" : "run.tally.allStolen",
     ).replace("{n}", String(stolen));
   }
+  // Each half takes its own word, so one block reads "1 robada" and not
+  // "1 robadas": one stolen block is the commonest case there is.
   return t("run.tally.split")
+    .replace("{f}", String(free))
+    .replace("{fw}", t(free === 1 ? "run.tally.free.one" : "run.tally.free"))
     .replace("{s}", String(stolen))
-    .replace("{f}", String(free));
+    .replace(
+      "{sw}",
+      t(stolen === 1 ? "run.tally.stolen.one" : "run.tally.stolen"),
+    );
 }
