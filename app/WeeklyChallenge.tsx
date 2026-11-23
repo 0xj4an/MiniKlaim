@@ -9,10 +9,18 @@ import { useClaimTreasures } from "@/lib/drops/useClaimTreasures";
 import { formatPrize } from "@/lib/drops/format";
 import { ChallengeReminder } from "@/app/ChallengeReminder";
 import { entryStanding } from "@/lib/challenges/standing";
-import { countdownLabel } from "@/lib/challenges/countdown";
 import { useLocale } from "@/lib/i18n";
 import { badgeCopy } from "@/lib/onchain/badgeArt";
 import { useWallet } from "@/lib/wallet/useWallet";
+import { shareTo } from "@/lib/client/share";
+import {
+  Chest,
+  Confetti,
+  CountdownBlocks,
+  EntryTicket,
+  MissionTile,
+  useRevealed,
+} from "@/app/ChallengeBits";
 
 type View = {
   id: string;
@@ -128,6 +136,11 @@ export function WeeklyChallenge() {
     onEntered: load,
   });
   const prize = useClaimTreasures(address ?? null, "challenge");
+  // Last week's result sits in a chest until the player opens it, once.
+  const [revealed, reveal] = useRevealed(
+    data?.previous && data.player?.previous?.entered ? data.previous.id : null,
+  );
+  const [burst, setBurst] = useState(false);
 
   if (!c) return null;
   // Paused: the whole card goes, not just its button. Entering is the only
@@ -194,10 +207,12 @@ export function WeeklyChallenge() {
     <div className="flex flex-col gap-3">
       {prev && prevMine?.entered && (
         <section
-          className={`flex flex-col items-center gap-2 rounded-md border px-4 py-3 text-center ${
-            prevMine.won
-              ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-              : "border-zinc-200 bg-zinc-50 text-zinc-800"
+          className={`relative flex flex-col items-center gap-2 overflow-hidden rounded-md border px-4 py-3 text-center ${
+            !revealed && prevMine.prize !== "claimed"
+              ? "border-violet-200 bg-violet-50 text-violet-950"
+              : prevMine.won
+                ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+                : "border-zinc-200 bg-zinc-50 text-zinc-800"
           }`}
         >
           <p className="text-xs font-semibold tracking-wide uppercase opacity-80">
@@ -206,20 +221,52 @@ export function WeeklyChallenge() {
               locale === "es" ? prev.title.es : prev.title.en,
             )}
           </p>
-          {prevMine.won && prevPerWinner ? (
+          {!revealed && prevMine.prize !== "claimed" ? (
+            <Chest
+              label={t("challenge.reveal.tap")}
+              onOpen={() => {
+                reveal();
+                setBurst(true);
+                track("challenge_result_revealed", {
+                  challenge: prev.id,
+                  won: prevMine.won,
+                });
+              }}
+            />
+          ) : prevMine.won && prevPerWinner ? (
             <>
-              <p className="text-base font-bold">
+              {burst && <Confetti />}
+              <p className="prize-pop text-2xl font-black">
                 🎉 {t("challenge.prev.won").replace("{amount}", prevPerWinner)}
               </p>
               {prevMine.prize === "claimed" || prize.state === "sent" ? (
-                <p className="text-sm font-medium">
-                  ✅{" "}
-                  {t(
-                    prevMine.prize === "claimed"
-                      ? "challenge.prev.claimed"
-                      : "challenge.prev.sent",
-                  )}
-                </p>
+                <>
+                  <p className="text-sm font-medium">
+                    ✅{" "}
+                    {t(
+                      prevMine.prize === "claimed"
+                        ? "challenge.prev.claimed"
+                        : "challenge.prev.sent",
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      track("challenge_win_shared", { challenge: prev.id });
+                      void shareTo(
+                        "x",
+                        t("challenge.share.won").replace(
+                          "{amount}",
+                          prevPerWinner,
+                        ),
+                        "https://miniklaim.fun",
+                      );
+                    }}
+                    className="rounded-full border border-emerald-600 px-5 py-1.5 text-xs font-semibold text-emerald-800"
+                  >
+                    {t("challenge.share")}
+                  </button>
+                </>
               ) : prevMine.prize === "pending" ? (
                 <p className="text-sm font-medium">
                   ⏳ {t("challenge.prev.sent")}
@@ -251,7 +298,7 @@ export function WeeklyChallenge() {
               )}
             </>
           ) : (
-            <p className="text-sm">
+            <p className="prize-pop text-sm">
               {prevPerWinner && prevCount > 0
                 ? t("challenge.prev.lost")
                     .replace("{n}", String(prevCount))
@@ -292,7 +339,7 @@ export function WeeklyChallenge() {
           <p className="text-xs font-semibold tracking-wide text-violet-700 uppercase">
             🏆 {t("challenge.kicker")}
           </p>
-          <h2 className="text-base font-bold text-violet-950">
+          <h2 className="text-xl font-black text-violet-950">
             {locale === "es" ? c.title.es : c.title.en}
           </h2>
           {/* How long is left, always in view: entered or not, open or
@@ -302,8 +349,8 @@ export function WeeklyChallenge() {
               {t("challenge.closedAt").replace("{date}", fmtDate(c.closesAt))}
             </p>
           ) : (
-            <p
-              className="mt-1 inline-block rounded-full bg-violet-100 px-3 py-0.5 text-xs font-semibold text-violet-900"
+            <div
+              className="mt-2"
               title={
                 entriesOpen && !entered
                   ? t("challenge.entriesUntil").replace(
@@ -313,24 +360,32 @@ export function WeeklyChallenge() {
                   : t("challenge.endsAt").replace("{date}", fmtDate(c.closesAt))
               }
             >
-              ⏳{" "}
-              {entriesOpen && !entered
-                ? t("challenge.entriesLeft").replace(
-                    "{left}",
-                    countdownLabel(new Date(c.entryClosesAt).getTime() - now) ??
-                      "",
-                  )
-                : t("challenge.closesIn").replace(
-                    "{left}",
-                    countdownLabel(new Date(c.closesAt).getTime() - now) ?? "",
-                  )}
-            </p>
+              <CountdownBlocks
+                msLeft={
+                  new Date(
+                    entriesOpen && !entered ? c.entryClosesAt : c.closesAt,
+                  ).getTime() - now
+                }
+                label={t(
+                  entriesOpen && !entered
+                    ? "challenge.entriesLeft"
+                    : "challenge.closesIn",
+                )
+                  .replace("{left}", "")
+                  .trim()}
+                units={{
+                  d: t("challenge.unit.d"),
+                  h: t("challenge.unit.h"),
+                  m: t("challenge.unit.m"),
+                }}
+              />
+            </div>
           )}
         </div>
 
         <div className="flex items-center justify-around text-center text-sm text-violet-950">
           <div>
-            <p className="text-lg font-bold">
+            <p className="text-2xl font-black text-violet-950">
               {formatPrize(c.token, c.pool, locale)}
             </p>
             <p className="text-xs text-violet-700">{t("challenge.pool")}</p>
@@ -360,7 +415,10 @@ export function WeeklyChallenge() {
         <p className="text-center text-xs text-violet-800">
           {t("challenge.rule")}
         </p>
-        <ul className="flex flex-col gap-1 text-sm">
+        <p className="text-xs font-semibold tracking-wide text-violet-700 uppercase">
+          {t("challenge.missions")}
+        </p>
+        <ul className="grid grid-cols-2 gap-2">
           {c.badgeIds.map((id) => {
             const name = badgeCopy(id, locale === "es" ? "es" : "en").name;
             const status = held.has(id)
@@ -370,51 +428,32 @@ export function WeeklyChallenge() {
                 : "missing";
             const p = status === "missing" ? progress.get(id) : undefined;
             return (
-              <li key={id} className="flex flex-col gap-1">
-                <div className="flex items-center justify-between gap-2 text-zinc-800">
-                  <span className="truncate">
-                    {status === "held"
-                      ? "✅"
-                      : status === "claim"
-                        ? "🟡"
-                        : "⬜"}{" "}
-                    {name}
-                  </span>
-                  {status === "claim" ? (
+              <MissionTile
+                key={id}
+                id={id}
+                name={name}
+                status={status}
+                fraction={p ? p.have / p.need : 0}
+                detail={
+                  status === "held"
+                    ? t("challenge.mission.done")
+                    : status === "claim"
+                      ? null
+                      : p
+                        ? `${amount(p, p.have)} / ${amount(p, p.need)}`
+                        : t("challenge.badge.missing")
+                }
+                action={
+                  status === "claim" ? (
                     <Link
                       href="/me"
-                      className="shrink-0 text-xs font-semibold text-violet-700 underline"
+                      className="text-xs font-semibold text-violet-700 underline"
                     >
                       {t("challenge.badge.claim")}
                     </Link>
-                  ) : (
-                    <span className="shrink-0 text-xs text-zinc-600 tabular-nums">
-                      {status === "held"
-                        ? t("challenge.badge.held")
-                        : p
-                          ? `${amount(p, p.have)} / ${amount(p, p.need)}`
-                          : t("challenge.badge.missing")}
-                    </span>
-                  )}
-                </div>
-                {p && (
-                  <div
-                    className="h-1.5 w-full overflow-hidden rounded-full bg-violet-100"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={p.need}
-                    aria-valuenow={p.have}
-                    aria-label={name}
-                  >
-                    <div
-                      className="h-full rounded-full bg-violet-600"
-                      style={{
-                        width: `${Math.round((p.have / p.need) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                )}
-              </li>
+                  ) : undefined
+                }
+              />
             );
           })}
         </ul>
@@ -467,9 +506,19 @@ export function WeeklyChallenge() {
             />
           </div>
         ) : entered ? (
-          <p className="text-center text-sm font-medium text-emerald-800">
-            ✅ {t(standing ? "challenge.inDraw" : "challenge.entered")}
-          </p>
+          <div className="flex flex-col gap-2">
+            <EntryTicket
+              kicker={t("challenge.ticket.kicker")}
+              title={locale === "es" ? c.title.es : c.title.en}
+              line={t("challenge.ticket.line").replace(
+                "{date}",
+                fmtDate(c.closesAt),
+              )}
+            />
+            <p className="text-center text-sm font-medium text-emerald-800">
+              ✅ {t(standing ? "challenge.inDraw" : "challenge.entered")}
+            </p>
+          </div>
         ) : entriesOpen ? (
           <>
             {address && (
