@@ -1,5 +1,6 @@
 "use client";
 
+import { HexCheck } from "@/app/Hex";
 import { useEffect, useState } from "react";
 import { BadgeArt } from "@/app/BadgeGroups";
 
@@ -77,9 +78,9 @@ export function Sheet({
       <div
         role="dialog"
         aria-modal="true"
-        className="sheet-up relative mx-auto max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white px-5 pt-2 pb-8 shadow-2xl"
+        className="sheet-up relative mx-auto max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white px-4 pt-2 pb-8 shadow-2xl"
       >
-        <div className="sticky top-0 z-10 -mx-4 flex items-center justify-between bg-white px-2 pb-1">
+        <div className="sticky top-0 z-10 -mx-3 flex items-center justify-between bg-white px-1 pb-1">
           <span className="w-11" />
           <span className="h-1.5 w-11 rounded-full bg-zinc-300" />
           <button
@@ -186,7 +187,7 @@ export function MissionRows({
   claimLabel: string;
 }) {
   return (
-    <ul className="rounded-md border border-zinc-200 bg-zinc-50 px-4">
+    <ul className="border-t border-zinc-200">
       {items.map((m) => {
         const pct = Math.round(
           (m.status === "missing" ? Math.max(0, Math.min(1, m.fraction)) : 1) *
@@ -195,39 +196,43 @@ export function MissionRows({
         return (
           <li
             key={m.id}
-            className="flex items-center gap-3 border-t border-zinc-200 py-2.5 first:border-t-0"
+            className="flex items-center gap-3 border-b border-zinc-200 py-2.5"
           >
-            <BadgeArt id={m.id} unlocked={m.status !== "missing"} size={34} />
-            <span className="flex min-w-0 flex-1 flex-col gap-1">
+            {m.status === "held" ? (
+              <HexCheck className="h-6 w-[22px] shrink-0 text-reto" />
+            ) : (
+              <BadgeArt id={m.id} unlocked={m.status !== "missing"} size={24} />
+            )}
+            <span className="flex min-w-0 flex-1 flex-col gap-1.5">
               <span className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-xs font-bold tracking-wide text-zinc-900 uppercase">
+                <span className="truncate text-base leading-tight font-medium text-zinc-900">
                   {m.name}
                 </span>
                 {m.status === "claim" ? (
                   <a
                     href="/me"
-                    className="shrink-0 text-xs font-semibold text-violet-700 underline"
+                    className="shrink-0 text-[13px] font-semibold text-violet-700 underline"
                   >
                     {claimLabel}
                   </a>
                 ) : (
-                  <span className="shrink-0 text-xs text-zinc-600 tabular-nums">
+                  <span
+                    className={`shrink-0 text-[13px] tabular-nums ${m.status === "held" ? "font-semibold text-emerald-700" : "text-zinc-500"}`}
+                  >
                     {m.short}
                   </span>
                 )}
               </span>
-              <span className="block h-1.5 overflow-hidden rounded-full bg-zinc-200">
-                <span
-                  className={`block h-full rounded-full ${
-                    m.status === "held"
-                      ? "bg-emerald-500"
-                      : m.status === "claim"
-                        ? "bg-amber-500"
-                        : "bg-violet-600"
-                  }`}
-                  style={{ width: `${pct}%` }}
-                />
-              </span>
+              {m.status !== "held" && (
+                <span className="block h-1 overflow-hidden rounded-full bg-zinc-200">
+                  <span
+                    className={`block h-full rounded-full ${
+                      m.status === "claim" ? "bg-amber-500" : "bg-violet-600"
+                    }`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </span>
+              )}
             </span>
           </li>
         );

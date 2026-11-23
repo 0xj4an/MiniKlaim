@@ -58,7 +58,7 @@ export function LinkExisting() {
         <button
           onClick={() => void redeem(input)}
           disabled={busy || !input.trim()}
-          className="rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
+          className="mk-btn mk-btn-sm px-4 disabled:opacity-60"
         >
           {state === "sending"
             ? t("me.link.sending")
@@ -68,7 +68,7 @@ export function LinkExisting() {
         </button>
       </div>
       {state === "idle" && (
-        <p className="text-[11px] text-zinc-400">{t("link.txNote")}</p>
+        <p className="text-[12px] text-zinc-400">{t("link.txNote")}</p>
       )}
       {state === "linked" && (
         <p className="text-xs text-green-700">{t("me.link.linked")}</p>

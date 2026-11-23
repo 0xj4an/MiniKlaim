@@ -1,5 +1,194 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------
+   MiniKlaim's look, in one place.
+
+   A street game set in street-sign type. Drawn for 360 x 640, the phone
+   half the players hold. The hexagonal block is the only ornament, and it
+   stays small. Anything that can be tapped sits on a tile edge; anything
+   that is only read is flat.
+   ------------------------------------------------------------------ */
+@theme {
+  --font-sans: var(--font-barlow), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Arial, sans-serif;
+  --font-display: var(--font-barlow-condensed), "Roboto Condensed",
+    "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
+  /* What used the monospace face (times, distances, counts in lists) now
+     uses the body face with tabular figures (see .font-mono below), so the
+     columns still line up without a third typeface on the screen. */
+  --font-mono: var(--font-barlow), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Arial, sans-serif;
+
+  /* MiniPay asks for readable text on small phones. The two small steps
+     move up a pixel each: 12 becomes 13, 14 becomes 15. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: calc(1.125 / 0.8125);
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: calc(1.3125 / 0.9375);
+
+  /* Greys with a little asphalt in them, in place of the neutral scale. */
+  --color-zinc-50: #f5f7f9;
+  --color-zinc-100: #e9edf1;
+  --color-zinc-200: #d3d9e0;
+  --color-zinc-300: #b9c2cd;
+  --color-zinc-400: #8b96a5;
+  --color-zinc-500: #667182;
+  --color-zinc-600: #4d5767;
+  --color-zinc-700: #384150;
+  --color-zinc-800: #232a36;
+  --color-zinc-900: #141a22;
+  --color-zinc-950: #0c1016;
+
+  --color-mine: #f2541b;
+  --color-mine-deep: #b83c0c;
+  --color-mine-band: #e64a12;
+  --color-rival: #d83a78;
+  --color-guard: #0f9a72;
+  --color-reto: #6a3fd3;
+  --color-gold: #9a6100;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+/* Numbers and titles in the display face. */
+.mk-num {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.005em;
+}
+.mk-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.005em;
+  line-height: 1.05;
+}
+
+/* Surfaces. Written outside Tailwind's layers on purpose, so that a
+   surface's edge, fill and radius are the same wherever it is used and a
+   stray utility cannot quietly change one of them. Padding and size stay
+   with the utilities. */
+.mk-flat,
+.mk-tile {
+  background: #fff;
+  border: 1.5px solid var(--color-zinc-200);
+  border-radius: 0.875rem;
+}
+.mk-tile {
+  box-shadow: 0 3px 0 var(--color-zinc-300);
+}
+a.mk-tile:active,
+button.mk-tile:active,
+summary.mk-tile:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--color-zinc-300);
+}
+.mk-well {
+  background: var(--color-zinc-100);
+  border-radius: 0.75rem;
+}
+
+/* Buttons. One primary per screen. */
+.mk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  border-radius: 0.875rem;
+  background: var(--color-mine);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.25rem;
+  line-height: 1.1;
+  letter-spacing: 0.015em;
+  text-align: center;
+  box-shadow: 0 4px 0 var(--color-mine-deep);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.mk-btn:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--color-mine-deep);
+}
+.mk-btn:disabled {
+  background: var(--color-zinc-300);
+  box-shadow: 0 4px 0 var(--color-zinc-400);
+  cursor: not-allowed;
+}
+.mk-btn-sm {
+  min-height: 2.75rem;
+  font-size: 1.125rem;
+  box-shadow: 0 3px 0 var(--color-mine-deep);
+}
+.mk-btn-ghost {
+  background: #fff;
+  color: var(--color-zinc-900);
+  border: 1.5px solid var(--color-zinc-200);
+  box-shadow: 0 3px 0 var(--color-zinc-300);
+}
+.mk-btn-ghost:active:not(:disabled) {
+  box-shadow: 0 1px 0 var(--color-zinc-300);
+}
+.mk-btn-ink {
+  background: var(--color-zinc-900);
+  box-shadow: 0 4px 0 #000;
+}
+.mk-btn-ink:active:not(:disabled) {
+  box-shadow: 0 1px 0 #000;
+}
+.mk-btn-stop {
+  background: #dc2626;
+  box-shadow: 0 4px 0 #991b1b;
+}
+.mk-btn-stop:active:not(:disabled) {
+  box-shadow: 0 1px 0 #991b1b;
+}
+.mk-btn-reto {
+  background: var(--color-reto);
+  box-shadow: 0 4px 0 #4a2a9c;
+}
+.mk-btn-reto:active:not(:disabled) {
+  box-shadow: 0 1px 0 #4a2a9c;
+}
+
+/* The orange band that opens the home screen. A fine honeycomb in one
+   corner, fading out, so the band is not a flat slab and the hexagons stay
+   small. */
+.mk-band {
+  position: relative;
+  isolation: isolate;
+  background: var(--color-mine-band);
+  color: #fff;
+}
+.mk-band::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  right: 0;
+  width: 62%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='48' viewBox='0 0 28 48'%3E%3Cpath d='M14 1 27 8.500v15L14 31 1 23.500v-15zM0 32.500 13 40v8M28 32.500 15 40v8' fill='none' stroke='%23fff' stroke-opacity='.3' stroke-width='1.2'/%3E%3C/svg%3E");
+  background-size: 14px 24px;
+  -webkit-mask-image: linear-gradient(to bottom left, #000, transparent 70%);
+  mask-image: linear-gradient(to bottom left, #000, transparent 70%);
+}
+
+/* Small hexagon pips: missions, streak days, progress. */
+.mk-pip {
+  width: 0.625rem;
+  height: 0.6875rem;
+  flex: none;
+  background: var(--color-zinc-300);
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  border-radius: 1px;
+}
+
 @keyframes claim-count {
   0% { transform: scale(1); }
   40% { transform: scale(1.12); }
@@ -38,20 +227,6 @@
 @keyframes capture-burst-ring {
   0% { opacity: 0.7; transform: translate(-50%, -50%) scale(0.3); }
   100% { opacity: 0; transform: translate(-50%, -50%) scale(2.4); }
-}
-
-/* The raid card drops in, and the block with the loss in it lands with a
-   small knock. Once: it is news, not an alarm. */
-@keyframes loss-card {
-  0% { opacity: 0; transform: translateY(-8px) scale(0.98); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes loss-hex {
-  0% { transform: scale(0.4) rotate(-12deg); }
-  55% { transform: scale(1.12) rotate(4deg); }
-  75% { transform: scale(0.96) rotate(-2deg); }
-  100% { transform: scale(1) rotate(0deg); }
 }
 
 @keyframes signal-pulse {
@@ -101,8 +276,6 @@
   animation: capture-burst-ring 0.7s ease-out forwards;
 }
 .signal-pulse { animation: signal-pulse 1.1s ease-in-out infinite; }
-.loss-card { animation: loss-card 0.3s ease-out both; }
-.loss-hex { animation: loss-hex 0.55s 0.15s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
 .claim-plus { animation: claim-plus 1.35s ease-out forwards; }
 .claim-hex { animation: claim-hex 1s ease-out forwards; }
 .claim-badge { animation: claim-badge 0.4s ease-out both; }
@@ -186,7 +359,6 @@
   .capture-burst { animation: none; transform: translateX(-50%); }
   .capture-burst-ring { display: none; }
   .signal-pulse { animation: none; opacity: 1; }
-  .loss-card, .loss-hex { animation: none; }
   .chest-wobble, .prize-pop, .mission-ring, .ticket-in { animation: none; }
   .confetti-bit { display: none; }
   .sheet-up, .sheet-fade, .coin-drop, .ticket-shine { animation: none; }

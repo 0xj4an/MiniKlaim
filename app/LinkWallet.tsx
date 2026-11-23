@@ -90,7 +90,7 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
+    <div className="flex flex-col gap-3 mk-flat px-4 py-3 text-sm">
       <div>
         <p className="font-semibold text-zinc-900">{t("me.link.title")}</p>
         <p className="text-xs text-zinc-500">{t("me.link.desc")}</p>
@@ -102,7 +102,7 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
             <span className="font-mono text-lg font-bold tracking-widest text-orange-700">
               {code}
             </span>
-            <p className="mt-1 text-[11px] text-zinc-500">
+            <p className="mt-1 text-[12px] text-zinc-500">
               {t("me.link.codeHint")}
             </p>
           </div>
@@ -111,7 +111,7 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
         ) : (
           <button
             onClick={generate}
-            className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-700"
+            className="mk-btn mk-btn-sm mk-btn-ink px-4"
           >
             {t("me.link.generate")}
           </button>
@@ -133,7 +133,7 @@ export function LinkWallet({ address }: { address: `0x${string}` | null }) {
             <button
               onClick={() => void redeem(input)}
               disabled={busy || !input.trim()}
-              className="rounded-full bg-orange-700 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
+              className="mk-btn mk-btn-sm px-4 disabled:opacity-60"
             >
               {state === "sending"
                 ? t("me.link.sending")

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hexes, runs } from "@/lib/db/schema";
 import { addressesForPlayer } from "@/lib/players";
+import { territoryMini } from "@/lib/map/territoryMini";
 import { conquestsOf } from "@/lib/playerConquests";
 import { streakDays, streaksFrom } from "@/lib/runs/streak";
 
@@ -147,5 +148,8 @@ export async function GET(
     cityCount,
     conquests,
     countryCount: countryRows.length,
+    // The home screen's thumbnail of the player's land (lib/map/territoryMini).
+    // Built from the block list this route already reads, so it adds no query.
+    mini: territoryMini(ownedHexes.map((h) => h.h3Id)),
   });
 }

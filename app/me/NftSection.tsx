@@ -45,7 +45,7 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
     state === "confirming";
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
+    <div className="flex flex-col gap-2 mk-flat px-4 py-3 text-sm">
       <p className="text-center text-xs font-semibold text-zinc-800">
         {t("me.nfts.header")}
       </p>
@@ -66,7 +66,7 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
               <button
                 onClick={() => void mintFree()}
                 disabled={busy}
-                className="mx-auto rounded-full bg-zinc-900 px-6 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+                className="mk-btn mk-btn-sm mk-btn-ink mx-auto px-6 disabled:opacity-60"
               >
                 {state === "sending"
                   ? t("me.nfts.minting")
@@ -75,7 +75,7 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
                       freeToday.toLocaleString(),
                     )}
               </button>
-              <p className="text-center text-[11px] text-zinc-400">
+              <p className="text-center text-[12px] text-zinc-400">
                 {t("me.nfts.freeNote")}
               </p>
             </>
@@ -84,7 +84,7 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
               <button
                 onClick={() => void mint()}
                 disabled={busy}
-                className="mx-auto rounded-full bg-zinc-900 px-6 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+                className="mk-btn mk-btn-sm mk-btn-ink mx-auto px-6 disabled:opacity-60"
               >
                 {state === "sending" || state === "fetching-voucher"
                   ? t("me.nfts.minting")
@@ -110,7 +110,7 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
                 </button>
               )}
               {status.plan && status.plan.signatures > 1 && (
-                <p className="text-center text-[11px] text-zinc-400">
+                <p className="text-center text-[12px] text-zinc-400">
                   {(status.plan.usd === null
                     ? t("me.nfts.planNoPrice")
                     : t("me.nfts.plan").replace(

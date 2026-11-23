@@ -1,13 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LossCard, type Losses } from "@/app/LossCard";
 import { track } from "@/lib/analytics";
 
 const seenKey = (address: string) => `losses_seen_${address.toLowerCase()}`;
 
+export type Losses = {
+  captured: number;
+  attacked: number;
+  by: Array<{
+    address: string;
+    username: string | null;
+    captured: number;
+    attacked: number;
+  }>;
+};
+
 /**
- * Shows the raid card once per raid.
+ * Raid news, once per raid.
  *
  * "Once" used to mean "until the player taps the X": the card came back on
  * every visit until it was closed, which made old news look like new news.
@@ -19,8 +29,14 @@ const seenKey = (address: string) => `losses_seen_${address.toLowerCase()}`;
  * The mark is the time the question was asked, not the time the answer
  * landed: a block taken in the second between the two belongs to the next
  * card, and with the later time it would belong to none.
+ *
+ * Drawn by the home screen's territory tile, beside the player's land
+ * (HomeClient's LandCard).
  */
-export function LossNotice({ address }: { address: string | null }) {
+export function useLosses(address: string | null): {
+  losses: Losses | null;
+  clear: () => void;
+} {
   const [losses, setLosses] = useState<Losses | null>(null);
 
   useEffect(() => {
@@ -58,19 +74,5 @@ export function LossNotice({ address }: { address: string | null }) {
     };
   }, [address]);
 
-  if (!address || !losses) return null;
-
-  return (
-    <LossCard
-      losses={losses}
-      onGo={() => {
-        track("loss_notice_action", { action: "go" });
-        setLosses(null);
-      }}
-      onClose={() => {
-        track("loss_notice_action", { action: "later" });
-        setLosses(null);
-      }}
-    />
-  );
+  return { losses: address ? losses : null, clear: () => setLosses(null) };
 }

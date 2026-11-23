@@ -81,34 +81,34 @@ export function BadgeGroups({
               <BadgeArt
                 id={(top ?? items[0]).onchainId}
                 unlocked={!!top}
-                size={36}
+                size={32}
               />
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="flex items-center justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="text-xs font-semibold tracking-wide text-zinc-700 uppercase">
+                    <span className="truncate text-[15px] leading-tight font-semibold text-zinc-900">
                       {name}
                     </span>
                     {challengeLabel &&
                       items.some((b) =>
                         challengeIds?.includes(b.onchainId),
                       ) && (
-                        <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-px text-[10px] font-semibold text-violet-700">
+                        <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-px text-[12px] font-semibold text-violet-700">
                           {challengeLabel}
                         </span>
                       )}
                   </span>
-                  <span className="shrink-0 font-mono text-xs text-zinc-500">
+                  <span className="shrink-0 text-[13px] text-zinc-500 tabular-nums">
                     {copy.level} {earned.length} {copy.of} {items.length}
                   </span>
                 </span>
-                <span className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
+                <span className="my-0.5 h-1 w-full overflow-hidden rounded-full bg-zinc-200">
                   <span
                     className="block h-full rounded-full bg-orange-500"
                     style={{ width: `${pct}%` }}
                   />
                 </span>
-                <span className="truncate text-[11px] text-zinc-500">
+                <span className="truncate text-[13px] text-zinc-500">
                   {top ? (
                     <span className="font-semibold text-zinc-800">
                       {top.name}
@@ -186,10 +186,10 @@ export function CompactBadgeGroups({
             title={name}
           >
             <BadgeArt id={top ?? group.ids[0]} unlocked={top !== undefined} />
-            <span className="w-full truncate text-[10px] leading-tight text-zinc-600">
+            <span className="w-full truncate text-[12px] leading-tight text-zinc-600">
               {name}
             </span>
-            <span className="font-mono text-[10px] leading-none text-zinc-400">
+            <span className="font-mono text-[12px] leading-none text-zinc-400">
               {got.length}/{group.ids.length}
             </span>
           </div>

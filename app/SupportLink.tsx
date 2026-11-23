@@ -169,7 +169,7 @@ function SupportForm({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               onClick={onClose}
-              className="mt-5 w-full rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white"
+              className="mk-btn mk-btn-ink mt-5 w-full px-6"
             >
               {t("support.form.done")}
             </button>

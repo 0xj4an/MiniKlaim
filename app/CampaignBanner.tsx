@@ -18,7 +18,7 @@ export function CampaignBanner() {
   const { t } = useLocale();
   if (!showCampaign) return null;
   return (
-    <div className="relative w-full rounded-md border border-zinc-200 bg-zinc-50">
+    <div className="relative w-full mk-flat">
       <a
         href={CAMPAIGN_URL}
         target="_blank"

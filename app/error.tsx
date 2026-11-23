@@ -49,7 +49,7 @@ export default function ErrorBoundary({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-zinc-50 p-4">
       <div className="flex max-w-md flex-col gap-4 rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm">
-        <h2 className="text-xl font-bold text-zinc-900">Something went wrong</h2>
+        <h2 className="mk-title text-2xl text-zinc-900">Something went wrong</h2>
         <p className="text-sm text-zinc-600">
           The app encountered an unexpected error. This has been logged and
           we&apos;ll look into it.

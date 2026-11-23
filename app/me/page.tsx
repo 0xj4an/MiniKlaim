@@ -27,6 +27,7 @@ import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
 import { useUserRuns } from "@/lib/wallet/useUserRuns";
 import { type UserStats, useUserStats } from "@/lib/wallet/useUserStats";
+import { groupNumber } from "@/lib/formatNumber";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { type TokenSymbol } from "@/lib/tokens";
 import { useGeoSummary } from "@/lib/wallet/useGeoSummary";
@@ -50,7 +51,7 @@ export default function MePage() {
   useEffect(() => {
     queueMicrotask(() => setMounted(true));
   }, []);
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const userInfo = useUser(isConnected ? address : null);
   const stats = useUserStats(isConnected && !isWrongChain ? address : null);
   // A player with no name yet sees only the name field: zeros, an empty map
@@ -67,19 +68,19 @@ export default function MePage() {
   const balances = useBalances(address, isConnected && !isWrongChain);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-8 pb-24">
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-5 px-4 py-6 pb-24">
       <header className="flex items-center justify-between">
         <Link
           href="/"
-          className="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
+          className="mk-tile px-3 py-1.5 text-sm font-semibold text-zinc-900"
         >
           ← {t("common.home")}
         </Link>
-        <h1 className="text-xl font-bold">{t("me.title")}</h1>
+        <h1 className="mk-title text-2xl">{t("me.title")}</h1>
         <button
           onClick={() => window.location.reload()}
           aria-label={t("me.refresh")}
-          className="flex h-8 w-16 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+          className="flex h-11 w-16 items-center justify-end rounded-md text-zinc-500"
         >
           <svg
             width="18"
@@ -146,7 +147,8 @@ export default function MePage() {
                         <span>
                           {t("me.bestRun.label")}{" "}
                           <span className="font-semibold text-zinc-900">
-                            {stats.bestRunHexes} {t("me.bestRun.suffix")}
+                            {groupNumber(stats.bestRunHexes, locale)}{" "}
+                            {t("me.bestRun.suffix")}
                           </span>
                         </span>
                       )}
@@ -167,7 +169,7 @@ export default function MePage() {
               {stats && !isWrongChain && stats.totalRuns === 0 && (
                 <Link
                   href="/run"
-                  className="self-center rounded-full bg-orange-700 px-8 py-3 text-base font-semibold text-white shadow-md hover:bg-orange-800"
+                  className="mk-btn self-center px-8"
                 >
                   {t("me.firstRoute")}
                 </Link>
@@ -198,7 +200,7 @@ export default function MePage() {
               ends at the routes instead of running three more screens. */}
               {!isWrongChain && (
                 <details className="group flex flex-col">
-                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between rounded-md border border-zinc-200 bg-zinc-50 px-4 text-sm font-medium text-zinc-900 [&::-webkit-details-marker]:hidden">
+                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between mk-flat px-4 text-sm font-medium text-zinc-900 [&::-webkit-details-marker]:hidden">
                     {t("me.more")}
                     <svg
                       aria-hidden
@@ -278,10 +280,14 @@ function CopyProfileLink({ username }: { username: string }) {
 }
 
 function BigStat({ label, value }: { label: string; value: number }) {
+  // Grouped like the home card's numbers: "25,637", not "25637".
+  const { locale } = useLocale();
   return (
     <div className="flex flex-col items-center">
-      <span className="text-3xl font-bold text-zinc-900">{value}</span>
-      <span className="text-xs text-zinc-500">{label}</span>
+      <span className="mk-num text-[2.25rem] leading-none text-zinc-900">
+        {groupNumber(value, locale)}
+      </span>
+      <span className="mt-1 text-xs text-zinc-500">{label}</span>
     </div>
   );
 }
@@ -300,18 +306,18 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
   if (user?.username && !isEditing) {
     return (
       <div className="flex flex-col items-center gap-1">
-        <p className="text-2xl font-bold">
+        <p className="mk-title text-[1.75rem]">
           <span className="text-zinc-500">@</span>
           <span>{user.username}</span>
         </p>
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex items-center gap-4 text-[13px]">
           <button
             onClick={() => {
               setInput(user.username ?? "");
               setError(null);
               setIsEditing(true);
             }}
-            className="text-zinc-500 underline hover:text-zinc-600"
+            className="py-1 text-zinc-500 underline"
           >
             {t("me.username.edit")}
           </button>
@@ -382,7 +388,7 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
         <button
           type="submit"
           disabled={isSaving || !input.trim()}
-          className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:bg-zinc-400"
+          className="mk-btn mk-btn-sm mk-btn-ink px-3"
         >
           {isSaving ? t("me.username.saving") : t("me.username.save")}
         </button>
@@ -473,7 +479,7 @@ function Achievements({ stats }: { stats: UserStats }) {
 
   return (
     <>
-      <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
+      <div className="flex flex-col gap-1 mk-flat px-4 py-3 text-sm">
         <p className="mb-1 text-center text-xs text-zinc-500">
           {t("me.badges.header")} {unlockedCount} {t("me.badges.of")}{" "}
           {achievements.length}
@@ -527,7 +533,7 @@ function GeoSummarySection({
   };
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
+    <div className="flex flex-col gap-2 mk-flat px-4 py-3 text-sm">
       <p className="mb-1 text-center text-xs text-zinc-500">
         {t("me.geo.header")}
       </p>
@@ -578,7 +584,7 @@ function GeoSummarySection({
                   {cities.map((city) => (
                     <div
                       key={city.city}
-                      className="flex items-center justify-between text-[11px]"
+                      className="flex items-center justify-between text-[12px]"
                     >
                       <span className="text-zinc-600">{city.city}</span>
                       <span className="font-mono text-zinc-900">
@@ -615,7 +621,7 @@ function RunsList({
   const visible = runs.slice(0, visibleCount);
   const hasMore = visibleCount < runs.length;
   return (
-    <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
+    <div className="flex flex-col gap-1 mk-flat px-4 py-3 text-sm">
       <p className="mb-2 text-center text-xs text-zinc-500">
         {t("me.runs.header")}
       </p>
@@ -674,7 +680,7 @@ function RunsList({
               </div>
             </div>
             {hasLocation && (
-              <div className="flex items-center gap-1 text-[11px] text-zinc-500">
+              <div className="flex items-center gap-1 text-[12px] text-zinc-500">
                 {flag && <span className="text-sm">{flag}</span>}
                 <span>
                   {cityName && countryName && `${cityName}, ${countryName}`}
@@ -724,11 +730,11 @@ function BalancesCard({
 }) {
   const { t } = useLocale();
   return (
-    <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
+    <div className="flex flex-col gap-1 mk-flat px-4 py-3 text-sm">
       <p className="text-center text-xs text-zinc-500">
         {t("me.wallet.header")}
       </p>
-      <p className="mb-1 text-center text-[10px] text-zinc-500">
+      <p className="mb-1 text-center text-[12px] text-zinc-500">
         {t("me.wallet.subtitle")}
       </p>
       <BalanceRow symbol="USDm" balance={balances.USDm} />

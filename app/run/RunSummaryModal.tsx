@@ -2,12 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { track } from "@/lib/analytics";
 import { type TranslationKey, useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
 import { formatSpeed } from "@/lib/map/geo";
-import { type MoveMode, moveMode } from "@/lib/runs/moveMode";
-import { MoveModeIcon } from "@/app/MoveModeIcon";
+import {
+  type MoveMode,
+  moveMode,
+  moveModeIcon,
+  moveModeLabelKey,
+} from "@/lib/runs/moveMode";
+import { HexDot } from "@/app/Hex";
+import { groupNumber } from "@/lib/formatNumber";
 import { shareTo } from "@/lib/client/share";
 import { badgeCopy } from "@/lib/onchain/badgeArt";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
@@ -232,13 +239,13 @@ export function RunSummaryModal({
       >
       <div
         data-claim-sheet="finish"
-        className="relative flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-t-3xl bg-white px-5 pt-5 shadow-2xl sm:rounded-3xl"
+        className="sheet-up relative flex max-h-[88vh] w-full max-w-md flex-col overflow-y-auto rounded-t-3xl bg-white px-4 pt-5 text-left shadow-2xl sm:rounded-3xl"
         style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"
+          className="absolute top-2.5 right-2.5 z-10 flex h-11 w-11 items-center justify-center rounded-full text-zinc-500"
           aria-label="Close"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -246,55 +253,88 @@ export function RunSummaryModal({
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
-        <p className="text-center text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+        <p className="pr-10 text-sm font-medium text-zinc-500">
           {t("run.summary.header")}
         </p>
         {summary.hexesClaimed > 0 && (
-          <div className="relative mt-3 text-center">
+          <div className="relative mt-1 flex items-baseline gap-2 text-mine">
             {phase === "done" && (
               <ClaimBurst count={summary.hexesClaimed} />
             )}
-            <div
-              className={`font-mono text-5xl leading-none font-bold text-zinc-900 ${
+            <span
+              className={`mk-num text-[4.75rem] leading-[0.9] ${
                 phase === "done" ? "claim-count" : ""
               }`}
             >
-              {summary.hexesClaimed}
-            </div>
-            <div className="mt-1 text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-              {t("run.summary.blocks")}
-            </div>
+              {groupNumber(summary.hexesClaimed, locale)}
+            </span>
+            <span className="mk-title text-[1.75rem]">
+              {t(
+                summary.hexesClaimed === 1
+                  ? "run.summary.yours.one"
+                  : "run.summary.yours",
+              )}
+            </span>
           </div>
         )}
         {/* Stolen blocks are part of the headline number, so they are a
             note under it. Reinforces and attacks are not blocks gained and
-            get a row of their own. See RunTally. */}
+            get a line of their own. See RunTally. */}
         {stolen > 0 && (
-          <p className="mt-1.5 text-center text-xs font-semibold text-orange-700">
+          <p className="mt-2 text-[15px] leading-tight font-medium text-zinc-900">
             {stolenSplit(t, summary.hexesClaimed, stolen)}
           </p>
         )}
         {(reinforced > 0 || damaged > 0) && (
-          <div className="mt-4">
+          <div className="mt-2 [&>div]:justify-start">
             <RunTally
               blocks={summary.hexesClaimed}
               reinforced={reinforced}
               attacked={damaged}
-              size="md"
               showBlocks={false}
             />
           </div>
         )}
+        {/* The run's own facts sit with its result, not at the bottom of
+            the sheet between the NFT offer and the share buttons, where
+            they read as a footnote to something else. */}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="mk-well px-2.5 py-2">
+            <span className="mk-num block text-[1.375rem] leading-tight text-zinc-900">
+              {timeLabel}
+            </span>
+            <span className="block text-[13px] leading-tight text-zinc-500">
+              {t("run.summary.time")}
+            </span>
+          </div>
+          <div className="mk-well px-2.5 py-2">
+            <span className="mk-num block text-[1.375rem] leading-tight text-zinc-900">
+              {distLabel}
+            </span>
+            <span className="block truncate text-[13px] leading-tight text-zinc-500">
+              {speedLabel}
+            </span>
+          </div>
+          <div className="mk-well px-2.5 py-2">
+            <span className="mk-num block truncate text-[1.375rem] leading-tight text-zinc-900">
+              {mode ? t(moveModeLabelKey(mode)) : "-"}
+            </span>
+            <span className="block text-[13px] leading-tight text-zinc-500">
+              {mode ? moveModeIcon(mode) : ""} {t("run.summary.mode")}
+            </span>
+          </div>
+        </div>
         {summary.hexesClaimed === 0 && previewReady && !hasBadges && (
           // A run that only reinforced, or only passed blocks already used
           // today, ends with no claim step, and players wrote in asking how
           // to claim (support, 12 Nov 2026). Say there is nothing to claim.
-          <p className="mt-2 text-center text-sm text-zinc-600">
+          <p className="mt-3 text-[15px] leading-snug text-zinc-700">
             {emptyReason === null || reinforced > 0 || damaged > 0
               ? t("run.summary.nothingNew")
               : t(`run.summary.empty.${emptyReason}`)}
           </p>
         )}
+        <div className="mt-3 border-t border-zinc-200">
         <StreakNote
           address={address}
           countedThisRun={
@@ -306,12 +346,23 @@ export function RunSummaryModal({
           }
         />
         <ChallengeMovedNote address={address} />
+        </div>
         {hasBadges && (
-          <ul className="mt-4 border-t border-zinc-100">
+          // A bare "Ultra - Run 500 km total" row did not say what it was.
+          <p className="mt-3 text-sm font-semibold text-orange-700">
+            {t(
+              badgeIds?.length === 1
+                ? "run.summary.badgeEarned"
+                : "run.summary.badgesEarned",
+            )}
+          </p>
+        )}
+        {hasBadges && (
+          <ul className="mt-1.5 border-t border-zinc-200">
             {badgeIds?.map((id, index) => (
               <li
                 key={id}
-                className={`flex items-center gap-3 border-b border-zinc-100 py-2.5 ${
+                className={`flex items-center gap-2.5 border-b border-zinc-200 py-2.5 ${
                   phase === "done" ? "claim-badge" : ""
                 }`}
                 style={
@@ -320,20 +371,13 @@ export function RunSummaryModal({
                     : undefined
                 }
               >
-                <span
-                  aria-hidden
-                  className="h-3 w-3 shrink-0 bg-orange-600"
-                  style={{
-                    clipPath:
-                      "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-                  }}
-                />
+                <HexDot className="h-5 w-[18px] shrink-0 text-mine" />
                 <span className="flex min-w-0 flex-col">
-                  <span className="text-sm font-semibold text-zinc-900">
+                  <span className="text-[15px] leading-tight font-semibold text-zinc-900">
                     {badgeCopy(id, locale).name}
                   </span>
                   {badgeCopy(id, locale).description && (
-                    <span className="text-xs text-zinc-500">
+                    <span className="text-[13px] leading-tight text-zinc-500">
                       {badgeCopy(id, locale).description}
                     </span>
                   )}
@@ -344,10 +388,24 @@ export function RunSummaryModal({
         )}
         {(summary.hexesClaimed > 0 || hasBadges) && (
           <p
-            className={`mt-4 text-center text-sm ${
-              phase === "error" ? "text-red-600" : "text-zinc-800"
+            className={`mt-3 flex items-center gap-1.5 text-[13px] leading-tight ${
+              phase === "error" ? "text-red-600" : "text-zinc-500"
             }`}
           >
+            {phase === "done" && (
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                className="h-4 w-4 shrink-0 text-emerald-600"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m5 12.5 4.5 4.500L19 7" />
+              </svg>
+            )}
             {claimLine}
           </p>
         )}
@@ -355,8 +413,8 @@ export function RunSummaryModal({
           !nftDismissed &&
           tokenStatus?.enabled &&
           tokenStatus.recorded > 0 && (
-            <div className="mt-3 rounded-lg bg-zinc-50 p-3">
-              <p className="text-center text-xs text-zinc-700">
+            <div className="mk-well mt-3 p-3">
+              <p className="text-[13px] leading-snug text-zinc-700">
                 {(() => {
                   const usd =
                     tokenStatus.plan?.usd ??
@@ -378,7 +436,7 @@ export function RunSummaryModal({
                 })()}
               </p>
               {(tokenStatus.plan?.signatures ?? 1) > 1 && (
-                <p className="mt-1 text-center text-[11px] text-zinc-500">
+                <p className="mt-1 text-[13px] leading-snug text-zinc-500">
                   {t("run.summary.nftBatches").replaceAll(
                     "{signatures}",
                     String(tokenStatus.plan.signatures),
@@ -388,7 +446,7 @@ export function RunSummaryModal({
               <div className="mt-2 flex gap-2">
                 <button
                   type="button"
-                  className="flex-1 rounded-md bg-zinc-900 px-3 py-2 text-xs font-medium text-white disabled:opacity-60"
+                  className="mk-btn mk-btn-sm mk-btn-ink flex-1 px-3 disabled:opacity-60"
                   disabled={
                     mintState === "fetching-voucher" ||
                     mintState === "sending" ||
@@ -410,7 +468,7 @@ export function RunSummaryModal({
                 </button>
                 <button
                   type="button"
-                  className="rounded-md px-3 py-2 text-xs text-zinc-600"
+                  className="min-h-11 px-3 text-sm font-medium text-zinc-600"
                   onClick={() => {
                     track("run_summary_nft_skipped", {
                       pending: tokenStatus.recorded,
@@ -424,23 +482,35 @@ export function RunSummaryModal({
             </div>
           )}
         {phase === "done" && nftDismissed && (
-          <p className="mt-3 text-center text-[11px] text-zinc-500">
+          <p className="mt-3 text-[13px] text-zinc-500">
             {t("run.summary.nftSkipped")}
           </p>
         )}
-        <p className="mt-2 text-center text-xs text-zinc-500">
-          {timeLabel} - {distLabel} - {speedLabel}
-          {mode && (
-            <>
-              {" - "}
-              <MoveModeIcon mode={mode} showLabel />
-            </>
-          )}
-        </p>
+        {/* A player with no name yet meets the ask here, on blocks they
+            already hold, and only once the claim is settled: leaving the
+            sheet mid-claim would strand it. */}
+        {!username && (phase === "done" || (previewReady && !canClaim)) && (
+          <div className="mk-well mt-3 flex items-center justify-between gap-3 px-3 py-2.5">
+            <p className="min-w-0 text-[13px] leading-snug text-zinc-700">
+              {t("run.summary.nameless")}
+            </p>
+            <Link
+              href="/me"
+              className="mk-btn mk-btn-sm mk-btn-ghost shrink-0 px-3"
+            >
+              {t("run.summary.nameCta")}
+            </Link>
+          </div>
+        )}
         {phase === "done" ? (
           <div className="mt-4 flex flex-col gap-2">
             {shareNote && (
-              <p className="text-center text-xs text-zinc-500">{shareNote}</p>
+              <p className="text-[13px] text-zinc-500">{shareNote}</p>
+            )}
+            {caption && (
+              <p className="text-sm font-medium text-zinc-500">
+                {t("run.summary.share")}
+              </p>
             )}
             {caption && (
             <div className="grid grid-cols-3 gap-2">
@@ -449,7 +519,7 @@ export function RunSummaryModal({
                 onClick={() =>
                   void shareClaim("x", caption, username, t, setShareNote)
                 }
-                className="min-h-11 rounded-full border border-zinc-300 bg-white px-2 py-2 text-sm font-semibold text-zinc-800"
+                className="mk-btn mk-btn-sm mk-btn-ghost px-2"
               >
                 X
               </button>
@@ -458,7 +528,7 @@ export function RunSummaryModal({
                 onClick={() =>
                   void shareClaim("facebook", caption, username, t, setShareNote)
                 }
-                className="min-h-11 rounded-full border border-zinc-300 bg-white px-2 py-2 text-sm font-semibold text-zinc-800"
+                className="mk-btn mk-btn-sm mk-btn-ghost px-2"
               >
                 Facebook
               </button>
@@ -467,7 +537,7 @@ export function RunSummaryModal({
                 onClick={() =>
                   void shareClaim("instagram", caption, username, t, setShareNote)
                 }
-                className="min-h-11 rounded-full border border-zinc-300 bg-white px-2 py-2 text-sm font-semibold text-zinc-800"
+                className="mk-btn mk-btn-sm mk-btn-ghost px-2"
               >
                 Instagram
               </button>
@@ -475,7 +545,7 @@ export function RunSummaryModal({
             )}
             <button
               onClick={onClose}
-              className="min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white"
+              className="mk-btn mt-1 w-full px-4"
             >
               {t("run.summary.done")}
             </button>
@@ -484,7 +554,7 @@ export function RunSummaryModal({
           <button
             onClick={() => claim("button")}
             disabled={phase === "pending"}
-            className="mt-4 min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
+            className="mk-btn mt-4 w-full px-4 disabled:opacity-70"
           >
             {phase === "pending"
               ? t("run.summary.claiming")
@@ -493,7 +563,7 @@ export function RunSummaryModal({
         ) : previewReady ? (
           <button
             onClick={onClose}
-            className="mt-4 min-h-11 w-full rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white"
+            className="mk-btn mt-4 w-full px-4"
           >
             {t("run.summary.done")}
           </button>
