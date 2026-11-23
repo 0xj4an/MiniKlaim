@@ -96,14 +96,14 @@ export function RunTally({
   return (
     <div className="flex items-start justify-center gap-6">
       {stats.map((s) => (
-        <div key={s.key} className="flex flex-col items-center">
-          <span className="flex items-center gap-1">
-            <Hexagon color={s.color} size={12} />
-            <span className="mk-num text-2xl leading-none text-zinc-900">
+        <div key={s.key} className="flex flex-col">
+          <span className="flex items-center gap-1.5">
+            <Hexagon color={s.color} size={13} />
+            <span className="mk-num text-[1.75rem] leading-none text-zinc-900">
               {s.n}
             </span>
           </span>
-          <span className="mt-1 text-xs leading-none text-zinc-500">
+          <span className="mt-1 text-[13px] leading-none text-zinc-600">
             {s.label}
           </span>
         </div>
