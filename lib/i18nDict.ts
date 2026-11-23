@@ -159,7 +159,8 @@ export const dictionaries = {
     "me.nfts.noFee":
       "Not enough balance to pay the network fee. Add a little USDT, USDC, or USDm and try again.",
     "me.nfts.mintFree": "Mint {count} as NFTs for free",
-    "me.nfts.freeNote": "With no balance for the fee, MiniKlaim pays for up to 100 NFTs a day.",
+    "me.nfts.freeNote":
+      "With no balance for the fee, MiniKlaim pays for up to 100 NFTs a day.",
     "me.link.title": "🔗 Link another wallet",
     "me.link.desc":
       "Use the same MiniKlaim identity (name, profile) across chains.",
@@ -264,8 +265,10 @@ export const dictionaries = {
       "No connection. {n} blocks waiting, they save when it is back.",
     "run.capture.queued.one":
       "No connection. 1 block waiting, it saves when it is back.",
-    "run.map.orientation.north": "North is up. Tap to turn the map the way you are going.",
-    "run.map.orientation.heading": "The way you are going is up. Tap to put north up.",
+    "run.map.orientation.north":
+      "North is up. Tap to turn the map the way you are going.",
+    "run.map.orientation.heading":
+      "The way you are going is up. Tap to put north up.",
     "run.map.center": "Center on my position",
     "run.legend.open": "What the colors mean",
     "run.legend.title": "How the map works",
@@ -424,6 +427,21 @@ export const dictionaries = {
     "run.share.badge.one": "Just earned the {name} badge on @Miniklaim.",
     "run.share.badge.many": "Just earned {n} badges on @Miniklaim.",
     "challenge.kicker": "Weekly challenge",
+    "challenge.close": "Close",
+    "challenge.teaser.result": "Your result is ready",
+    "challenge.teaser.missions": "Weekly challenge · {n} of {m} missions",
+    "challenge.teaser.closed": "Closed: see the result",
+    "challenge.teaser.in": "You are in. Tap to see your ticket",
+    "challenge.jar": "{n} players in the pot · {w} win",
+    "challenge.hold": "Hold to enter for {amount}",
+    "challenge.holdApprove": "Hold to approve and enter",
+    "challenge.holding": "Keep holding...",
+    "challenge.mission.claim": "Claim",
+    "challenge.hint.held": "{name}: done. It counts for the draw.",
+    "challenge.hint.claim": "{name}: earned, claim it so it counts.",
+    "challenge.hint.progress":
+      "{name}: {have} of {need}. Keep playing to complete it.",
+    "challenge.hint.missing": "{name}: not earned yet. Keep playing to get it.",
     "challenge.reveal.tap": "Tap to see your result",
     "challenge.share": "Share",
     "challenge.share.won": "I won {amount} in the MiniKlaim weekly challenge",
@@ -475,7 +493,8 @@ export const dictionaries = {
     "challenge.prev.claimed": "Prize claimed. It is in your wallet.",
     "challenge.prev.failed": "Could not claim right now. Try again.",
     "challenge.prev.unpaid": "Your prize is being prepared. Check back soon.",
-    "challenge.prev.lost": "Not this time. {n} players won {amount} each. Try this week's challenge.",
+    "challenge.prev.lost":
+      "Not this time. {n} players won {amount} each. Try this week's challenge.",
     "challenge.prev.proof": "Last week {n} players won {amount} each.",
     "challenge.prev.more": "and {n} more",
     "challenge.failed":
@@ -794,10 +813,8 @@ export const dictionaries = {
       "Tienes 1 día de descanso. Cubre un día que faltes.",
     "home.streak.restCovered":
       "Un día de descanso cubrió el día que faltaste. Juega hoy para seguir.",
-    "home.streak.restEarn":
-      "{d} días seguidos más y ganas un día de descanso.",
-    "home.streak.restEarn.one":
-      "1 día seguido más y ganas un día de descanso.",
+    "home.streak.restEarn": "{d} días seguidos más y ganas un día de descanso.",
+    "home.streak.restEarn.one": "1 día seguido más y ganas un día de descanso.",
     "home.losses.title": "Mientras no estabas",
     "home.losses.captured": "Te quitaron {n} cuadras",
     "home.losses.captured.one": "Te quitaron 1 cuadra",
@@ -896,7 +913,8 @@ export const dictionaries = {
     "me.badges.claim.done": "Insignias reclamadas!",
     "me.badges.claim.viewTx": "Ver transacción",
     "me.badges.claim.error": "No se pudo reclamar. Intenta de nuevo.",
-    "me.badges.claim.fee": "Comisión de red de unos ${usd}, que sale de tu saldo.",
+    "me.badges.claim.fee":
+      "Comisión de red de unos ${usd}, que sale de tu saldo.",
     "me.rewards.header": "💰 Recompensas",
     "me.rewards.pending": "Tienes {amount} USDm de {count} sin reclamar",
     "me.rewards.pendingOne": "badge",
@@ -929,7 +947,8 @@ export const dictionaries = {
     "me.nfts.noFee":
       "No tienes saldo suficiente para la tarifa de red. Agrega un poco de USDT, USDC o USDm e intenta de nuevo.",
     "me.nfts.mintFree": "Mintear {count} como NFT gratis",
-    "me.nfts.freeNote": "Sin saldo para la comisión, MiniKlaim te paga hasta 100 NFT al día.",
+    "me.nfts.freeNote":
+      "Sin saldo para la comisión, MiniKlaim te paga hasta 100 NFT al día.",
     "me.link.title": "🔗 Vincular otra wallet",
     "me.link.desc":
       "Usa la misma identidad MiniKlaim (nombre, perfil) en todas las chains.",
@@ -1034,8 +1053,10 @@ export const dictionaries = {
       "Sin conexión. {n} cuadras en espera, se guardan cuando vuelva.",
     "run.capture.queued.one":
       "Sin conexión. 1 cuadra en espera, se guarda cuando vuelva.",
-    "run.map.orientation.north": "El norte está arriba. Toca para girar el mapa hacia donde vas.",
-    "run.map.orientation.heading": "Hacia donde vas está arriba. Toca para poner el norte arriba.",
+    "run.map.orientation.north":
+      "El norte está arriba. Toca para girar el mapa hacia donde vas.",
+    "run.map.orientation.heading":
+      "Hacia donde vas está arriba. Toca para poner el norte arriba.",
     "run.map.center": "Centrar en mi posición",
     "run.legend.open": "Qué significan los colores",
     "run.legend.title": "Cómo funciona el mapa",
@@ -1194,6 +1215,22 @@ export const dictionaries = {
     "run.share.badge.one": "Acabo de ganar la insignia {name} en @Miniklaim.",
     "run.share.badge.many": "Acabo de ganar {n} insignias en @Miniklaim.",
     "challenge.kicker": "Challenge semanal",
+    "challenge.close": "Cerrar",
+    "challenge.teaser.result": "Tu resultado está listo",
+    "challenge.teaser.missions": "Reto semanal · {n} de {m} misiones",
+    "challenge.teaser.closed": "Cerró: mira el resultado",
+    "challenge.teaser.in": "Ya estás dentro. Toca para ver tu boleto",
+    "challenge.jar": "{n} jugadores en el bote · {w} ganan",
+    "challenge.hold": "Mantén para entrar por {amount}",
+    "challenge.holdApprove": "Mantén para aprobar y entrar",
+    "challenge.holding": "Sigue presionando...",
+    "challenge.mission.claim": "Reclamar",
+    "challenge.hint.held": "{name}: lista. Ya cuenta para el sorteo.",
+    "challenge.hint.claim": "{name}: ganada, reclámala para que cuente.",
+    "challenge.hint.progress":
+      "{name}: {have} de {need}. Sigue jugando para completarla.",
+    "challenge.hint.missing":
+      "{name}: aún no la tienes. Sigue jugando para conseguirla.",
     "challenge.reveal.tap": "Toca para ver tu resultado",
     "challenge.share": "Compartir",
     "challenge.share.won": "Gané {amount} en el reto semanal de MiniKlaim",
@@ -1245,8 +1282,10 @@ export const dictionaries = {
     "challenge.prev.claimed": "Premio reclamado. Ya está en tu wallet.",
     "challenge.prev.failed": "No se pudo reclamar ahora. Intenta de nuevo.",
     "challenge.prev.unpaid": "Estamos preparando tu premio. Vuelve pronto.",
-    "challenge.prev.lost": "Esta vez no. {n} jugadores ganaron {amount} cada uno. Prueba con el reto de esta semana.",
-    "challenge.prev.proof": "La semana pasada {n} jugadores ganaron {amount} cada uno.",
+    "challenge.prev.lost":
+      "Esta vez no. {n} jugadores ganaron {amount} cada uno. Prueba con el reto de esta semana.",
+    "challenge.prev.proof":
+      "La semana pasada {n} jugadores ganaron {amount} cada uno.",
     "challenge.prev.more": "y {n} más",
     "challenge.failed":
       "No pudimos inscribirte ahora. No se cobró nada; intenta en un minuto.",
@@ -1489,7 +1528,8 @@ export const dictionaries = {
     "r.player": "Un jugador de MiniKlaim",
     "r.blocks": "cuadras capturadas",
     "r.blocks.one": "cuadra capturada",
-    "r.tagline": "Camina, ve en bici o en carro. Las cuadras que cruzas son tuyas.",
+    "r.tagline":
+      "Camina, ve en bici o en carro. Las cuadras que cruzas son tuyas.",
     "r.stat.distance": "distancia",
     "r.stat.time": "tiempo",
     "r.stat.speed": "velocidad",
