@@ -336,15 +336,31 @@ function LandCard({
   return (
     <div
       role={losses ? "status" : undefined}
-      className="mk-tile flex w-full items-center gap-3 p-2 pr-3 text-left"
+      className={`mk-tile flex w-full items-center gap-3 p-2 pr-3 text-left ${losses ? "mk-tile-alert" : ""}`}
     >
-      <Link href="/me" aria-label={t("home.land.title")} className="shrink-0">
+      <Link
+        href="/me"
+        aria-label={t("home.land.title")}
+        className="relative shrink-0"
+      >
         <TerritoryMini
           cells={stats?.mini?.cells}
           className="mk-well block h-[84px] w-[104px]"
         />
+        {/* How much was lost, on the land it was lost from. */}
+        {losses && (
+          <span className="mk-num absolute -top-1.5 -left-1.5 flex min-h-7 min-w-7 items-center justify-center rounded-full border-2 border-white bg-rival px-1.5 text-[15px] leading-none text-white">
+            -
+            {losses.captured > 0 ? losses.captured : losses.attacked}
+          </span>
+        )}
       </Link>
       <div className="min-w-0 flex-1">
+        {losses && (
+          <p className="text-[13px] leading-tight font-semibold text-orange-700">
+            {t("home.losses.title")}
+          </p>
+        )}
         <p className="text-[15px] leading-tight font-semibold text-zinc-900">
           {title}
         </p>

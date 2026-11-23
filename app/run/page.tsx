@@ -2329,7 +2329,10 @@ export default function RunPage() {
           id: "claimed-hex-rank",
           type: "symbol",
           source: "claimed-hexes",
-          minzoom: 16.5,
+          // Below the follow zoom with room to spare. At 16.5 it sat a tenth
+          // of a zoom level under FOLLOW_ZOOM, so the levels vanished on the
+          // first pinch and were 9 px while they showed.
+          minzoom: 16.1,
           // A rank for a top-10 owner, and "×N" on any block of someone
           // else that is above level 1: N passes, on N different days, to
           // take it. Without it a player could not tell a block that falls
@@ -2350,7 +2353,7 @@ export default function RunPage() {
                 "\n",
                 {},
                 ["concat", "×", ["to-string", ["get", "strength"]]],
-                { "font-scale": 0.72 },
+                { "font-scale": 0.8 },
               ],
               [">", ["get", "topRank"], 0],
               ["to-string", ["get", "topRank"]],
@@ -2358,7 +2361,7 @@ export default function RunPage() {
             ],
             "text-line-height": 1,
             "text-font": ["Noto Sans Bold"],
-            "text-size": ["interpolate", ["linear"], ["zoom"], 16.5, 9, 19, 15],
+            "text-size": ["interpolate", ["linear"], ["zoom"], 16.1, 9.5, 16.6, 11.5, 19, 15],
             "text-allow-overlap": true,
             "text-ignore-placement": true,
           },
