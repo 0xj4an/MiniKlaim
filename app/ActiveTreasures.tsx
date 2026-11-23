@@ -41,9 +41,19 @@ export function ActiveTreasures() {
   if (!hints || hints.length === 0) return null;
 
   return (
-    <section className="flex flex-col gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
-      <h2 className="text-center text-sm font-semibold text-amber-900">🎁 {t("treasures.active.h")}</h2>
-      <p className="text-center text-xs text-amber-800">{t("treasures.active.body")}</p>
+    <section className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 py-3">
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden
+          className="hex-cell h-[34px] w-[38px] shrink-0 bg-amber-500"
+        />
+        <div className="flex min-w-0 flex-col">
+          <h2 className="text-xs font-semibold text-amber-700">
+            {t("treasures.active.h")}
+          </h2>
+          <p className="text-xs text-zinc-600">{t("treasures.active.body")}</p>
+        </div>
+      </div>
       <ul className="flex flex-col gap-1 text-sm text-zinc-800">
         {hints.map((h) => (
           <li key={h.id} className="flex flex-col">

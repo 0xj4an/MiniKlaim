@@ -14,6 +14,7 @@ import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { isBadgeClaimPending } from "@/lib/wallet/claimInFlight";
 import type { ClaimAllOutcome } from "@/lib/wallet/useClaimAll";
 import { useMintTokens } from "@/lib/wallet/useMintTokens";
+import { ChallengeMovedNote } from "./ChallengeRunBits";
 import { RunTally } from "./RunTally";
 import { stolenSplit } from "./stolenSplit";
 import { StreakNote } from "./StreakNote";
@@ -304,6 +305,7 @@ export function RunSummaryModal({
               STREAK_MIN_SERVER_METERS
           }
         />
+        <ChallengeMovedNote address={address} />
         {hasBadges && (
           <ul className="mt-4 border-t border-zinc-100">
             {badgeIds?.map((id, index) => (
