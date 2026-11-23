@@ -296,6 +296,10 @@ type EventMap = {
   drop_claim_rejected: { count: number };
   /** Tapped the MiniPay add-cash link after "not enough funds". */
   challenge_add_cash_tapped: { challenge: string };
+  /** Opened the chest holding last week's challenge result. */
+  challenge_result_revealed: { challenge: string; won: boolean };
+  /** Shared a challenge win from the card. */
+  challenge_win_shared: { challenge: string };
   // Support form (in-app form posted to /api/support).
   support_form_opened: { source?: "direct_link" };
   support_sent: { topic: string; chars: number; screenshot: boolean };
