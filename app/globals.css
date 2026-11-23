@@ -144,6 +144,41 @@
 .mission-ring { animation: mission-ring 0.8s ease-out both; }
 .ticket-in { animation: ticket-in 0.4s ease-out both; }
 
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes sheet-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes coin-drop {
+  0% { opacity: 0; transform: translateY(-90px); }
+  60% { opacity: 1; }
+  80% { transform: translateY(3px); }
+  100% { transform: none; }
+}
+@keyframes hold-fill {
+  from { width: 0; }
+  to { width: 100%; }
+}
+@keyframes ticket-shine {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+.hex-cell { clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%); }
+.sheet-up { animation: sheet-up 0.32s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+.sheet-fade { animation: sheet-fade 0.2s ease-out both; }
+.coin-drop { animation: coin-drop 0.6s cubic-bezier(0.3, 1.4, 0.5, 1) both; }
+/* Functional, not decoration: the entry fires when it ends, so it stays on
+   under reduced motion. */
+.hold-fill { animation: hold-fill 0.8s linear forwards; }
+.ticket-shine {
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: ticket-shine 2.8s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .claim-count, .claim-badge { animation: none; }
   .claim-plus, .claim-hex { display: none; }
@@ -154,4 +189,5 @@
   .loss-card, .loss-hex { animation: none; }
   .chest-wobble, .prize-pop, .mission-ring, .ticket-in { animation: none; }
   .confetti-bit { display: none; }
+  .sheet-up, .sheet-fade, .coin-drop, .ticket-shine { animation: none; }
 }
