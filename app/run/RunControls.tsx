@@ -97,7 +97,7 @@ export function RunControls({
               <div
                 role="radiogroup"
                 aria-label={t("run.mode.ask")}
-                className="mt-4 grid grid-cols-9 gap-1"
+                className="mt-3 grid grid-cols-5 gap-1.5"
               >
                 {MOVE_MODES.map((m) => {
                   const label = t(moveModeLabelKey(m));
@@ -108,27 +108,27 @@ export function RunControls({
                       type="button"
                       role="radio"
                       aria-checked={on}
-                      aria-label={label}
-                      title={label}
                       onClick={() => onModeChange(m)}
-                      className={`flex aspect-square items-center justify-center rounded-full border text-lg leading-none ${
+                      className={`flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl border px-0.5 py-1.5 ${
                         on
-                          ? "border-orange-600 bg-orange-50 text-zinc-900 ring-2 ring-orange-600"
+                          ? "border-orange-600 bg-orange-50 ring-2 ring-orange-600"
                           : "border-zinc-200 bg-zinc-50"
                       }`}
                     >
-                      <span aria-hidden>{moveModeIcon(m)}</span>
+                      <span aria-hidden className="text-xl leading-none">
+                        {moveModeIcon(m)}
+                      </span>
+                      <span
+                        className={`max-w-full truncate text-[11px] leading-tight ${
+                          on ? "font-semibold text-orange-800" : "text-zinc-600"
+                        }`}
+                      >
+                        {label}
+                      </span>
                     </button>
                   );
                 })}
               </div>
-              <p
-                className={`mt-2 min-h-4 text-center text-xs font-medium ${
-                  mode ? "text-orange-800" : "text-zinc-500"
-                }`}
-              >
-                {mode ? t(moveModeLabelKey(mode)) : t("run.mode.pick")}
-              </p>
             </>
           ) : (
             <p className="mx-auto max-w-[17rem] text-center text-[13px] leading-snug text-zinc-500">
@@ -140,7 +140,11 @@ export function RunControls({
               role="status"
               className="mx-auto mt-2 max-w-[18rem] rounded-md bg-amber-50 px-3 py-1.5 text-center text-xs font-medium text-amber-900"
             >
-              {t(startSpot === "used" ? "run.start.usedBlock" : "run.start.ownedBlock")}
+              {t(
+                startSpot === "used"
+                  ? "run.start.usedBlock"
+                  : "run.start.ownedBlock",
+              )}
             </p>
           )}
           {canStart && (
@@ -298,10 +302,12 @@ function CaptureLine({ capture }: { capture: CaptureStatus }) {
               : "run.capture.saving",
           ).replace("{n}", String(capture.count))
         : capture.kind === "saved"
-        ? t(
-            capture.count === 1 ? "run.capture.saved.one" : "run.capture.saved",
-          ).replace("{n}", String(capture.count))
-        : t(`run.capture.${capture.kind}`);
+          ? t(
+              capture.count === 1
+                ? "run.capture.saved.one"
+                : "run.capture.saved",
+            ).replace("{n}", String(capture.count))
+          : t(`run.capture.${capture.kind}`);
   return (
     <div
       role="status"
