@@ -87,6 +87,11 @@ summary.mk-tile:active {
   transform: translateY(2px);
   box-shadow: 0 1px 0 var(--color-zinc-300);
 }
+/* A tile carrying news the player should not miss: blocks taken from them. */
+.mk-tile-alert {
+  border-color: #fdba74;
+  box-shadow: 0 3px 0 #fdba74;
+}
 .mk-well {
   background: var(--color-zinc-100);
   border-radius: 0.75rem;
