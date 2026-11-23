@@ -66,23 +66,22 @@ export function CaptureBursts({ bursts }: { bursts: CaptureBurst[] }) {
     >
       {bursts.map((b) => {
         // One lane per kind, so the numbers from a single answer land side
-        // by side instead of on top of each other.
+        // by side instead of on top of each other: stolen, new and
+        // reinforced in a row, the attack centered on a row of its own.
+        //
+        // The attack's caption is the long one ("now level 1-3"). It used
+        // to be the leftmost of four lanes 84 px apart, which on a 360 px
+        // phone put its center 54 px from the edge and cut the caption
+        // off, and cut the reinforce's ring off on the other side. The
+        // level a block is left at is the point of the burst.
         const slot =
-          b.kind === "attacked"
-            ? -1.5
-            : b.kind === "stolen"
-              ? -0.5
-              : b.kind === "new"
-                ? 0.5
-                : 1.5;
+          b.kind === "stolen" ? -1 : b.kind === "reinforced" ? 1 : 0;
         const style = {
-          "--dx": `${slot * 84}px`,
-          "--rot": `${slot * 4}deg`,
+          "--dx": `calc(${slot} * min(100px, 28vw))`,
+          "--rot": `${b.kind === "attacked" ? -3 : slot * 4}deg`,
           "--c": COLOR[b.kind],
           color: COLOR[b.kind],
-          // The attack sits a row higher: its caption is the long one
-          // ("now level 1-3") and ran into its neighbour's.
-          ...(b.kind === "attacked" ? { marginTop: -58 } : {}),
+          ...(b.kind === "attacked" ? { marginTop: -80 } : {}),
         } as CSSProperties;
         const caption =
           b.kind === "reinforced"

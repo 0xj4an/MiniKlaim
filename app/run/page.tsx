@@ -143,6 +143,7 @@ import {
   readCachedWorld,
 } from "@/lib/map/worldCache";
 import { RunSummaryModal } from "./RunSummaryModal";
+import { type LevelRange, levelRange } from "@/lib/runs/levelRange";
 import { ChallengeRunChip } from "./ChallengeRunBits";
 
 const log = createLogger("page:run");
@@ -269,6 +270,9 @@ export default function RunPage() {
   const reinforcedH3Ref = useRef<Set<string>>(new Set());
   // Someone else's blocks attacked in this run -> the level each was left at.
   const attackedLeftRef = useRef<Map<string, number>>(new Map());
+  // The lowest and highest level this run's reinforces reached, for the
+  // finished-run sheet.
+  const reinforcedLevelsRef = useRef<LevelRange | null>(null);
   // Hex strength: every block already queued this run, own ones included,
   // so a pass is sent once per run (the server allows one action a day).
   const passedH3Ref = useRef<Set<string>>(new Set());
@@ -513,6 +517,8 @@ export default function RunPage() {
     hexesReinforced: number;
     hexesDamaged: number;
     hexesStolen: number;
+    reinforcedLevels: LevelRange | null;
+    attackedLevels: LevelRange | null;
     distanceMeters: number;
     serverDistanceMeters: number;
     captureState: string;
@@ -1248,6 +1254,13 @@ export default function RunPage() {
           else mineH3Ref.current.delete(row.h3);
           if (view.captured) runH3Ref.current.add(row.h3);
           if (view.reinforced) reinforcedH3Ref.current.add(row.h3);
+          if (view.reinforced && typeof row.strength === "number") {
+            const seen = reinforcedLevelsRef.current;
+            reinforcedLevelsRef.current = {
+              min: seen ? Math.min(seen.min, row.strength) : row.strength,
+              max: seen ? Math.max(seen.max, row.strength) : row.strength,
+            };
+          }
           if (view.attacked && typeof row.strength === "number") {
             attackedLeftRef.current.set(row.h3, row.strength);
           }
@@ -1594,6 +1607,7 @@ export default function RunPage() {
       runH3Ref.current = new Set();
       reinforcedH3Ref.current = new Set();
       attackedLeftRef.current = new Map();
+      reinforcedLevelsRef.current = null;
       passedH3Ref.current = new Set();
       setUploadFailing(false);
       setHexCount(0);
@@ -1716,6 +1730,8 @@ export default function RunPage() {
         hexesReinforced: data.hexesReinforced ?? 0,
         hexesDamaged: data.hexesDamaged ?? 0,
         hexesStolen: stolenRef.current,
+        reinforcedLevels: reinforcedLevelsRef.current,
+        attackedLevels: levelRange([...attackedLeftRef.current.values()]),
         // The larger of the phone's figure and the server's hex path.
         distanceMeters: shownDistanceMeters(
           data.distanceMeters,
@@ -1737,6 +1753,7 @@ export default function RunPage() {
       runH3Ref.current = new Set();
       reinforcedH3Ref.current = new Set();
       attackedLeftRef.current = new Map();
+      reinforcedLevelsRef.current = null;
       setUploadFailing(false);
       passedH3Ref.current = new Set();
       mapStatsRef.current = newMapRunStats();

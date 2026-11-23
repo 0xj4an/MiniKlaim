@@ -22,6 +22,7 @@ import { PendingClaimPrompt } from "@/app/PendingClaimPrompt";
 import { NeedCeloNote } from "@/app/NeedCeloNote";
 import { ReturnNote } from "@/app/ReturnNote";
 import { type Losses, useLosses } from "@/app/LossNotice";
+import { HexDot, HexMinus } from "@/app/Hex";
 import { LogoWordmark } from "@/app/Logo";
 import { TerritoryMini } from "@/app/TerritoryMini";
 import { StreakCard } from "@/app/StreakCard";
@@ -282,38 +283,19 @@ function LandCard({
       "{n}",
       groupNumber(value, locale),
     );
-  const plural = (
-    key:
-      | "home.losses.captured"
-      | "home.losses.attacked"
-      | "home.losses.attacks",
-    value: number,
-  ) => t(value === 1 ? `${key}.one` : key).replace("{n}", String(value));
-
   let title: string;
   let line: string | null;
   let action: { href: string; label: string; onClick?: () => void } | null;
   if (losses) {
-    const onlyAttacks = losses.captured === 0;
-    title = onlyAttacks
-      ? plural("home.losses.attacked", losses.attacked)
-      : plural("home.losses.captured", losses.captured);
-    const named = losses.by.slice(0, 2).map((p) => {
-      const name = p.username ? `@${p.username}` : t("common.anonymous");
-      const lost = onlyAttacks ? p.attacked : p.captured;
-      return lost > 0 ? `${name} ${lost}` : name;
-    });
-    const others = losses.by.length - named.length;
-    line = [
-      ...named,
-      others > 0 ? t("home.losses.more").replace("{n}", String(others)) : null,
-      !onlyAttacks && losses.attacked > 0
-        ? plural("home.losses.attacks", losses.attacked)
-        : null,
-    ]
-      .filter(Boolean)
-      .join(", ");
-    action = { href: "/run", label: t("home.losses.go"), onClick: onGo };
+    title = "";
+    line = null;
+    action = {
+      href: "/run",
+      label: t(
+        losses.captured > 0 ? "home.losses.go" : "home.losses.goDefend",
+      ),
+      onClick: onGo,
+    };
   } else if (stats && stats.hexesOwned === 0) {
     title = t("home.land.empty");
     line = t("home.land.emptyHint");
@@ -347,26 +329,26 @@ function LandCard({
           cells={stats?.mini?.cells}
           className="mk-well block h-[84px] w-[104px]"
         />
-        {/* How much was lost, on the land it was lost from. */}
-        {losses && (
+        {/* Blocks gone from the land, on the land they went from. */}
+        {losses && losses.captured > 0 && (
           <span className="mk-num absolute -top-1.5 -left-1.5 flex min-h-7 min-w-7 items-center justify-center rounded-full border-2 border-white bg-rival px-1.5 text-[15px] leading-none text-white">
-            -
-            {losses.captured > 0 ? losses.captured : losses.attacked}
+            -{losses.captured > 999 ? "999+" : losses.captured}
           </span>
         )}
       </Link>
       <div className="min-w-0 flex-1">
-        {losses && (
-          <p className="text-[13px] leading-tight font-semibold text-orange-700">
-            {t("home.losses.title")}
-          </p>
+        {losses ? (
+          <LossLines losses={losses} />
+        ) : (
+          <>
+            <p className="text-[15px] leading-tight font-semibold text-zinc-900">
+              {title}
+            </p>
+            <p className="mt-0.5 line-clamp-2 min-h-4 text-[13px] leading-tight text-zinc-500">
+              {line}
+            </p>
+          </>
         )}
-        <p className="text-[15px] leading-tight font-semibold text-zinc-900">
-          {title}
-        </p>
-        <p className="mt-0.5 line-clamp-2 min-h-4 text-[13px] leading-tight text-zinc-500">
-          {line}
-        </p>
         {action && (
           <Link
             href={action.href}
@@ -378,6 +360,81 @@ function LandCard({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * What other players did while the player was away, one line per kind of
+ * thing: blocks taken, and levels knocked off blocks the player still
+ * holds. Each line names who did it.
+ *
+ * It was one line, "@a 2, @b 1, 5 attacks": the names went with the blocks
+ * only, and "attacks" did not say that a level was lost or to whom
+ * (0xj4an, 23 Nov 2026).
+ */
+function LossLines({ losses }: { losses: Losses }) {
+  const { t, locale } = useLocale();
+  const plural = (
+    key: "home.losses.captured" | "home.losses.levels",
+    value: number,
+  ) =>
+    t(value === 1 ? `${key}.one` : key).replace(
+      "{n}",
+      groupNumber(value, locale),
+    );
+  const who = (kind: "captured" | "attacked") => {
+    const did = losses.by.filter((p) => p[kind] > 0);
+    const named = did.slice(0, 2).map((p) => {
+      const name = p.username ? `@${p.username}` : t("common.anonymous");
+      return `${name} ${groupNumber(p[kind], locale)}`;
+    });
+    const others = did.length - named.length;
+    return [
+      ...named,
+      others > 0 ? t("home.losses.more").replace("{n}", String(others)) : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
+  };
+  const rows = [
+    {
+      key: "captured",
+      n: losses.captured,
+      title: plural("home.losses.captured", losses.captured),
+      by: who("captured"),
+      icon: <HexDot className="mt-[3px] h-3.5 w-3.5 shrink-0 text-rival" />,
+    },
+    {
+      key: "attacked",
+      n: losses.attacked,
+      title: plural("home.losses.levels", losses.attacked),
+      by: who("attacked"),
+      icon: <HexMinus className="mt-[3px] h-3.5 w-3.5 shrink-0 text-zinc-700" />,
+    },
+  ].filter((row) => row.n > 0);
+  return (
+    <>
+      <p className="text-[13px] leading-tight font-semibold text-orange-700">
+        {t("home.losses.title")}
+      </p>
+      <ul className="mt-1 flex flex-col gap-1.5">
+        {rows.map((row) => (
+          <li key={row.key} className="flex items-start gap-1.5">
+            {row.icon}
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] leading-tight font-semibold text-zinc-900">
+                {row.title}
+              </span>
+              {row.by && (
+                <span className="mt-0.5 block text-[13px] leading-tight text-zinc-600">
+                  {row.by}
+                </span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 
