@@ -67,11 +67,11 @@ export function StreakCard({
           );
 
   return (
-    <div className="w-full rounded-md border border-orange-200 bg-orange-50 px-4 py-3 text-center">
-      <p className="text-sm font-semibold text-orange-700">
+    <div className="mk-flat w-full px-4 py-3 text-left">
+      <p className="text-[15px] leading-tight font-semibold text-zinc-900">
         🔥 {t("home.streak.days").replace("{n}", String(streak))}
       </p>
-      <p className="mt-0.5 text-xs text-orange-700/80">
+      <p className="mt-1 text-[13px] leading-tight text-zinc-600">
         {badgeDay === null
           ? t("home.streak.allBadges")
           : t("home.streak.toBadge")
@@ -80,7 +80,9 @@ export function StreakCard({
       </p>
       {/* Old servers send no rest days: say nothing rather than a wrong count. */}
       {stats.restDays !== undefined && (
-        <p className="mt-0.5 text-[11px] text-orange-700/70">{restLine}</p>
+        <p className="mt-0.5 text-[13px] leading-tight text-zinc-500">
+          {restLine}
+        </p>
       )}
     </div>
   );

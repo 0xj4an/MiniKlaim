@@ -225,19 +225,19 @@ export function BadgeClaimPrompt({
                 <BadgeRow key={id} id={id} locale={locale} className="bg-white" />
               ))}
               {more > 0 && (
-                <li className="text-center text-[11px] font-semibold text-orange-700">
+                <li className="text-center text-[12px] font-semibold text-orange-700">
                   +{more}
                 </li>
               )}
             </ul>
-            {feeLine && <p className="mt-2 text-[11px] text-zinc-500">{feeLine}</p>}
+            {feeLine && <p className="mt-2 text-[12px] text-zinc-500">{feeLine}</p>}
             {state === "error" && (
               <p className="mt-2 text-xs text-red-600">{t("me.badges.claim.error")}</p>
             )}
             <button
               onClick={runClaim}
               disabled={state === "pending"}
-              className="mt-3 min-h-11 w-full rounded-full bg-orange-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
+              className="mk-btn mk-btn-sm mt-3 w-full px-4 disabled:opacity-60"
             >
               {state === "pending"
                 ? t("me.badges.claim.pending")
@@ -309,7 +309,7 @@ export function BadgeClaimPrompt({
               <button
                 onClick={runClaim}
                 disabled={state === "pending"}
-                className="min-h-11 w-full rounded-full bg-orange-700 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
+                className="mk-btn w-full px-4 disabled:opacity-60"
               >
                 {state === "pending"
                   ? t("me.badges.claim.pending")
@@ -352,7 +352,7 @@ function BadgeRow({
       <span className="min-w-0">
         <span className="block text-xs font-semibold text-orange-700">{copy.name}</span>
         {copy.description && (
-          <span className="block text-[11px] leading-snug text-zinc-600">
+          <span className="block text-[12px] leading-snug text-zinc-600">
             {copy.description}
           </span>
         )}

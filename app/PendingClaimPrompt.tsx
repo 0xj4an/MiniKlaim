@@ -134,19 +134,19 @@ export function PendingClaimPrompt({
         )}
         <div className="mt-4 flex justify-center gap-8 text-center">
           <div>
-            <div className="font-mono text-xl font-bold text-zinc-900">
+            <div className="mk-num text-2xl text-zinc-900">
               {next.pendingHexes ?? next.hexesClaimed}
             </div>
-            <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
+            <div className="text-[12px] tracking-wide text-zinc-500 uppercase">
               {t("pendingClaim.blocks")}
             </div>
           </div>
           <div>
-            <div className="flex items-center justify-center gap-1 font-mono text-xl font-bold text-zinc-900">
+            <div className="mk-num flex items-center justify-center gap-1 text-2xl text-zinc-900">
               <MoveModeIcon mode={runMoveMode(next)} />
               {distLabel}
             </div>
-            <div className="text-[10px] tracking-wide text-zinc-500 uppercase">
+            <div className="text-[12px] tracking-wide text-zinc-500 uppercase">
               {t("pendingClaim.distance")}
             </div>
           </div>
@@ -159,7 +159,7 @@ export function PendingClaimPrompt({
         <button
             onClick={runClaim}
             disabled={state === "pending"}
-            className="mt-5 w-full rounded-full bg-orange-600 px-4 py-3 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
+            className="mk-btn mt-5 w-full px-4 disabled:opacity-60"
           >
             {state === "pending"
               ? t("pendingClaim.pending")

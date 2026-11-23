@@ -30,6 +30,7 @@ import {
   type PlacedHex,
 } from "@/lib/map/claimedView";
 import { claimedHexesToFeatureCollection } from "@/lib/map/hex";
+import { foldAttributionLater } from "@/lib/map/attribution";
 import { HEX_COLORS } from "@/lib/map/hexColors";
 import {
   thinWorldRows,
@@ -620,6 +621,7 @@ export function WorldMap({
     });
     map.on("load", () => {
       if (cancelled) return;
+      foldAttributionLater(map);
       const now =
         typeof performance === "undefined" ? Date.now() : performance.now();
       settle();
@@ -753,7 +755,7 @@ export function WorldMap({
   }, [linked, myAddress, topColors]);
 
   return (
-    <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
+    <div className="flex flex-col gap-1 mk-flat px-4 py-3 text-sm">
       <p className="text-center text-xs text-zinc-500">
         {t("community.worldmap.header")}
         {count !== null
@@ -787,7 +789,7 @@ export function WorldMap({
         )}
       </div>
       {isGrid && (
-        <p className="text-center text-[11px] text-zinc-400">
+        <p className="text-center text-[12px] text-zinc-400">
           {t("map.gridShort")}
         </p>
       )}

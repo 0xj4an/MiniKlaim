@@ -38,17 +38,21 @@ export function StreakNote({
   // screen said start one. Only a player with no streak is starting one.
   if (streak === 0) {
     return (
-      <p className="mt-3 text-center text-xs text-zinc-500">{t("run.streak.start")}</p>
+      <p className="border-b border-zinc-200 py-3 text-[13px] leading-snug text-zinc-500">
+        {t("run.streak.start")}
+      </p>
     );
   }
 
   if (!countedThisRun) {
     return (
-      <div className="mt-3 rounded-xl bg-zinc-100 px-3 py-2 text-center">
-        <p className="text-sm font-semibold text-zinc-700">
+      <div className="border-b border-zinc-200 py-3">
+        <p className="text-[15px] leading-tight font-medium text-zinc-900">
           🔥 {t("run.streak.today").replace("{n}", String(streak))}
         </p>
-        <p className="mt-0.5 text-xs text-zinc-600">{t("run.streak.keepAlive")}</p>
+        <p className="mt-0.5 text-[13px] leading-snug text-zinc-500">
+          {t("run.streak.keepAlive")}
+        </p>
       </div>
     );
   }
@@ -59,11 +63,11 @@ export function StreakNote({
     .replaceAll("{m}", String(tomorrow));
 
   return (
-    <div className="mt-3 rounded-xl bg-orange-50 px-3 py-2 text-center">
-      <p className="text-sm font-semibold text-orange-700">
+    <div className="border-b border-zinc-200 py-3">
+      <p className="text-[15px] leading-tight font-medium text-zinc-900">
         🔥 {t("run.streak.today").replace("{n}", String(streak))}
       </p>
-      <p className="mt-0.5 text-xs text-orange-700/80">{next}</p>
+      <p className="mt-0.5 text-[13px] leading-snug text-zinc-500">{next}</p>
     </div>
   );
 }

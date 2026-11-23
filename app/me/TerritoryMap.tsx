@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
 import { useLocale } from "@/lib/i18n";
 import { createLogger } from "@/lib/logger";
+import { foldAttributionLater } from "@/lib/map/attribution";
 import { isWebglFailure } from "@/lib/map/isWebglFailure";
 import {
   lightMapOptions,
@@ -176,6 +177,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
 
         map.on("load", () => {
           if (cancelled) return;
+          foldAttributionLater(map);
           const now =
             typeof performance === "undefined" ? Date.now() : performance.now();
           settle();
@@ -271,7 +273,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
   }, [address, mapTier, isGrid, gl, mapStyle]);
 
   return (
-    <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
+    <div className="flex flex-col gap-1 mk-flat px-4 py-3 text-sm">
       <p className="text-center text-xs text-zinc-500">
         {t("me.territory.header")}
         {count !== null ? ` (${count})` : ""}
@@ -312,7 +314,7 @@ export function TerritoryMap({ address }: { address: string | null }) {
         </div>
       )}
       {isGrid && grid && (
-        <p className="text-center text-[11px] text-zinc-400">
+        <p className="text-center text-[12px] text-zinc-400">
           {t("map.gridShort")}
         </p>
       )}

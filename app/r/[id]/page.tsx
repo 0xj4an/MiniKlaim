@@ -40,20 +40,20 @@ export default async function RunPage({
   const place = placeLabel(card.city, card.country, locale);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-8 pb-24">
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-5 px-4 py-6 pb-24">
       <header className="flex items-center justify-between">
         <Link
           href="/"
-          className="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
+          className="mk-tile px-3 py-1.5 text-sm font-semibold text-zinc-900"
         >
           MiniKlaim
         </Link>
-        <h1 className="text-xl font-bold">{t("r.title")}</h1>
+        <h1 className="mk-title text-2xl">{t("r.title")}</h1>
         <span className="w-16" />
       </header>
 
       <div className="flex flex-col items-center gap-1 text-center">
-        <p className="text-2xl font-bold">
+        <p className="mk-title text-[1.75rem]">
           {card.username ? (
             <Link href={`/p/${card.username}`}>
               <span className="text-zinc-500">@</span>
@@ -76,7 +76,7 @@ export default async function RunPage({
       <p className="text-center text-sm text-zinc-600">{t("r.tagline")}</p>
       <Link
         href="/"
-        className="mx-auto rounded-full bg-orange-700 px-6 py-3 text-sm font-semibold text-white hover:bg-orange-800"
+        className="mk-btn mx-auto px-6"
       >
         {t("p.cta.play")}
       </Link>

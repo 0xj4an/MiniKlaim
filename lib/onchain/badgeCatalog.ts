@@ -26,13 +26,13 @@ export type EvaluatedBadge = {
 // Display groups follow the contiguous id ranges (see lib/onchain/badges.ts).
 export const BADGE_GROUPS: { en: string; es: string; ids: number[] }[] = [
   { en: "Territory", es: "Territorio", ids: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
-  { en: "Runs", es: "Corridas", ids: [10, 11, 12, 13, 14, 15] },
-  { en: "Single run", es: "Una corrida", ids: [16, 17, 18, 19] },
+  { en: "Runs", es: "Rutas", ids: [10, 11, 12, 13, 14, 15] },
+  { en: "Single run", es: "Una ruta", ids: [16, 17, 18, 19] },
   { en: "Distance", es: "Distancia", ids: [20, 21, 22, 23, 24, 25] },
   { en: "Streaks", es: "Rachas", ids: [26, 27, 28, 29, 30, 31, 32, 33] },
   { en: "Cities", es: "Ciudades", ids: [34, 35, 36, 37, 38, 39, 40, 41, 42] },
   { en: "Conquest", es: "Conquista", ids: [43, 44, 45, 46, 47] },
-  { en: "Countries", es: "Paises", ids: [48, 49, 50, 51, 52, 53, 54, 55] },
+  { en: "Countries", es: "Países", ids: [48, 49, 50, 51, 52, 53, 54, 55] },
 ];
 
 /** Evaluate all 55 badges (id + localized copy + unlocked) for the given stats.

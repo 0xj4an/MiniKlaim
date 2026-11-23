@@ -8,6 +8,7 @@ import { useEnterChallenge } from "@/lib/challenges/useEnterChallenge";
 import { useClaimTreasures } from "@/lib/drops/useClaimTreasures";
 import { formatPrize } from "@/lib/drops/format";
 import { ChallengeReminder } from "@/app/ChallengeReminder";
+import { HexRing, Pips } from "@/app/Hex";
 import { entryStanding } from "@/lib/challenges/standing";
 import { useLocale } from "@/lib/i18n";
 import { badgeCopy } from "@/lib/onchain/badgeArt";
@@ -243,37 +244,33 @@ export function WeeklyChallenge() {
             pending_result: resultPending,
           });
         }}
-        className="relative flex w-full items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-left active:bg-zinc-100"
+        className="mk-tile relative flex w-full items-center gap-3 px-3 py-3 text-left"
       >
-        <span
-          aria-hidden
-          className="hex-cell h-[34px] w-[38px] shrink-0 bg-violet-600"
-        />
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-xs font-semibold text-violet-700">
+        <HexRing className="h-7 w-[26px] shrink-0 text-reto" />
+        <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <span className="truncate text-base leading-tight font-semibold text-zinc-900">
             {resultPending
               ? t("challenge.teaser.result")
-              : t("challenge.teaser.missions")
-                  .replace("{n}", String(heldCount))
-                  .replace("{m}", String(c.badgeIds.length))}
+              : t("challenge.kicker")}
           </span>
-          <span className="truncate text-base leading-tight font-bold text-zinc-900">
-            {locale === "es" ? c.title.es : c.title.en}
-          </span>
-          <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-zinc-200">
-            <span
-              className="block h-full rounded-full bg-violet-600"
-              style={{
-                width: `${c.badgeIds.length ? (heldCount / c.badgeIds.length) * 100 : 0}%`,
-              }}
+          <span className="flex items-center gap-2">
+            <Pips
+              n={c.badgeIds.length}
+              on={heldCount}
+              className="text-reto"
             />
+            <span className="truncate text-[13px] leading-none text-zinc-500">
+              {t("challenge.teaser.count")
+                .replace("{n}", String(heldCount))
+                .replace("{m}", String(c.badgeIds.length))}
+            </span>
           </span>
         </span>
-        <span className="flex shrink-0 flex-col items-end">
-          <span className="text-base leading-none font-extrabold text-amber-700">
+        <span className="flex shrink-0 flex-col items-end gap-1">
+          <span className="mk-num text-2xl leading-none text-gold">
             {formatPrize(c.token, c.pool, locale)}
           </span>
-          <span className="mt-0.5 text-[11px] text-zinc-500">
+          <span className="text-[13px] leading-none text-zinc-500">
             {closed
               ? t("challenge.teaser.closedShort")
               : entered
@@ -293,12 +290,12 @@ export function WeeklyChallenge() {
         <div className="flex flex-col gap-4">
           {prev && prevMine?.entered && (
             <section
-              className={`relative flex flex-col items-center gap-2 overflow-hidden rounded-md border px-4 py-3 text-center ${
+              className={`relative flex flex-col items-center gap-2 overflow-hidden rounded-2xl border px-4 py-3 text-center ${
                 !revealed && prevMine.prize !== "claimed"
                   ? "border-violet-200 bg-violet-50 text-violet-950"
                   : prevMine.won
                     ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-                    : "border-zinc-200 bg-zinc-50 text-zinc-800"
+                    : "border-zinc-200 bg-white text-zinc-800"
               }`}
             >
               <p className="text-xs font-semibold tracking-wide uppercase opacity-80">
@@ -349,7 +346,7 @@ export function WeeklyChallenge() {
                             "https://miniklaim.fun",
                           );
                         }}
-                        className="rounded-full border border-emerald-600 px-5 py-1.5 text-xs font-semibold text-emerald-800"
+                        className="mk-btn mk-btn-sm mk-btn-ghost px-5"
                       >
                         {t("challenge.share")}
                       </button>
@@ -365,7 +362,7 @@ export function WeeklyChallenge() {
                           void prize.claim(1).then((ok) => ok && load())
                         }
                         disabled={prize.state === "claiming"}
-                        className="rounded-full bg-emerald-600 px-8 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                        className="mk-btn mk-btn-sm px-8 disabled:opacity-60"
                       >
                         {prize.state === "claiming"
                           ? t("challenge.prev.claiming")
@@ -395,35 +392,46 @@ export function WeeklyChallenge() {
               )}
             </section>
           )}
-          <div className="text-center">
-            <p className="text-xs font-semibold text-violet-700">
-              {t("challenge.kicker")} ·{" "}
-              {closed
-                ? t("challenge.closedAt").replace("{date}", fmtDate(c.closesAt))
-                : t(
-                    entriesOpen && !entered
-                      ? "challenge.entriesLeft"
-                      : "challenge.closesIn",
-                  ).replace(
-                    "{left}",
-                    shortLeft(
-                      new Date(
-                        entriesOpen && !entered ? c.entryClosesAt : c.closesAt,
-                      ).getTime() - now,
-                    ) ?? "",
-                  )}
-            </p>
-            <h2 className="text-xl font-bold text-zinc-900">
-              {locale === "es" ? c.title.es : c.title.en}
-            </h2>
-            <p className="text-3xl leading-tight font-extrabold text-amber-700">
-              {formatPrize(c.token, c.pool, locale)}
-            </p>
-            <p className="text-xs text-zinc-600">
-              {t("challenge.jar")
-                .replace("{n}", String(c.entrants))
-                .replace("{w}", String(c.winners))}
-            </p>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="mk-title min-w-0 text-[1.75rem] text-zinc-900">
+                {locale === "es" ? c.title.es : c.title.en}
+              </h2>
+              <p className="shrink-0 text-[13px] text-zinc-500">
+                {closed
+                  ? t("challenge.closedAt").replace(
+                      "{date}",
+                      fmtDate(c.closesAt),
+                    )
+                  : t(
+                      entriesOpen && !entered
+                        ? "challenge.entriesLeft"
+                        : "challenge.closesIn",
+                    ).replace(
+                      "{left}",
+                      shortLeft(
+                        new Date(
+                          entriesOpen && !entered
+                            ? c.entryClosesAt
+                            : c.closesAt,
+                        ).getTime() - now,
+                      ) ?? "",
+                    )}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl bg-amber-100 px-4 py-3">
+              <HexRing className="h-[33px] w-[30px] shrink-0 text-gold" />
+              <div className="min-w-0">
+                <p className="mk-num text-[2.5rem] leading-[0.95] text-gold">
+                  {formatPrize(c.token, c.pool, locale)}
+                </p>
+                <p className="mt-0.5 text-[13px] leading-tight text-zinc-800">
+                  {t("challenge.jar")
+                    .replace("{n}", String(c.entrants))
+                    .replace("{w}", String(c.winners))}
+                </p>
+              </div>
+            </div>
           </div>
           {typeof c.qualified === "number" && c.entrants > 0 && (
             <p className="text-center text-xs text-zinc-600">
@@ -433,8 +441,7 @@ export function WeeklyChallenge() {
             </p>
           )}
           {prev && !prevMine?.entered && prevCount > 0 && prevPerWinner && (
-            <p className="rounded-md bg-emerald-50 px-3 py-2 text-center text-xs font-medium text-emerald-900">
-              🎉{" "}
+            <p className="text-[13px] leading-snug text-zinc-500">
               {t("challenge.prev.proof")
                 .replace("{n}", String(prevCount))
                 .replace("{amount}", prevPerWinner)}
@@ -514,8 +521,8 @@ export function WeeklyChallenge() {
               />
             </div>
           ) : entered ? (
-            <p className="text-center text-sm font-medium text-emerald-800">
-              ✅ {t(standing ? "challenge.inDraw" : "challenge.entered")}
+            <p className="rounded-xl bg-violet-100 px-3 py-2.5 text-center text-[15px] font-semibold text-violet-800">
+              {t(standing ? "challenge.inDraw" : "challenge.entered")}
             </p>
           ) : entriesOpen ? (
             <>
@@ -534,7 +541,7 @@ export function WeeklyChallenge() {
                 disabled={
                   !address || state === "approving" || state === "entering"
                 }
-                className="mx-auto min-h-12 rounded-full bg-violet-700 px-8 text-base font-semibold text-white hover:bg-violet-800 disabled:opacity-60"
+                className="mk-btn mk-btn-reto w-full px-6 disabled:opacity-60"
               >
                 {state === "approving"
                   ? t("challenge.approving")
@@ -554,7 +561,7 @@ export function WeeklyChallenge() {
                     onClick={() =>
                       track("challenge_add_cash_tapped", { challenge: c.id })
                     }
-                    className="rounded-full border border-violet-700 px-5 py-1.5 text-xs font-semibold text-violet-800"
+                    className="mk-btn mk-btn-sm mk-btn-ghost px-5"
                   >
                     {t("challenge.addCash").replace("{amount}", price)}
                   </a>

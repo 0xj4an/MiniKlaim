@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import localFont from "next/font/local";
 import { cookieToInitialState } from "wagmi";
 import "./globals.css";
 import { wagmiConfig } from "@/lib/wallet/config";
@@ -8,6 +9,37 @@ import { Providers } from "./providers";
 import { LogoMark } from "./Logo";
 import { serverT } from "@/lib/i18nServer";
 import { MAINTENANCE } from "@/lib/maintenance";
+
+// The game's type: Barlow, drawn from road signs and licence plates, for a
+// game played on streets. Three files, latin only, served from the app
+// itself so the build needs no outside host. Only the condensed display
+// weight is preloaded: it sets the numbers and the buttons, the largest
+// text on every screen. The body falls back to the system font until it
+// arrives, with matched metrics so nothing jumps.
+const barlow = localFont({
+  src: [
+    { path: "./fonts/barlow-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/barlow-600.woff2", weight: "600", style: "normal" },
+  ],
+  variable: "--font-barlow",
+  display: "swap",
+  preload: false,
+  fallback: ["system-ui", "Roboto", "Arial", "sans-serif"],
+});
+const barlowCondensed = localFont({
+  src: [
+    {
+      path: "./fonts/barlow-condensed-800.woff2",
+      weight: "800",
+      style: "normal",
+    },
+  ],
+  variable: "--font-barlow-condensed",
+  display: "swap",
+  preload: true,
+  fallback: ["Roboto Condensed", "Arial Narrow", "system-ui", "sans-serif"],
+});
+const FONTS = `${barlow.variable} ${barlowCondensed.variable}`;
 
 // Non-critical client UI split into its own chunk so it doesn't sit on the
 // home critical-path bundle. Each component is "use client" already so no
@@ -48,7 +80,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#FF6B35",
+  themeColor: "#E64A12",
   colorScheme: "light",
   viewportFit: "cover",
 };
@@ -66,11 +98,11 @@ export default async function RootLayout({
   if (MAINTENANCE) {
     const { t } = await serverT();
     return (
-      <html lang="en" style={{ colorScheme: "light" }}>
-        <body className="bg-white text-zinc-900">
+      <html lang="en" className={FONTS} style={{ colorScheme: "light" }}>
+        <body className="bg-zinc-100 text-zinc-900">
           <main className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
             <LogoMark size={72} />
-            <h1 className="text-2xl font-bold text-zinc-900">
+            <h1 className="mk-title text-[1.75rem] text-zinc-900">
               {t("maintenance.title")}
             </h1>
             <p className="max-w-xs text-sm leading-relaxed text-zinc-600">
@@ -83,8 +115,8 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="en" style={{ colorScheme: "light" }}>
-      <body className="bg-white text-zinc-900">
+    <html lang="en" className={FONTS} style={{ colorScheme: "light" }}>
+      <body className="bg-zinc-100 text-zinc-900">
         <Providers initialState={initialState}>
           <FarcasterReady />
           {children}
