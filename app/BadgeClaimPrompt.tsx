@@ -14,7 +14,10 @@ import {
   isBadgeClaimPending,
   markBadgeClaimSubmitted,
 } from "@/lib/wallet/claimInFlight";
-import { useClaimBadges } from "@/lib/wallet/useClaimBadges";
+import {
+  type BadgeClaimFailure,
+  useClaimBadges,
+} from "@/lib/wallet/useClaimBadges";
 
 const log = createLogger("ui:badgeClaim");
 
@@ -56,6 +59,7 @@ export function BadgeClaimPrompt({
   // Dollars the claim costs a player who pays it, from the voucher. Null when
   // the chain could not be read: then no price is shown rather than a wrong one.
   const [feeUsd, setFeeUsd] = useState<number | null>(null);
+  const [failure, setFailure] = useState<BadgeClaimFailure | null>(null);
   const [state, setState] = useState<"idle" | "pending" | "done" | "error">(
     "idle",
   );
@@ -186,12 +190,20 @@ export function BadgeClaimPrompt({
       track("badge_claim_failed", {
         count: claimable.length,
         surface,
-        reason: outcome.status,
+        reason: outcome.why,
       });
+      setFailure(outcome.why);
       setState("error");
     }
   };
 
+  // A limit or a missing fee balance is not something "try again" fixes.
+  const errorKey =
+    failure === "daily_cap"
+      ? "me.badges.claim.errorDailyCap"
+      : failure === "no_run_token"
+        ? "me.badges.claim.errorNeedsFee"
+        : "me.badges.claim.error";
   const show = claimable.length > 0 && !dismissed && state !== "done";
   // Only when the player's own wallet sends the claim: otherwise the relayer
   // pays and there is nothing to quote.
@@ -232,7 +244,7 @@ export function BadgeClaimPrompt({
             </ul>
             {feeLine && <p className="mt-2 text-[12px] text-zinc-500">{feeLine}</p>}
             {state === "error" && (
-              <p className="mt-2 text-xs text-red-600">{t("me.badges.claim.error")}</p>
+              <p className="mt-2 text-xs text-red-600">{t(errorKey)}</p>
             )}
             <button
               onClick={runClaim}
@@ -302,7 +314,7 @@ export function BadgeClaimPrompt({
             )}
             {state === "error" && (
               <p className="mt-3 text-center text-xs text-red-600">
-                {t("me.badges.claim.error")}
+                {t(errorKey)}
               </p>
             )}
             <div className="mt-5">
