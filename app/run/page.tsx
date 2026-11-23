@@ -131,7 +131,6 @@ import {
   shouldExplainGps,
 } from "./gpsPrimer";
 import { NeedNameOverlay } from "./NeedNameOverlay";
-import { OnboardingTooltip } from "./OnboardingTooltip";
 import { CaptureBursts, type CaptureBurst } from "./CaptureBursts";
 import { MapLegend } from "./MapLegend";
 import { readCachedPosition, writeCachedPosition } from "./positionCache";
@@ -2918,9 +2917,6 @@ export default function RunPage() {
       )}
       {mounted && isConnected && !isWrongChain && user && !user.username && (
         <NeedNameOverlay />
-      )}
-      {mounted && isConnected && !isWrongChain && user && !runId && (
-        <OnboardingTooltip />
       )}
       <BadgeClaimPrompt
         address={address ?? null}

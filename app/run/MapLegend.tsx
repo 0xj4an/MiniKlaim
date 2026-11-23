@@ -17,29 +17,27 @@ const SEEN_KEY = "run_legend_seen";
  * on screen said what any of them were. A player found out a block was
  * spent by walking onto it.
  *
- * Opens by itself once, for players who already finished the first-visit
- * tips, so the two never stack. After that it lives behind the "?" button.
+ * Lives behind the "?" button, which shows a dot until first opened.
  */
 export function MapLegend({ strength }: { strength: boolean }) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
 
+  // Until the legend has been opened once, the "?" carries a dot. It used to
+  // open by itself on a player's second visit, a full sheet of rules over
+  // the map before they could start; now it waits to be asked.
+  const [unseen, setUnseen] = useState(false);
   useEffect(() => {
     try {
-      if (
-        localStorage.getItem("onboarding_seen") &&
-        !localStorage.getItem(SEEN_KEY)
-      ) {
-        setOpen(true);
-        track("run_legend_opened", { auto: true });
-      }
+      setUnseen(!localStorage.getItem(SEEN_KEY));
     } catch {
-      // Private mode: the button still works.
+      // Private mode: no dot, the button still works.
     }
   }, []);
 
   const close = () => {
     setOpen(false);
+    setUnseen(false);
     try {
       localStorage.setItem(SEEN_KEY, "1");
     } catch {
@@ -67,6 +65,12 @@ export function MapLegend({ strength }: { strength: boolean }) {
         className="absolute top-1/3 right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-lg font-bold text-zinc-800 shadow-md"
       >
         ?
+        {unseen && (
+          <span
+            aria-hidden
+            className="absolute top-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-orange-600"
+          />
+        )}
       </button>
       {open && (
         <div

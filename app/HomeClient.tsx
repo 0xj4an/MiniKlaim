@@ -24,6 +24,8 @@ import { LossNotice } from "@/app/LossNotice";
 import { StreakCard } from "@/app/StreakCard";
 import { NoticeStack } from "@/app/NoticeStack";
 import { useUser } from "@/lib/wallet/useUser";
+import { useUserStats } from "@/lib/wallet/useUserStats";
+import { NAMED_COOKIE } from "@/lib/namedCookie";
 import { useWallet } from "@/lib/wallet/useWallet";
 
 export function HomeClient() {
@@ -54,6 +56,17 @@ export function HomeClient() {
   useEffect(() => {
     queueMicrotask(() => setMounted(true));
   }, []);
+  const named = mounted && isConnected && !isWrongChain && !!user?.username;
+  // Remember that this browser has a named player, so the server renders the
+  // returning-player home (small logo, no tagline) on the next open.
+  useEffect(() => {
+    if (!named) return;
+    const had = document.cookie.includes(`${NAMED_COOKIE}=1`);
+    document.cookie = `${NAMED_COOKIE}=1; path=/; max-age=31536000; samesite=lax`;
+    // First time on this browser: re-render the server part now, so the
+    // tagline gives way to the player's card without waiting for a reload.
+    if (!had) router.refresh();
+  }, [named, router]);
 
   // Auto-navigate to /run once the wallet is ready after the user tapped the
   // sign-in CTA. Skips the intermediate "Run" button-tap so the whole flow
@@ -82,24 +95,28 @@ export function HomeClient() {
       ) : (
         showOnboarding && <OnboardingModal onClose={dismiss} />
       )}
-      <p className="text-xs text-zinc-500">
-        {globalStats ? (
-          <>
-            <span className="font-semibold text-zinc-600">
-              {globalStats.totalHexes}
-            </span>{" "}
-            {t("home.stats.blocks")} -{" "}
-            <span className="font-semibold text-zinc-600">
-              {globalStats.totalPlayers}
-            </span>{" "}
-            {globalStats.totalPlayers === 1
-              ? t("home.stats.player")
-              : t("home.stats.players")}
-          </>
-        ) : (
-          <span className="opacity-0">.</span>
-        )}
-      </p>
+      {named ? (
+        <PlayerCard username={user?.username ?? ""} address={address ?? null} />
+      ) : (
+        <p className="text-xs text-zinc-500">
+          {globalStats ? (
+            <>
+              <span className="font-semibold text-zinc-600">
+                {globalStats.totalHexes}
+              </span>{" "}
+              {t("home.stats.blocks")} -{" "}
+              <span className="font-semibold text-zinc-600">
+                {globalStats.totalPlayers}
+              </span>{" "}
+              {globalStats.totalPlayers === 1
+                ? t("home.stats.player")
+                : t("home.stats.players")}
+            </>
+          ) : (
+            <span className="opacity-0">.</span>
+          )}
+        </p>
+      )}
 
       {mounted ? (
         <PrimaryCTA
@@ -150,6 +167,49 @@ export function HomeClient() {
         />
       )}
     </>
+  );
+}
+
+/**
+ * The signed-in player's own numbers, where the pitch used to be: name,
+ * blocks, world rank and streak. Opens the profile.
+ */
+function PlayerCard({
+  username,
+  address,
+}: {
+  username: string;
+  address: string | null;
+}) {
+  const { t, locale } = useLocale();
+  const stats = useUserStats(address);
+  const n = (v: number | undefined) =>
+    typeof v === "number" ? v.toLocaleString(locale) : "-";
+  const cells: [string, string][] = [
+    [n(stats?.hexesOwned), t("me.stat.blocks")],
+    [stats && stats.rank > 0 ? `#${n(stats.rank)}` : "-", t("home.card.rank")],
+    [
+      n(stats?.streak),
+      stats?.streak === 1 ? t("me.stat.dayStreak") : t("me.stat.daysStreak"),
+    ],
+  ];
+  return (
+    <Link
+      href="/me"
+      className="flex w-full flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 active:bg-zinc-100"
+    >
+      <span className="text-base font-bold text-zinc-900">@{username}</span>
+      <span className="grid grid-cols-3 gap-2">
+        {cells.map(([value, label]) => (
+          <span key={label} className="flex flex-col">
+            <span className="text-2xl leading-tight font-bold text-zinc-900 tabular-nums">
+              {value}
+            </span>
+            <span className="text-xs text-zinc-500">{label}</span>
+          </span>
+        ))}
+      </span>
+    </Link>
   );
 }
 
@@ -330,14 +390,10 @@ function PrimaryCTA({
   }
 
   return (
-    <div className="flex w-full max-w-xs flex-col items-center gap-3">
-      <p className="text-sm text-zinc-600">
-        {t("home.hey")}{" "}
-        <span className="font-semibold text-zinc-900">@{username}</span>
-      </p>
+    <div className="flex w-full flex-col items-center gap-3">
       <Link
         href="/run"
-        className={`rounded-full px-8 py-4 text-lg font-semibold text-white shadow-md ${
+        className={`w-full rounded-full px-8 py-4 text-lg font-semibold text-white shadow-md ${
           hasActiveRun
             ? "bg-red-600 hover:bg-red-700"
             : "bg-orange-700 hover:bg-orange-800"
@@ -345,7 +401,6 @@ function PrimaryCTA({
       >
         {hasActiveRun ? t("home.cta.continue") : t("home.cta.start")}
       </Link>
-      <MovementModes />
       <ReturnNote lastRunAt={lastRunAt} hasActiveRun={hasActiveRun} />
     </div>
   );
