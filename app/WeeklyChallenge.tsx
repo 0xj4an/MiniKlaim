@@ -515,6 +515,13 @@ export function WeeklyChallenge() {
                 </p>
               </div>
             )}
+            {state === "rejected" && (
+              <p className="text-center text-xs text-amber-800">
+                {t("challenge.approveRejected")
+                  .replace("{approve}", approveLabel)
+                  .replace("{amount}", price)}
+              </p>
+            )}
             {state === "error" && (
               <p className="text-center text-xs text-red-700">
                 {t("challenge.failed")}
