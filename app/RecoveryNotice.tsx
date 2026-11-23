@@ -24,7 +24,7 @@ export function RecoveryNotice({ onClose }: { onClose: () => void }) {
         className="mx-6 flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-white p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-center text-xl font-bold">
+        <h2 className="mk-title text-center text-2xl">
           {t("recovery.title")}
         </h2>
         <p className="text-sm text-zinc-700">{t("recovery.body")}</p>
@@ -32,7 +32,7 @@ export function RecoveryNotice({ onClose }: { onClose: () => void }) {
         <Link
           href="/me"
           onClick={() => closeWith("cta")}
-          className="mt-1 rounded-full bg-orange-700 px-6 py-2 text-center text-sm font-semibold text-white hover:bg-orange-800"
+          className="mk-btn mk-btn-sm mt-1 px-6 text-center"
         >
           {t("recovery.cta")} →
         </Link>

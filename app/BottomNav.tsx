@@ -44,7 +44,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed right-0 bottom-0 left-0 z-30 border-t border-zinc-200 bg-white/95 backdrop-blur"
+      className="fixed right-0 bottom-0 left-0 z-30 border-t-[1.5px] border-zinc-200 bg-white"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0)" }}
       aria-label="Primary"
       data-tab-order="home-you-community-stats-help"
@@ -59,15 +59,13 @@ export function BottomNav() {
             <Link
               key={tab.href}
               href={tab.href}
-              className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors ${
-                isActive
-                  ? "text-orange-700"
-                  : "text-zinc-500 hover:text-zinc-900"
+              className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[11.5px] leading-tight tracking-tight transition-colors ${
+                isActive ? "text-orange-700" : "text-zinc-500"
               }`}
               aria-current={isActive ? "page" : undefined}
             >
-              <Icon className="h-6 w-6" />
-              <span className="max-w-full truncate px-0.5">{t(tab.key)}</span>
+              <Icon className="h-[22px] w-[22px]" />
+              <span className="max-w-full truncate">{t(tab.key)}</span>
             </Link>
           );
         })}
@@ -86,9 +84,9 @@ export function BottomNav() {
           aria-label={
             locale === "en" ? "Cambiar a espanol" : "Switch to English"
           }
-          className="flex w-12 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-zinc-200 py-2.5 text-[10px] font-medium tracking-wide text-zinc-500 uppercase hover:text-zinc-900"
+          className="flex w-11 shrink-0 flex-col items-center justify-center gap-0.5 border-l-[1.5px] border-zinc-200 py-2 text-[12px] leading-tight font-medium text-zinc-500"
         >
-          <GlobeIcon className="h-6 w-6" />
+          <GlobeIcon className="h-[22px] w-[22px]" />
           {/*
            * The language this tap WILL give you, not the one you are in.
            *

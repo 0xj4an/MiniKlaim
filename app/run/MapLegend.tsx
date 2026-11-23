@@ -62,7 +62,7 @@ export function MapLegend({ strength }: { strength: boolean }) {
           track("run_legend_opened", { auto: false });
         }}
         aria-label={t("run.legend.open")}
-        className="absolute top-1/3 right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-lg font-bold text-zinc-800 shadow-md"
+        className="mk-tile absolute top-1/3 right-3 z-10 flex h-11 w-11 items-center justify-center text-lg font-bold text-zinc-800"
       >
         ?
         {unseen && (
@@ -81,14 +81,14 @@ export function MapLegend({ strength }: { strength: boolean }) {
           onClick={close}
         >
           <div
-            className="max-h-[85%] w-full max-w-md overflow-y-auto rounded-t-[1.75rem] bg-white px-5 pt-5 pb-6 shadow-xl"
+            className="max-h-[85%] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white px-4 pt-5 pb-6 shadow-xl"
             style={{
               paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
-              <h2 className="text-base font-semibold tracking-tight text-zinc-900">
+              <h2 className="mk-title text-2xl text-zinc-900">
                 {t("run.legend.title")}
               </h2>
               <CloseButton onClick={close} className="h-7 w-7 shrink-0" />
@@ -118,7 +118,7 @@ export function MapLegend({ strength }: { strength: boolean }) {
                   {TOP_COLORS.map((color, i) => (
                     <span
                       key={color}
-                      className="flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-bold text-white"
+                      className="flex h-6 w-6 items-center justify-center rounded-md text-[12px] font-bold text-white"
                       style={{ backgroundColor: color }}
                     >
                       {i + 1}
@@ -139,7 +139,7 @@ export function MapLegend({ strength }: { strength: boolean }) {
                   <li className="flex items-center gap-3">
                     <span
                       aria-hidden
-                      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-zinc-500 text-[10px] font-bold text-white"
+                      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-zinc-500 text-[12px] font-bold text-white"
                     >
                       ×3
                     </span>
@@ -181,7 +181,7 @@ export function MapLegend({ strength }: { strength: boolean }) {
             <button
               type="button"
               onClick={close}
-              className="mt-5 w-full rounded-full bg-orange-700 py-3 text-sm font-semibold text-white"
+              className="mk-btn mt-5 w-full"
             >
               {t("run.legend.ok")}
             </button>

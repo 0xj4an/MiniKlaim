@@ -69,20 +69,20 @@ export default async function PublicProfilePage({
   );
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-8 pb-24">
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-5 px-4 py-6 pb-24">
       <header className="flex items-center justify-between">
         <Link
           href="/"
-          className="rounded-md bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200"
+          className="mk-tile px-3 py-1.5 text-sm font-semibold text-zinc-900"
         >
           ← {t("common.home")}
         </Link>
-        <h1 className="text-xl font-bold">{t("p.title")}</h1>
+        <h1 className="mk-title text-2xl">{t("p.title")}</h1>
         <span className="w-16" />
       </header>
 
       <div className="flex flex-col items-center gap-1">
-        <p className="text-2xl font-bold">
+        <p className="mk-title text-[1.75rem]">
           <span className="text-zinc-500">@</span>
           <span>{profile.username}</span>
         </p>
@@ -121,7 +121,7 @@ export default async function PublicProfilePage({
         </div>
       )}
 
-      <div className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm">
+      <div className="flex flex-col gap-1 mk-flat px-4 py-3 text-sm">
         <p className="mb-1 text-center text-xs text-zinc-500">
           {t("p.badges.header")} {unlockedCount} {t("p.badges.of")} {badges.length}
         </p>
@@ -141,7 +141,7 @@ export default async function PublicProfilePage({
 function BigStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex flex-col items-center">
-      <span className="text-3xl font-bold text-zinc-900">{value}</span>
+      <span className="mk-num text-[2.25rem] leading-none text-zinc-900">{value}</span>
       <span className="text-xs text-zinc-500">{label}</span>
     </div>
   );

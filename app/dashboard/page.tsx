@@ -165,7 +165,7 @@ function Mini({ label, value }: { label: string; value: number }) {
       <div className="text-lg font-semibold text-zinc-900">
         {value.toLocaleString()}
       </div>
-      <div className="text-[11px] text-zinc-500">{label}</div>
+      <div className="text-[12px] text-zinc-500">{label}</div>
     </div>
   );
 }

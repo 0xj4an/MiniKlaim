@@ -23,6 +23,8 @@ export type UserStats = {
   cityCount: number;
   conquests: number;
   countryCount: number;
+  /** Thumbnail of the player's land. Absent on old servers, null with no blocks. */
+  mini?: { cells: Array<[number, number]>; blocks: number } | null;
 };
 
 export function useUserStats(address: string | null): UserStats | null {

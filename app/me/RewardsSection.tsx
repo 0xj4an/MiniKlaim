@@ -137,7 +137,7 @@ export function RewardsSection({
           <button
             onClick={() => void onClaim()}
             disabled={state === "fetching-voucher" || state === "sending"}
-            className="mx-auto rounded-full bg-orange-700 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-800 disabled:opacity-60"
+            className="mk-btn mk-btn-sm mx-auto px-6 disabled:opacity-60"
           >
             {state === "fetching-voucher" || state === "sending"
               ? t("me.rewards.claiming")
