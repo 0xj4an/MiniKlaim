@@ -19,7 +19,10 @@ import { LinkWallet } from "@/app/LinkWallet";
 import { NftSection } from "@/app/me/NftSection";
 import { RewardsSection } from "@/app/me/RewardsSection";
 import { TreasuresSection } from "@/app/me/TreasuresSection";
-import { evaluateBadges, type EvaluatedBadge } from "@/lib/onchain/badgeCatalog";
+import {
+  evaluateBadges,
+  type EvaluatedBadge,
+} from "@/lib/onchain/badgeCatalog";
 import { type Balance, useBalances } from "@/lib/wallet/useBalances";
 import { type UseUser, useUser } from "@/lib/wallet/useUser";
 import { useUserRuns } from "@/lib/wallet/useUserRuns";
@@ -142,7 +145,6 @@ export default function MePage() {
                   )}
                 </div>
               )}
-
             </>
           )}
 
@@ -166,9 +168,11 @@ export default function MePage() {
             <RunsList runs={recentRuns} />
           )}
 
-          {geoSummary && (geoSummary.byCountry.length > 0 || geoSummary.byCity.length > 0) && (
-            <GeoSummarySection summary={geoSummary} />
-          )}
+          {geoSummary &&
+            (geoSummary.byCountry.length > 0 ||
+              geoSummary.byCity.length > 0) && (
+              <GeoSummarySection summary={geoSummary} />
+            )}
 
           <LinkWallet address={address ?? null} />
 
@@ -291,10 +295,7 @@ function UsernameBlock({ userInfo }: { userInfo: UseUser }) {
     } else {
       setError(
         result.takenBy !== undefined
-          ? t("me.username.taken").replace(
-              "{wallet}",
-              result.takenBy || "0x…",
-            )
+          ? t("me.username.taken").replace("{wallet}", result.takenBy || "0x…")
           : result.proofNeeded
             ? t("me.username.proofNeeded")
             : (result.error ?? "Something went wrong"),
@@ -366,6 +367,30 @@ function Achievements({ stats }: { stats: UserStats }) {
   const [newlyUnlocked, setNewlyUnlocked] = useState<EvaluatedBadge | null>(
     null,
   );
+  // Which badges this week's challenge asks for, to tag their groups. An
+  // extra; on any failure the badges simply show without the tag.
+  const [challengeIds, setChallengeIds] = useState<number[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/challenges/current")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(
+        (
+          body: {
+            challenge?: { badgeIds?: number[]; status?: string } | null;
+            entriesPaused?: boolean;
+          } | null,
+        ) => {
+          if (cancelled || !body?.challenge) return;
+          if (body.challenge.status !== "open" || body.entriesPaused) return;
+          setChallengeIds(body.challenge.badgeIds ?? []);
+        },
+      )
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -405,7 +430,12 @@ function Achievements({ stats }: { stats: UserStats }) {
           {t("me.badges.header")} {unlockedCount} {t("me.badges.of")}{" "}
           {achievements.length}
         </p>
-        <BadgeGroups badges={achievements} locale={locale} />
+        <BadgeGroups
+          badges={achievements}
+          locale={locale}
+          challengeIds={challengeIds}
+          challengeLabel={t("badge.inChallenge")}
+        />
       </div>
       {newlyUnlocked && (
         <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-zinc-900 px-5 py-3 text-sm text-white shadow-2xl">
@@ -417,9 +447,18 @@ function Achievements({ stats }: { stats: UserStats }) {
   );
 }
 
-function GeoSummarySection({ summary }: { summary: { byCountry: Array<{ country: string; count: number }>; byCity: Array<{ country: string; city: string; count: number }> } }) {
+function GeoSummarySection({
+  summary,
+}: {
+  summary: {
+    byCountry: Array<{ country: string; count: number }>;
+    byCity: Array<{ country: string; city: string; count: number }>;
+  };
+}) {
   const { t, locale } = useLocale();
-  const [expandedCountries, setExpandedCountries] = useState<Set<string>>(new Set());
+  const [expandedCountries, setExpandedCountries] = useState<Set<string>>(
+    new Set(),
+  );
 
   const citiesMap = new Map<string, Array<{ city: string; count: number }>>();
   for (const item of summary.byCity) {
@@ -452,7 +491,9 @@ function GeoSummarySection({ summary }: { summary: { byCountry: Array<{ country:
             <div key={country.country} className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">{getCountryFlag(country.country)}</span>
+                  <span className="text-base">
+                    {getCountryFlag(country.country)}
+                  </span>
                   <span className="text-xs font-semibold text-zinc-900">
                     {getCountryNameSimple(country.country, locale)}
                   </span>
@@ -460,7 +501,11 @@ function GeoSummarySection({ summary }: { summary: { byCountry: Array<{ country:
                     <button
                       onClick={() => toggleCountry(country.country)}
                       className="text-zinc-500 hover:text-zinc-700"
-                      aria-label={isExpanded ? t("me.geo.hideCities") : t("me.geo.showCities")}
+                      aria-label={
+                        isExpanded
+                          ? t("me.geo.hideCities")
+                          : t("me.geo.showCities")
+                      }
                     >
                       <svg
                         width="12"
@@ -476,7 +521,7 @@ function GeoSummarySection({ summary }: { summary: { byCountry: Array<{ country:
                     </button>
                   )}
                 </div>
-                <span className="text-xs font-mono font-semibold text-zinc-900">
+                <span className="font-mono text-xs font-semibold text-zinc-900">
                   {country.count}
                 </span>
               </div>
@@ -488,7 +533,9 @@ function GeoSummarySection({ summary }: { summary: { byCountry: Array<{ country:
                       className="flex items-center justify-between text-[11px]"
                     >
                       <span className="text-zinc-600">{city.city}</span>
-                      <span className="font-mono text-zinc-900">{city.count}</span>
+                      <span className="font-mono text-zinc-900">
+                        {city.count}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -538,15 +585,19 @@ function RunsList({
         const duration = run.endedAt
           ? formatDuration(durationSec * 1000)
           : t("me.runs.running");
-        const mode = isMoveMode(run.moveMode) ? run.moveMode : moveMode(run.distanceMeters, durationSec);
+        const mode = isMoveMode(run.moveMode)
+          ? run.moveMode
+          : moveMode(run.distanceMeters, durationSec);
         const distLabel =
           run.distanceMeters >= 1000
             ? `${(run.distanceMeters / 1000).toFixed(2)}km`
             : `${run.distanceMeters}m`;
-        
+
         const hasLocation = run.topCity || run.topCountry;
         const cityName = run.topCity || null;
-        const countryName = run.topCountry ? getCountryNameSimple(run.topCountry, locale) : null;
+        const countryName = run.topCountry
+          ? getCountryNameSimple(run.topCountry, locale)
+          : null;
         const flag = run.topCountry ? getCountryFlag(run.topCountry) : null;
 
         return (
@@ -560,11 +611,17 @@ function RunsList({
                 <span className="font-mono text-zinc-500">{duration}</span>
                 <span className="font-mono text-zinc-500">{distLabel}</span>
                 {mode && (
-                  <MoveModeIcon mode={mode} showLabel className="text-zinc-500" />
+                  <MoveModeIcon
+                    mode={mode}
+                    showLabel
+                    className="text-zinc-500"
+                  />
                 )}
                 <span className="font-mono font-semibold text-zinc-900">
                   {run.hexesClaimed}{" "}
-                  {run.hexesClaimed === 1 ? t("me.runs.block") : t("me.runs.blocks")}
+                  {run.hexesClaimed === 1
+                    ? t("me.runs.block")
+                    : t("me.runs.blocks")}
                 </span>
               </div>
             </div>
@@ -585,7 +642,9 @@ function RunsList({
         <button
           type="button"
           data-runs-more="5"
-          onClick={() => setVisibleCount((count) => Math.min(count + 5, runs.length))}
+          onClick={() =>
+            setVisibleCount((count) => Math.min(count + 5, runs.length))
+          }
           className="mt-2 flex min-h-11 w-full items-center justify-center gap-1 rounded-lg border border-zinc-200 bg-white text-xs font-medium text-zinc-700"
         >
           {t("stats.countries.showMore")}
@@ -670,14 +729,17 @@ function getCountryFlag(code: string): string {
   if (code.length === 3) {
     const iso2 = countries.alpha3ToAlpha2(code);
     if (iso2) {
-      const codePoints = [...iso2].map(char => 127397 + char.charCodeAt(0));
+      const codePoints = [...iso2].map((char) => 127397 + char.charCodeAt(0));
       return String.fromCodePoint(...codePoints);
     }
   }
   return "🌍";
 }
 
-function getCountryNameSimple(code: string, locale: "en" | "es" = "en"): string {
+function getCountryNameSimple(
+  code: string,
+  locale: "en" | "es" = "en",
+): string {
   const name = countries.getName(code, locale, { select: "official" });
   return name || code;
 }
