@@ -9,7 +9,7 @@ const COPY = {
   es: { level: "Nivel", of: "de", next: "Siguiente:", done: "Completo" },
 } as const;
 
-function BadgeArt({
+export function BadgeArt({
   id,
   unlocked,
   size = 28,
