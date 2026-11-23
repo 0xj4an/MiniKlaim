@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gt, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, count, eq, gt, inArray, lte, ne, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { type Address, type Hex, decodeEventLog, getAddress, isAddress, parseAbiItem } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -121,6 +121,31 @@ export async function currentChallenge(database: Db, now: Date): Promise<Challen
     .orderBy(sql`${challenges.closesAt} desc`)
     .limit(1);
   return recent ?? null;
+}
+
+/**
+ * The challenge before `current`: the most recent one closed in the last 7
+ * days. The card shows its result to the players who entered it, above the
+ * new one, so a winner sees the prize and the next challenge together.
+ */
+export async function previousChallenge(
+  database: Db,
+  now: Date,
+  currentId: string,
+): Promise<Challenge | null> {
+  const [prev] = await database
+    .select()
+    .from(challenges)
+    .where(
+      and(
+        lte(challenges.closesAt, now),
+        gt(challenges.closesAt, new Date(now.getTime() - 7 * 86_400_000)),
+        ne(challenges.id, currentId),
+      ),
+    )
+    .orderBy(sql`${challenges.closesAt} desc`)
+    .limit(1);
+  return prev ?? null;
 }
 
 export async function hasEntered(database: Db, challengeId: string, players: string[]): Promise<boolean> {
