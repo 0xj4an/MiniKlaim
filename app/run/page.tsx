@@ -96,6 +96,7 @@ import {
   reportWebglFailure,
 } from "@/lib/client/sentryReport";
 import { CloseButton } from "@/app/CloseButton";
+import { Destination } from "./Destination";
 import { holdScreenAwake } from "@/lib/wakeLock";
 import {
   GPS_GAP_STALE_SECONDS,
@@ -2674,6 +2675,11 @@ export default function RunPage() {
     levelLabel,
   ]);
 
+  // Stable getters for the optional directions (app/run/Destination), which
+  // reads the position and the map without joining the GPS pipeline.
+  const getNavPosition = useCallback(() => latestPosRef.current, []);
+  const getNavMap = useCallback(() => mapRef.current, []);
+
   const canStart = isConnected && !isWrongChain && address && !isActiveLoading;
   const isActive = runId !== null;
 
@@ -2855,6 +2861,23 @@ export default function RunPage() {
           <line x1="19" y1="12" x2="22" y2="12" />
         </svg>
       </button>
+      {mapTier !== null && mapTier !== "grid" && !mapUnavailable && (
+        <Destination
+          getPosition={getNavPosition}
+          getMap={getNavMap}
+          moveMode={declaredMode}
+          inRun={isActive}
+          buttonStyle={
+            isActive
+              ? {
+                  // Top of the same button column.
+                  bottom:
+                    "calc(max(1.5rem, env(safe-area-inset-bottom)) + 17.75rem)",
+                }
+              : { bottom: "calc(env(safe-area-inset-bottom) + 23.25rem)" }
+          }
+        />
+      )}
       {foundTreasures.length === 0 && (
         <TreasureHeat
           runId={runId}
