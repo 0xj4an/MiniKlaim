@@ -3,7 +3,10 @@
 import posthog, { type PostHog } from "posthog-js";
 import type { MoveMode } from "@/lib/runs/moveMode";
 import { clientWalletHost } from "@/lib/client/walletHost";
-import { isBrowserNoise } from "@/lib/errors/browserNoise";
+import {
+  isBrowserNoise,
+  isWalletBridgeRejection,
+} from "@/lib/errors/browserNoise";
 import { createLogger } from "@/lib/logger";
 
 import { replaySampled } from "@/lib/replaySample";
@@ -147,7 +150,11 @@ type EventMap = {
   // A decline is `run_claim_rejected` and is not sponsored in that moment.
   // `run_claim_sponsored` is no balance, a voucher failure, or another tx
   // error. The retry cron still mints runs left unminted.
-  run_claim_started: { path: "router" | "two_tx" };
+  /**
+   * `attempt` ties this to the `run_claim_phases` that closes the same
+   * claim: a start with no matching phases is a claim whose page went away.
+   */
+  run_claim_started: { path: "router" | "two_tx"; attempt?: string };
   // The voucher endpoint answered non-OK. `status` separates "nothing to
   // settle" (409) from "router not configured" (503) from a server fault.
   run_claim_voucher_failed: { status: number; reason: string };
@@ -188,6 +195,7 @@ type EventMap = {
     sponsor_ms: number;
     wallet_ms: number;
     total_ms: number;
+    attempt?: string;
   };
   // Signature requested from the finish card. `auto_finish` is the sheet
   // that opens by itself. `button` is a retry after they declined.
@@ -578,6 +586,9 @@ export function initAnalytics(): PostHog | null {
         }
       }
       if (parts.some((part) => isBrowserNoise(part))) return null;
+      // Already counted as wallet_bridge_rejected by the Sentry hook; as an
+      // exception it only reads as a bug that is not one (P173).
+      if (parts.some((part) => isWalletBridgeRejection(part))) return null;
       return event;
     },
     // Session replay for MiniPay debugging. Masks by default: no text inside
