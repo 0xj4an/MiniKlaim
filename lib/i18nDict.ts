@@ -298,8 +298,8 @@ export const dictionaries = {
     "run.map.orientation.heading":
       "The way you are going is up. Tap to put north up.",
     "run.map.center": "Center on my position",
-    "run.nav.open": "Where to? Get directions without leaving the app",
-    "run.nav.title": "Where are you going?",
+    "run.nav.open": "Search a place and get directions without leaving the app",
+    "run.nav.title": "Where to?",
     "run.nav.hint":
       "Optional. Follow the way here and capture blocks as you go, like on any run.",
     "run.nav.placeholder": "Search a place or address",
@@ -1178,7 +1178,7 @@ export const dictionaries = {
     "run.map.orientation.heading":
       "Hacia donde vas está arriba. Toca para poner el norte arriba.",
     "run.map.center": "Centrar en mi posición",
-    "run.nav.open": "¿A dónde vas? Recibe indicaciones sin salir de la app",
+    "run.nav.open": "Busca un lugar y recibe indicaciones sin salir de la app",
     "run.nav.title": "¿A dónde vas?",
     "run.nav.hint":
       "Opcional. Sigue el camino aquí y captura bloques mientras vas, como en cualquier carrera.",
