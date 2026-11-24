@@ -141,14 +141,11 @@ export function Destination({
   getMap,
   moveMode,
   inRun,
-  buttonStyle,
 }: {
   getPosition: () => { lat: number; lng: number } | null;
   getMap: () => maplibregl.Map | null;
   moveMode: MoveMode | null;
   inRun: boolean;
-  /** Where the round button sits in the map's button column. */
-  buttonStyle: React.CSSProperties;
 }) {
   const { t, locale } = useLocale();
   const [enabled, setEnabled] = useState(false);
@@ -361,6 +358,11 @@ export function Destination({
 
   if (!enabled) return null;
 
+  // In a run the challenge chip sits at the top right, so the banner goes
+  // under it. Outside a run it takes the strip the search pill just left,
+  // which keeps it clear of the legend button on a short screen.
+  const bannerTop = inRun ? "top-[6.5rem]" : "top-[3.5rem]";
+
   const openPicker = () => {
     setProblem(null);
     setPlaces(null);
@@ -384,39 +386,42 @@ export function Destination({
   return (
     <>
       {phase.kind === "idle" && (
+        // A search pill under the Back button, where a maps app has it. One
+        // layer under the GPS and alert banners (z-10 and up), which share
+        // this strip and matter more than an optional extra.
         <button
           type="button"
           onClick={openPicker}
           aria-label={t("run.nav.open")}
-          className="absolute right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-blue-700 shadow-md hover:bg-white"
-          style={buttonStyle}
+          className="absolute top-[3.5rem] left-4 z-[9] flex h-10 max-w-[calc(100%-13rem)] items-center gap-2 rounded-full bg-white/95 pr-4 pl-3 text-sm font-medium text-zinc-700 shadow-md backdrop-blur hover:bg-white"
         >
-          {/* A turn arrow: "directions", not "search". */}
           <svg
-            width="20"
-            height="20"
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="2.25"
             strokeLinecap="round"
             strokeLinejoin="round"
+            className="shrink-0 text-blue-700"
             aria-hidden
           >
-            <path d="M6 21V11a4 4 0 0 1 4-4h8" />
-            <path d="M14 3l4 4-4 4" />
+            <circle cx="11" cy="11" r="7" />
+            <line x1="21" y1="21" x2="16.5" y2="16.5" />
           </svg>
+          <span className="truncate">{t("run.nav.title")}</span>
         </button>
       )}
 
       {phase.kind === "active" && (
         <div
           role="status"
-          className="absolute inset-x-4 top-16 z-10 rounded-md bg-white/95 p-3 shadow-md backdrop-blur"
+          className={`absolute inset-x-4 z-10 rounded-md bg-white/95 px-3 py-2 shadow-md backdrop-blur ${bannerTop}`}
         >
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
-              <p className="text-sm leading-snug font-semibold text-zinc-900">
+              <p className="line-clamp-2 text-sm leading-snug font-semibold text-zinc-900">
                 {rerouting
                   ? t("run.nav.rerouting")
                   : progress?.nextStep
@@ -426,27 +431,35 @@ export function Destination({
                       )}: ${progress.nextStep.text}`
                     : t("run.nav.start")}
               </p>
-              <p className="mt-0.5 truncate text-xs text-zinc-600">
-                {phase.place.title}
-                {progress
-                  ? ` - ${t("run.nav.left")
-                      .replace(
-                        "{distance}",
-                        formatNavDistance(progress.remainingM),
-                      )
-                      .replace(
-                        "{minutes}",
-                        String(
-                          formatNavMinutes(
-                            phase.route.distanceM > 0
-                              ? (phase.route.durationS * progress.remainingM) /
-                                  phase.route.distanceM
-                              : phase.route.durationS,
+              <div className="mt-0.5 flex items-baseline gap-2">
+                <p className="min-w-0 flex-1 truncate text-xs text-zinc-600">
+                  {phase.place.title}
+                  {progress
+                    ? ` - ${t("run.nav.left")
+                        .replace(
+                          "{distance}",
+                          formatNavDistance(progress.remainingM),
+                        )
+                        .replace(
+                          "{minutes}",
+                          String(
+                            formatNavMinutes(
+                              phase.route.distanceM > 0
+                                ? (phase.route.durationS *
+                                    progress.remainingM) /
+                                    phase.route.distanceM
+                                : phase.route.durationS,
+                            ),
                           ),
-                        ),
-                      )}`
-                  : ""}
-              </p>
+                        )}`
+                    : ""}
+                </p>
+                {/* The provider's name, as its free plan asks. The full line
+                    is on the search sheet; here every pixel is the route. */}
+                <span className="shrink-0 text-[10px] text-zinc-500">
+                  Geoapify
+                </span>
+              </div>
             </div>
             <CloseButton
               label={t("run.nav.end")}
@@ -456,16 +469,13 @@ export function Destination({
               }}
             />
           </div>
-          <p className="mt-1 text-[10px] text-zinc-500">
-            {t("run.nav.attribution")}
-          </p>
         </div>
       )}
 
       {phase.kind === "arrived" && (
         <div
           role="status"
-          className="absolute inset-x-4 top-16 z-10 flex items-center gap-2 rounded-md bg-white/95 p-3 shadow-md backdrop-blur"
+          className={`absolute inset-x-4 z-10 flex items-center gap-2 rounded-md bg-white/95 px-3 py-2 shadow-md backdrop-blur ${bannerTop}`}
         >
           <p className="min-w-0 flex-1 truncate text-sm font-semibold text-zinc-900">
             {t("run.nav.arrived")}: {phase.place.title}
