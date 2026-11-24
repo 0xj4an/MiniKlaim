@@ -21,6 +21,21 @@ const NOISE = [
   "bridge.event is not a function",
 ];
 
+/**
+ * MiniPay's iOS bridge rejecting a `postMessage` during wagmi's reconnect
+ * (MINIKLAIM-H). Only native frames, nothing of ours to change, no effect on
+ * the session. Counted as `wallet_bridge_rejected`; not an exception to
+ * anyone: Sentry dropped it and PostHog kept recording it as an uncaught
+ * `DOMException: InvalidAccessError` (15 events from 6 iPhones in 48 h,
+ * read as a new bug on 24 Nov 2026).
+ */
+export const WALLET_BRIDGE_REJECTED =
+  "The object does not support the operation or argument.";
+
+export function isWalletBridgeRejection(message: string): boolean {
+  return message.includes(WALLET_BRIDGE_REJECTED);
+}
+
 export function isBrowserNoise(message: string): boolean {
   return NOISE.some((part) => message.includes(part));
 }
