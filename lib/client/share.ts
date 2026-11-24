@@ -13,14 +13,29 @@
 export type ShareChannel = "x" | "facebook" | "instagram";
 export type ShareMethod = "intent" | "sheet" | "copied" | "none";
 
+/** The game's account on X, without the "@". */
+export const X_HANDLE = "MiniKlaim";
+
+/** Whether a caption already mentions the game's account on X. */
+export function mentionsUs(text: string): boolean {
+  return new RegExp(`@${X_HANDLE}\\b`, "i").test(text);
+}
+
+/**
+ * Every post to X names the game's account (0xj4an, 23 Nov 2026). A caption
+ * that already carries the mention goes as written; any other gets X's own
+ * "via @MiniKlaim", so a new caption cannot forget it.
+ */
 export function shareIntentUrl(
   channel: Exclude<ShareChannel, "instagram">,
   text: string,
   url: string,
 ): string {
-  return channel === "x"
-    ? `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`
-    : `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
+  if (channel === "x") {
+    const via = mentionsUs(text) ? "" : `&via=${X_HANDLE}`;
+    return `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}${via}`;
+  }
+  return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
 }
 
 function openNow(href: string): boolean {

@@ -648,10 +648,21 @@ function shareCaption(
       ? t("run.share.text.one")
       : t("run.share.text.many").replace("{n}", String(summary.hexesClaimed));
   const head = `${captured} ${t("run.share.text.suffix")}`;
-  const text =
+  // A block taken from someone is the event of a run, so the post says it.
+  const stolen = Math.min(summary.hexesStolen ?? 0, summary.hexesClaimed);
+  const stole =
+    stolen > 0
+      ? ` ${t(
+          stolen === 1 ? "run.share.text.stolen.one" : "run.share.text.stolen",
+        ).replace("{n}", String(stolen))}`
+      : "";
+  const route =
     summary.distanceMeters > 0
-      ? `${head} ${timeLabel} - ${distLabel} ${t("run.share.text.run")}`
-      : head;
+      ? ` ${t("run.share.text.route")
+          .replace("{dist}", distLabel)
+          .replace("{time}", timeLabel)}`
+      : "";
+  const text = `${head}${stole}${route}`;
   return { text, kind, path: summary.id ? `/r/${summary.id}` : null };
 }
 
