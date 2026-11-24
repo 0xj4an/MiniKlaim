@@ -9,6 +9,11 @@
  * lasts. Names only, never values.
  *
  * Add a line here in the same change that adds a feature needing a key.
+ *
+ * ADMIN_SECRET is left out on purpose: the three /api/admin routes are
+ * launch-day maintenance tools, they answer closed without it, and no player
+ * path depends on them. Listing it made production report a problem that
+ * is not one.
  */
 export type RequiredEnv = { name: string; feature: string };
 
@@ -17,7 +22,6 @@ export const REQUIRED_SERVER_ENV: readonly RequiredEnv[] = [
   { name: "SERVER_SIGNER_PRIVATE_KEY", feature: "claims, badges and the challenge" },
   { name: "GEOAPIFY_API_KEY", feature: "place search" },
   { name: "RESEND_API_KEY", feature: "the support form" },
-  { name: "ADMIN_SECRET", feature: "admin routes" },
 ];
 
 export function missingServerEnv(
