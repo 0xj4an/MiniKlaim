@@ -2867,15 +2867,6 @@ export default function RunPage() {
           getMap={getNavMap}
           moveMode={declaredMode}
           inRun={isActive}
-          buttonStyle={
-            isActive
-              ? {
-                  // Top of the same button column.
-                  bottom:
-                    "calc(max(1.5rem, env(safe-area-inset-bottom)) + 17.75rem)",
-                }
-              : { bottom: "calc(env(safe-area-inset-bottom) + 23.25rem)" }
-          }
         />
       )}
       {foundTreasures.length === 0 && (
