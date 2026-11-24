@@ -256,7 +256,9 @@ function CopyProfileLink({ username }: { username: string }) {
     if (typeof window === "undefined") return;
     track("share_button_pressed", { surface: "profile" });
     const url = `${window.location.origin}/p/${username}`;
-    const text = `Check my MiniKlaim profile: @${username}`;
+    // No "@username" in the text: on X that would mention whoever holds
+    // that handle there. The link carries the name.
+    const text = t("me.share.text");
     if (typeof navigator !== "undefined" && "share" in navigator) {
       try {
         await navigator.share({ title: "MiniKlaim", text, url });
