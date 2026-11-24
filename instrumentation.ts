@@ -31,6 +31,10 @@ export async function register() {
       import("./lib/logger"),
     ]);
     reportEnvSkew(createLogger("env:skew"));
+    // A feature that shipped before its key answers 503 and says nothing
+    // (place search, 24 Nov 2026). Say it at boot; /api/health lists it.
+    const { reportMissingEnv } = await import("./lib/envRequired");
+    reportMissingEnv(createLogger("env:missing"));
     // Logs when this process stops answering for a second or more, so a
     // cut can be told apart: frozen process, or a network fault outside it.
     try {

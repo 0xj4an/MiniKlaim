@@ -1,10 +1,12 @@
 import type { ErrorEvent } from "@sentry/nextjs";
 import { clientWalletHost } from "@/lib/client/walletHost";
 import { headSnapshot } from "@/lib/client/headWatch";
-import { isBrowserNoise } from "@/lib/errors/browserNoise";
+import {
+  isBrowserNoise,
+  isWalletBridgeRejection,
+} from "@/lib/errors/browserNoise";
 import { isWebglFailure } from "@/lib/map/isWebglFailure";
 
-const WALLET_BRIDGE = "The object does not support the operation or argument.";
 
 type SentryInitOptions = {
   dsn: string | undefined;
@@ -64,7 +66,7 @@ export function sentryInitOptions(): SentryInitOptions {
         // MiniPay's iOS bridge rejects a postMessage during wagmi's
         // reconnect. Only native frames, nothing in our code to change, and
         // no effect on the session (MINIKLAIM-H). Counted in PostHog instead.
-        if (parts.some((part) => part.includes(WALLET_BRIDGE))) {
+        if (parts.some((part) => isWalletBridgeRejection(part))) {
           void import("@/lib/analytics").then(({ track }) =>
             track("wallet_bridge_rejected", {}),
           ).catch(() => {});
