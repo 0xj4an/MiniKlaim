@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { hexes, runs } from "@/lib/db/schema";
 import { getChain, parseChainKey } from "@/lib/onchain/chains";
 import { mintTokensForAvailable, mintTokensForBatch } from "@/lib/onchain/hexes";
+import { describeRpcFailure } from "@/lib/onchain/rpcFailure";
 import {
   mintedTo,
   mintTokensLog as log,
@@ -71,6 +72,9 @@ export async function POST(
   }
 
   if (!(await mintTokensForAvailable(chainKey))) {
+    // Every 503 of this route says why: three went by on 20-22 Nov 2026 with
+    // nothing in the log to tell these branches apart.
+    log.warn("nft sponsor unavailable", { player: lower, reason: "not_upgraded" });
     return NextResponse.json({ error: "not available yet", reason: "not_upgraded" }, { status: 503 });
   }
 
@@ -96,7 +100,12 @@ export async function POST(
       rows.map((r) => r.h3Id),
       chainKey,
     );
-  } catch {
+  } catch (e) {
+    log.warn("nft sponsor unavailable", {
+      player: lower,
+      reason: "chain_read_failed",
+      rpc: describeRpcFailure(e),
+    });
     return NextResponse.json({ error: "chain read failed" }, { status: 503 });
   }
   if (split.existing.length > 0) {
@@ -132,6 +141,11 @@ export async function POST(
 
   const result = await mintTokensForBatch(lower as Address, batch, chainKey);
   if (result.ok !== true) {
+    log.warn("nft sponsor unavailable", {
+      player: lower,
+      reason: result.reason,
+      count: batch.length,
+    });
     void checkRelayerBalance(chainKey);
     return NextResponse.json({ error: "mint unavailable", reason: result.reason }, { status: 503 });
   }
