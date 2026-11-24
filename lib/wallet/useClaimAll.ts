@@ -267,7 +267,8 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
       }
 
       markRunClaiming(runId);
-      track("run_claim_started", { path: "router" });
+      const attempt = Math.random().toString(36).slice(2, 10);
+      track("run_claim_started", { path: "router", attempt });
       // Where the time goes between "Claim" and done (P150): the voucher,
       // the relayer's answer, and the wallet sheet. Sent once, at the end.
       const claimStart = Date.now();
@@ -474,6 +475,7 @@ export function useClaimAll(address: `0x${string}` | null, enabled: boolean) {
         track("run_claim_phases", {
           ...phases,
           total_ms: Date.now() - claimStart,
+          attempt,
         });
       }
     },

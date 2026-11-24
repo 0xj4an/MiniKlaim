@@ -224,6 +224,23 @@ docker logs --since 2m miniklaim-standby 2>&1 | grep -i "env:skew" || echo "none
 # way a browser does (one layer of decoding) and check it is JSON. Asks each
 # container directly, so it says which one, and never fails the deploy: the
 # containers are already serving, and this is where you find out.
+# A feature that ships before its key answers 503 and says nothing (place
+# search, 24 Nov 2026). /api/health lists the settings that are missing.
+echo "==> missing settings (nothing below this line is good news)"
+missing_env() {
+  local name="$1" ip out
+  ip="$(docker inspect -f '{{.NetworkSettings.Networks.shared.IPAddress}}' "$name" 2>/dev/null || true)"
+  [ -n "$ip" ] || return 0
+  out="$(curl -sS -m 5 "http://$ip:3000/api/health" 2>/dev/null | grep -o '"env":{"missing":\[[^]]*\]' || true)"
+  case "$out" in
+    ''|*'"missing":[]') ;;
+    *) echo "    !!! $name: $out" ;;
+  esac
+}
+missing_env miniklaim-standby
+missing_env miniklaim
+[ -n "$(missing_env miniklaim)$(missing_env miniklaim-standby)" ] || echo "none"
+
 echo "==> body check (a browser must be able to read the map data)"
 body_check() {
   local name="$1" ip first

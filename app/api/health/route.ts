@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { CHAINS, SUPPORTED_CHAIN_KEYS } from "@/lib/onchain/chains";
+import { missingServerEnv } from "@/lib/envRequired";
 import { isSignerConfigured } from "@/lib/onchain/signer";
 import { relayerFunding } from "@/lib/onchain/sponsor";
 
@@ -50,6 +51,10 @@ export async function GET() {
   );
 
   const signerOk = isSignerConfigured();
+  // Settings a feature needs and does not have. Names only. Does not make
+  // the app unhealthy: the features that cope keep coping, this is where you
+  // find out (lib/envRequired).
+  const envMissing = missingServerEnv().map((m) => m.name);
   const healthy = dbOk && signerOk;
 
   // Which build is actually serving. Twice a deploy was reported as landed
@@ -87,6 +92,7 @@ export async function GET() {
     build: { commit, release: commit?.slice(0, 7) ?? null },
     db: { ok: dbOk, latency_ms: dbLatencyMs, error: dbError },
     signer: { ok: signerOk },
+    env: { missing: envMissing },
     relayer: funding
       ? {
           celo: funding.celo === null ? null : Number(funding.celo.toFixed(4)),
