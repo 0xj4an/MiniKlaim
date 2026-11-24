@@ -1,5 +1,6 @@
 "use client";
 
+import { groupNumber } from "@/lib/formatNumber";
 import { useLocale } from "@/lib/i18n";
 import { type TokenStatus, useMintTokens } from "@/lib/wallet/useMintTokens";
 
@@ -33,11 +34,28 @@ function label(template: string, count: number, usd: number | null): string {
 }
 
 export function NftSection({ address }: { address: `0x${string}` | null }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { status, state, mint, mintFree, freeToday, lastMinted } =
     useMintTokens(address);
   if (!address || !status?.enabled) return null;
-  if (status.recorded === 0 && status.tokens === 0) return null;
+  const others = (status.others ?? []).filter(
+    (w) => w.tokens > 0 || w.recorded > 0,
+  );
+  if (status.recorded === 0 && status.tokens === 0 && others.length === 0) {
+    return null;
+  }
+  // Blocks from runs not claimed yet are on no chain, in any wallet.
+  const unrecorded =
+    (status.unrecorded ?? 0) +
+    (status.others ?? []).reduce((sum, w) => sum + w.unrecorded, 0);
+  const total =
+    status.tokens +
+    status.recorded +
+    unrecorded +
+    others.reduce((sum, w) => sum + w.tokens + w.recorded, 0);
+  const otherLeft = others.reduce((sum, w) => sum + w.recorded, 0);
+  // "Your other wallet" with one, "another wallet of yours" with several.
+  const many = others.length > 1;
 
   const busy =
     state === "fetching-voucher" ||
@@ -49,11 +67,74 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
       <p className="text-center text-xs font-semibold text-zinc-800">
         {t("me.nfts.header")}
       </p>
-      <p className="text-center text-xs text-zinc-600">
-        {t("me.nfts.summary")
-          .replace("{recorded}", status.recorded.toLocaleString())
-          .replace("{tokens}", status.tokens.toLocaleString())}
-      </p>
+      {/* One wallet's count sat under a profile that counts every wallet
+          of the player's, so the two numbers disagreed. Each wallet gets
+          its lines and the total at the bottom is the profile's number. */}
+      <ul className="flex flex-col gap-1.5 text-left">
+        <Line
+          n={status.tokens}
+          label={t("me.nfts.row.tokens")}
+          locale={locale}
+        />
+        {status.recorded > 0 && (
+          <Line
+            n={status.recorded}
+            label={t("me.nfts.row.recorded")}
+            locale={locale}
+          />
+        )}
+        {others.map((w) => (
+          <li key={w.address} className="flex flex-col gap-1.5">
+            <ul className="flex flex-col gap-1.5">
+              {w.tokens > 0 && (
+                <Line
+                  n={w.tokens}
+                  label={t(
+                    many
+                      ? "me.nfts.row.tokensAnother"
+                      : "me.nfts.row.tokensOther",
+                  )}
+                  locale={locale}
+                />
+              )}
+              {w.recorded > 0 && (
+                <Line
+                  n={w.recorded}
+                  label={t(
+                    many
+                      ? "me.nfts.row.recordedAnother"
+                      : "me.nfts.row.recordedOther",
+                  )}
+                  locale={locale}
+                />
+              )}
+            </ul>
+            <p className="pl-[5.125rem] text-xs leading-tight break-all text-zinc-500">
+              {w.address}
+            </p>
+          </li>
+        ))}
+        {unrecorded > 0 && (
+          <Line
+            n={unrecorded}
+            label={t("me.nfts.row.unrecorded")}
+            locale={locale}
+          />
+        )}
+        <li className="mt-0.5 flex items-baseline gap-2.5 border-t border-zinc-200 pt-2">
+          <span className="mk-num w-[4.5rem] shrink-0 text-right text-xl leading-none text-zinc-900">
+            {groupNumber(total, locale)}
+          </span>
+          <span className="text-sm font-semibold text-zinc-900">
+            {t("me.nfts.row.total")}
+          </span>
+        </li>
+      </ul>
+      {otherLeft > 0 && (
+        <p className="text-xs leading-snug text-zinc-600">
+          {t("me.nfts.row.recordedOtherHint")}
+        </p>
+      )}
 
       {status.nextBatch > 0 ? (
         <>
@@ -130,9 +211,12 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
           )}
         </>
       ) : (
-        <p className="text-center text-xs text-zinc-500">
-          {t("me.nfts.allMinted")}
-        </p>
+        otherLeft === 0 &&
+        unrecorded === 0 && (
+          <p className="text-center text-xs text-zinc-500">
+            {t("me.nfts.allMinted")}
+          </p>
+        )
       )}
 
       {state === "done" && lastMinted > 0 && (
@@ -152,5 +236,25 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
         <p className="text-center text-xs text-red-600">{t("me.nfts.error")}</p>
       )}
     </div>
+  );
+}
+
+/** A count and what it counts, the numbers in one column so they add up. */
+function Line({
+  n,
+  label,
+  locale,
+}: {
+  n: number;
+  label: string;
+  locale: "en" | "es";
+}) {
+  return (
+    <li className="flex items-baseline gap-2.5">
+      <span className="mk-num w-[4.5rem] shrink-0 text-right text-lg leading-none text-zinc-900">
+        {groupNumber(n, locale)}
+      </span>
+      <span className="text-sm text-zinc-700">{label}</span>
+    </li>
   );
 }

@@ -27,10 +27,22 @@ const log = createLogger("wallet:mintTokens");
 
 export type MintQuote = { count: number; usd: number | null };
 
+/** One wallet's blocks by where they stand on the chain. */
+export type WalletTokens = {
+  address: string;
+  recorded: number;
+  tokens: number;
+  unrecorded: number;
+};
+
 export type TokenStatus = {
   enabled: boolean;
   recorded: number;
   tokens: number;
+  /** Captured in a run that is not claimed yet. Absent on old servers. */
+  unrecorded?: number;
+  /** The player's other linked wallets. Absent on old servers. */
+  others?: WalletTokens[];
   maxPerTx: number;
   nextBatch: number;
   /** The smaller batch offered beside the whole lot, when there is one. */
