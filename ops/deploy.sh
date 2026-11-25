@@ -88,8 +88,12 @@ docker compose run --rm --no-deps miniklaim npm run db:migrate
 # travel report or check what the movement guard did, because the evidence was
 # thrown away by the act of shipping the fix.
 #
-# Dump it first, timestamped, and keep the last 30 files per service. Logs are
-# hundreds of KiB, so the whole history costs less than one image layer.
+# Dump it first, timestamped, and keep the last 120 files per service. Logs
+# are tens of KiB, so the whole history costs less than one image layer.
+#
+# `-t` puts Docker's own time on every line: the app's lines carry none, so a
+# kept log could say what happened and not when. 120 and not 30 because 23
+# deploys in 48 h (23-24 Nov 2026) left 30 files covering under three days.
 LOGDIR="$COMPOSE_DIR/logs/miniklaim"
 mkdir -p "$LOGDIR"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -98,11 +102,11 @@ for c in miniklaim miniklaim-standby miniklaim-retry-unminted miniklaim-finalize
   if docker inspect "$c" >/dev/null 2>&1; then
     # || true: a container that never started has no log, and losing a log is
     # not a reason to abandon a deploy that is otherwise fine.
-    docker logs "$c" >"$LOGDIR/$c-$STAMP.log" 2>&1 || true
+    docker logs -t "$c" >"$LOGDIR/$c-$STAMP.log" 2>&1 || true
     echo "    $c $(wc -c <"$LOGDIR/$c-$STAMP.log" | tr -d ' ') bytes"
   fi
   # shellcheck disable=SC2012
-  ls -1t "$LOGDIR/$c-"*.log 2>/dev/null | tail -n +31 | while read -r old; do
+  ls -1t "$LOGDIR/$c-"*.log 2>/dev/null | tail -n +121 | while read -r old; do
     rm -f "$old"
   done
 done
