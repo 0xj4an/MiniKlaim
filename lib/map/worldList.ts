@@ -80,6 +80,8 @@ const THIN_FINE_TO_COARSE = [...WORLD_THIN_RES].sort((a, b) => b - a);
 function worldScan(): Promise<WorldScan> {
   return scanShared.get("scan", async () => {
     const started = Date.now();
+    const cpuStart = process.cpuUsage();
+    const read: ReadTiming = { waitMs: 0, workMs: 0, maxHoldMs: 0 };
     // A top-ten block wins its cell: those ten colours are the only thing
     // distinguishing the world map from a grey smear.
     const top = await topOwners();
@@ -89,7 +91,8 @@ function worldScan(): Promise<WorldScan> {
     const count = await eachWorldBatch((rows) => {
       addToOwners(groups, rows);
       finest.add(rows);
-    });
+    }, read);
+    const readDone = Date.now();
     const names = await ownerNameMap(groups.keys());
     for (const g of groups.values()) {
       g.ownerUsername = names.get(g.owner) ?? null;
@@ -111,7 +114,23 @@ function worldScan(): Promise<WorldScan> {
         await ownersJson(groupByOwner(rows), { total: count }),
       );
     }
-    logBuild(started, { count, owners: groups.size });
+    // Where the seconds went (25 Nov 2026: builds of 8 s at the median and
+    // 43 s at worst, with freezes of 1 to 6 s beside them, on a host at load
+    // 15 on 8 cores). waitMs is waiting for Postgres, workMs is this process
+    // working on the rows, tailMs is everything after the read, maxHoldMs is
+    // the longest it went without letting anything else run, and cpuMs is
+    // the CPU it was actually given: a build far longer than its cpuMs plus
+    // waitMs was waiting for a core, not for us.
+    const cpu = process.cpuUsage(cpuStart);
+    logBuild(started, {
+      count,
+      owners: groups.size,
+      waitMs: Math.round(read.waitMs),
+      workMs: Math.round(read.workMs),
+      tailMs: Date.now() - readDone,
+      maxHoldMs: Math.round(read.maxHoldMs),
+      cpuMs: Math.round((cpu.user + cpu.system) / 1000),
+    });
     return { owners, thin };
   });
 }
@@ -147,16 +166,28 @@ const WORLD_BATCH = 5_000;
  * primary key, for the few thousand owners that actually hold blocks
  * (`namesFor`). Rows leave here with `ownerUsername: null`.
  */
+type ReadTiming = { waitMs: number; workMs: number; maxHoldMs: number };
+
 async function eachWorldBatch(
   onBatch: (rows: ClaimedHexRow[]) => void,
+  timing?: ReadTiming,
 ): Promise<number> {
   let count = 0;
+  let mark = performance.now();
   const query = pg<ClaimedHexRow[]>`
     select h.h3_id as h3, h.owner_address as owner, null::text as "ownerUsername"
     from hexes h`;
   for await (const batch of query.cursor(WORLD_BATCH)) {
+    const got = performance.now();
     onBatch(batch);
     count += batch.length;
+    if (timing) {
+      const done = performance.now();
+      timing.waitMs += got - mark;
+      timing.workMs += done - got;
+      if (done - got > timing.maxHoldMs) timing.maxHoldMs = done - got;
+      mark = done;
+    }
   }
   return count;
 }
