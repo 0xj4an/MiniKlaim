@@ -246,7 +246,12 @@ body_check() {
   local name="$1" ip first
   ip="$(docker inspect -f '{{.NetworkSettings.Networks.shared.IPAddress}}' "$name" 2>/dev/null || true)"
   [ -n "$ip" ] || { echo "    $name: no ip, not checked"; return 0; }
-  first="$(curl -sS -m 30 --compressed "http://$ip:3000/api/hexes?res=2" 2>/dev/null | head -c 1 | od -An -c | tr -d ' ')"
+  # `head -c 1` closes the pipe after one byte, so curl ends with a write
+  # error whenever the body is still arriving. Under `set -o pipefail` that
+  # killed the script right here, after a deploy that had already worked
+  # (24 Nov 2026, logged as DEPLOY_FAILED_OR_BUSY). The first byte is all
+  # this needs; curl's exit status says nothing about it.
+  first="$({ curl -sS -m 30 --compressed "http://$ip:3000/api/hexes?res=2" 2>/dev/null || true; } | head -c 1 | od -An -c | tr -d ' ' || true)"
   if [ "$first" = "{" ]; then
     echo "    $name: ok"
   else
