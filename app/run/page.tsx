@@ -1138,6 +1138,10 @@ export default function RunPage() {
     const payload = claimPayload(batch, Date.now());
     let outcome: Parameters<typeof applyHttp>[2];
     const claimStartedAt = Date.now();
+    // Set once the server has answered. A network error that still has a
+    // status is ours (an answer that could not be read); one without is the
+    // phone never getting an answer at all.
+    let answeredStatus: number | undefined;
     try {
       // A dead connection must not hold the queue: see CLAIM_TIMEOUT_MS.
       // By hand, because AbortSignal.timeout is missing on older WebViews
@@ -1158,6 +1162,7 @@ export default function RunPage() {
       } finally {
         window.clearTimeout(abortTimer);
       }
+      answeredStatus = res.status;
       if (res.status === 409) outcome = { kind: "ended" };
       else if (res.status === 403) {
         // This phone does not hold the run's token (it was started on
@@ -1326,6 +1331,7 @@ export default function RunPage() {
         error: e instanceof Error ? e.message : String(e),
         elapsed_ms: Date.now() - claimStartedAt,
         online: navigator.onLine,
+        ...(answeredStatus === undefined ? {} : { status: answeredStatus }),
       });
     }
     // Read before it is reset: an answer that follows a failed upload is
