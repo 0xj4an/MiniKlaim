@@ -254,6 +254,8 @@ type EventMap = {
     error: string;
     elapsed_ms?: number;
     online?: boolean;
+    /** Present only when the server answered and the answer could not be used. */
+    status?: number;
     capped?: boolean;
   };
   run_start_error: { status: number };
