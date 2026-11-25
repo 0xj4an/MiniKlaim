@@ -3,12 +3,14 @@ import { packJsonText, type PackedJson } from "@/lib/http/json-body";
 import { getRanking } from "@/lib/leaderboardRanking";
 import { createLogger } from "@/lib/logger";
 import type { ClaimedHexRow } from "@/lib/map/claimedView";
+import { breathe } from "@/lib/breathe";
+import { groupByOwner, ownersJson } from "@/lib/map/worldHexes";
 import {
-  addToOwners,
-  groupByOwner,
-  ownersJson,
-  type WorldOwnerGroup,
-} from "@/lib/map/worldHexes";
+  applyRows,
+  createWorldState,
+  viewOf,
+  type WorldState,
+} from "@/lib/map/worldState";
 import {
   createThinner,
   WORLD_THIN_RES,
@@ -59,7 +61,8 @@ const worldShared = createSharedCache<PackedJson>(WORLD_TTL_MS, {
  * to four full reads and about 20 s of work per five minutes for data that
  * is the same rows every time.
  *
- * One read now feeds all of them. The coarser thinned lists are thinned
+ * One read now feeds all of them, and since 25 Nov 2026 that read is of
+ * what changed, not of the table (`worldState`). The coarser thinned lists are thinned
  * from the finest one instead of from the table: the winner of a cell is
  * the best of its children's winners (highest rank, then lowest id, a total
  * order), so thinning 900 winners gives the same answer as thinning 600k
@@ -77,6 +80,85 @@ const scanShared = createSharedCache<WorldScan>(WORLD_TTL_MS, {
 /** Finest first: each coarser list is thinned from the one before it. */
 const THIN_FINE_TO_COARSE = [...WORLD_THIN_RES].sort((a, b) => b - a);
 
+/**
+ * The table is read whole this often; in between only what changed is
+ * read (see lib/map/worldState.ts). The whole read is the safety net for
+ * anything that could move a block without touching `claimed_at`.
+ */
+export const FULL_READ_EVERY_MS = 6 * 60 * 60_000;
+
+/**
+ * How far back each read of changes reaches behind the previous one.
+ * `claimed_at` is the start of the transaction that wrote it, so a claim
+ * that was still open when we last looked carries a time from before that
+ * look. Five minutes is far longer than any claim stays open, and the
+ * overlap costs a few hundred rows that change nothing.
+ */
+const CHANGES_OVERLAP_MS = 5 * 60_000;
+
+/** With nothing changed the last lists are served as they are, this long. */
+const UNCHANGED_FOR_AT_MOST_MS = 60 * 60_000;
+
+type Live = {
+  state: WorldState;
+  fullAt: number;
+  builtAt: number;
+  sinceMs: number;
+  topKey: string;
+  scan: WorldScan;
+};
+
+let live: Live | null = null;
+
+let lastMode: "full" | "changes" | "unchanged" | null = null;
+
+/** Test hooks. `expire` makes the next call refresh, as the TTL would. */
+export const worldStateForTests = {
+  /** Forget what is in memory, as a restart would. */
+  forget(): void {
+    live = null;
+    lastMode = null;
+    scanShared.clear();
+  },
+  expire(): void {
+    scanShared.clear();
+  },
+  lastMode: () => lastMode,
+  /** Pretend the last whole read was this long ago. */
+  ageFullRead(ms: number): void {
+    if (live) live.fullAt -= ms;
+  },
+};
+
+type Change = { h3: string; owner: string };
+
+/** Now, the size of the table and what changed since, from one snapshot. */
+async function readChanges(
+  sinceMs: number | null,
+): Promise<{ nowMs: number; total: number; rows: Change[] }> {
+  return pg.begin("isolation level repeatable read read only", async (tx) => {
+    // The clock is the database's, as a number: this connection hands
+    // timestamps back as text, and the app's clock is not the one that
+    // stamped `claimed_at`.
+    const [head] = await tx<{ now_ms: number; total: number }[]>`
+      select (extract(epoch from now()) * 1000)::float8 as now_ms,
+             (select count(*) from hexes)::int as total`;
+    const rows =
+      sinceMs === null
+        ? []
+        : await tx<Change[]>`
+            select h.h3_id as h3, h.owner_address as owner
+            from hexes h
+            where h.claimed_at >= to_timestamp(${sinceMs}::float8 / 1000.0)
+            order by h.claimed_at, h.h3_id`;
+    return {
+      nowMs: Number(head.now_ms),
+      total: Number(head.total),
+      rows: [...rows],
+    };
+  });
+}
+
 function worldScan(): Promise<WorldScan> {
   return scanShared.get("scan", async () => {
     const started = Date.now();
@@ -85,14 +167,54 @@ function worldScan(): Promise<WorldScan> {
     // A top-ten block wins its cell: those ten colours are the only thing
     // distinguishing the world map from a grey smear.
     const top = await topOwners();
+    const topKey = [...top].sort().join(",");
     const rank = (owner: string) => (top.has(owner.toLowerCase()) ? 1 : 0);
-    const groups = new Map<string, WorldOwnerGroup>();
-    const finest = createThinner(THIN_FINE_TO_COARSE[0], rank);
-    const count = await eachWorldBatch((rows) => {
-      addToOwners(groups, rows);
-      finest.add(rows);
-    }, read);
+
+    let mode: "full" | "changes" | "unchanged" = "full";
+    let changed = 0;
+    let state: WorldState;
+    let fullAt = started;
+    const prev = live;
+    const head = await readChanges(
+      prev && started - prev.fullAt < FULL_READ_EVERY_MS ? prev.sinceMs : null,
+    );
+    if (prev && started - prev.fullAt < FULL_READ_EVERY_MS) {
+      changed = applyRows(prev.state, head.rows);
+      if (prev.state.size === head.total) {
+        mode = "changes";
+      } else {
+        // Same snapshot, so the two must agree. If they do not, something
+        // changed the table in a way `claimed_at` did not show.
+        log.warn("world state drifted, reading the table again", {
+          inMemory: prev.state.size,
+          inTable: head.total,
+        });
+      }
+    }
+    if (mode === "changes" && prev) {
+      state = prev.state;
+      fullAt = prev.fullAt;
+      if (
+        changed === 0 &&
+        topKey === prev.topKey &&
+        started - prev.builtAt < UNCHANGED_FOR_AT_MOST_MS
+      ) {
+        prev.sinceMs = head.nowMs - CHANGES_OVERLAP_MS;
+        lastMode = "unchanged";
+        logBuild(started, { mode: "unchanged", count: state.size });
+        return prev.scan;
+      }
+    } else {
+      state = createWorldState(THIN_FINE_TO_COARSE[0]);
+      await eachWorldBatch((rows) => {
+        applyRows(state, rows);
+      }, read);
+    }
     const readDone = Date.now();
+
+    const view = await viewOf(state, rank, breathe);
+    const groups = view.groups;
+    const count = state.size;
     const names = await ownerNameMap(groups.keys());
     for (const g of groups.values()) {
       g.ownerUsername = names.get(g.owner) ?? null;
@@ -100,7 +222,7 @@ function worldScan(): Promise<WorldScan> {
     const owners = packJsonText(await ownersJson([...groups.values()]));
 
     const thin = {} as Record<WorldThinRes, PackedJson>;
-    let rows = finest.rows();
+    let rows = view.finest;
     for (const res of THIN_FINE_TO_COARSE) {
       if (res !== THIN_FINE_TO_COARSE[0]) {
         const coarser = createThinner(res, rank);
@@ -114,16 +236,26 @@ function worldScan(): Promise<WorldScan> {
         await ownersJson(groupByOwner(rows), { total: count }),
       );
     }
-    // Where the seconds went (25 Nov 2026: builds of 8 s at the median and
-    // 43 s at worst, with freezes of 1 to 6 s beside them, on a host at load
-    // 15 on 8 cores). waitMs is waiting for Postgres, workMs is this process
-    // working on the rows, tailMs is everything after the read, maxHoldMs is
-    // the longest it went without letting anything else run, and cpuMs is
-    // the CPU it was actually given: a build far longer than its cpuMs plus
-    // waitMs was waiting for a core, not for us.
+    // Where the seconds went. waitMs is waiting for rows (Postgres, and the
+    // driver turning them into objects), workMs is filing them, tailMs is
+    // everything after the read, maxHoldMs is the longest the read went
+    // without letting anything else run, and cpuMs is the CPU this process
+    // used meanwhile, for everything it was doing.
     const cpu = process.cpuUsage(cpuStart);
+    const scan = { owners, thin };
+    live = {
+      state,
+      fullAt,
+      builtAt: Date.now(),
+      sinceMs: head.nowMs - CHANGES_OVERLAP_MS,
+      topKey,
+      scan,
+    };
+    lastMode = mode;
     logBuild(started, {
+      mode,
       count,
+      changed,
       owners: groups.size,
       waitMs: Math.round(read.waitMs),
       workMs: Math.round(read.workMs),
@@ -131,7 +263,7 @@ function worldScan(): Promise<WorldScan> {
       maxHoldMs: Math.round(read.maxHoldMs),
       cpuMs: Math.round((cpu.user + cpu.system) / 1000),
     });
-    return { owners, thin };
+    return scan;
   });
 }
 
