@@ -27,6 +27,22 @@ export function navClientKey(request: Request): string {
   return forwarded?.split(",")[0]?.trim() || "unknown";
 }
 
+/**
+ * What a refusal from the provider means to the player.
+ *
+ * 400, 404 and 422 are the provider saying this request has no answer (a
+ * walk of 160 km, a point in the sea): that is "no route", which the screen
+ * already knows how to say. Everything else (its 5xx, a rejected key, its
+ * own rate limit) is a failure on the way and stays a 502. Both used to be
+ * a 502, so a route nobody could draw read as our server being down
+ * (25 Nov 2026).
+ */
+export function upstreamRefusal(status: number) {
+  return status === 400 || status === 404 || status === 422
+    ? navError("nav_no_route", 422)
+    : navError("nav_upstream_failed", 502);
+}
+
 export function navError(code: string, status: number) {
   return NextResponse.json({ error: code }, { status, headers: NO_STORE });
 }
@@ -73,7 +89,12 @@ export async function navUpstream(
     if (!res.ok) {
       // The URL carries the key, so only the status is logged.
       log.warn("nav upstream not ok", { what, status: res.status });
-      return { response: navError("nav_upstream_failed", 502) };
+      return {
+        response:
+          what === "route"
+            ? upstreamRefusal(res.status)
+            : navError("nav_upstream_failed", 502),
+      };
     }
     return { body: (await res.json()) as unknown };
   } catch (e) {
