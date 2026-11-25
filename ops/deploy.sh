@@ -106,7 +106,9 @@ for c in miniklaim miniklaim-standby miniklaim-retry-unminted miniklaim-finalize
     echo "    $c $(wc -c <"$LOGDIR/$c-$STAMP.log" | tr -d ' ') bytes"
   fi
   # shellcheck disable=SC2012
-  ls -1t "$LOGDIR/$c-"*.log 2>/dev/null | tail -n +121 | while read -r old; do
+  # The digit after the dash matters: "miniklaim-*" also matched the three
+  # other services' files, so the limit was shared and each kept a quarter.
+  ls -1t "$LOGDIR/$c-"[0-9]*.log 2>/dev/null | tail -n +121 | while read -r old; do
     rm -f "$old"
   done
 done
