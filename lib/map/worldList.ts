@@ -73,9 +73,32 @@ type WorldScan = {
   thin: Record<WorldThinRes, PackedJson>;
 };
 
-const scanShared = createSharedCache<WorldScan>(WORLD_TTL_MS, {
-  serveStaleWhileRevalidating: true,
+/**
+ * One copy for the whole process.
+ *
+ * The server bundle holds this module twice: once for instrumentation.ts,
+ * which warms the list at startup, and once for the routes, which serve it.
+ * Module-level state was therefore two states. Every container read the
+ * whole table twice at each start (two "mode: 'full'" lines a second apart,
+ * 26 Nov 2026), the warm filled a cache no route ever read, and the first
+ * player after a deploy paid for the second read. `globalThis` is the one
+ * place both copies share.
+ */
+type WorldShared = {
+  scan: ReturnType<typeof createSharedCache<WorldScan>>;
+  live: Live | null;
+  lastMode: "full" | "changes" | "unchanged" | null;
+};
+const SHARED_KEY = Symbol.for("miniklaim.worldList");
+const holder = globalThis as unknown as Record<symbol, WorldShared | undefined>;
+const shared: WorldShared = (holder[SHARED_KEY] ??= {
+  scan: createSharedCache<WorldScan>(WORLD_TTL_MS, {
+    serveStaleWhileRevalidating: true,
+  }),
+  live: null,
+  lastMode: null,
 });
+const scanShared = shared.scan;
 
 /** Finest first: each coarser list is thinned from the one before it. */
 const THIN_FINE_TO_COARSE = [...WORLD_THIN_RES].sort((a, b) => b - a);
@@ -108,25 +131,23 @@ type Live = {
   scan: WorldScan;
 };
 
-let live: Live | null = null;
 
-let lastMode: "full" | "changes" | "unchanged" | null = null;
 
 /** Test hooks. `expire` makes the next call refresh, as the TTL would. */
 export const worldStateForTests = {
   /** Forget what is in memory, as a restart would. */
   forget(): void {
-    live = null;
-    lastMode = null;
+    shared.live = null;
+    shared.lastMode = null;
     scanShared.clear();
   },
   expire(): void {
     scanShared.clear();
   },
-  lastMode: () => lastMode,
+  lastMode: () => shared.lastMode,
   /** Pretend the last whole read was this long ago. */
   ageFullRead(ms: number): void {
-    if (live) live.fullAt -= ms;
+    if (shared.live) shared.live.fullAt -= ms;
   },
 };
 
@@ -174,7 +195,7 @@ function worldScan(): Promise<WorldScan> {
     let changed = 0;
     let state: WorldState;
     let fullAt = started;
-    const prev = live;
+    const prev = shared.live;
     const head = await readChanges(
       prev && started - prev.fullAt < FULL_READ_EVERY_MS ? prev.sinceMs : null,
     );
@@ -200,7 +221,7 @@ function worldScan(): Promise<WorldScan> {
         started - prev.builtAt < UNCHANGED_FOR_AT_MOST_MS
       ) {
         prev.sinceMs = head.nowMs - CHANGES_OVERLAP_MS;
-        lastMode = "unchanged";
+        shared.lastMode = "unchanged";
         logBuild(started, { mode: "unchanged", count: state.size });
         return prev.scan;
       }
@@ -243,7 +264,7 @@ function worldScan(): Promise<WorldScan> {
     // used meanwhile, for everything it was doing.
     const cpu = process.cpuUsage(cpuStart);
     const scan = { owners, thin };
-    live = {
+    shared.live = {
       state,
       fullAt,
       builtAt: Date.now(),
@@ -251,7 +272,7 @@ function worldScan(): Promise<WorldScan> {
       topKey,
       scan,
     };
-    lastMode = mode;
+    shared.lastMode = mode;
     logBuild(started, {
       mode,
       count,
