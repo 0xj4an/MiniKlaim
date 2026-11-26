@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { ErrorEvent } from "@sentry/nextjs";
-import { onlyThirdPartyFrames, sentryInitOptions } from "./sentryOptions";
+import {
+  isDatabaseUnavailable,
+  onlyThirdPartyFrames,
+  sentryInitOptions,
+} from "./sentryOptions";
 
 describe("sentryInitOptions beforeSend", () => {
   afterEach(() => {
@@ -99,5 +103,41 @@ describe("onlyThirdPartyFrames", () => {
       },
     } as unknown as ErrorEvent;
     expect(onlyThirdPartyFrames(event)).toBe(false);
+  });
+});
+
+describe("database outage grouping", () => {
+  const send = (values: string[]) => {
+    const { beforeSend } = sentryInitOptions();
+    const event = {
+      exception: { values: values.map((value) => ({ type: "Error", value })) },
+    } as ErrorEvent;
+    return beforeSend(event) as ErrorEvent | null;
+  };
+
+  it("files every route's failure during an outage under one issue", () => {
+    const a = send([
+      "getaddrinfo ENOTFOUND postgres",
+      'Failed query: select "player_id" from "player_wallets" params: x,1',
+    ]);
+    const b = send([
+      "terminating connection due to administrator command",
+      'Failed query: insert into "users" params: y',
+    ]);
+    expect(a?.fingerprint).toEqual(["database-unavailable"]);
+    expect(b?.fingerprint).toEqual(["database-unavailable"]);
+    expect(a?.level).toBe("warning");
+    expect(a?.tags?.outage).toBe("database");
+  });
+
+  it("leaves a query that failed on its own merits alone", () => {
+    const e = send(['Failed query: select 1 params: ', 'column "x" does not exist']);
+    expect(e?.fingerprint).toBeUndefined();
+    expect(e?.level).toBeUndefined();
+  });
+
+  it("does not take an RPC node refusing a connection for the database", () => {
+    expect(isDatabaseUnavailable("connect ECONNREFUSED 10.0.0.9:8545")).toBe(false);
+    expect(isDatabaseUnavailable("connect ECONNREFUSED 172.18.0.4:5432")).toBe(true);
   });
 });

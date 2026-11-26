@@ -92,6 +92,16 @@ export function sentryInitOptions(): SentryInitOptions {
           }
         }
       }
+      // The database went away (a restart on 25 Nov 2026: 74 s). Every
+      // route that touched it failed in its own words, and each became its
+      // own issue with its own email: twenty for one event. One issue, as a
+      // warning; the outage itself is Prometheus's to announce.
+      if (parts.some((part) => isDatabaseUnavailable(part))) {
+        event.level = "warning";
+        event.tags = { ...event.tags, outage: "database" };
+        event.fingerprint = ["database-unavailable"];
+        return event;
+      }
       // A wallet extension threw inside its own injected script (MetaMask's
       // "Failed to connect", "extension not found": MINIKLAIM-13). Kept, so
       // a real wallet problem stays visible, but as a warning grouped into one
@@ -105,6 +115,23 @@ export function sentryInitOptions(): SentryInitOptions {
       return event;
     },
   };
+}
+
+const DATABASE_GONE = [
+  "getaddrinfo ENOTFOUND postgres",
+  "terminating connection due to administrator command",
+  "the database system is starting up",
+  "the database system is shutting down",
+  "CONNECTION_CLOSED",
+  "CONNECTION_ENDED",
+  "CONNECT_TIMEOUT",
+];
+
+/** A failure of the connection to Postgres, not of a query. */
+export function isDatabaseUnavailable(message: string): boolean {
+  if (DATABASE_GONE.some((needle) => message.includes(needle))) return true;
+  // Refused connections are also how an RPC node fails; only the database's.
+  return message.includes("ECONNREFUSED") && /5432|postgres/i.test(message);
 }
 
 const THIRD_PARTY = ["/ingest/static/"];
