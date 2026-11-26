@@ -14,6 +14,7 @@ import { HEXES_MINT_TOKENS_ABI } from "@/lib/onchain/hexesAbi";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import * as Sentry from "@sentry/nextjs";
 import {
+  affordableCount,
   mintFailureFingerprint,
   mintFailureKind,
   mintFailureTitle,
@@ -95,6 +96,8 @@ export function useMintTokens(address: Address | null) {
   const [status, setStatus] = useState<TokenStatus | null>(null);
   const [state, setState] = useState<MintTokensState>("idle");
   const [lastMinted, setLastMinted] = useState(0);
+  /** After a no_fee: the batch the balance does cover, when the node said. */
+  const [affordable, setAffordable] = useState<number | null>(null);
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
@@ -117,6 +120,7 @@ export function useMintTokens(address: Address | null) {
   const mint = useCallback(
     async (limit?: number) => {
       if (!walletClient || !address) return;
+      setAffordable(null);
       setState("fetching-voucher");
       let voucher: Voucher;
       try {
@@ -178,8 +182,12 @@ export function useMintTokens(address: Address | null) {
         }
         // Keep the wallet's own message: "tx" alone left 32 failures on 20-21
         // Oct undiagnosable.
-        const message = errorText(e).slice(0, 200);
+        const full = errorText(e);
+        const message = full.slice(0, 200);
         const kind = mintFailureKind(e);
+        if (kind === "no_fee") {
+          setAffordable(affordableCount(full, voucher.h3Ids.length));
+        }
         log.warn("mintTokens tx failed", { kind, message });
         track("nft_mint_failed", {
           reason: kind,
@@ -328,5 +336,14 @@ export function useMintTokens(address: Address | null) {
    */
   const reload = useCallback(() => setRefresh((n) => n + 1), []);
 
-  return { status, state, mint, mintFree, freeToday, lastMinted, reload };
+  return {
+    status,
+    state,
+    mint,
+    mintFree,
+    freeToday,
+    lastMinted,
+    affordable,
+    reload,
+  };
 }

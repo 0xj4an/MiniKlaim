@@ -4,6 +4,7 @@ import {
   mintFailureKind,
   mintFailureTitle,
   shouldReportMintFailure,
+  affordableCount,
 } from "./mintFailure";
 
 // The wallet's own words, copied from real events rather than invented, so a
@@ -83,5 +84,25 @@ describe("mintFailureTitle", () => {
     for (const k of ["permission_denied", "wallet_internal", "tx"] as const) {
       expect(mintFailureTitle(k)).not.toMatch(/^Module\./);
     }
+  });
+});
+
+describe("affordableCount", () => {
+  const refusal =
+    "insufficient fee-currency balance: required 253979679387217500, available 143304000000000000 for sender 0xabc";
+
+  it("sizes a batch the balance covers, with room to spare", () => {
+    // 700 x 0.1433 / 0.2540 = 394 at the same price; 80% of that.
+    expect(affordableCount(refusal, 700)).toBe(315);
+  });
+
+  it("offers nothing when the message has no figures", () => {
+    expect(affordableCount("insufficient funds for gas", 700)).toBeNull();
+  });
+
+  it("offers nothing when not even one block fits or nothing is short", () => {
+    expect(affordableCount("required 1000, available 1", 5)).toBeNull();
+    expect(affordableCount("required 100, available 100", 700)).toBeNull();
+    expect(affordableCount(refusal, 1)).toBeNull();
   });
 });

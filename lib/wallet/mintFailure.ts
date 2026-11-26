@@ -77,3 +77,29 @@ export function mintFailureTitle(kind: MintFailureKind): string {
       return "nft mint tx failed";
   }
 }
+
+/**
+ * How many blocks the balance does cover, from the node's own refusal.
+ *
+ * "insufficient fee-currency balance: required 253979679387217500,
+ * available 143304000000000000": a batch of 700 priced past what the wallet
+ * held (26 Nov 2026). The fee grows with the batch, so a smaller one fits.
+ * The margin covers the fixed part of the fee and a price that moves between
+ * the two tries. Null when the message says nothing usable or when nothing
+ * meaningfully smaller would fit.
+ */
+export function affordableCount(message: string, count: number): number | null {
+  const m = /required\s+(\d+)\D+available\s+(\d+)/i.exec(message);
+  if (!m || count <= 1) return null;
+  let required: bigint;
+  let available: bigint;
+  try {
+    required = BigInt(m[1]);
+    available = BigInt(m[2]);
+  } catch {
+    return null;
+  }
+  if (required <= BigInt(0) || available <= BigInt(0) || available >= required) return null;
+  const fits = Number((BigInt(count) * available * BigInt(80)) / (required * BigInt(100)));
+  return fits >= 1 && fits < count ? fits : null;
+}
