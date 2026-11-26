@@ -1,19 +1,19 @@
 import { existsSync } from "node:fs";
 import { NextResponse } from "next/server";
-import { DRAIN_FLAG } from "@/lib/drain";
+import { DRAIN_FLAG, readiness } from "@/lib/drain";
+import { worldListWarm } from "@/lib/map/worldList";
 
 /**
  * Whether this container should get new requests. For Caddy's active health
  * check, not for people.
  *
- * A deploy replaces each container with `docker compose up`, which sends
- * SIGTERM, and Next stops listening and finishes what it holds. What it holds
- * is fine; what is lost is the request already on its way when the socket
- * closes, about one per deploy (24-26 Nov 2026, nine 502s, mostly GETs over
- * HTTP/3 that Caddy does not retry). ops/deploy.sh now drops a flag file in
- * the container first, this answers 503 while it is there, Caddy stops
- * routing here within its check interval, and only then is the container
- * replaced.
+ * Not ready while a deploy is draining it (ops/deploy.sh drops a flag file
+ * first, so requests stop arriving before SIGTERM), and not ready until the
+ * world list is built, so a container fresh from a deploy is not handed the
+ * map while it still has to read every block (15 to 22 s on 26 Nov 2026).
+ * The second wait has a ceiling: a container that cannot build the list, say
+ * with the database down, is still let in after `COLD_MAX_S`, so a bad start
+ * never takes both containers out.
  *
  * Kept apart from /api/health on purpose: that one answers 503 when the
  * database is down, and an active check on it would take both containers out
@@ -22,12 +22,13 @@ import { DRAIN_FLAG } from "@/lib/drain";
 export const dynamic = "force-dynamic";
 
 export function GET() {
-  const draining = existsSync(DRAIN_FLAG);
-  return NextResponse.json(
-    { ready: !draining },
-    {
-      status: draining ? 503 : 200,
-      headers: { "cache-control": "no-store" },
-    },
-  );
+  const state = readiness({
+    draining: existsSync(DRAIN_FLAG),
+    warm: worldListWarm(),
+    uptimeS: process.uptime(),
+  });
+  return NextResponse.json(state, {
+    status: state.ready ? 200 : 503,
+    headers: { "cache-control": "no-store" },
+  });
 }

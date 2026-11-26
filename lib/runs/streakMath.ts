@@ -16,27 +16,58 @@ function dayKey(d: string): string {
   return d.slice(0, 10);
 }
 
+/**
+ * One formatter per zone, built once.
+ *
+ * Building an `Intl.DateTimeFormat` loads the zone's rules and is expensive;
+ * using one is cheap. Both helpers below used to build a fresh one per call,
+ * and the streak is computed from every run a player has: about 1.5 s of CPU
+ * per stats request for a player with a few thousand runs, profiled in
+ * production on 26 Nov 2026, and the largest single cause of the server
+ * stalling when someone opened the app. Players use a handful of zones, so
+ * the cache stays tiny; it is capped anyway so a client sending made-up
+ * zone names cannot grow it.
+ */
+const DAY_FORMATS = new Map<string, Intl.DateTimeFormat>();
+const BAD_ZONES = new Set<string>();
+const MAX_ZONES = 500;
+
+function dayFormat(tz: string): Intl.DateTimeFormat | null {
+  const hit = DAY_FORMATS.get(tz);
+  if (hit) return hit;
+  if (BAD_ZONES.has(tz)) return null;
+  let made: Intl.DateTimeFormat;
+  try {
+    // en-CA formats as yyyy-mm-dd.
+    made = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  } catch {
+    if (BAD_ZONES.size < MAX_ZONES) BAD_ZONES.add(tz);
+    return null;
+  }
+  if (DAY_FORMATS.size < MAX_ZONES) DAY_FORMATS.set(tz, made);
+  return made;
+}
+
 /** True when `tz` is an IANA zone this runtime understands. */
 export function isValidTimeZone(tz: unknown): tz is string {
   if (typeof tz !== "string" || tz.length === 0 || tz.length > 64) return false;
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: tz });
-    return true;
-  } catch {
-    return false;
-  }
+  return dayFormat(tz) !== null;
 }
 
 /** Calendar day (yyyy-mm-dd) of `now` in `timeZone` (UTC when missing or invalid). */
 export function localDay(now: number, timeZone?: string | null): string {
-  const tz = isValidTimeZone(timeZone) ? timeZone : "UTC";
-  // en-CA formats as yyyy-mm-dd.
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(now));
+  const format =
+    (typeof timeZone === "string" &&
+      timeZone.length > 0 &&
+      timeZone.length <= 64 &&
+      dayFormat(timeZone)) ||
+    (dayFormat("UTC") as Intl.DateTimeFormat);
+  return format.format(new Date(now));
 }
 
 /**
