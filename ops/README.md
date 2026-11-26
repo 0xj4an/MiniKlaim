@@ -116,6 +116,10 @@ miniklaim.fun, www.miniklaim.fun {
         lb_try_duration 20s
         lb_try_interval 250ms
         fail_duration 15s
+        health_uri /api/ready
+        health_interval 2s
+        health_timeout 2s
+        health_status 200
         transport http {
             dial_timeout 1s
         }
@@ -140,14 +144,33 @@ behaviour stays predictable. `fail_duration` benches an upstream that
 refused a connection, so during a recreation requests go straight to the
 other one instead of each paying a failed dial first.
 
-**There are deliberately no active health checks.** `health_uri /api/health`
-is the obvious thing to add and it would be a mistake: that route answers
-**503 when the database is slow or unreachable**, so a Postgres blip would
-mark *both* upstreams unhealthy and Caddy would 502 everything, including the
-pages that never touch the database. Passive checking keys off whether a TCP
-connection can be opened, which is exactly what is false while a container is
-being replaced and is blind to database state. `ops/deploy.sh` gates its
-rolling restart on the same signal for the same reason.
+**The active health check is on `/api/ready`, never on `/api/health`.**
+`/api/health` answers **503 when the database is slow or unreachable**, so an
+active check on it would mark *both* upstreams unhealthy during a Postgres
+blip and Caddy would 502 everything, including the pages that never touch the
+database. Until 26 Nov 2026 there was no active check at all, for that reason.
+
+What passive checking could not catch was the request already on its way to
+a container at the moment it closed its socket: about one 502 per deploy
+(nine in 48 h, 24-26 Nov), mostly GETs over HTTP/3 that `lb_retry_match`
+does not retry. So the app has a second route, `/api/ready`, that touches no
+database, is exempt from the rate limit and from maintenance mode, and
+answers 503 only while `/tmp/miniklaim-draining` exists in its container.
+`ops/deploy.sh` creates that file and waits `DRAIN_WAIT` (5 s) before
+replacing each container, and the block above gained (VPS admin, 26 Nov):
+
+```
+        health_uri /api/ready
+        health_interval 2s
+        health_timeout 2s
+        health_status 200
+```
+
+With a 2 s interval Caddy sees the 503 at least twice inside the 5 s wait,
+stops routing new requests there, and Next finishes the ones it holds on
+SIGTERM. A new container starts without the file, so it is ready as soon as it
+answers. Do not point the check anywhere that can fail for both containers at
+once.
 
 Only a *failed connection* is retried, so nothing was sent and replaying is
 safe even for a POST. App-level 500s do not bench an upstream either, because

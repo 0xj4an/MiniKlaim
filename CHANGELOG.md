@@ -2,6 +2,30 @@
 
 All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project does not use SemVer tags today, so entries are dated instead.
 
+## 2026-11-26
+
+### Changed
+
+- **Minting NFTs says what happened, and checks your balance before asking you to sign.** After a run, tapping Mint with too little in the wallet asked for two signatures (one per fee currency), both failed, and the screen went back to "Mint" without a word. The run summary now compares your balance with the quoted fee first: if it does not cover the batch it says so and offers the batch it does cover. Whatever happens, it says the result (minted, not enough for the fee, refused, error). The profile also says when a paid mint was refused, instead of silently switching its button to the free offer.
+
+- **Deploys should no longer cut off a request in flight.** Each container is now taken out of rotation a few seconds before it is replaced. To be confirmed on the next deploys.
+
+### Fixed
+
+- **A walking route the map provider cannot draw reads as "no route", not as a server error.** A 160 km walk, or a point in the sea, used to come back as a 502.
+
+- **The world map is rebuilt from what changed, not from the whole table.** The server used to re-read every captured block (over 640,000) every 15 minutes in each container. It now keeps them in memory and reads only the new captures, with a full read at startup and every six hours.
+
+## 2026-11-24
+
+### Changed
+
+- **The used-block hint says when a block counts again.** Blocks you already captured today count again tomorrow; the hint now says so, and repeat captures fell from 61% to 50% of runs in the first day.
+
+- **The weekly challenge shows how many entrants qualify**, and reminds an entrant who has not earned every badge yet.
+
+> Changes between 28 Oct and 24 Nov are not written up here yet.
+
 ## 2026-10-28
 
 ### Changed

@@ -1,25 +1,32 @@
 # Deployment
 
-How MiniKlaim is deployed to production. Current setup: Railway (web + postgres + cron services), Celo and Soneium contracts deployed via Foundry.
+How MiniKlaim is deployed to production. Current setup: a self-managed VPS running Docker Compose (two app containers behind Caddy, Postgres, two scheduled jobs), with Celo and Soneium contracts deployed via Foundry. Production moved off Railway in late October 2026; the Railway notes further down are kept for reference and marked as such. How the VPS runs day to day lives in [../ops/README.md](../ops/README.md).
 
 For local dev see [LOCAL-DEV.md](LOCAL-DEV.md).
 
 ## Overview
 
 ```text
-GitHub main branch  ->  Railway auto-deploy  ->  web + postgres + crons
+feature branch -> PR into dev -> PR dev into main -> VPS auto-deploy -> ops/deploy.sh
+                                                                          |
+                         Caddy -> miniklaim (primary) + miniklaim-standby  |
+                                  Postgres (PostGIS + H3)  <---------------+
+                                  retry-unminted, finalize-orphans jobs
                                                        |
                                                        v
-                                                Celo mainnet
-                                                Soneium mainnet
+                                          Celo mainnet, Soneium mainnet
 ```
 
-- **Web service (Next.js)**: auto-deploys on push to `main`. `preDeployCommand: npm run db:migrate` runs Drizzle migrations on every deploy.
-- **Postgres**: managed by Railway (`chikeozulumba/postgres-postgis-h3` image, includes PostGIS + H3 extensions).
-- **Cron services**: two separate Railway services running scheduled scripts. See [Cron services](#cron-services) below.
+- **Branch flow**: `main` only accepts pull requests from `dev`, with CI green. Every commit in a PR is also checked for authorship (`.github/check-commit-authors.sh`), so history never has to be rewritten after the fact.
+- **Web service (Next.js)**: a job on the VPS polls `main` every five minutes and runs [`ops/deploy.sh`](../ops/deploy.sh) when it moves. That script builds the image, runs migrations, and replaces the standby and then the primary one at a time, draining each first. See [../ops/README.md](../ops/README.md).
+- **Postgres**: a container on the same VPS, with PostGIS and H3.
+- **Scheduled jobs**: `miniklaim-retry-unminted` and `miniklaim-finalize-orphans`, always-on containers that sleep between runs. Schedule and purpose: [../ops/README.md#the-jobs](../ops/README.md#the-jobs).
 - **Contracts**: deployed manually via Foundry scripts. Not auto-deployed.
+- **Checking a deploy**: `GET /api/health` reports `build.release` (the commit running), database, signer, relayer balance, and `env.missing`, the required settings that are not set. A deploy is done when `build.release` shows the merged commit.
 
 ## Web service
+
+> The service names, commands and "checked against Railway" notes in this section describe the Railway setup before the move to the VPS. The environment variable table still applies: the same variables are set on the VPS containers.
 
 **Railway project**: `MiniKlaim`
 **Service**: `web`
@@ -51,6 +58,10 @@ Set via Railway UI or `railway variables --service web --set "KEY=VALUE"`:
 | `RESEND_API_KEY` | Resend key for the in-app support form (`/api/support` sends to support@ with reply-to set to the player). Unset: the route returns 503 and the form offers the old mailto fallback. | `re_...` |
 | `SPONSOR_DAILY_HEX_CAP` | Hexes per wallet per day the relayer will settle when the player can't pay. Code default 200; production 10,000 since 2026-10-23 (long runs of 2,000–4,500 hexes were being capped). Set on `web` and `cron-retry-unminted`. | `10000` |
 | `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` | Sentry error reporting and source-map upload at build. |: |
+| `GEOAPIFY_API_KEY` | Place search and walking routes on /run. Unset: those routes answer 503. Listed in `/api/health` `env.missing` when absent. | (from Geoapify) |
+| `SPONSOR_CLAIMS_FLOOR_CELO` | Relayer balance below which it stops paying for run claims and players pay their own gas. Code default 25. | `25` |
+| `RELAYER_LOW_BALANCE_CELO` | Balance at which the app logs a low-relayer warning. | `25` |
+| `ADMIN_SECRET` | Optional. Opens the maintenance routes under `/api/admin`; without it they answer closed. | (unset) |
 
 `ETHERSCAN_API_KEY` is deliberately **not** in that table. No application code reads it; only Foundry does, for contract verification, and Foundry never runs on Railway. It belongs in the local `.env.local` and nowhere else. It was set on the production service until 2026-09-23 and was removed as dead config.
 

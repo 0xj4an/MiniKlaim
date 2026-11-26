@@ -11,7 +11,8 @@ Organised along [Diataxis](https://diataxis.fr) lines: a page that explains is n
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Explanation | You want the mental model: layers, run settlement, identity, multichain, anti-abuse, MiniPay constraints. |
 | [CONTRACTS.md](CONTRACTS.md) | Reference | You need an address, a role, a deploy block, the upgrade model, fee-currency adapters, or the provenance of anything on-chain. |
 | [API.md](API.md) | Reference | You need an endpoint's shape, status codes, or request body. |
-| [DEPLOYMENT.md](DEPLOYMENT.md) | How-to | You are shipping: Railway services, env vars, cron jobs, contract deploys, relayer funding, rollback. |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | How-to | You are shipping: branch flow, env vars, contract deploys, relayer funding, rollback. |
+| [../ops/README.md](../ops/README.md) | How-to | You are running production: the VPS, rolling deploys, the proxy, the scheduled jobs. |
 | [LOCAL-DEV.md](LOCAL-DEV.md) | How-to | You are setting up a dev machine: Postgres, H3, env, ngrok for MiniPay. |
 | [../contracts/README.md](../contracts/README.md) | How-to | You are working inside the Foundry workspace: install, build, test, lint. |
 | [../SECURITY.md](../SECURITY.md) | Explanation | You are assessing trust: audit status, key concentration, threat model, disclosure. |
@@ -28,13 +29,14 @@ Duplicating any of these is how the docs drifted before: the Foundry suite was d
 | Copyable contract addresses for config | `.env.example` | - |
 | Roles, upgrade model, provenance, role history | [CONTRACTS.md](CONTRACTS.md) | link |
 | Test-suite breakdown | [CONTRACTS.md](CONTRACTS.md) | run `forge test` |
-| Production env vars, Railway services, cron schedules | [DEPLOYMENT.md](DEPLOYMENT.md) | link |
+| Production env vars | [DEPLOYMENT.md](DEPLOYMENT.md) | link |
+| VPS services, deploy steps, job schedules, proxy config | [../ops/README.md](../ops/README.md) | link |
 | Endpoint contracts | [API.md](API.md) | link |
 | Threat model and key concentration | [../SECURITY.md](../SECURITY.md) | link |
 | Badge catalog | `lib/onchain/badgeCatalog.ts` | link |
 | Token and fee-adapter addresses | `lib/tokens.ts`, mirrored in [CONTRACTS.md](CONTRACTS.md) | link |
 
-Live state beats every document here. Chain data comes from an RPC or an explorer, Railway config from Railway. When a doc contradicts the live source, the doc is wrong.
+Live state beats every document here. Chain data comes from an RPC or an explorer, server state from `/api/health` and the VPS. When a doc contradicts the live source, the doc is wrong.
 
 ## Working notes (local only, not in git)
 
