@@ -24,7 +24,67 @@ All notable user-facing changes to MiniKlaim. Format loosely based on [Keep a Ch
 
 - **The weekly challenge shows how many entrants qualify**, and reminds an entrant who has not earned every badge yet.
 
-> Changes between 28 Oct and 24 Nov are not written up here yet.
+## 2026-11-17 to 2026-11-23
+
+### Added
+
+- **A new look across the app**: one header, card style and accent on every screen, a home screen for returning players with a Play tab, a lighter first run and a shorter profile.
+- **The weekly challenge as a game card**: live countdown, last week's result and winners, badge progress, how many entrants already qualify, and a notice to an entrant who is not in the draw yet. A paid entry is always recorded, even when the chain node lags.
+- **Directions to a place on /run**, optional, from a search pill.
+- **Share a run as a picture**: its own page with the blocks drawn and the numbers beside them.
+- **Rest days**: one missed day no longer ends a long streak. A day is cut in the zone the run was played in.
+- **Help for players who cannot pay**: up to 3 badges and 100 NFTs a day minted for free. Each badge says what it is for, and what claiming it costs, before the wallet opens.
+- **Leaderboard and community show each player's badges** grouped by category.
+
+### Changed
+
+- The run sheet shows a run's blocks as sums that add up, one line per thing a run or a raid did.
+- The run map says before Start when the block underfoot will not count, and shows the GPS notice at once when a run starts without a fix.
+- The world map puts its dots on real blocks, paints them before the base map finishes loading, and has a north-up or heading-up button.
+
+## 2026-11-08 to 2026-11-16
+
+### Added
+
+- **The weekly challenge launched**: paid entry split onchain, one ticket per player, approve once then enter with one tap, and a verifiable draw. Entries can be paused from a server flag.
+- **The run map explains itself**: GPS getting ready, each capture as it lands, blocks already used today, what each color means, and a notice when blocks are queued.
+- **Players are told who took or attacked their blocks**, and what a pass did to someone else's block (stolen, attacked, and the level it was left at). Top-10 blocks show their owner's rank.
+
+### Changed
+
+- Deploys replace the two app containers one at a time, so a deploy no longer drops everyone's request.
+- A drive without signal keeps its blocks: a late batch is timed by when it was crossed.
+- The language button shows the language it will switch you to.
+- Horses can go at any speed.
+
+### Fixed
+
+- The run map no longer downloads the player's whole block list after every batch, and one world download runs at a time.
+- One conquests total for profile, stats and badges.
+
+## 2026-10-29 to 2026-11-07
+
+### Added
+
+- **Hidden treasures** to find by tapping, claimed through the relayer.
+- **The relayer pays the claim**, and the NFT offer says what it costs.
+- **Three map renderers** chosen once per device (WebGL2, WebGL1 and a plain grid), so phones without WebGL2 still get a working map on /run, /me and /community.
+- The streak lives on the home screen, and each badge's description shows in the run summary.
+
+### Changed
+
+- Production moved to a self-managed VPS after the 28 Oct outage; players caught by it were told what happened on the home screen.
+- The world map stays on the phone between visits, and is served already thinned to the zoom it draws.
+- The leaderboard is built once every 30 s instead of on every request.
+- Outside MiniPay, gas can be paid in CELO.
+
+### Fixed
+
+- A block you already own can be reinforced again.
+- A slow GPS chip no longer locks a player out of the game, and a player can pinch the run map out past the city.
+- A time zone Postgres does not know no longer breaks the profile.
+- Streak days are counted in the player's own zone.
+- Minting failures are reported once per kind, and the player is told to retry.
 
 ## 2026-10-28
 
