@@ -205,7 +205,12 @@ type EventMap = {
    * `signatures` is how many wallet prompts the plan needs, so the drop-off
    * between one signature and several is measurable.
    */
-  run_summary_nft_tapped: { pending: number; signatures: number };
+  run_summary_nft_tapped: {
+    pending: number;
+    signatures: number;
+    /** The smaller batch offered after the wallet could not pay the full one. */
+    smaller?: number;
+  };
   run_summary_nft_skipped: { pending: number };
   streak_shown: { streak: number; counted: boolean };
 

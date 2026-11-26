@@ -88,6 +88,8 @@ export function RunSummaryModal({
   const {
     status: tokenStatus,
     state: mintState,
+    affordable: mintAffordable,
+    lastMinted,
     mint,
     reload: reloadTokens,
   } = useMintTokens((address as `0x${string}` | null) ?? null);
@@ -484,6 +486,55 @@ export function RunSummaryModal({
               </button>
             </div>
           )}
+        {/* What the tap came to. The row above went back to "Mint" after a
+            failure and said nothing, so a wallet that asked twice and then
+            refused read as an app that did nothing (26 Nov 2026). */}
+        {phase === "done" && !nftDismissed && tokenStatus?.enabled && (
+          <>
+            {mintState === "done" && lastMinted > 0 && (
+              <p role="status" className="mt-1.5 text-[13px] leading-tight text-green-700">
+                {t("me.nfts.done").replace(
+                  "{count}",
+                  groupNumber(lastMinted, locale),
+                )}
+              </p>
+            )}
+            {mintState === "no_fee" && (
+              <div role="status" className="mt-1.5 text-[13px] leading-tight text-red-600">
+                <p>{t("me.nfts.noFee")}</p>
+                {mintAffordable !== null && (
+                  <button
+                    type="button"
+                    className="mk-btn mk-btn-sm mk-btn-ink mt-1.5 px-3.5"
+                    onClick={() => {
+                      track("run_summary_nft_tapped", {
+                        pending: tokenStatus.recorded,
+                        signatures: 1,
+                        smaller: mintAffordable,
+                      });
+                      void mint(mintAffordable);
+                    }}
+                  >
+                    {t("run.summary.nftMintSome").replace(
+                      "{count}",
+                      groupNumber(mintAffordable, locale),
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+            {mintState === "refused" && (
+              <p role="status" className="mt-1.5 text-[13px] leading-tight text-amber-700">
+                {t("me.nfts.refused")}
+              </p>
+            )}
+            {mintState === "error" && (
+              <p role="status" className="mt-1.5 text-[13px] leading-tight text-red-600">
+                {t("me.nfts.error")}
+              </p>
+            )}
+          </>
+        )}
         {phase === "done" && nftDismissed && (
           <p className="mt-2.5 text-[13px] leading-tight text-zinc-500">
             {t("run.summary.nftSkipped")}
