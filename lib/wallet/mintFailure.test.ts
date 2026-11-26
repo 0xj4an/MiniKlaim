@@ -5,6 +5,7 @@ import {
   mintFailureTitle,
   shouldReportMintFailure,
   affordableCount,
+  batchWithinFunds,
 } from "./mintFailure";
 
 // The wallet's own words, copied from real events rather than invented, so a
@@ -104,5 +105,27 @@ describe("affordableCount", () => {
     expect(affordableCount("required 1000, available 1", 5)).toBeNull();
     expect(affordableCount("required 100, available 100", 700)).toBeNull();
     expect(affordableCount(refusal, 1)).toBeNull();
+  });
+});
+
+describe("batchWithinFunds", () => {
+  it("keeps the whole batch when the balance covers the quote", () => {
+    expect(batchWithinFunds(700, 0.32, 0.5)).toBe(700);
+    expect(batchWithinFunds(700, 0.32, 0.32)).toBe(700);
+  });
+
+  it("sizes the batch down to the balance, with room to spare", () => {
+    // 26 Nov 2026: 0.143 held against a 0.32 quote for 700.
+    expect(batchWithinFunds(700, 0.32, 0.143)).toBe(250);
+  });
+
+  it("offers nothing to a wallet that cannot pay for one", () => {
+    expect(batchWithinFunds(700, 0.32, 0)).toBe(0);
+    expect(batchWithinFunds(700, 0.32, 0.0001)).toBe(0);
+  });
+
+  it("does not block a mint when the price or the balance is unknown", () => {
+    expect(batchWithinFunds(700, null, 0)).toBe(700);
+    expect(batchWithinFunds(700, 0.32, null)).toBe(700);
   });
 });

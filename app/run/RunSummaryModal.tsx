@@ -20,6 +20,7 @@ import { badgeCopy } from "@/lib/onchain/badgeArt";
 import { useActiveChainKey } from "@/lib/onchain/useActiveChain";
 import { isBadgeClaimPending } from "@/lib/wallet/claimInFlight";
 import type { ClaimAllOutcome } from "@/lib/wallet/useClaimAll";
+import { batchWithinFunds } from "@/lib/wallet/mintFailure";
 import { useMintTokens } from "@/lib/wallet/useMintTokens";
 import { ChallengeMovedNote } from "./ChallengeRunBits";
 import { RunBreakdown } from "./RunBreakdown";
@@ -89,10 +90,17 @@ export function RunSummaryModal({
     status: tokenStatus,
     state: mintState,
     affordable: mintAffordable,
+    feeFunds,
     lastMinted,
     mint,
     reload: reloadTokens,
   } = useMintTokens((address as `0x${string}` | null) ?? null);
+  const nftBatchUsd =
+    tokenStatus?.quotes.find((q) => q.count === tokenStatus.nextBatch)?.usd ??
+    null;
+  const nftFit = tokenStatus
+    ? batchWithinFunds(tokenStatus.nextBatch, nftBatchUsd, feeFunds)
+    : 0;
   const [badgeIds, setBadgeIds] = useState<number[] | null>(null);
   const [shareNote, setShareNote] = useState<string | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -419,6 +427,13 @@ export function RunSummaryModal({
                   )}
                 </span>
                 {(() => {
+                  if (nftFit < tokenStatus.nextBatch && nftBatchUsd != null) {
+                    // Said before the wallet is asked: the balance is under
+                    // the fee for this batch, so the wallet would refuse.
+                    return t("run.summary.nftShort")
+                      .replace("{funds}", (feeFunds ?? 0).toFixed(2))
+                      .replace("{usd}", nftBatchUsd.toFixed(2));
+                  }
                   const usd =
                     tokenStatus.plan?.usd ??
                     tokenStatus.quotes.find(
@@ -432,7 +447,8 @@ export function RunSummaryModal({
                         usd.toFixed(2),
                       );
                 })()}
-                {(tokenStatus.plan?.signatures ?? 1) > 1 &&
+                {nftFit >= tokenStatus.nextBatch &&
+                  (tokenStatus.plan?.signatures ?? 1) > 1 &&
                   ` ${t("run.summary.nftBatches").replaceAll(
                     "{signatures}",
                     String(tokenStatus.plan.signatures),
@@ -442,23 +458,31 @@ export function RunSummaryModal({
                 type="button"
                 className="mk-btn mk-btn-sm mk-btn-ink shrink-0 px-3.5 disabled:opacity-60"
                 disabled={
+                  nftFit === 0 ||
                   mintState === "fetching-voucher" ||
                   mintState === "sending" ||
                   mintState === "confirming"
                 }
                 onClick={() => {
+                  const smaller = nftFit < tokenStatus.nextBatch;
                   track("run_summary_nft_tapped", {
                     pending: tokenStatus.recorded,
-                    signatures: tokenStatus.plan?.signatures ?? 1,
+                    signatures: smaller ? 1 : (tokenStatus.plan?.signatures ?? 1),
+                    ...(smaller ? { smaller: nftFit } : {}),
                   });
-                  void mint();
+                  void mint(smaller ? nftFit : undefined);
                 }}
               >
                 {mintState === "fetching-voucher" || mintState === "sending"
                   ? t("me.nfts.minting")
                   : mintState === "confirming"
                     ? t("me.nfts.confirming")
-                    : t("run.summary.nftGo")}
+                    : nftFit > 0 && nftFit < tokenStatus.nextBatch
+                      ? t("run.summary.nftMintCount").replace(
+                          "{count}",
+                          groupNumber(nftFit, locale),
+                        )
+                      : t("run.summary.nftGo")}
               </button>
               <button
                 type="button"
