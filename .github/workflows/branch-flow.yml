@@ -1,18 +1,34 @@
 name: Branch flow
 
 # main only receives dev. Feature branches go to dev; dev goes to main when
-# it is ready to ship (Railway builds main). Fails any PR into main whose
-# head is not dev, so a feature branch cannot skip integration by mistake.
+# it is ready to ship. Fails any PR into main whose head is not dev, so a
+# feature branch cannot skip integration by mistake.
+#
+# Every PR into dev or main also has its commits checked for authorship.
+# On 19-23 Nov 2026 nine commits reached main authored as an AI assistant
+# (a fresh container's default git identity) and seven carried
+# assistant trailers. Taking them out needed a history rewrite with branch
+# protection switched off by hand. Stopping them at the PR means that never
+# has to happen again: fix the commit on the branch, push, and the check
+# goes green.
 on:
   pull_request:
-    branches: [main]
+    branches: [main, dev]
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   only-dev-into-main:
     name: main accepts only dev
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
       - name: Check head branch
+        if: github.base_ref == 'main'
         env:
           HEAD: ${{ github.head_ref }}
         run: |
@@ -21,3 +37,23 @@ jobs:
             exit 1
           fi
           echo "head is dev, ok"
+      - name: Check commit authorship
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: bash .github/check-commit-authors.sh
+
+  commit-authors:
+    name: commit authorship
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+      - name: Check commit authorship
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: bash .github/check-commit-authors.sh
