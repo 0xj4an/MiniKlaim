@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { STALL_WARN_MS, stallReport } from "@/lib/eventLoopStall";
+import { STALL_WARN_MS, gcWindow, stallReport } from "@/lib/eventLoopStall";
 
 const ms = (n: number) => n * 1e6;
 
@@ -29,5 +29,22 @@ describe("stallReport", () => {
       p99Ms: 0,
       meanMs: 0,
     });
+  });
+});
+
+describe("gcWindow", () => {
+  test("keeps the longest collection and its kind, and starts over when read", () => {
+    const w = gcWindow();
+    w.add(12.4, 1);
+    w.add(1830.2, 2);
+    w.add(40, 4);
+    expect(w.take()).toEqual({ maxMs: 1830, totalMs: 1883, kind: "major", count: 3 });
+    expect(w.take()).toEqual({ maxMs: 0, totalMs: 0, kind: "none", count: 0 });
+  });
+
+  test("names a kind it does not know instead of dropping it", () => {
+    const w = gcWindow();
+    w.add(5, 64);
+    expect(w.take().kind).toBe("other");
   });
 });
