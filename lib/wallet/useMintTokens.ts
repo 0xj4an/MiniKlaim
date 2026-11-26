@@ -336,7 +336,19 @@ export function useMintTokens(address: Address | null) {
    */
   const reload = useCallback(() => setRefresh((n) => n + 1), []);
 
+  // The most the player holds in any one fee currency, in dollars: a fee
+  // is paid in one currency, so balances do not add up. Null until read.
+  const held = [balances.USDm, balances.USDC, balances.USDT];
+  const feeFunds =
+    balances.isLoading || balances.isError
+      ? null
+      : held.reduce<number | null>((best, b) => {
+          const n = b ? Number(b.formatted) : 0;
+          return Number.isFinite(n) && n > (best ?? -1) ? n : best;
+        }, null);
+
   return {
+    feeFunds,
     status,
     state,
     mint,
