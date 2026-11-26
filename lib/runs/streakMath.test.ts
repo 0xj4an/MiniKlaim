@@ -259,3 +259,25 @@ describe("rest days", () => {
     expect(daysToNextRestDay(22)).toBe(8);
   });
 });
+
+describe("zone formatters are built once", () => {
+  it("gives the same days as a fresh formatter, across zones and an invalid one", () => {
+    const now = Date.UTC(2026, 10, 26, 4, 30);
+    for (const tz of ["America/Bogota", "Asia/Tokyo", "UTC", "Europe/Madrid"]) {
+      const fresh = new Intl.DateTimeFormat("en-CA", {
+        timeZone: tz,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(now));
+      expect(localDay(now, tz)).toBe(fresh);
+      expect(localDay(now, tz)).toBe(fresh);
+    }
+    expect(localDay(now, "Not/AZone")).toBe(localDay(now, "UTC"));
+    expect(localDay(now, null)).toBe(localDay(now, "UTC"));
+    expect(isValidTimeZone("Not/AZone")).toBe(false);
+    expect(isValidTimeZone("Not/AZone")).toBe(false);
+    expect(isValidTimeZone("America/Bogota")).toBe(true);
+    expect(isValidTimeZone("x".repeat(65))).toBe(false);
+  });
+});

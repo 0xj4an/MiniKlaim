@@ -225,11 +225,29 @@ drain() {
   fi
 }
 
+wait_ready() {
+  local name="$1" ip i
+  ip="$(docker inspect -f '{{.NetworkSettings.Networks.shared.IPAddress}}' "$name" 2>/dev/null || true)"
+  [ -n "$ip" ] || return 0
+  for i in $(seq 1 60); do
+    if [ "$(curl -s -o /dev/null -m 3 -w '%{http_code}' "http://$ip:3000/api/ready" || true)" = "200" ]; then
+      echo "    $name ready after ~$((i * 2))s"
+      return 0
+    fi
+    sleep 2
+  done
+  echo "    $name not ready after 120s, carrying on (it lets itself in at 90s)"
+}
+
 echo "==> up (rolling: standby, then primary)"
 drain miniklaim-standby
 docker compose up -d --no-deps miniklaim-standby
 wait_serving miniklaim-standby
 warm miniklaim-standby
+# The primary is about to be drained, so everything will go to the standby.
+# Wait until the standby says it is ready (world list built, see
+# app/api/ready), or Caddy would have no ready upstream for those seconds.
+wait_ready miniklaim-standby
 drain miniklaim
 docker compose up -d --no-deps miniklaim
 wait_serving miniklaim

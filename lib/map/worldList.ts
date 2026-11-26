@@ -133,6 +133,16 @@ type Live = {
 
 
 
+/**
+ * Whether this process has built the world list once. /api/ready waits for
+ * it, so a container fresh from a deploy is not handed players until the map
+ * is in memory: the first /api/hexes after a deploy took 15 to 22 s while
+ * the list was built (26 Nov 2026).
+ */
+export function worldListWarm(): boolean {
+  return shared.live !== null;
+}
+
 /** Test hooks. `expire` makes the next call refresh, as the TTL would. */
 export const worldStateForTests = {
   /** Forget what is in memory, as a restart would. */
