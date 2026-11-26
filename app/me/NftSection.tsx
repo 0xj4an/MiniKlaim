@@ -224,8 +224,19 @@ export function NftSection({ address }: { address: `0x${string}` | null }) {
           {t("me.nfts.done").replace("{count}", lastMinted.toLocaleString())}
         </p>
       )}
-      {state === "no_fee" && freeToday === 0 && (
-        <p className="text-center text-xs text-red-600">{t("me.nfts.noFee")}</p>
+      {/* Said in both cases. With free mints left the button above quietly
+          became "mint 100 for free" and nothing said the paid mint had been
+          refused: a wallet that asked, failed, and a screen that looked the
+          same (26 Nov 2026). */}
+      {state === "no_fee" && (
+        <p role="status" className="text-center text-xs text-red-600">
+          {freeToday > 0
+            ? t("me.nfts.noFeeFree").replace(
+                "{count}",
+                freeToday.toLocaleString(),
+              )
+            : t("me.nfts.noFee")}
+        </p>
       )}
       {state === "refused" && (
         <p className="text-center text-xs text-amber-700">
