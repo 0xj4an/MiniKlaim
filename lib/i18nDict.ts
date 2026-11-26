@@ -185,6 +185,8 @@ export const dictionaries = {
       "Your wallet turned down the request. Tap the button again; this usually clears on a second try.",
     "me.nfts.noFee":
       "Not enough balance to pay the network fee. Add a little USDT, USDC, or USDm and try again.",
+    "me.nfts.noFeeFree":
+      "Your balance does not cover the network fee for that batch. You can mint {count} for free today with the button above.",
     "me.nfts.mintFree": "Mint {count} as NFTs for free",
     "me.nfts.freeNote":
       "With no balance for the fee, MiniKlaim pays for up to 100 NFTs a day.",
@@ -454,6 +456,9 @@ export const dictionaries = {
     "run.summary.nftLater": "Not now",
     "run.summary.nftGo": "Mint",
     "run.summary.nftMintSome": "Mint {count} with what you have",
+    "run.summary.nftMintCount": "Mint {count}",
+    "run.summary.nftShort":
+      "Your balance (${funds}) does not cover the ${usd} fee for all of them.",
     "run.summary.nftSkipped":
       "Your run is claimed. The NFTs stay available in your profile whenever you want them.",
     "run.summary.claimedBoth": "Blocks and badges claimed.",
@@ -1066,6 +1071,8 @@ export const dictionaries = {
       "Tu wallet rechazó la solicitud. Vuelve a tocar el botón: casi siempre se arregla al segundo intento.",
     "me.nfts.noFee":
       "No tienes saldo suficiente para la tarifa de red. Agrega un poco de USDT, USDC o USDm e intenta de nuevo.",
+    "me.nfts.noFeeFree":
+      "Tu saldo no cubre la tarifa de red de ese lote. Hoy puedes mintear {count} gratis con el botón de arriba.",
     "me.nfts.mintFree": "Mintear {count} como NFT gratis",
     "me.nfts.freeNote":
       "Sin saldo para la comisión, MiniKlaim te paga hasta 100 NFT al día.",
@@ -1334,6 +1341,9 @@ export const dictionaries = {
     "run.summary.nftLater": "Ahora no",
     "run.summary.nftGo": "Mintear",
     "run.summary.nftMintSome": "Mintear {count} con lo que tienes",
+    "run.summary.nftMintCount": "Mintear {count}",
+    "run.summary.nftShort":
+      "Tu saldo (${funds}) no cubre la tarifa de ${usd} para todas.",
     "run.summary.nftSkipped":
       "Tu ruta quedó reclamada. Los NFTs quedan disponibles en tu perfil cuando los quieras.",
     "run.summary.claimedBoth": "Cuadras e insignias reclamadas.",

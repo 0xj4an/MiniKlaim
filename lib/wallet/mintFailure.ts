@@ -103,3 +103,23 @@ export function affordableCount(message: string, count: number): number | null {
   const fits = Number((BigInt(count) * available * BigInt(80)) / (required * BigInt(100)));
   return fits >= 1 && fits < count ? fits : null;
 }
+
+/**
+ * The batch to offer before the wallet is asked at all.
+ *
+ * The quoted fee is what the server prices the batch at with its buffer
+ * (0.32 for 700 on 26 Nov 2026, when the node asked for 0.254 in reserve),
+ * so a balance under the quote is a wallet that will be refused. Asking
+ * anyway cost the player one prompt per fee currency and then silence.
+ * Returns the whole batch when either figure is unknown: a missing price
+ * must not block a mint that may well go through.
+ */
+export function batchWithinFunds(
+  count: number,
+  usd: number | null | undefined,
+  funds: number | null,
+): number {
+  if (usd === null || usd === undefined || funds === null) return count;
+  if (!(usd > 0) || funds >= usd) return count;
+  return Math.max(0, Math.min(count, Math.floor((count * funds * 0.8) / usd)));
+}
