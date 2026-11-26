@@ -86,10 +86,12 @@ For architecture context see [ARCHITECTURE.md](ARCHITECTURE.md).
 | Method + path | Purpose |
 |---|---|
 | `POST /api/webhook` | External webhook receiver (reserved). |
+| `GET /api/health` | Build commit, database, signer, relayer balance and whether claims are sponsored, chains, and `env.missing`. 503 when the database or signer is down. For monitoring. |
+| `GET /api/ready` | 200 `{ready:true}`, or 503 while a deploy is draining this container. For the proxy's health check only: touches no database. |
 
 ## Rate limits
 
-Only `/api/runs/[id]/claim` enforces explicit rate limits (via the GPS spoof validation module). Everything else has no per-endpoint rate limit today; front the app with Railway's edge rate limiter or Cloudflare if that becomes necessary.
+`middleware.ts` limits every `/api` route per IP and path: 30 requests a minute for writes (`POST /api/runs`, and any `/claim`, `/finish` or `/voucher` route), 60 for everything else, answering 429 with `Retry-After`. `/api/health` and `/api/ready` are exempt, since monitors and the proxy call them on a schedule. Run claims are also checked by the GPS spoof validation module.
 
 ## Deprecations
 

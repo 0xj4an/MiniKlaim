@@ -125,10 +125,8 @@ Both claim prompts consult `lib/wallet/claimInFlight.ts` before asking for a sig
 
 ## Deployment
 
-- Web app hosts on Railway from `main` branch. `preDeployCommand: npm run db:migrate` applies Drizzle migrations automatically.
-- Two cron services on Railway:
-  - `cron-finalize-orphans`: hourly (`0 * * * *`), runs `npm run runs:finalize-orphans` to close abandoned runs.
-  - `cron-retry-unminted`: every 4 hours (`0 */4 * * *`), runs `npm run runs:retry-unminted` to re-sync any hex that failed to mint on-chain.
+- The web app runs on a self-managed VPS, deployed from `main` by [`ops/deploy.sh`](../ops/deploy.sh): migrations first, then the standby and the primary container replaced one at a time behind Caddy. Details in [../ops/README.md](../ops/README.md).
+- Two scheduled jobs run as their own containers: `finalize-orphans` hourly, to close abandoned runs, and `retry-unminted` every 4 hours, to record any run the player could not pay for. Schedule owner: [../ops/README.md#the-jobs](../ops/README.md#the-jobs).
 - Contracts deployed via Foundry scripts (see `contracts/script/`). All chains use the same deployer address.
 
 ## What isn't in the code
