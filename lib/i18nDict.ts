@@ -453,6 +453,7 @@ export const dictionaries = {
     "run.summary.nftBatches": "{signatures} signatures in your wallet.",
     "run.summary.nftLater": "Not now",
     "run.summary.nftGo": "Mint",
+    "run.summary.nftMintSome": "Mint {count} with what you have",
     "run.summary.nftSkipped":
       "Your run is claimed. The NFTs stay available in your profile whenever you want them.",
     "run.summary.claimedBoth": "Blocks and badges claimed.",
@@ -1332,6 +1333,7 @@ export const dictionaries = {
     "run.summary.nftBatches": "{signatures} firmas en tu wallet.",
     "run.summary.nftLater": "Ahora no",
     "run.summary.nftGo": "Mintear",
+    "run.summary.nftMintSome": "Mintear {count} con lo que tienes",
     "run.summary.nftSkipped":
       "Tu ruta quedó reclamada. Los NFTs quedan disponibles en tu perfil cuando los quieras.",
     "run.summary.claimedBoth": "Cuadras e insignias reclamadas.",
