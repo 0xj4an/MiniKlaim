@@ -22,7 +22,11 @@ export function middleware(request: NextRequest) {
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
-    pathname === "/api/health"
+    pathname === "/api/health" ||
+    // Caddy's active health check asks this every two seconds from one IP:
+    // rate-limited or put in maintenance it would answer 429 or 503 and take
+    // both containers out of rotation. See app/api/ready/route.ts.
+    pathname === "/api/ready"
   ) {
     return NextResponse.next();
   }

@@ -207,10 +207,30 @@ warm() {
 # cities table, the basemap style), which costs a second copy and nothing else.
 # Nothing in the web server runs on a timer; the maintenance jobs are their own
 # containers and are still single.
+# Take a running container out of rotation before replacing it.
+#
+# Next drains on SIGTERM, but the request already on its way when the socket
+# closes is lost: about one 502 per deploy (24-26 Nov 2026). The flag makes
+# /api/ready answer 503; with Caddy's active health check on that path
+# (health_interval 2s) no new request is routed here after a few seconds, and
+# the ones in flight finish before `docker compose up` sends SIGTERM. Without
+# that Caddy setting this only costs DRAIN_WAIT seconds per container. The new
+# container starts without the flag, so it is ready as soon as it answers.
+DRAIN_WAIT="${DRAIN_WAIT:-5}"
+drain() {
+  local name="$1"
+  if docker exec "$name" sh -c 'touch /tmp/miniklaim-draining' 2>/dev/null; then
+    echo "    $name draining for ${DRAIN_WAIT}s"
+    sleep "$DRAIN_WAIT"
+  fi
+}
+
 echo "==> up (rolling: standby, then primary)"
+drain miniklaim-standby
 docker compose up -d --no-deps miniklaim-standby
 wait_serving miniklaim-standby
 warm miniklaim-standby
+drain miniklaim
 docker compose up -d --no-deps miniklaim
 wait_serving miniklaim
 warm miniklaim
